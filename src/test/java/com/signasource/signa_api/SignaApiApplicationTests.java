@@ -8,5 +8,6 @@ import org.springframework.test.context.ActiveProfiles;
 @ActiveProfiles("test")
 class SignaApiApplicationTests {
 	@Test
-	void contextLoads() {}
+	void contextLoads() {
+	}
 }
