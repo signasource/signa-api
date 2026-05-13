@@ -1,0 +1,37 @@
+name: Branch Policy
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+jobs:
+  validate-branch-policy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate branch naming policy
+        run: |
+          BASE_BRANCH="${{ github.base_ref }}"
+          HEAD_BRANCH="${{ github.head_ref }}"
+
+          echo "Base branch: $BASE_BRANCH"
+          echo "Head branch: $HEAD_BRANCH"
+
+          if [[ "$BASE_BRANCH" == "develop" ]]; then
+            if [[ ! "$HEAD_BRANCH" =~ ^[^/]+/.+$ ]]; then
+              echo "Invalid source branch for develop."
+              echo "Expected format: type/branch-name"
+              exit 1
+            fi
+          fi
+
+          if [[ "$BASE_BRANCH" == "master" ]]; then
+            if [[ ! "$HEAD_BRANCH" =~ ^(hotfix|release)/.+$ ]]; then
+              echo "Invalid source branch for master."
+              echo "Only hotfix/* or release/* branches are allowed."
+              exit 1
+            fi
+          fi
