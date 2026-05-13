@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: 'postgres:17'
+    container_name: signa-postgres
+    restart: unless-stopped
+    environment:
+      - 'POSTGRES_DB=signa'
+      - 'POSTGRES_PASSWORD=signa'
+      - 'POSTGRES_USER=signa'
+    ports:
+      - '5432:5432'
+    volumes:
+      - 'postgres_data:/var/lib/postgresql/data'
+  signa-api:
+    build: .
+    container_name: signa-api
+    restart: unless-stopped
+    ports:
+      - '8080:8080'
+    depends_on:
+      - postgres
+volumes:
+  postgres_data: {}

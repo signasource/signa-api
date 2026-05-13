@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: signa-api
+  datasource:
+    url: jdbc:postgresql://postgres:5432/signa
+    username: signa
+    password: signa
+  jpa:
+    hibernate:
+      ddl-auto: update
