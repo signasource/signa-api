@@ -1,6 +1,5 @@
 package com.signasource.signa_api.exceptions;
 
-
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -32,10 +31,10 @@ public class GlobalExceptionHandler {
 		return ResponseEntity.status(400).body(ErrorResponse.of(message, 400));
 	}
 
-    @ExceptionHandler(AuthenticationException.class)
-    public ResponseEntity<ErrorResponse> handleBadCredentials(AuthenticationException ex) {
-        return ResponseEntity.status(401).body(ErrorResponse.of(ex.getMessage(), 401));
-    }
+	@ExceptionHandler(AuthenticationException.class)
+	public ResponseEntity<ErrorResponse> handleBadCredentials(AuthenticationException ex) {
+		return ResponseEntity.status(401).body(ErrorResponse.of(ex.getMessage(), 401));
+	}
 
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ErrorResponse> handleException(Exception ex) {
