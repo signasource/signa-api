@@ -12,54 +12,54 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class EmailService {
-    private final JavaMailSender mailSender;
+	private final JavaMailSender mailSender;
 
-    @Value("${app.base-url}")
-    private String baseUrl;
+	@Value("${app.base-url}")
+	private String baseUrl;
 
-    @Value("${spring.mail.username}")
-    private String fromEmail;
+	@Value("${spring.mail.username}")
+	private String fromEmail;
 
-    public void sendVerificationEmail(String to, String token) {
-        String link = buildVerificationUrl(token);
+	public void sendVerificationEmail(String to, String token) {
+		String link = buildVerificationUrl(token);
 
-        MimeMessage message = mailSender.createMimeMessage();
+		MimeMessage message = mailSender.createMimeMessage();
 
-        try {
-            createEmailMessage(message, to, link);
-        } catch (MessagingException e) {
-            throw new RuntimeException("Failed to create email message", e);
-        }
+		try {
+			createEmailMessage(message, to, link);
+		} catch (MessagingException e) {
+			throw new RuntimeException("Failed to create email message", e);
+		}
 
-        mailSender.send(message);
-    }
+		mailSender.send(message);
+	}
 
-    private String buildVerificationUrl(String token) {
-        return baseUrl + "/auth/verify?token=" + token;
-    }
+	private String buildVerificationUrl(String token) {
+		return baseUrl + "/auth/verify?token=" + token;
+	}
 
-    private void createEmailMessage(MimeMessage message, String to, String link) throws MessagingException {
-        MimeMessageHelper helper = new MimeMessageHelper(message, true);
+	private void createEmailMessage(MimeMessage message, String to, String link) throws MessagingException {
+		MimeMessageHelper helper = new MimeMessageHelper(message, true);
 
-        helper.setFrom(fromEmail);
-        helper.setTo(to);
-        helper.setSubject("Verify your account");
+		helper.setFrom(fromEmail);
+		helper.setTo(to);
+		helper.setSubject("Verify your account");
 
-        String html = """
-            <div style="font-family: Arial;">
-                <h2>Bienvenido/a 👋</h2>
-                <p>Por favor, verifica tu cuenta:</p>
-                <a href="%s" style="
-                    background-color:#4CAF50;
-                    color:white;
-                    padding:10px 20px;
-                    text-decoration:none;
-                    border-radius:5px;">
-                    Verify Account
-                </a>
-            </div>
-            """.formatted(link);
+		String html = """
+				<div style="font-family: Arial;">
+				    <h2>Bienvenido/a 👋</h2>
+				    <p>Por favor, verifica tu cuenta:</p>
+				    <a href="%s" style="
+				        background-color:#4CAF50;
+				        color:white;
+				        padding:10px 20px;
+				        text-decoration:none;
+				        border-radius:5px;">
+				        Verify Account
+				    </a>
+				</div>
+				""".formatted(link);
 
-        helper.setText(html, true);
-    }
+		helper.setText(html, true);
+	}
 }

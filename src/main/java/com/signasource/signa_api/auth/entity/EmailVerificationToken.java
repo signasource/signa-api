@@ -23,17 +23,17 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Builder
 public class EmailVerificationToken {
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.UUID)
+	private UUID id;
 
-    @Column(unique = true, nullable = false)
-    private String token;
+	@Column(unique = true, nullable = false)
+	private String token;
 
-    @OneToOne
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+	@OneToOne
+	@JoinColumn(name = "user_id", nullable = false)
+	private User user;
 
-    @Column(nullable = false)
-    private Instant expiryDate;
+	@Column(nullable = false)
+	private Instant expiryDate;
 }

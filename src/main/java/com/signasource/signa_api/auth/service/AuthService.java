@@ -47,30 +47,23 @@ public class AuthService {
 			throw new ResourceAlreadyInUse("Email already in use");
 		}
 
-		User user = User.builder()
-				.email(request.email())
-				.name(request.name())
-				.passwordHash(passwordEncoder.encode(request.password()))
-				.role(Role.USER)
-				.enabled(false)
-				.build();
+		User user = User.builder().email(request.email()).name(request.name())
+				.passwordHash(passwordEncoder.encode(request.password())).role(Role.USER).enabled(false).build();
 
 		userRepository.save(user);
 
 		String token = UUID.randomUUID().toString();
 
-		EmailVerificationToken verificationToken = EmailVerificationToken.builder()
-				.token(token)
-				.user(user)
-				.expiryDate(Instant.now().plus(Duration.ofHours(24)))
-				.build();
-		
+		EmailVerificationToken verificationToken = EmailVerificationToken.builder().token(token).user(user)
+				.expiryDate(Instant.now().plus(Duration.ofHours(24))).build();
+
 		emailVerificationTokenRepository.save(verificationToken);
 		emailService.sendVerificationEmail(user.getEmail(), token);
 	}
 
 	public AuthResponse login(LoginRequest request) {
-		Authentication authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.email(), request.password()));
+		Authentication authentication = authenticationManager
+				.authenticate(new UsernamePasswordAuthenticationToken(request.email(), request.password()));
 
 		CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
 		User user = userDetails.getUser();
@@ -92,8 +85,7 @@ public class AuthService {
 
 	@Transactional
 	public void verifyAccount(String token) {
-		EmailVerificationToken verificationToken = emailVerificationTokenRepository
-				.findByToken(token)
+		EmailVerificationToken verificationToken = emailVerificationTokenRepository.findByToken(token)
 				.orElseThrow(() -> new InvalidCredentialsException("Invalid token"));
 
 		if (verificationToken.getExpiryDate().isBefore(Instant.now())) {
