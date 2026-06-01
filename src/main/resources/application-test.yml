@@ -18,7 +18,3 @@ spring:
       mail.smtp.auth: true
       mail.smtp.starttls.enable: true
       mail.smtp.starttls.required: true
-
-jwt:
-  secret: test-secret-key-for-jwt-testing-purposes-only
-  expiration: 86400000

@@ -13,6 +13,16 @@ spring:
       ddl-auto: create-drop
     database-platform: org.hibernate.dialect.H2Dialect
 
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: test@example.com
+    password: test-password
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.starttls.required: true
+
 server:
   port: 8080
 
