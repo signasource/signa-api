@@ -19,5 +19,6 @@ app:
     enabled: true
 
 jwt:
-  secret: change-this-secret-key-that-is-at-least-32-chars
-  expiration: 86400000
+  secret: ${JWT_SECRET}
+  access-token-expiration: 15000
+  refresh-token-expiration: 604800000

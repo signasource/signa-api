@@ -15,8 +15,8 @@ public class JwtService {
 	@Value("${jwt.secret}")
 	private String secret;
 
-	@Value("${jwt.expiration}")
-	private Long expiration;
+	@Value("${jwt.access-token-expiration}")
+	private Long accessTokenExpiration;
 
 	private Key getSigningKey() {
 		return Keys.hmacShaKeyFor(secret.getBytes());
@@ -24,7 +24,8 @@ public class JwtService {
 
 	public String generateToken(UserDetails user) {
 		return Jwts.builder().subject(user.getUsername()).issuedAt(new Date())
-				.expiration(new Date(System.currentTimeMillis() + expiration)).signWith(getSigningKey()).compact();
+				.expiration(new Date(System.currentTimeMillis() + accessTokenExpiration)).signWith(getSigningKey())
+				.compact();
 	}
 
 	public String extractUsername(String token) {

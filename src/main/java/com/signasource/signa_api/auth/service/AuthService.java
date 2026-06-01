@@ -3,6 +3,7 @@ package com.signasource.signa_api.auth.service;
 import java.time.Instant;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -34,7 +35,9 @@ public class AuthService {
 	private final AuthenticationManager authenticationManager;
 	private final JwtService jwtService;
 	private final RefreshTokenRepository refreshTokenRepository;
-	private final long refreshTokenDurationMs = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+	@Value("${jwt.refresh-token-expiration}")
+	private Long refreshTokenExpiration;
 
 	@Transactional
 	public void register(RegisterRequest request) {
@@ -58,7 +61,7 @@ public class AuthService {
 	}
 
 	public AuthResponse refreshToken(RefreshTokenRequest request) {
-		RefreshToken oldToken = validate(request.refreshToken());
+		RefreshToken oldToken = validateRefreshToken(request.refreshToken());
 
 		refreshTokenRepository.delete(oldToken);
 
@@ -76,11 +79,11 @@ public class AuthService {
 
 	private RefreshToken createRefreshToken(User user) {
 		RefreshToken token = RefreshToken.builder().user(user).token(UUID.randomUUID().toString())
-				.expiryDate(Instant.now().plusMillis(refreshTokenDurationMs)).build();
+				.expiryDate(Instant.now().plusMillis(refreshTokenExpiration)).build();
 		return refreshTokenRepository.save(token);
 	}
 
-	private RefreshToken validate(String token) {
+	private RefreshToken validateRefreshToken(String token) {
 		RefreshToken refreshToken = refreshTokenRepository.findByToken(token)
 				.orElseThrow(() -> new InvalidCredentialsException("Invalid refresh token"));
 

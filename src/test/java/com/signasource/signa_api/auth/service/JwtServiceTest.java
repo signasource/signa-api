@@ -38,7 +38,7 @@ class JwtServiceTest {
 		userDetails = new CustomUserDetails(user);
 
 		ReflectionTestUtils.setField(jwtService, "secret", SECRET);
-		ReflectionTestUtils.setField(jwtService, "expiration", EXPIRATION);
+		ReflectionTestUtils.setField(jwtService, "accessTokenExpiration", EXPIRATION);
 	}
 
 	@Test
