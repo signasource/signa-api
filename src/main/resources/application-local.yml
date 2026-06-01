@@ -6,3 +6,4 @@ spring:
 app:
   security:
     enabled: false
+  base-url: http://localhost:8080
