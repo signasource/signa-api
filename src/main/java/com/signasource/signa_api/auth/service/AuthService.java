@@ -49,27 +49,28 @@ public class AuthService {
 	}
 
 	public AuthResponse login(LoginRequest request) {
-		Authentication authentication = authenticationManager
-				.authenticate(new UsernamePasswordAuthenticationToken(request.email(), request.password()));
+		Authentication authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.email(), request.password()));
 
 		CustomUserDetails user = (CustomUserDetails) authentication.getPrincipal();
 
-		String accessToken = jwtService.generateToken(user);
-		RefreshToken refreshToken = createRefreshToken(user.getUser());
-
-		return new AuthResponse(accessToken, refreshToken.getToken());
+		return generateTokens(user.getUser());
 	}
 
 	public AuthResponse refreshToken(RefreshTokenRequest request) {
 		RefreshToken oldToken = validate(request.refreshToken());
-		User user = oldToken.getUser();
 
 		refreshTokenRepository.delete(oldToken);
 
-		String newAccessToken = jwtService.generateToken(new CustomUserDetails(user));
-		RefreshToken newRefreshToken = createRefreshToken(user);
+		return generateTokens(oldToken.getUser());
+	}
 
-		return new AuthResponse(newAccessToken, newRefreshToken.getToken());
+	private AuthResponse generateTokens(User user) {
+		CustomUserDetails userDetails = new CustomUserDetails(user);
+
+		String accessToken = jwtService.generateToken(userDetails);
+		RefreshToken refreshToken = createRefreshToken(user);
+
+		return new AuthResponse(accessToken, refreshToken.getToken());
 	}
 
 	private RefreshToken createRefreshToken(User user) {
