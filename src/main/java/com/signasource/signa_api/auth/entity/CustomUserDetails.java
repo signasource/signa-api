@@ -10,8 +10,10 @@ import org.springframework.security.core.userdetails.UserDetails;
 import com.signasource.signa_api.users.entity.User;
 
 import lombok.AllArgsConstructor;
+import lombok.Getter;
 
 @AllArgsConstructor
+@Getter
 public class CustomUserDetails implements UserDetails {
 	private User user;
 

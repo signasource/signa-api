@@ -14,8 +14,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
+import com.signasource.signa_api.auth.dto.AuthResponse;
 import com.signasource.signa_api.auth.dto.LoginRequest;
-import com.signasource.signa_api.auth.dto.LoginResponse;
+import com.signasource.signa_api.auth.dto.RefreshTokenRequest;
 import com.signasource.signa_api.auth.dto.RegisterRequest;
 import com.signasource.signa_api.auth.service.AuthService;
 
@@ -43,13 +44,28 @@ class AuthControllerTest {
 
 	@Test
 	void testLogin() {
-		String expectedToken = "test-jwt-token";
-		when(authService.login(any(LoginRequest.class))).thenReturn(expectedToken);
+		AuthResponse authResponse = new AuthResponse("test-jwt-token", "test-refresh-token");
+		when(authService.login(any(LoginRequest.class))).thenReturn(authResponse);
 
-		ResponseEntity<LoginResponse> response = authController.login(loginRequest);
+		ResponseEntity<AuthResponse> response = authController.login(loginRequest);
 
 		verify(authService).login(any(LoginRequest.class));
 		assertEquals(HttpStatus.OK, response.getStatusCode());
-		assertEquals(expectedToken, response.getBody().token());
+		assertEquals(authResponse.accessToken(), response.getBody().accessToken());
+		assertEquals(authResponse.refreshToken(), response.getBody().refreshToken());
+	}
+
+	@Test
+	void testRefresh() {
+		RefreshTokenRequest refreshTokenRequest = new RefreshTokenRequest("valid-refresh-token");
+		AuthResponse authResponse = new AuthResponse("new-access-token", "new-refresh-token");
+		when(authService.refreshToken(any(RefreshTokenRequest.class))).thenReturn(authResponse);
+
+		ResponseEntity<AuthResponse> response = authController.refresh(refreshTokenRequest);
+
+		verify(authService).refreshToken(any(RefreshTokenRequest.class));
+		assertEquals(HttpStatus.OK, response.getStatusCode());
+		assertEquals(authResponse.accessToken(), response.getBody().accessToken());
+		assertEquals(authResponse.refreshToken(), response.getBody().refreshToken());
 	}
 }
