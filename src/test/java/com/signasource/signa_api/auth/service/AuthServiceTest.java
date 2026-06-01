@@ -188,22 +188,13 @@ class AuthServiceTest {
 	void shouldVerifyAccountSuccessfully() {
 		String token = "verification-token";
 
-		User disabledUser = User.builder()
-				.email(EMAIL)
-				.name(NAME)
-				.passwordHash("hashed_password")
-				.role(Role.USER)
-				.enabled(false)
-				.build();
+		User disabledUser = User.builder().email(EMAIL).name(NAME).passwordHash("hashed_password").role(Role.USER)
+				.enabled(false).build();
 
-		var verificationToken = EmailVerificationToken.builder()
-				.token(token)
-				.user(disabledUser)
-				.expiryDate(Instant.now().plusSeconds(3600))
-				.build();
+		var verificationToken = EmailVerificationToken.builder().token(token).user(disabledUser)
+				.expiryDate(Instant.now().plusSeconds(3600)).build();
 
-		when(emailVerificationTokenRepository.findByToken(token))
-				.thenReturn(Optional.of(verificationToken));
+		when(emailVerificationTokenRepository.findByToken(token)).thenReturn(Optional.of(verificationToken));
 
 		authService.verifyAccount(token);
 
