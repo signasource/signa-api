@@ -7,6 +7,7 @@ import static org.mockito.Mockito.*;
 import java.time.Instant;
 import java.util.Optional;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -17,6 +18,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.signasource.signa_api.auth.dto.AuthResponse;
 import com.signasource.signa_api.auth.dto.LoginRequest;
@@ -39,7 +41,7 @@ class AuthServiceTest {
 	private static final String EMAIL = "test@example.com";
 	private static final String PASSWORD = "password123";
 	private static final String NAME = "Test User";
-
+	private static final Long EXPIRATION = 3600000L;
 	private static final String ACCESS_TOKEN = "access-token-123";
 	private static final String REFRESH_TOKEN = "refresh-token-123";
 	private static final String OLD_REFRESH_TOKEN = "old-refresh-token";
@@ -68,6 +70,11 @@ class AuthServiceTest {
 			.enabled(true).build();
 
 	private final CustomUserDetails userDetails = new CustomUserDetails(testUser);
+
+	@BeforeEach
+	void setUp() {
+		ReflectionTestUtils.setField(authService, "refreshTokenExpiration", EXPIRATION);
+	}
 
 	@Test
 	void shouldRegisterUserSuccessfully() {
