@@ -93,7 +93,7 @@ class AuthServiceTest {
 		LoginRequest request = new LoginRequest(EMAIL, PASSWORD);
 		Authentication auth = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
 		when(authenticationManager.authenticate(any())).thenReturn(auth);
-		when(jwtService.generateToken(userDetails)).thenReturn(ACCESS_TOKEN);
+		when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
 		RefreshToken refresh = createRefreshToken(REFRESH_TOKEN, Instant.now().plusSeconds(3600));
 		when(refreshTokenRepository.save(any())).thenReturn(refresh);
 
@@ -102,7 +102,7 @@ class AuthServiceTest {
 		assertEquals(ACCESS_TOKEN, response.accessToken());
 		assertEquals(REFRESH_TOKEN, response.refreshToken());
 		verify(authenticationManager).authenticate(any());
-		verify(jwtService).generateToken(userDetails);
+		verify(jwtService).generateToken(any(CustomUserDetails.class));
 		verify(refreshTokenRepository).save(any());
 	}
 
