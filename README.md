@@ -24,6 +24,14 @@ Abrir reporte HTML:
 start build/reports/jacoco/test/html/index.html
 ```
 
+## API Documentation
+
+Swagger UI:
+http://localhost:8080/swagger-ui/index.html
+
+OpenAPI spec:
+http://localhost:8080/v3/api-docs
+
 ## Estrategia de Ramas
 
 El proyecto sige un flujo de trabajo basado en **GitFlow**:
