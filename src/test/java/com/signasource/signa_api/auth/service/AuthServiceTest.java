@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -231,34 +232,35 @@ class AuthServiceTest {
 	@Test
 	void shouldChangePasswordSuccessfully() {
 		ChangePasswordRequest request = new ChangePasswordRequest(CURRENT_PASSWORD, NEW_PASSWORD);
-
 		SecurityContextHolder.getContext()
 				.setAuthentication(new UsernamePasswordAuthenticationToken(userDetails, null));
-
 		when(passwordEncoder.matches(CURRENT_PASSWORD, ENCODED_PASSWORD)).thenReturn(true);
-
 		when(passwordEncoder.matches(NEW_PASSWORD, ENCODED_PASSWORD)).thenReturn(false);
-
 		when(passwordEncoder.encode(NEW_PASSWORD)).thenReturn("new-hashed-password");
+		when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
+		RefreshToken refreshToken = createRefreshToken(REFRESH_TOKEN, Instant.now().plusSeconds(3600));
+		when(refreshTokenRepository.save(any(RefreshToken.class))).thenReturn(refreshToken);
 
-		authService.changePassword(request);
+		AuthResponse response = authService.changePassword(request);
 
+		assertNotNull(response);
+		assertEquals(ACCESS_TOKEN, response.accessToken());
+		assertEquals(REFRESH_TOKEN, response.refreshToken());
 		assertEquals("new-hashed-password", testUser.getPasswordHash());
-
 		verify(passwordEncoder).matches(CURRENT_PASSWORD, ENCODED_PASSWORD);
 		verify(passwordEncoder).matches(NEW_PASSWORD, ENCODED_PASSWORD);
 		verify(passwordEncoder).encode(NEW_PASSWORD);
 		verify(userRepository).save(testUser);
 		verify(refreshTokenRepository).deleteByUserId(testUser.getId());
+		verify(jwtService).generateToken(any(CustomUserDetails.class));
+		verify(refreshTokenRepository).save(any(RefreshToken.class));
 	}
 
 	@Test
 	void shouldFailWhenCurrentPasswordIsIncorrect() {
 		ChangePasswordRequest request = new ChangePasswordRequest(CURRENT_PASSWORD, NEW_PASSWORD);
-
 		SecurityContextHolder.getContext()
 				.setAuthentication(new UsernamePasswordAuthenticationToken(userDetails, null));
-
 		when(passwordEncoder.matches(CURRENT_PASSWORD, ENCODED_PASSWORD)).thenReturn(false);
 
 		assertThrows(InvalidCredentialsException.class, () -> authService.changePassword(request));
@@ -271,12 +273,9 @@ class AuthServiceTest {
 	@Test
 	void shouldFailWhenNewPasswordMatchesCurrentPassword() {
 		ChangePasswordRequest request = new ChangePasswordRequest(CURRENT_PASSWORD, NEW_PASSWORD);
-
 		SecurityContextHolder.getContext()
 				.setAuthentication(new UsernamePasswordAuthenticationToken(userDetails, null));
-
 		when(passwordEncoder.matches(CURRENT_PASSWORD, ENCODED_PASSWORD)).thenReturn(true);
-
 		when(passwordEncoder.matches(NEW_PASSWORD, ENCODED_PASSWORD)).thenReturn(true);
 
 		assertThrows(InvalidCredentialsException.class, () -> authService.changePassword(request));
@@ -285,6 +284,27 @@ class AuthServiceTest {
 		verify(passwordEncoder).matches(NEW_PASSWORD, ENCODED_PASSWORD);
 		verify(userRepository, never()).save(any());
 		verify(refreshTokenRepository, never()).deleteByUserId(any());
+	}
+
+	@Test
+	void shouldInvalidateAllRefreshTokensBeforeGeneratingNewOnes() {
+		ChangePasswordRequest request = new ChangePasswordRequest(CURRENT_PASSWORD, NEW_PASSWORD);
+		SecurityContextHolder.getContext()
+				.setAuthentication(new UsernamePasswordAuthenticationToken(userDetails, null));
+		when(passwordEncoder.matches(CURRENT_PASSWORD, ENCODED_PASSWORD)).thenReturn(true);
+		when(passwordEncoder.matches(NEW_PASSWORD, ENCODED_PASSWORD)).thenReturn(false);
+		when(passwordEncoder.encode(NEW_PASSWORD)).thenReturn("new-hashed-password");
+		when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
+		when(refreshTokenRepository.save(any()))
+				.thenReturn(createRefreshToken(REFRESH_TOKEN, Instant.now().plusSeconds(3600)));
+
+		authService.changePassword(request);
+
+		InOrder inOrder = inOrder(userRepository, refreshTokenRepository, jwtService);
+		inOrder.verify(userRepository).save(testUser);
+		inOrder.verify(refreshTokenRepository).deleteByUserId(testUser.getId());
+		inOrder.verify(jwtService).generateToken(any(CustomUserDetails.class));
+		inOrder.verify(refreshTokenRepository).save(any(RefreshToken.class));
 	}
 
 	private RefreshToken createRefreshToken(String token, Instant expiryDate) {

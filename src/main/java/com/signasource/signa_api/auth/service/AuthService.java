@@ -106,7 +106,7 @@ public class AuthService {
 	}
 
 	@Transactional
-	public void changePassword(ChangePasswordRequest request) {
+	public AuthResponse changePassword(ChangePasswordRequest request) {
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 		CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
 		User user = userDetails.getUser();
@@ -122,6 +122,8 @@ public class AuthService {
 		user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
 		userRepository.save(user);
 		refreshTokenRepository.deleteByUserId(user.getId());
+		refreshTokenRepository.flush();
+		return generateTokens(user);
 	}
 
 	private AuthResponse generateTokens(User user) {
