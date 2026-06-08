@@ -2,6 +2,7 @@ package com.signasource.signa_api.auth.service;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -12,13 +13,17 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.signasource.signa_api.auth.dto.AuthResponse;
+import com.signasource.signa_api.auth.dto.ForgotPasswordRequest;
 import com.signasource.signa_api.auth.dto.LoginRequest;
 import com.signasource.signa_api.auth.dto.RefreshTokenRequest;
 import com.signasource.signa_api.auth.dto.RegisterRequest;
+import com.signasource.signa_api.auth.dto.ResetPasswordRequest;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.entity.EmailVerificationToken;
+import com.signasource.signa_api.auth.entity.PasswordResetToken;
 import com.signasource.signa_api.auth.entity.RefreshToken;
 import com.signasource.signa_api.auth.repository.EmailVerificationTokenRepository;
+import com.signasource.signa_api.auth.repository.PasswordResetTokenRepository;
 import com.signasource.signa_api.auth.repository.RefreshTokenRepository;
 import com.signasource.signa_api.exceptions.InvalidCredentialsException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUse;
@@ -39,6 +44,7 @@ public class AuthService {
 	private final JwtService jwtService;
 	private final RefreshTokenRepository refreshTokenRepository;
 	private final EmailVerificationTokenRepository emailVerificationTokenRepository;
+	private final PasswordResetTokenRepository passwordResetTokenRepository;
 	private final EmailService emailService;
 
 	@Value("${jwt.refresh-token-expiration}")
@@ -101,6 +107,46 @@ public class AuthService {
 
 		userRepository.save(user);
 		emailVerificationTokenRepository.delete(verificationToken);
+	}
+
+	@Transactional
+	public void forgotPassword(ForgotPasswordRequest request) {
+		Optional<User> userOptional = userRepository.findByEmail(request.email());
+
+		if (userOptional.isEmpty()) {
+			return;
+		}
+
+		User user = userOptional.get();
+
+		passwordResetTokenRepository.deleteByUser(user);
+		String token = UUID.randomUUID().toString();
+
+		PasswordResetToken resetToken = PasswordResetToken.builder().token(token).user(user)
+				.expiryDate(Instant.now().plus(Duration.ofHours(1))).build();
+		passwordResetTokenRepository.save(resetToken);
+		emailService.sendPasswordResetEmail(user.getEmail(), token);
+	}
+
+	@Transactional
+	public void resetPassword(ResetPasswordRequest request, String token) {
+		PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(token)
+				.orElseThrow(() -> new InvalidCredentialsException("Invalid token"));
+
+		if (resetToken.getExpiryDate().isBefore(Instant.now())) {
+			passwordResetTokenRepository.delete(resetToken);
+			throw new InvalidCredentialsException("Token expired");
+		}
+
+		User user = resetToken.getUser();
+		if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
+			throw new InvalidCredentialsException("New password must be different from current password");
+		}
+
+		user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+		userRepository.save(user);
+		passwordResetTokenRepository.delete(resetToken);
+		refreshTokenRepository.deleteByUser(user);
 	}
 
 	private AuthResponse generateTokens(User user) {

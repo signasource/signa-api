@@ -21,13 +21,17 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.signasource.signa_api.auth.dto.AuthResponse;
+import com.signasource.signa_api.auth.dto.ForgotPasswordRequest;
 import com.signasource.signa_api.auth.dto.LoginRequest;
 import com.signasource.signa_api.auth.dto.RefreshTokenRequest;
 import com.signasource.signa_api.auth.dto.RegisterRequest;
+import com.signasource.signa_api.auth.dto.ResetPasswordRequest;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.entity.EmailVerificationToken;
+import com.signasource.signa_api.auth.entity.PasswordResetToken;
 import com.signasource.signa_api.auth.entity.RefreshToken;
 import com.signasource.signa_api.auth.repository.EmailVerificationTokenRepository;
+import com.signasource.signa_api.auth.repository.PasswordResetTokenRepository;
 import com.signasource.signa_api.auth.repository.RefreshTokenRepository;
 import com.signasource.signa_api.exceptions.InvalidCredentialsException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUse;
@@ -62,6 +66,8 @@ class AuthServiceTest {
 	private EmailVerificationTokenRepository emailVerificationTokenRepository;
 	@Mock
 	private EmailService emailService;
+	@Mock
+	private PasswordResetTokenRepository passwordResetTokenRepository;
 
 	@InjectMocks
 	private AuthService authService;
@@ -220,6 +226,58 @@ class AuthServiceTest {
 		assertThrows(InvalidCredentialsException.class, () -> authService.verifyAccount(token));
 
 		verify(emailVerificationTokenRepository).findByToken(token);
+		verifyNoInteractions(userRepository);
+	}
+
+	@Test
+	void shouldGeneratePasswordResetToken() {
+		ForgotPasswordRequest request = new ForgotPasswordRequest(EMAIL);
+		when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(testUser));
+
+		authService.forgotPassword(request);
+
+		verify(userRepository).findByEmail(EMAIL);
+		verify(passwordResetTokenRepository).deleteByUser(testUser);
+		verify(passwordResetTokenRepository).save(any());
+		verify(emailService).sendPasswordResetEmail(eq(EMAIL), any(String.class));
+	}
+
+	@Test
+	void shouldIgnoreForgotPasswordForUnknownEmail() {
+		when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
+
+		authService.forgotPassword(new ForgotPasswordRequest(EMAIL));
+
+		verify(userRepository).findByEmail(EMAIL);
+		verifyNoInteractions(passwordResetTokenRepository);
+		verify(emailService, never()).sendPasswordResetEmail(any(), any());
+	}
+
+	@Test
+	void shouldResetPasswordSuccessfully() {
+		String token = "reset-token";
+		PasswordResetToken resetToken = PasswordResetToken.builder().token(token).user(testUser)
+				.expiryDate(Instant.now().plusSeconds(3600)).build();
+		when(passwordResetTokenRepository.findByToken(token)).thenReturn(Optional.of(resetToken));
+		when(passwordEncoder.encode(PASSWORD)).thenReturn("new-hashed-password");
+
+		authService.resetPassword(new ResetPasswordRequest(PASSWORD), token);
+
+		assertEquals("new-hashed-password", testUser.getPasswordHash());
+		verify(userRepository).save(testUser);
+		verify(passwordResetTokenRepository).delete(resetToken);
+		verify(refreshTokenRepository).deleteByUser(testUser);
+	}
+
+	@Test
+	void shouldFailWhenResetTokenDoesNotExist() {
+		String token = "invalid-token";
+		when(passwordResetTokenRepository.findByToken(token)).thenReturn(Optional.empty());
+
+		assertThrows(InvalidCredentialsException.class,
+				() -> authService.resetPassword(new ResetPasswordRequest(PASSWORD), token));
+
+		verify(passwordResetTokenRepository).findByToken(token);
 		verifyNoInteractions(userRepository);
 	}
 
