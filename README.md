@@ -42,3 +42,10 @@ El proyecto sige un flujo de trabajo basado en **GitFlow**:
 
 **Paso a producción**:
   - Solo se permiten merges hacia `master` provenientes de ramas `release/*` o `hotfix/*`.
+
+## Mandar mail de verificación
+
+```
+MAIL_PASSWORD= // Contraseña que se genera en http://myaccount.google.com/apppasswords
+MAIL_USERNAME= // Mail
+```
