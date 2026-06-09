@@ -11,16 +11,19 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.signasource.signa_api.auth.dto.AuthResponse;
+import com.signasource.signa_api.auth.dto.ChangePasswordRequest;
 import com.signasource.signa_api.auth.dto.ForgotPasswordRequest;
 import com.signasource.signa_api.auth.dto.LoginRequest;
 import com.signasource.signa_api.auth.dto.RefreshTokenRequest;
@@ -51,6 +54,9 @@ class AuthServiceTest {
 	private static final String OLD_REFRESH_TOKEN = "old-refresh-token";
 	private static final String INVALID_REFRESH_TOKEN = "invalid-refresh-token";
 	private static final String EXPIRED_REFRESH_TOKEN = "expired-refresh-token";
+	private static final String CURRENT_PASSWORD = "current-password";
+	private static final String NEW_PASSWORD = "new-password";
+	private static final String ENCODED_PASSWORD = "hashed_password";
 
 	@Mock
 	private UserRepository userRepository;
@@ -227,6 +233,84 @@ class AuthServiceTest {
 
 		verify(emailVerificationTokenRepository).findByToken(token);
 		verifyNoInteractions(userRepository);
+	}
+
+	@Test
+	void shouldChangePasswordSuccessfully() {
+		ChangePasswordRequest request = new ChangePasswordRequest(CURRENT_PASSWORD, NEW_PASSWORD);
+		SecurityContextHolder.getContext()
+				.setAuthentication(new UsernamePasswordAuthenticationToken(userDetails, null));
+		when(passwordEncoder.matches(CURRENT_PASSWORD, ENCODED_PASSWORD)).thenReturn(true);
+		when(passwordEncoder.matches(NEW_PASSWORD, ENCODED_PASSWORD)).thenReturn(false);
+		when(passwordEncoder.encode(NEW_PASSWORD)).thenReturn("new-hashed-password");
+		when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
+		RefreshToken refreshToken = createRefreshToken(REFRESH_TOKEN, Instant.now().plusSeconds(3600));
+		when(refreshTokenRepository.save(any(RefreshToken.class))).thenReturn(refreshToken);
+
+		AuthResponse response = authService.changePassword(request);
+
+		assertNotNull(response);
+		assertEquals(ACCESS_TOKEN, response.accessToken());
+		assertEquals(REFRESH_TOKEN, response.refreshToken());
+		assertEquals("new-hashed-password", testUser.getPasswordHash());
+		verify(passwordEncoder).matches(CURRENT_PASSWORD, ENCODED_PASSWORD);
+		verify(passwordEncoder).matches(NEW_PASSWORD, ENCODED_PASSWORD);
+		verify(passwordEncoder).encode(NEW_PASSWORD);
+		verify(userRepository).save(testUser);
+		verify(refreshTokenRepository).deleteByUserId(testUser.getId());
+		verify(jwtService).generateToken(any(CustomUserDetails.class));
+		verify(refreshTokenRepository).save(any(RefreshToken.class));
+	}
+
+	@Test
+	void shouldFailWhenCurrentPasswordIsIncorrect() {
+		ChangePasswordRequest request = new ChangePasswordRequest(CURRENT_PASSWORD, NEW_PASSWORD);
+		SecurityContextHolder.getContext()
+				.setAuthentication(new UsernamePasswordAuthenticationToken(userDetails, null));
+		when(passwordEncoder.matches(CURRENT_PASSWORD, ENCODED_PASSWORD)).thenReturn(false);
+
+		assertThrows(InvalidCredentialsException.class, () -> authService.changePassword(request));
+
+		verify(passwordEncoder).matches(CURRENT_PASSWORD, ENCODED_PASSWORD);
+		verify(userRepository, never()).save(any());
+		verify(refreshTokenRepository, never()).deleteByUserId(any());
+	}
+
+	@Test
+	void shouldFailWhenNewPasswordMatchesCurrentPassword() {
+		ChangePasswordRequest request = new ChangePasswordRequest(CURRENT_PASSWORD, NEW_PASSWORD);
+		SecurityContextHolder.getContext()
+				.setAuthentication(new UsernamePasswordAuthenticationToken(userDetails, null));
+		when(passwordEncoder.matches(CURRENT_PASSWORD, ENCODED_PASSWORD)).thenReturn(true);
+		when(passwordEncoder.matches(NEW_PASSWORD, ENCODED_PASSWORD)).thenReturn(true);
+
+		assertThrows(InvalidCredentialsException.class, () -> authService.changePassword(request));
+
+		verify(passwordEncoder).matches(CURRENT_PASSWORD, ENCODED_PASSWORD);
+		verify(passwordEncoder).matches(NEW_PASSWORD, ENCODED_PASSWORD);
+		verify(userRepository, never()).save(any());
+		verify(refreshTokenRepository, never()).deleteByUserId(any());
+	}
+
+	@Test
+	void shouldInvalidateAllRefreshTokensBeforeGeneratingNewOnes() {
+		ChangePasswordRequest request = new ChangePasswordRequest(CURRENT_PASSWORD, NEW_PASSWORD);
+		SecurityContextHolder.getContext()
+				.setAuthentication(new UsernamePasswordAuthenticationToken(userDetails, null));
+		when(passwordEncoder.matches(CURRENT_PASSWORD, ENCODED_PASSWORD)).thenReturn(true);
+		when(passwordEncoder.matches(NEW_PASSWORD, ENCODED_PASSWORD)).thenReturn(false);
+		when(passwordEncoder.encode(NEW_PASSWORD)).thenReturn("new-hashed-password");
+		when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
+		when(refreshTokenRepository.save(any()))
+				.thenReturn(createRefreshToken(REFRESH_TOKEN, Instant.now().plusSeconds(3600)));
+
+		authService.changePassword(request);
+
+		InOrder inOrder = inOrder(userRepository, refreshTokenRepository, jwtService);
+		inOrder.verify(userRepository).save(testUser);
+		inOrder.verify(refreshTokenRepository).deleteByUserId(testUser.getId());
+		inOrder.verify(jwtService).generateToken(any(CustomUserDetails.class));
+		inOrder.verify(refreshTokenRepository).save(any(RefreshToken.class));
 	}
 
 	@Test

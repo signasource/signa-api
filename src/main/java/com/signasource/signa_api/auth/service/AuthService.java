@@ -9,10 +9,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.signasource.signa_api.auth.dto.AuthResponse;
+import com.signasource.signa_api.auth.dto.ChangePasswordRequest;
 import com.signasource.signa_api.auth.dto.ForgotPasswordRequest;
 import com.signasource.signa_api.auth.dto.LoginRequest;
 import com.signasource.signa_api.auth.dto.RefreshTokenRequest;
@@ -107,6 +109,28 @@ public class AuthService {
 
 		userRepository.save(user);
 		emailVerificationTokenRepository.delete(verificationToken);
+	}
+
+	@Transactional
+	public AuthResponse changePassword(ChangePasswordRequest request) {
+		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+		CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+		User user = userDetails.getUser();
+
+		if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+			throw new InvalidCredentialsException("Current password is incorrect");
+		}
+
+		if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
+			throw new InvalidCredentialsException("New password must be different from current password");
+		}
+
+		user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+		userRepository.save(user);
+
+		refreshTokenRepository.deleteByUserId(user.getId());
+
+		return generateTokens(user);
 	}
 
 	@Transactional
