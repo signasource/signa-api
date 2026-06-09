@@ -2,6 +2,7 @@ package com.signasource.signa_api.auth.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -15,9 +16,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import com.signasource.signa_api.auth.dto.AuthResponse;
+import com.signasource.signa_api.auth.dto.ForgotPasswordRequest;
 import com.signasource.signa_api.auth.dto.LoginRequest;
 import com.signasource.signa_api.auth.dto.RefreshTokenRequest;
 import com.signasource.signa_api.auth.dto.RegisterRequest;
+import com.signasource.signa_api.auth.dto.ResetPasswordRequest;
 import com.signasource.signa_api.auth.service.AuthService;
 
 @ExtendWith(MockitoExtension.class)
@@ -67,5 +70,28 @@ class AuthControllerTest {
 		assertEquals(HttpStatus.OK, response.getStatusCode());
 		assertEquals(authResponse.accessToken(), response.getBody().accessToken());
 		assertEquals(authResponse.refreshToken(), response.getBody().refreshToken());
+	}
+
+	@Test
+	void testForgotPassword() {
+		ForgotPasswordRequest request = new ForgotPasswordRequest("test@example.com");
+		doNothing().when(authService).forgotPassword(any(ForgotPasswordRequest.class));
+
+		ResponseEntity<Void> response = authController.forgotPassword(request);
+
+		verify(authService).forgotPassword(any(ForgotPasswordRequest.class));
+		assertEquals(HttpStatus.OK, response.getStatusCode());
+	}
+
+	@Test
+	void testResetPassword() {
+		String token = "reset-token";
+		ResetPasswordRequest request = new ResetPasswordRequest("new-password");
+		doNothing().when(authService).resetPassword(any(ResetPasswordRequest.class), eq(token));
+
+		ResponseEntity<Void> response = authController.resetPassword(request, token);
+
+		verify(authService).resetPassword(any(ResetPasswordRequest.class), eq(token));
+		assertEquals(HttpStatus.OK, response.getStatusCode());
 	}
 }

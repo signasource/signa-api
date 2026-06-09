@@ -46,4 +46,11 @@ class EmailServiceTest {
 
 		verify(mailSender).send(mimeMessage);
 	}
+
+	@Test
+	void testSendResetPasswordEmail() {
+		emailService.sendPasswordResetEmail(TO_EMAIL, TOKEN);
+
+		verify(mailSender).send(mimeMessage);
+	}
 }

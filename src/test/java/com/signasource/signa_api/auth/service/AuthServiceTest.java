@@ -24,13 +24,17 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import com.signasource.signa_api.auth.dto.AuthResponse;
 import com.signasource.signa_api.auth.dto.ChangePasswordRequest;
+import com.signasource.signa_api.auth.dto.ForgotPasswordRequest;
 import com.signasource.signa_api.auth.dto.LoginRequest;
 import com.signasource.signa_api.auth.dto.RefreshTokenRequest;
 import com.signasource.signa_api.auth.dto.RegisterRequest;
+import com.signasource.signa_api.auth.dto.ResetPasswordRequest;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.entity.EmailVerificationToken;
+import com.signasource.signa_api.auth.entity.PasswordResetToken;
 import com.signasource.signa_api.auth.entity.RefreshToken;
 import com.signasource.signa_api.auth.repository.EmailVerificationTokenRepository;
+import com.signasource.signa_api.auth.repository.PasswordResetTokenRepository;
 import com.signasource.signa_api.auth.repository.RefreshTokenRepository;
 import com.signasource.signa_api.exceptions.InvalidCredentialsException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUse;
@@ -68,6 +72,8 @@ class AuthServiceTest {
 	private EmailVerificationTokenRepository emailVerificationTokenRepository;
 	@Mock
 	private EmailService emailService;
+	@Mock
+	private PasswordResetTokenRepository passwordResetTokenRepository;
 
 	@InjectMocks
 	private AuthService authService;
@@ -251,7 +257,7 @@ class AuthServiceTest {
 		verify(passwordEncoder).matches(NEW_PASSWORD, ENCODED_PASSWORD);
 		verify(passwordEncoder).encode(NEW_PASSWORD);
 		verify(userRepository).save(testUser);
-		verify(refreshTokenRepository).deleteByUserId(testUser.getId());
+		verify(refreshTokenRepository).deleteByUser(testUser);
 		verify(jwtService).generateToken(any(CustomUserDetails.class));
 		verify(refreshTokenRepository).save(any(RefreshToken.class));
 	}
@@ -267,7 +273,7 @@ class AuthServiceTest {
 
 		verify(passwordEncoder).matches(CURRENT_PASSWORD, ENCODED_PASSWORD);
 		verify(userRepository, never()).save(any());
-		verify(refreshTokenRepository, never()).deleteByUserId(any());
+		verify(refreshTokenRepository, never()).deleteByUser(any());
 	}
 
 	@Test
@@ -283,7 +289,7 @@ class AuthServiceTest {
 		verify(passwordEncoder).matches(CURRENT_PASSWORD, ENCODED_PASSWORD);
 		verify(passwordEncoder).matches(NEW_PASSWORD, ENCODED_PASSWORD);
 		verify(userRepository, never()).save(any());
-		verify(refreshTokenRepository, never()).deleteByUserId(any());
+		verify(refreshTokenRepository, never()).deleteByUser(any());
 	}
 
 	@Test
@@ -302,9 +308,61 @@ class AuthServiceTest {
 
 		InOrder inOrder = inOrder(userRepository, refreshTokenRepository, jwtService);
 		inOrder.verify(userRepository).save(testUser);
-		inOrder.verify(refreshTokenRepository).deleteByUserId(testUser.getId());
+		inOrder.verify(refreshTokenRepository).deleteByUser(testUser);
 		inOrder.verify(jwtService).generateToken(any(CustomUserDetails.class));
 		inOrder.verify(refreshTokenRepository).save(any(RefreshToken.class));
+	}
+
+	@Test
+	void shouldGeneratePasswordResetToken() {
+		ForgotPasswordRequest request = new ForgotPasswordRequest(EMAIL);
+		when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(testUser));
+
+		authService.forgotPassword(request);
+
+		verify(userRepository).findByEmail(EMAIL);
+		verify(passwordResetTokenRepository).deleteByUser(testUser);
+		verify(passwordResetTokenRepository).save(any());
+		verify(emailService).sendPasswordResetEmail(eq(EMAIL), any(String.class));
+	}
+
+	@Test
+	void shouldIgnoreForgotPasswordForUnknownEmail() {
+		when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
+
+		authService.forgotPassword(new ForgotPasswordRequest(EMAIL));
+
+		verify(userRepository).findByEmail(EMAIL);
+		verifyNoInteractions(passwordResetTokenRepository);
+		verify(emailService, never()).sendPasswordResetEmail(any(), any());
+	}
+
+	@Test
+	void shouldResetPasswordSuccessfully() {
+		String token = "reset-token";
+		PasswordResetToken resetToken = PasswordResetToken.builder().token(token).user(testUser)
+				.expiryDate(Instant.now().plusSeconds(3600)).build();
+		when(passwordResetTokenRepository.findByToken(token)).thenReturn(Optional.of(resetToken));
+		when(passwordEncoder.encode(PASSWORD)).thenReturn("new-hashed-password");
+
+		authService.resetPassword(new ResetPasswordRequest(PASSWORD), token);
+
+		assertEquals("new-hashed-password", testUser.getPasswordHash());
+		verify(userRepository).save(testUser);
+		verify(passwordResetTokenRepository).delete(resetToken);
+		verify(refreshTokenRepository).deleteByUser(testUser);
+	}
+
+	@Test
+	void shouldFailWhenResetTokenDoesNotExist() {
+		String token = "invalid-token";
+		when(passwordResetTokenRepository.findByToken(token)).thenReturn(Optional.empty());
+
+		assertThrows(InvalidCredentialsException.class,
+				() -> authService.resetPassword(new ResetPasswordRequest(PASSWORD), token));
+
+		verify(passwordResetTokenRepository).findByToken(token);
+		verifyNoInteractions(userRepository);
 	}
 
 	private RefreshToken createRefreshToken(String token, Instant expiryDate) {
