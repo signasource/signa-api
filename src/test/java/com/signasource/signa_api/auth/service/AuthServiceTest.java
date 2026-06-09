@@ -257,7 +257,7 @@ class AuthServiceTest {
 		verify(passwordEncoder).matches(NEW_PASSWORD, ENCODED_PASSWORD);
 		verify(passwordEncoder).encode(NEW_PASSWORD);
 		verify(userRepository).save(testUser);
-		verify(refreshTokenRepository).deleteByUserId(testUser.getId());
+		verify(refreshTokenRepository).deleteByUser(testUser);
 		verify(jwtService).generateToken(any(CustomUserDetails.class));
 		verify(refreshTokenRepository).save(any(RefreshToken.class));
 	}
@@ -273,7 +273,7 @@ class AuthServiceTest {
 
 		verify(passwordEncoder).matches(CURRENT_PASSWORD, ENCODED_PASSWORD);
 		verify(userRepository, never()).save(any());
-		verify(refreshTokenRepository, never()).deleteByUserId(any());
+		verify(refreshTokenRepository, never()).deleteByUser(any());
 	}
 
 	@Test
@@ -289,7 +289,7 @@ class AuthServiceTest {
 		verify(passwordEncoder).matches(CURRENT_PASSWORD, ENCODED_PASSWORD);
 		verify(passwordEncoder).matches(NEW_PASSWORD, ENCODED_PASSWORD);
 		verify(userRepository, never()).save(any());
-		verify(refreshTokenRepository, never()).deleteByUserId(any());
+		verify(refreshTokenRepository, never()).deleteByUser(any());
 	}
 
 	@Test
@@ -308,7 +308,7 @@ class AuthServiceTest {
 
 		InOrder inOrder = inOrder(userRepository, refreshTokenRepository, jwtService);
 		inOrder.verify(userRepository).save(testUser);
-		inOrder.verify(refreshTokenRepository).deleteByUserId(testUser.getId());
+		inOrder.verify(refreshTokenRepository).deleteByUser(testUser);
 		inOrder.verify(jwtService).generateToken(any(CustomUserDetails.class));
 		inOrder.verify(refreshTokenRepository).save(any(RefreshToken.class));
 	}

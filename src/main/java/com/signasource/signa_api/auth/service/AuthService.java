@@ -128,7 +128,7 @@ public class AuthService {
 		user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
 		userRepository.save(user);
 
-		refreshTokenRepository.deleteByUserId(user.getId());
+		refreshTokenRepository.deleteByUser(user);
 
 		return generateTokens(user);
 	}
