@@ -32,7 +32,11 @@ app:
     enabled: true
   base-url: 
 
-jwt:
-  secret: ${JWT_SECRET}
-  access-token-expiration: 900000
-  refresh-token-expiration: 604800000
+auth:
+  jwt:
+    secret: ${JWT_SECRET}
+  token-expirations:
+    password-reset: 3600000      # 1 hour
+    access: 900000               # 15 minutes
+    refresh: 604800000           # 7 days
+    email-verification: 86400000 # 24 hours

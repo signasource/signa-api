@@ -30,12 +30,9 @@ import com.signasource.signa_api.auth.dto.RefreshTokenRequest;
 import com.signasource.signa_api.auth.dto.RegisterRequest;
 import com.signasource.signa_api.auth.dto.ResetPasswordRequest;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
-import com.signasource.signa_api.auth.entity.EmailVerificationToken;
-import com.signasource.signa_api.auth.entity.PasswordResetToken;
-import com.signasource.signa_api.auth.entity.RefreshToken;
-import com.signasource.signa_api.auth.repository.EmailVerificationTokenRepository;
-import com.signasource.signa_api.auth.repository.PasswordResetTokenRepository;
-import com.signasource.signa_api.auth.repository.RefreshTokenRepository;
+import com.signasource.signa_api.auth.entity.Token;
+import com.signasource.signa_api.auth.entity.TokenType;
+import com.signasource.signa_api.auth.repository.TokenRepository;
 import com.signasource.signa_api.exceptions.InvalidCredentialsException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUse;
 import com.signasource.signa_api.users.entity.Role;
@@ -67,13 +64,10 @@ class AuthServiceTest {
 	@Mock
 	private JwtService jwtService;
 	@Mock
-	private RefreshTokenRepository refreshTokenRepository;
-	@Mock
-	private EmailVerificationTokenRepository emailVerificationTokenRepository;
+	private TokenRepository tokenRepository;
+
 	@Mock
 	private EmailService emailService;
-	@Mock
-	private PasswordResetTokenRepository passwordResetTokenRepository;
 
 	@InjectMocks
 	private AuthService authService;
@@ -86,6 +80,8 @@ class AuthServiceTest {
 	@BeforeEach
 	void setUp() {
 		ReflectionTestUtils.setField(authService, "refreshTokenExpiration", EXPIRATION);
+		ReflectionTestUtils.setField(authService, "passwordResetTokenExpiration", EXPIRATION);
+		ReflectionTestUtils.setField(authService, "emailVerificationTokenExpiration", EXPIRATION);
 	}
 
 	@Test
@@ -93,14 +89,14 @@ class AuthServiceTest {
 		RegisterRequest request = new RegisterRequest(EMAIL, PASSWORD, NAME);
 		when(userRepository.existsByEmail(EMAIL)).thenReturn(false);
 		when(passwordEncoder.encode(PASSWORD)).thenReturn("hashed_password");
-		when(emailVerificationTokenRepository.save(any())).thenReturn(null);
+		when(tokenRepository.save(any(Token.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		authService.register(request);
 
 		verify(userRepository).existsByEmail(EMAIL);
 		verify(passwordEncoder).encode(PASSWORD);
 		verify(userRepository).save(any(User.class));
-		verify(emailVerificationTokenRepository).save(any());
+		verify(tokenRepository).save(any());
 		verify(emailService).sendVerificationEmail(eq(EMAIL), any(String.class));
 	}
 
@@ -122,8 +118,8 @@ class AuthServiceTest {
 		Authentication auth = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
 		when(authenticationManager.authenticate(any())).thenReturn(auth);
 		when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
-		RefreshToken refresh = createRefreshToken(REFRESH_TOKEN, Instant.now().plusSeconds(3600));
-		when(refreshTokenRepository.save(any())).thenReturn(refresh);
+		Token refresh = createRefreshToken(REFRESH_TOKEN, Instant.now().plusSeconds(3600));
+		when(tokenRepository.save(any())).thenReturn(refresh);
 
 		AuthResponse response = authService.login(request);
 
@@ -131,7 +127,7 @@ class AuthServiceTest {
 		assertEquals(REFRESH_TOKEN, response.refreshToken());
 		verify(authenticationManager).authenticate(any());
 		verify(jwtService).generateToken(any(CustomUserDetails.class));
-		verify(refreshTokenRepository).save(any());
+		verify(tokenRepository).save(any());
 	}
 
 	@Test
@@ -139,7 +135,7 @@ class AuthServiceTest {
 		RegisterRequest request = new RegisterRequest(EMAIL, PASSWORD, NAME);
 		when(userRepository.existsByEmail(EMAIL)).thenReturn(false);
 		when(passwordEncoder.encode(PASSWORD)).thenReturn("hashed_password");
-		when(emailVerificationTokenRepository.save(any())).thenReturn(null);
+		when(tokenRepository.save(any(Token.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		authService.register(request);
 
@@ -150,42 +146,44 @@ class AuthServiceTest {
 
 	@Test
 	void shouldRefreshTokenSuccessfully() {
-		RefreshToken oldToken = createRefreshToken(OLD_REFRESH_TOKEN, Instant.now().plusSeconds(3600));
-		RefreshToken newToken = createRefreshToken(REFRESH_TOKEN, Instant.now().plusSeconds(3600));
-		when(refreshTokenRepository.findByToken(OLD_REFRESH_TOKEN)).thenReturn(Optional.of(oldToken));
+		Token oldToken = createRefreshToken(OLD_REFRESH_TOKEN, Instant.now().plusSeconds(3600));
+		Token newToken = createRefreshToken(REFRESH_TOKEN, Instant.now().plusSeconds(3600));
+		when(tokenRepository.findByTokenAndType(OLD_REFRESH_TOKEN, TokenType.REFRESH))
+				.thenReturn(Optional.of(oldToken));
 		when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
-		when(refreshTokenRepository.save(any())).thenReturn(newToken);
+		when(tokenRepository.save(any())).thenReturn(newToken);
 
 		AuthResponse response = authService.refreshToken(new RefreshTokenRequest(OLD_REFRESH_TOKEN));
 
 		assertEquals(ACCESS_TOKEN, response.accessToken());
 		assertEquals(REFRESH_TOKEN, response.refreshToken());
-		verify(refreshTokenRepository).findByToken(OLD_REFRESH_TOKEN);
-		verify(refreshTokenRepository).delete(oldToken);
+		verify(tokenRepository).findByTokenAndType(OLD_REFRESH_TOKEN, TokenType.REFRESH);
+		verify(tokenRepository).delete(oldToken);
 		verify(jwtService).generateToken(any(CustomUserDetails.class));
-		verify(refreshTokenRepository).save(any());
+		verify(tokenRepository).save(any());
 	}
 
 	@Test
 	void shouldFailWhenRefreshTokenNotFound() {
-		when(refreshTokenRepository.findByToken(INVALID_REFRESH_TOKEN)).thenReturn(Optional.empty());
+		when(tokenRepository.findByTokenAndType(INVALID_REFRESH_TOKEN, TokenType.REFRESH)).thenReturn(Optional.empty());
 
 		assertThrows(InvalidCredentialsException.class,
 				() -> authService.refreshToken(new RefreshTokenRequest(INVALID_REFRESH_TOKEN)));
 
-		verify(refreshTokenRepository).findByToken(INVALID_REFRESH_TOKEN);
+		verify(tokenRepository).findByTokenAndType(INVALID_REFRESH_TOKEN, TokenType.REFRESH);
 	}
 
 	@Test
 	void shouldFailWhenRefreshTokenExpired() {
-		RefreshToken expired = createRefreshToken(EXPIRED_REFRESH_TOKEN, Instant.now().minusSeconds(3600));
-		when(refreshTokenRepository.findByToken(EXPIRED_REFRESH_TOKEN)).thenReturn(Optional.of(expired));
+		Token expired = createRefreshToken(EXPIRED_REFRESH_TOKEN, Instant.now().minusSeconds(3600));
+		when(tokenRepository.findByTokenAndType(EXPIRED_REFRESH_TOKEN, TokenType.REFRESH))
+				.thenReturn(Optional.of(expired));
 
 		assertThrows(InvalidCredentialsException.class,
 				() -> authService.refreshToken(new RefreshTokenRequest(EXPIRED_REFRESH_TOKEN)));
 
-		verify(refreshTokenRepository).findByToken(EXPIRED_REFRESH_TOKEN);
-		verify(refreshTokenRepository).delete(expired);
+		verify(tokenRepository).findByTokenAndType(EXPIRED_REFRESH_TOKEN, TokenType.REFRESH);
+		verify(tokenRepository).delete(expired);
 	}
 
 	@Test
@@ -200,7 +198,7 @@ class AuthServiceTest {
 		assertThrows(InvalidCredentialsException.class, () -> authService.login(new LoginRequest(EMAIL, PASSWORD)));
 		verify(authenticationManager).authenticate(any());
 		verifyNoInteractions(jwtService);
-		verify(refreshTokenRepository, never()).save(any());
+		verify(tokenRepository, never()).save(any());
 	}
 
 	@Test
@@ -210,28 +208,29 @@ class AuthServiceTest {
 		User disabledUser = User.builder().email(EMAIL).name(NAME).passwordHash("hashed_password").role(Role.USER)
 				.enabled(false).build();
 
-		var verificationToken = EmailVerificationToken.builder().token(token).user(disabledUser)
+		var verificationToken = Token.builder().token(token).user(disabledUser)
 				.expiryDate(Instant.now().plusSeconds(3600)).build();
 
-		when(emailVerificationTokenRepository.findByToken(token)).thenReturn(Optional.of(verificationToken));
+		when(tokenRepository.findByTokenAndType(token, TokenType.EMAIL_VERIFICATION))
+				.thenReturn(Optional.of(verificationToken));
 
 		authService.verifyAccount(token);
 
 		assertTrue(disabledUser.isEnabled());
 
-		verify(emailVerificationTokenRepository).findByToken(token);
+		verify(tokenRepository).findByTokenAndType(token, TokenType.EMAIL_VERIFICATION);
 		verify(userRepository).save(disabledUser);
-		verify(emailVerificationTokenRepository).delete(verificationToken);
+		verify(tokenRepository).delete(verificationToken);
 	}
 
 	@Test
 	void shouldFailWhenVerificationTokenDoesNotExist() {
 		String token = "invalid-token";
-		when(emailVerificationTokenRepository.findByToken(token)).thenReturn(Optional.empty());
+		when(tokenRepository.findByTokenAndType(token, TokenType.EMAIL_VERIFICATION)).thenReturn(Optional.empty());
 
 		assertThrows(InvalidCredentialsException.class, () -> authService.verifyAccount(token));
 
-		verify(emailVerificationTokenRepository).findByToken(token);
+		verify(tokenRepository).findByTokenAndType(token, TokenType.EMAIL_VERIFICATION);
 		verifyNoInteractions(userRepository);
 	}
 
@@ -244,8 +243,8 @@ class AuthServiceTest {
 		when(passwordEncoder.matches(NEW_PASSWORD, ENCODED_PASSWORD)).thenReturn(false);
 		when(passwordEncoder.encode(NEW_PASSWORD)).thenReturn("new-hashed-password");
 		when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
-		RefreshToken refreshToken = createRefreshToken(REFRESH_TOKEN, Instant.now().plusSeconds(3600));
-		when(refreshTokenRepository.save(any(RefreshToken.class))).thenReturn(refreshToken);
+		Token refreshToken = createRefreshToken(REFRESH_TOKEN, Instant.now().plusSeconds(3600));
+		when(tokenRepository.save(any(Token.class))).thenReturn(refreshToken);
 
 		AuthResponse response = authService.changePassword(request);
 
@@ -257,9 +256,9 @@ class AuthServiceTest {
 		verify(passwordEncoder).matches(NEW_PASSWORD, ENCODED_PASSWORD);
 		verify(passwordEncoder).encode(NEW_PASSWORD);
 		verify(userRepository).save(testUser);
-		verify(refreshTokenRepository).deleteByUser(testUser);
+		verify(tokenRepository).deleteByUserAndType(testUser, TokenType.REFRESH);
 		verify(jwtService).generateToken(any(CustomUserDetails.class));
-		verify(refreshTokenRepository).save(any(RefreshToken.class));
+		verify(tokenRepository).save(any(Token.class));
 	}
 
 	@Test
@@ -273,7 +272,7 @@ class AuthServiceTest {
 
 		verify(passwordEncoder).matches(CURRENT_PASSWORD, ENCODED_PASSWORD);
 		verify(userRepository, never()).save(any());
-		verify(refreshTokenRepository, never()).deleteByUser(any());
+		verify(tokenRepository, never()).deleteByUserAndType(any(), any());
 	}
 
 	@Test
@@ -289,7 +288,7 @@ class AuthServiceTest {
 		verify(passwordEncoder).matches(CURRENT_PASSWORD, ENCODED_PASSWORD);
 		verify(passwordEncoder).matches(NEW_PASSWORD, ENCODED_PASSWORD);
 		verify(userRepository, never()).save(any());
-		verify(refreshTokenRepository, never()).deleteByUser(any());
+		verify(tokenRepository, never()).deleteByUserAndType(any(), any());
 	}
 
 	@Test
@@ -301,28 +300,29 @@ class AuthServiceTest {
 		when(passwordEncoder.matches(NEW_PASSWORD, ENCODED_PASSWORD)).thenReturn(false);
 		when(passwordEncoder.encode(NEW_PASSWORD)).thenReturn("new-hashed-password");
 		when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
-		when(refreshTokenRepository.save(any()))
+		when(tokenRepository.save(any()))
 				.thenReturn(createRefreshToken(REFRESH_TOKEN, Instant.now().plusSeconds(3600)));
 
 		authService.changePassword(request);
 
-		InOrder inOrder = inOrder(userRepository, refreshTokenRepository, jwtService);
+		InOrder inOrder = inOrder(userRepository, tokenRepository, jwtService);
 		inOrder.verify(userRepository).save(testUser);
-		inOrder.verify(refreshTokenRepository).deleteByUser(testUser);
+		inOrder.verify(tokenRepository).deleteByUserAndType(testUser, TokenType.REFRESH);
 		inOrder.verify(jwtService).generateToken(any(CustomUserDetails.class));
-		inOrder.verify(refreshTokenRepository).save(any(RefreshToken.class));
+		inOrder.verify(tokenRepository).save(any(Token.class));
 	}
 
 	@Test
 	void shouldGeneratePasswordResetToken() {
 		ForgotPasswordRequest request = new ForgotPasswordRequest(EMAIL);
 		when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(testUser));
+		when(tokenRepository.save(any(Token.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		authService.forgotPassword(request);
 
 		verify(userRepository).findByEmail(EMAIL);
-		verify(passwordResetTokenRepository).deleteByUser(testUser);
-		verify(passwordResetTokenRepository).save(any());
+		verify(tokenRepository).deleteByUserAndType(testUser, TokenType.PASSWORD_RESET);
+		verify(tokenRepository).save(any());
 		verify(emailService).sendPasswordResetEmail(eq(EMAIL), any(String.class));
 	}
 
@@ -333,39 +333,39 @@ class AuthServiceTest {
 		authService.forgotPassword(new ForgotPasswordRequest(EMAIL));
 
 		verify(userRepository).findByEmail(EMAIL);
-		verifyNoInteractions(passwordResetTokenRepository);
+		verifyNoInteractions(tokenRepository);
 		verify(emailService, never()).sendPasswordResetEmail(any(), any());
 	}
 
 	@Test
 	void shouldResetPasswordSuccessfully() {
 		String token = "reset-token";
-		PasswordResetToken resetToken = PasswordResetToken.builder().token(token).user(testUser)
-				.expiryDate(Instant.now().plusSeconds(3600)).build();
-		when(passwordResetTokenRepository.findByToken(token)).thenReturn(Optional.of(resetToken));
+		Token resetToken = Token.builder().token(token).user(testUser).expiryDate(Instant.now().plusSeconds(3600))
+				.build();
+		when(tokenRepository.findByTokenAndType(token, TokenType.PASSWORD_RESET)).thenReturn(Optional.of(resetToken));
 		when(passwordEncoder.encode(PASSWORD)).thenReturn("new-hashed-password");
 
 		authService.resetPassword(new ResetPasswordRequest(PASSWORD), token);
 
 		assertEquals("new-hashed-password", testUser.getPasswordHash());
 		verify(userRepository).save(testUser);
-		verify(passwordResetTokenRepository).delete(resetToken);
-		verify(refreshTokenRepository).deleteByUser(testUser);
+		verify(tokenRepository).delete(resetToken);
+		verify(tokenRepository).deleteByUserAndType(testUser, TokenType.REFRESH);
 	}
 
 	@Test
 	void shouldFailWhenResetTokenDoesNotExist() {
 		String token = "invalid-token";
-		when(passwordResetTokenRepository.findByToken(token)).thenReturn(Optional.empty());
+		when(tokenRepository.findByTokenAndType(token, TokenType.PASSWORD_RESET)).thenReturn(Optional.empty());
 
 		assertThrows(InvalidCredentialsException.class,
 				() -> authService.resetPassword(new ResetPasswordRequest(PASSWORD), token));
 
-		verify(passwordResetTokenRepository).findByToken(token);
+		verify(tokenRepository).findByTokenAndType(token, TokenType.PASSWORD_RESET);
 		verifyNoInteractions(userRepository);
 	}
 
-	private RefreshToken createRefreshToken(String token, Instant expiryDate) {
-		return RefreshToken.builder().token(token).user(testUser).expiryDate(expiryDate).build();
+	private Token createRefreshToken(String token, Instant expiryDate) {
+		return Token.builder().token(token).user(testUser).expiryDate(expiryDate).type(TokenType.REFRESH).build();
 	}
 }
