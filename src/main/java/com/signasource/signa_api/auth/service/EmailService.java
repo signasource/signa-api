@@ -27,11 +27,11 @@ public class EmailService {
 
 	@Async
 	public void sendVerificationEmail(String to, String token) {
-		sendEmail(to, "Verify your account", buildVerificationHtml(buildUrl(VERIFICATION_PATH, token)));
+		sendEmail(to, "Verificá tu cuenta", buildVerificationHtml(buildUrl(VERIFICATION_PATH, token)));
 	}
 
 	public void sendPasswordResetEmail(String to, String token) {
-		sendEmail(to, "Reset your password", buildPasswordResetHtml(buildUrl(PASSWORD_RESET_PATH, token)));
+		sendEmail(to, "Reseta tu contraseña", buildPasswordResetHtml(buildUrl(PASSWORD_RESET_PATH, token)));
 	}
 
 	private void sendEmail(String to, String subject, String html) {
