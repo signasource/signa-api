@@ -28,6 +28,7 @@ import com.signasource.signa_api.auth.dto.ForgotPasswordRequest;
 import com.signasource.signa_api.auth.dto.LoginRequest;
 import com.signasource.signa_api.auth.dto.RefreshTokenRequest;
 import com.signasource.signa_api.auth.dto.RegisterRequest;
+import com.signasource.signa_api.auth.dto.ResendVerificationEmailRequest;
 import com.signasource.signa_api.auth.dto.ResetPasswordRequest;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.entity.Token;
@@ -365,6 +366,35 @@ class AuthServiceTest {
 
 		verify(tokenRepository).findByTokenAndType(token, TokenType.PASSWORD_RESET);
 		verifyNoInteractions(userRepository);
+	}
+
+	@Test
+	void shouldResendVerificationEmail() {
+		ResendVerificationEmailRequest request = new ResendVerificationEmailRequest(EMAIL);
+		testUser.setEnabled(false);
+		when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(testUser));
+		when(tokenRepository.save(any(Token.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		authService.resendVerificationEmail(request);
+
+		verify(userRepository).findByEmail(EMAIL);
+		verify(tokenRepository).deleteByUserAndType(testUser, TokenType.EMAIL_VERIFICATION);
+		verify(tokenRepository).save(any(Token.class));
+		verify(emailService).sendVerificationEmail(eq(EMAIL), any(String.class));
+	}
+
+	@Test
+	void shouldDoNothingWhenUserAlreadyVerified() {
+		ResendVerificationEmailRequest request = new ResendVerificationEmailRequest(EMAIL);
+		testUser.setEnabled(true);
+		when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(testUser));
+
+		authService.resendVerificationEmail(request);
+
+		verify(userRepository).findByEmail(EMAIL);
+		verify(tokenRepository, never()).deleteByUserAndType(any(), any());
+		verify(tokenRepository, never()).save(any());
+		verify(emailService, never()).sendVerificationEmail(any(), any());
 	}
 
 	private Token createRefreshToken(String token, Instant expiryDate) {

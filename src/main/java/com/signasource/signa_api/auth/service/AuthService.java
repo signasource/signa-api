@@ -18,6 +18,7 @@ import com.signasource.signa_api.auth.dto.ForgotPasswordRequest;
 import com.signasource.signa_api.auth.dto.LoginRequest;
 import com.signasource.signa_api.auth.dto.RefreshTokenRequest;
 import com.signasource.signa_api.auth.dto.RegisterRequest;
+import com.signasource.signa_api.auth.dto.ResendVerificationEmailRequest;
 import com.signasource.signa_api.auth.dto.ResetPasswordRequest;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.entity.Token;
@@ -36,6 +37,7 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class AuthService {
 
 	private final UserRepository userRepository;
@@ -54,7 +56,6 @@ public class AuthService {
 	@Value("${auth.token-expirations.email-verification}")
 	private Long emailVerificationTokenExpiration;
 
-	@Transactional
 	public void register(RegisterRequest request) {
 		if (userRepository.existsByEmail(request.email())) {
 			throw new ResourceAlreadyInUseException("Email already in use");
@@ -92,7 +93,6 @@ public class AuthService {
 		return generateTokens(refreshToken.getUser());
 	}
 
-	@Transactional
 	public void verifyAccount(String token) {
 		Token verificationToken = getToken(token, TokenType.EMAIL_VERIFICATION);
 		validateExpiration(verificationToken);
@@ -104,7 +104,6 @@ public class AuthService {
 		userRepository.save(user);
 	}
 
-	@Transactional
 	public AuthResponse changePassword(ChangePasswordRequest request) {
 		User user = getAuthenticatedUser();
 
@@ -124,7 +123,6 @@ public class AuthService {
 		return generateTokens(user);
 	}
 
-	@Transactional
 	public void forgotPassword(ForgotPasswordRequest request) {
 		User user = userRepository.findByEmail(request.email()).orElse(null);
 
@@ -138,7 +136,6 @@ public class AuthService {
 		emailService.sendPasswordResetEmail(user.getEmail(), token.getToken());
 	}
 
-	@Transactional
 	public void resetPassword(ResetPasswordRequest request, String token) {
 		Token resetToken = getToken(token, TokenType.PASSWORD_RESET);
 		validateExpiration(resetToken);
@@ -152,6 +149,25 @@ public class AuthService {
 		userRepository.save(user);
 		tokenRepository.delete(resetToken);
 		tokenRepository.deleteByUserAndType(user, TokenType.REFRESH);
+	}
+
+	public void resendVerificationEmail(ResendVerificationEmailRequest request) {
+		User user = userRepository.findByEmail(request.email()).orElse(null);
+
+		if (user == null) {
+			return;
+		}
+
+		if (user.isEnabled()) {
+			return;
+		}
+
+		tokenRepository.deleteByUserAndType(user, TokenType.EMAIL_VERIFICATION);
+
+		Token token = createToken(user, TokenType.EMAIL_VERIFICATION,
+				Duration.ofMillis(emailVerificationTokenExpiration));
+
+		emailService.sendVerificationEmail(user.getEmail(), token.getToken());
 	}
 
 	private AuthResponse generateTokens(User user) {
