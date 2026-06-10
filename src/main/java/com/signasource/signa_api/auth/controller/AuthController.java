@@ -2,6 +2,7 @@ package com.signasource.signa_api.auth.controller;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -18,11 +19,14 @@ import com.signasource.signa_api.auth.dto.ResetPasswordRequest;
 import com.signasource.signa_api.auth.service.AuthService;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
+@Validated
 public class AuthController {
 	private final AuthService authService;
 
@@ -38,12 +42,12 @@ public class AuthController {
 	}
 
 	@PostMapping("/refresh")
-	public ResponseEntity<AuthResponse> refresh(@RequestBody RefreshTokenRequest request) {
+	public ResponseEntity<AuthResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
 		return ResponseEntity.ok(authService.refreshToken(request));
 	}
 
 	@GetMapping("/verify")
-	public ResponseEntity<Void> verifyEmail(@RequestParam String token) {
+	public ResponseEntity<Void> verifyEmail(@RequestParam @NotBlank @Size(min = 10, max = 100) String token) {
 		authService.verifyAccount(token);
 		return ResponseEntity.ok().build();
 	}
