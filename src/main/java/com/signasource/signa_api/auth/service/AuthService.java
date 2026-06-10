@@ -37,7 +37,6 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class AuthService {
 
 	private final UserRepository userRepository;
@@ -56,6 +55,7 @@ public class AuthService {
 	@Value("${auth.token-expirations.email-verification}")
 	private Long emailVerificationTokenExpiration;
 
+	@Transactional
 	public void register(RegisterRequest request) {
 		if (userRepository.existsByEmail(request.email())) {
 			throw new ResourceAlreadyInUseException("Email already in use");
@@ -93,6 +93,7 @@ public class AuthService {
 		return generateTokens(refreshToken.getUser());
 	}
 
+	@Transactional
 	public void verifyAccount(String token) {
 		Token verificationToken = getToken(token, TokenType.EMAIL_VERIFICATION);
 		validateExpiration(verificationToken);
@@ -104,6 +105,7 @@ public class AuthService {
 		userRepository.save(user);
 	}
 
+	@Transactional
 	public AuthResponse changePassword(ChangePasswordRequest request) {
 		User user = getAuthenticatedUser();
 
@@ -123,6 +125,7 @@ public class AuthService {
 		return generateTokens(user);
 	}
 
+	@Transactional
 	public void forgotPassword(ForgotPasswordRequest request) {
 		User user = userRepository.findByEmail(request.email()).orElse(null);
 
@@ -136,6 +139,7 @@ public class AuthService {
 		emailService.sendPasswordResetEmail(user.getEmail(), token.getToken());
 	}
 
+	@Transactional
 	public void resetPassword(ResetPasswordRequest request, String token) {
 		Token resetToken = getToken(token, TokenType.PASSWORD_RESET);
 		validateExpiration(resetToken);
@@ -151,6 +155,7 @@ public class AuthService {
 		tokenRepository.deleteByUserAndType(user, TokenType.REFRESH);
 	}
 
+	@Transactional
 	public void resendVerificationEmail(ResendVerificationEmailRequest request) {
 		User user = userRepository.findByEmail(request.email()).orElse(null);
 
