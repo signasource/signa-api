@@ -24,75 +24,67 @@ public class EmailService {
 	@Value("${spring.mail.username}")
 	private String fromEmail;
 
-    public void sendVerificationEmail(String to, String token) {
-        sendEmail(
-            to,
-            "Verify your account",
-            buildVerificationHtml(buildUrl(VERIFICATION_PATH, token))
-        );
-    }
+	public void sendVerificationEmail(String to, String token) {
+		sendEmail(to, "Verify your account", buildVerificationHtml(buildUrl(VERIFICATION_PATH, token)));
+	}
 
-    public void sendPasswordResetEmail(String to, String token) {
-        sendEmail(
-            to,
-            "Reset your password",
-            buildPasswordResetHtml(buildUrl(PASSWORD_RESET_PATH, token))
-        );
-    }
+	public void sendPasswordResetEmail(String to, String token) {
+		sendEmail(to, "Reset your password", buildPasswordResetHtml(buildUrl(PASSWORD_RESET_PATH, token)));
+	}
 
-    private void sendEmail(String to, String subject, String html) {
-        try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+	private void sendEmail(String to, String subject, String html) {
+		try {
+			MimeMessage message = mailSender.createMimeMessage();
+			MimeMessageHelper helper = new MimeMessageHelper(message, true);
 
-            helper.setFrom(fromEmail);
-            helper.setTo(to);
-            helper.setSubject(subject);
-            helper.setText(html, true);
+			helper.setFrom(fromEmail);
+			helper.setTo(to);
+			helper.setSubject(subject);
+			helper.setText(html, true);
 
-            mailSender.send(message);
+			mailSender.send(message);
 
-        } catch (Exception e) {
-            log.error("Error sending email to {}", to, e);
-            throw new RuntimeException("Failed to send email");
-        }
-    }
+		} catch (Exception e) {
+			log.error("Error sending email to {}", to, e);
+			throw new RuntimeException("Failed to send email");
+		}
+	}
 
-    private String buildUrl(String path, String token) {
-        return String.format("%s%s?token=%s", baseUrl, path, token);
-    }
+	private String buildUrl(String path, String token) {
+		return String.format("%s%s?token=%s", baseUrl, path, token);
+	}
 
-    private String buildVerificationHtml(String link) {
-        return """
-            <div style="font-family: Arial;">
-                <h2>Bienvenido/a 👋</h2>
-                <p>Por favor, verifica tu cuenta:</p>
-                <a href="%s" style="
-                    background-color:#4CAF50;
-                    color:white;
-                    padding:10px 20px;
-                    text-decoration:none;
-                    border-radius:5px;">
-                    Verificar cuenta
-                </a>
-            </div>
-            """.formatted(link);
-    }
+	private String buildVerificationHtml(String link) {
+		return """
+				<div style="font-family: Arial;">
+				    <h2>Bienvenido/a 👋</h2>
+				    <p>Por favor, verifica tu cuenta:</p>
+				    <a href="%s" style="
+				        background-color:#4CAF50;
+				        color:white;
+				        padding:10px 20px;
+				        text-decoration:none;
+				        border-radius:5px;">
+				        Verificar cuenta
+				    </a>
+				</div>
+				""".formatted(link);
+	}
 
-    private String buildPasswordResetHtml(String link) {
-        return """
-            <div style="font-family: Arial;">
-                <h2>¡Hola!</h2>
-                <p>Podés resetear tu contraseña acá:</p>
-                <a href="%s" style="
-                    background-color:#4CAF50;
-                    color:white;
-                    padding:10px 20px;
-                    text-decoration:none;
-                    border-radius:5px;">
-                    Resetear contraseña
-                </a>
-            </div>
-            """.formatted(link);
-    }
+	private String buildPasswordResetHtml(String link) {
+		return """
+				<div style="font-family: Arial;">
+				    <h2>¡Hola!</h2>
+				    <p>Podés resetear tu contraseña acá:</p>
+				    <a href="%s" style="
+				        background-color:#4CAF50;
+				        color:white;
+				        padding:10px 20px;
+				        text-decoration:none;
+				        border-radius:5px;">
+				        Resetear contraseña
+				    </a>
+				</div>
+				""".formatted(link);
+	}
 }

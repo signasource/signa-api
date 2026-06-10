@@ -65,7 +65,8 @@ public class AuthService {
 
 		userRepository.save(user);
 
-		Token token = createToken(user, TokenType.EMAIL_VERIFICATION, Duration.ofMillis(emailVerificationTokenExpiration));
+		Token token = createToken(user, TokenType.EMAIL_VERIFICATION,
+				Duration.ofMillis(emailVerificationTokenExpiration));
 
 		emailService.sendVerificationEmail(user.getEmail(), token.getToken());
 	}
@@ -163,8 +164,7 @@ public class AuthService {
 	}
 
 	private Token getToken(String token, TokenType type) {
-		return tokenRepository.findByTokenAndType(token, type)
-				.orElseThrow(() -> new InvalidTokenException());
+		return tokenRepository.findByTokenAndType(token, type).orElseThrow(() -> new InvalidTokenException());
 	}
 
 	private void validateExpiration(Token token) {
