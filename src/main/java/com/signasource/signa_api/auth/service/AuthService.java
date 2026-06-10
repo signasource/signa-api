@@ -24,7 +24,9 @@ import com.signasource.signa_api.auth.entity.Token;
 import com.signasource.signa_api.auth.entity.TokenType;
 import com.signasource.signa_api.auth.repository.TokenRepository;
 import com.signasource.signa_api.exceptions.InvalidCredentialsException;
-import com.signasource.signa_api.exceptions.ResourceAlreadyInUse;
+import com.signasource.signa_api.exceptions.InvalidInputException;
+import com.signasource.signa_api.exceptions.InvalidTokenException;
+import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.repository.UserRepository;
@@ -55,7 +57,7 @@ public class AuthService {
 	@Transactional
 	public void register(RegisterRequest request) {
 		if (userRepository.existsByEmail(request.email())) {
-			throw new ResourceAlreadyInUse("Email already in use");
+			throw new ResourceAlreadyInUseException("Email already in use");
 		}
 
 		User user = User.builder().email(request.email()).name(request.name())
@@ -106,11 +108,11 @@ public class AuthService {
 		User user = getAuthenticatedUser();
 
 		if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
-			throw new InvalidCredentialsException("Current password is incorrect");
+			throw new InvalidInputException("Current password is incorrect");
 		}
 
 		if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
-			throw new InvalidCredentialsException("New password must be different from current password");
+			throw new InvalidInputException("New password must be different from current password");
 		}
 
 		user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
@@ -142,7 +144,7 @@ public class AuthService {
 
 		User user = resetToken.getUser();
 		if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
-			throw new InvalidCredentialsException("New password must be different from current password");
+			throw new InvalidInputException("New password must be different from current password");
 		}
 
 		user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
@@ -162,13 +164,13 @@ public class AuthService {
 
 	private Token getToken(String token, TokenType type) {
 		return tokenRepository.findByTokenAndType(token, type)
-				.orElseThrow(() -> new InvalidCredentialsException("Invalid token"));
+				.orElseThrow(() -> new InvalidTokenException());
 	}
 
 	private void validateExpiration(Token token) {
 		if (token.getExpiryDate().isBefore(Instant.now())) {
 			tokenRepository.delete(token);
-			throw new InvalidCredentialsException("Token expired");
+			throw new InvalidTokenException();
 		}
 	}
 

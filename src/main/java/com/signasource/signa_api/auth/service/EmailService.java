@@ -5,12 +5,13 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
-import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class EmailService {
 	private static final String VERIFICATION_PATH = "/auth/verify";
 	private static final String PASSWORD_RESET_PATH = "/auth/reset-password";
@@ -23,85 +24,75 @@ public class EmailService {
 	@Value("${spring.mail.username}")
 	private String fromEmail;
 
-	public void sendVerificationEmail(String to, String token) {
-		String link = buildUrl(VERIFICATION_PATH, token);
+    public void sendVerificationEmail(String to, String token) {
+        sendEmail(
+            to,
+            "Verify your account",
+            buildVerificationHtml(buildUrl(VERIFICATION_PATH, token))
+        );
+    }
 
-		MimeMessage message = mailSender.createMimeMessage();
+    public void sendPasswordResetEmail(String to, String token) {
+        sendEmail(
+            to,
+            "Reset your password",
+            buildPasswordResetHtml(buildUrl(PASSWORD_RESET_PATH, token))
+        );
+    }
 
-		try {
-			createVerificationMessage(message, to, link);
-		} catch (MessagingException e) {
-			throw new RuntimeException("Failed to create email message", e);
-		}
+    private void sendEmail(String to, String subject, String html) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
 
-		mailSender.send(message);
-	}
+            helper.setFrom(fromEmail);
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(html, true);
 
-	public void sendPasswordResetEmail(String to, String token) {
-		String link = buildUrl(PASSWORD_RESET_PATH, token);
+            mailSender.send(message);
 
-		MimeMessage message = mailSender.createMimeMessage();
+        } catch (Exception e) {
+            log.error("Error sending email to {}", to, e);
+            throw new RuntimeException("Failed to send email");
+        }
+    }
 
-		try {
-			createPasswordResetMessage(message, to, link);
-		} catch (MessagingException e) {
-			throw new RuntimeException("Failed to create email message", e);
-		}
+    private String buildUrl(String path, String token) {
+        return String.format("%s%s?token=%s", baseUrl, path, token);
+    }
 
-		mailSender.send(message);
-	}
+    private String buildVerificationHtml(String link) {
+        return """
+            <div style="font-family: Arial;">
+                <h2>Bienvenido/a 👋</h2>
+                <p>Por favor, verifica tu cuenta:</p>
+                <a href="%s" style="
+                    background-color:#4CAF50;
+                    color:white;
+                    padding:10px 20px;
+                    text-decoration:none;
+                    border-radius:5px;">
+                    Verificar cuenta
+                </a>
+            </div>
+            """.formatted(link);
+    }
 
-	private String buildUrl(String path, String token) {
-		return String.format("%s%s?token=%s", baseUrl, path, token);
-	}
-
-	private void createVerificationMessage(MimeMessage message, String to, String link) throws MessagingException {
-		MimeMessageHelper helper = new MimeMessageHelper(message, true);
-
-		helper.setFrom(fromEmail);
-		helper.setTo(to);
-		helper.setSubject("Verify your account");
-
-		String html = """
-				<div style="font-family: Arial;">
-				    <h2>Bienvenido/a 👋</h2>
-				    <p>Por favor, verifica tu cuenta:</p>
-				    <a href="%s" style="
-				        background-color:#4CAF50;
-				        color:white;
-				        padding:10px 20px;
-				        text-decoration:none;
-				        border-radius:5px;">
-				        Verify Account
-				    </a>
-				</div>
-				""".formatted(link);
-
-		helper.setText(html, true);
-	}
-
-	private void createPasswordResetMessage(MimeMessage message, String to, String link) throws MessagingException {
-		MimeMessageHelper helper = new MimeMessageHelper(message, true);
-
-		helper.setFrom(fromEmail);
-		helper.setTo(to);
-		helper.setSubject("Reset your password");
-
-		String html = """
-				<div style="font-family: Arial;">
-				    <h2>Reset your password</h2>
-				    <p>Click the link below to reset your password:</p>
-				    <a href="%s" style="
-				        background-color:#4CAF50;
-				        color:white;
-				        padding:10px 20px;
-				        text-decoration:none;
-				        border-radius:5px;">
-				        Reset Password
-				    </a>
-				</div>
-				""".formatted(link);
-
-		helper.setText(html, true);
-	}
+    private String buildPasswordResetHtml(String link) {
+        return """
+            <div style="font-family: Arial;">
+                <h2>¡Hola!</h2>
+                <p>Podés resetear tu contraseña acá:</p>
+                <a href="%s" style="
+                    background-color:#4CAF50;
+                    color:white;
+                    padding:10px 20px;
+                    text-decoration:none;
+                    border-radius:5px;">
+                    Resetear contraseña
+                </a>
+            </div>
+            """.formatted(link);
+    }
 }

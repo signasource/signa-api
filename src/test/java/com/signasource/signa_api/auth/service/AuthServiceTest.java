@@ -34,7 +34,9 @@ import com.signasource.signa_api.auth.entity.Token;
 import com.signasource.signa_api.auth.entity.TokenType;
 import com.signasource.signa_api.auth.repository.TokenRepository;
 import com.signasource.signa_api.exceptions.InvalidCredentialsException;
-import com.signasource.signa_api.exceptions.ResourceAlreadyInUse;
+import com.signasource.signa_api.exceptions.InvalidInputException;
+import com.signasource.signa_api.exceptions.InvalidTokenException;
+import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.repository.UserRepository;
@@ -105,7 +107,7 @@ class AuthServiceTest {
 		RegisterRequest request = new RegisterRequest(EMAIL, PASSWORD, NAME);
 		when(userRepository.existsByEmail(EMAIL)).thenReturn(true);
 
-		assertThrows(ResourceAlreadyInUse.class, () -> authService.register(request));
+		assertThrows(ResourceAlreadyInUseException.class, () -> authService.register(request));
 
 		verify(userRepository).existsByEmail(EMAIL);
 		verifyNoInteractions(passwordEncoder);
@@ -167,7 +169,7 @@ class AuthServiceTest {
 	void shouldFailWhenRefreshTokenNotFound() {
 		when(tokenRepository.findByTokenAndType(INVALID_REFRESH_TOKEN, TokenType.REFRESH)).thenReturn(Optional.empty());
 
-		assertThrows(InvalidCredentialsException.class,
+		assertThrows(InvalidTokenException.class,
 				() -> authService.refreshToken(new RefreshTokenRequest(INVALID_REFRESH_TOKEN)));
 
 		verify(tokenRepository).findByTokenAndType(INVALID_REFRESH_TOKEN, TokenType.REFRESH);
@@ -179,7 +181,7 @@ class AuthServiceTest {
 		when(tokenRepository.findByTokenAndType(EXPIRED_REFRESH_TOKEN, TokenType.REFRESH))
 				.thenReturn(Optional.of(expired));
 
-		assertThrows(InvalidCredentialsException.class,
+		assertThrows(InvalidTokenException.class,
 				() -> authService.refreshToken(new RefreshTokenRequest(EXPIRED_REFRESH_TOKEN)));
 
 		verify(tokenRepository).findByTokenAndType(EXPIRED_REFRESH_TOKEN, TokenType.REFRESH);
@@ -228,7 +230,7 @@ class AuthServiceTest {
 		String token = "invalid-token";
 		when(tokenRepository.findByTokenAndType(token, TokenType.EMAIL_VERIFICATION)).thenReturn(Optional.empty());
 
-		assertThrows(InvalidCredentialsException.class, () -> authService.verifyAccount(token));
+		assertThrows(InvalidTokenException.class, () -> authService.verifyAccount(token));
 
 		verify(tokenRepository).findByTokenAndType(token, TokenType.EMAIL_VERIFICATION);
 		verifyNoInteractions(userRepository);
@@ -268,7 +270,7 @@ class AuthServiceTest {
 				.setAuthentication(new UsernamePasswordAuthenticationToken(userDetails, null));
 		when(passwordEncoder.matches(CURRENT_PASSWORD, ENCODED_PASSWORD)).thenReturn(false);
 
-		assertThrows(InvalidCredentialsException.class, () -> authService.changePassword(request));
+		assertThrows(InvalidInputException.class, () -> authService.changePassword(request));
 
 		verify(passwordEncoder).matches(CURRENT_PASSWORD, ENCODED_PASSWORD);
 		verify(userRepository, never()).save(any());
@@ -283,7 +285,7 @@ class AuthServiceTest {
 		when(passwordEncoder.matches(CURRENT_PASSWORD, ENCODED_PASSWORD)).thenReturn(true);
 		when(passwordEncoder.matches(NEW_PASSWORD, ENCODED_PASSWORD)).thenReturn(true);
 
-		assertThrows(InvalidCredentialsException.class, () -> authService.changePassword(request));
+		assertThrows(InvalidInputException.class, () -> authService.changePassword(request));
 
 		verify(passwordEncoder).matches(CURRENT_PASSWORD, ENCODED_PASSWORD);
 		verify(passwordEncoder).matches(NEW_PASSWORD, ENCODED_PASSWORD);
@@ -358,7 +360,7 @@ class AuthServiceTest {
 		String token = "invalid-token";
 		when(tokenRepository.findByTokenAndType(token, TokenType.PASSWORD_RESET)).thenReturn(Optional.empty());
 
-		assertThrows(InvalidCredentialsException.class,
+		assertThrows(InvalidTokenException.class,
 				() -> authService.resetPassword(new ResetPasswordRequest(PASSWORD), token));
 
 		verify(tokenRepository).findByTokenAndType(token, TokenType.PASSWORD_RESET);
