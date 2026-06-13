@@ -3,14 +3,16 @@ package com.signasource.signa_api.auth.service;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class EmailService {
 	private static final String VERIFICATION_PATH = "/auth/verify";
 	private static final String PASSWORD_RESET_PATH = "/auth/reset-password";
@@ -23,46 +25,39 @@ public class EmailService {
 	@Value("${spring.mail.username}")
 	private String fromEmail;
 
+	@Async
 	public void sendVerificationEmail(String to, String token) {
-		String link = buildUrl(VERIFICATION_PATH, token);
-
-		MimeMessage message = mailSender.createMimeMessage();
-
-		try {
-			createVerificationMessage(message, to, link);
-		} catch (MessagingException e) {
-			throw new RuntimeException("Failed to create email message", e);
-		}
-
-		mailSender.send(message);
+		sendEmail(to, "Verificá tu cuenta", buildVerificationHtml(buildUrl(VERIFICATION_PATH, token)));
 	}
 
 	public void sendPasswordResetEmail(String to, String token) {
-		String link = buildUrl(PASSWORD_RESET_PATH, token);
+		sendEmail(to, "Reseta tu contraseña", buildPasswordResetHtml(buildUrl(PASSWORD_RESET_PATH, token)));
+	}
 
-		MimeMessage message = mailSender.createMimeMessage();
-
+	private void sendEmail(String to, String subject, String html) {
 		try {
-			createPasswordResetMessage(message, to, link);
-		} catch (MessagingException e) {
-			throw new RuntimeException("Failed to create email message", e);
-		}
+			MimeMessage message = mailSender.createMimeMessage();
+			MimeMessageHelper helper = new MimeMessageHelper(message, true);
 
-		mailSender.send(message);
+			helper.setFrom(fromEmail);
+			helper.setTo(to);
+			helper.setSubject(subject);
+			helper.setText(html, true);
+
+			mailSender.send(message);
+
+		} catch (Exception e) {
+			log.error("Error sending email to {}", to, e);
+			throw new RuntimeException("Failed to send email");
+		}
 	}
 
 	private String buildUrl(String path, String token) {
 		return String.format("%s%s?token=%s", baseUrl, path, token);
 	}
 
-	private void createVerificationMessage(MimeMessage message, String to, String link) throws MessagingException {
-		MimeMessageHelper helper = new MimeMessageHelper(message, true);
-
-		helper.setFrom(fromEmail);
-		helper.setTo(to);
-		helper.setSubject("Verify your account");
-
-		String html = """
+	private String buildVerificationHtml(String link) {
+		return """
 				<div style="font-family: Arial;">
 				    <h2>Bienvenido/a 👋</h2>
 				    <p>Por favor, verifica tu cuenta:</p>
@@ -72,36 +67,26 @@ public class EmailService {
 				        padding:10px 20px;
 				        text-decoration:none;
 				        border-radius:5px;">
-				        Verify Account
+				        Verificar cuenta
 				    </a>
 				</div>
 				""".formatted(link);
-
-		helper.setText(html, true);
 	}
 
-	private void createPasswordResetMessage(MimeMessage message, String to, String link) throws MessagingException {
-		MimeMessageHelper helper = new MimeMessageHelper(message, true);
-
-		helper.setFrom(fromEmail);
-		helper.setTo(to);
-		helper.setSubject("Reset your password");
-
-		String html = """
+	private String buildPasswordResetHtml(String link) {
+		return """
 				<div style="font-family: Arial;">
-				    <h2>Reset your password</h2>
-				    <p>Click the link below to reset your password:</p>
+				    <h2>¡Hola!</h2>
+				    <p>Podés resetear tu contraseña acá:</p>
 				    <a href="%s" style="
 				        background-color:#4CAF50;
 				        color:white;
 				        padding:10px 20px;
 				        text-decoration:none;
 				        border-radius:5px;">
-				        Reset Password
+				        Resetear contraseña
 				    </a>
 				</div>
 				""".formatted(link);
-
-		helper.setText(html, true);
 	}
 }

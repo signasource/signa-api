@@ -6,6 +6,8 @@ import com.signasource.signa_api.users.entity.User;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -18,12 +20,12 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "refresh_tokens")
+@Table(name = "tokens")
 @Data
-@NoArgsConstructor
 @AllArgsConstructor
+@NoArgsConstructor
 @Builder
-public class RefreshToken {
+public class Token {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
@@ -34,6 +36,10 @@ public class RefreshToken {
 	@ManyToOne
 	@JoinColumn(nullable = false)
 	private User user;
+
+	@Enumerated(EnumType.STRING)
+	@Column(nullable = false)
+	private TokenType type;
 
 	@Column(nullable = false)
 	private Instant expiryDate;
