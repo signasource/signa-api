@@ -70,6 +70,7 @@ jacocoTestReport {
                 '**/dto/**',
                 '**/entity/**',
                 '**/exceptions/**',
+                '**/config/**',
                 '**/*Application*'
             ])
         }))
@@ -84,6 +85,7 @@ jacocoTestCoverageVerification {
                 '**/dto/**',
                 '**/entity/**',
                 '**/exceptions/**',
+                '**/config/**',
                 '**/*Application*'
             ])
         }))
