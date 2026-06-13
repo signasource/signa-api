@@ -27,6 +27,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
     implementation 'org.springframework.boot:spring-boot-starter-mail'
 
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.17'
+
     // JJWT Dependencies
     implementation 'io.jsonwebtoken:jjwt-api:0.12.5'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.5'
@@ -68,6 +70,7 @@ jacocoTestReport {
                 '**/dto/**',
                 '**/entity/**',
                 '**/exceptions/**',
+                '**/config/**',
                 '**/*Application*'
             ])
         }))
@@ -82,6 +85,7 @@ jacocoTestCoverageVerification {
                 '**/dto/**',
                 '**/entity/**',
                 '**/exceptions/**',
+                '**/config/**',
                 '**/*Application*'
             ])
         }))

@@ -173,6 +173,7 @@ public class AuthService {
 				Duration.ofMillis(emailVerificationTokenExpiration));
 
 		emailService.sendVerificationEmail(user.getEmail(), token.getToken());
+
 	}
 
 	private AuthResponse generateTokens(User user) {
