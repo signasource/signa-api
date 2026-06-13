@@ -18,6 +18,7 @@ import com.signasource.signa_api.auth.dto.ForgotPasswordRequest;
 import com.signasource.signa_api.auth.dto.LoginRequest;
 import com.signasource.signa_api.auth.dto.RefreshTokenRequest;
 import com.signasource.signa_api.auth.dto.RegisterRequest;
+import com.signasource.signa_api.auth.dto.ResendVerificationEmailRequest;
 import com.signasource.signa_api.auth.dto.ResetPasswordRequest;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.entity.Token;
@@ -152,6 +153,27 @@ public class AuthService {
 		userRepository.save(user);
 		tokenRepository.delete(resetToken);
 		tokenRepository.deleteByUserAndType(user, TokenType.REFRESH);
+	}
+
+	@Transactional
+	public void resendVerificationEmail(ResendVerificationEmailRequest request) {
+		User user = userRepository.findByEmail(request.email()).orElse(null);
+
+		if (user == null) {
+			return;
+		}
+
+		if (user.isEnabled()) {
+			return;
+		}
+
+		tokenRepository.deleteByUserAndType(user, TokenType.EMAIL_VERIFICATION);
+
+		Token token = createToken(user, TokenType.EMAIL_VERIFICATION,
+				Duration.ofMillis(emailVerificationTokenExpiration));
+
+		emailService.sendVerificationEmail(user.getEmail(), token.getToken());
+
 	}
 
 	private AuthResponse generateTokens(User user) {

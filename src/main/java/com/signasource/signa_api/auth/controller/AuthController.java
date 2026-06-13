@@ -15,6 +15,7 @@ import com.signasource.signa_api.auth.dto.ForgotPasswordRequest;
 import com.signasource.signa_api.auth.dto.LoginRequest;
 import com.signasource.signa_api.auth.dto.RefreshTokenRequest;
 import com.signasource.signa_api.auth.dto.RegisterRequest;
+import com.signasource.signa_api.auth.dto.ResendVerificationEmailRequest;
 import com.signasource.signa_api.auth.dto.ResetPasswordRequest;
 import com.signasource.signa_api.auth.service.AuthService;
 
@@ -62,6 +63,12 @@ public class AuthController {
 	public ResponseEntity<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request,
 			@RequestParam String token) {
 		authService.resetPassword(request, token);
+		return ResponseEntity.ok().build();
+	}
+
+	@PostMapping("/resend-verification-email")
+	public ResponseEntity<Void> resendVerificationEmail(@Valid @RequestBody ResendVerificationEmailRequest request) {
+		authService.resendVerificationEmail(request);
 		return ResponseEntity.ok().build();
 	}
 }

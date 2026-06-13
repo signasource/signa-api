@@ -20,6 +20,7 @@ import com.signasource.signa_api.auth.dto.ForgotPasswordRequest;
 import com.signasource.signa_api.auth.dto.LoginRequest;
 import com.signasource.signa_api.auth.dto.RefreshTokenRequest;
 import com.signasource.signa_api.auth.dto.RegisterRequest;
+import com.signasource.signa_api.auth.dto.ResendVerificationEmailRequest;
 import com.signasource.signa_api.auth.dto.ResetPasswordRequest;
 import com.signasource.signa_api.auth.service.AuthService;
 
@@ -92,6 +93,17 @@ class AuthControllerTest {
 		ResponseEntity<Void> response = authController.resetPassword(request, token);
 
 		verify(authService).resetPassword(any(ResetPasswordRequest.class), eq(token));
+		assertEquals(HttpStatus.OK, response.getStatusCode());
+	}
+
+	@Test
+	void testResendVerificationEmail() {
+		ResendVerificationEmailRequest request = new ResendVerificationEmailRequest(registerRequest.email());
+		doNothing().when(authService).resendVerificationEmail(any(ResendVerificationEmailRequest.class));
+
+		ResponseEntity<Void> response = authController.resendVerificationEmail(request);
+
+		verify(authService).resendVerificationEmail(any(ResendVerificationEmailRequest.class));
 		assertEquals(HttpStatus.OK, response.getStatusCode());
 	}
 }
