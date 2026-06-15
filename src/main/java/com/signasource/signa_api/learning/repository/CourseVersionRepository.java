@@ -10,6 +10,6 @@ import com.signasource.signa_api.learning.entity.VersionStatus;
 @Repository
 public interface CourseVersionRepository extends JpaRepository<CourseVersion, UUID> {
 
-    // Busca la versión activa (PUBLISHED) de un curso en particular
-    Optional<CourseVersion> findByCourseIdAndStatus(UUID courseId, VersionStatus status);
+	// Busca la versión activa (PUBLISHED) de un curso en particular
+	Optional<CourseVersion> findByCourseIdAndStatus(UUID courseId, VersionStatus status);
 }

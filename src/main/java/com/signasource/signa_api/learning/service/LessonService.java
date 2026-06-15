@@ -19,33 +19,23 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class LessonService {
 
-    private final LessonRepository lessonRepository;
-    private final LessonBlockRepository lessonBlockRepository;
+	private final LessonRepository lessonRepository;
+	private final LessonBlockRepository lessonBlockRepository;
 
-    @Transactional(readOnly = true)
-    public LessonDetailResponse getLessonContent(UUID lessonId) {
+	@Transactional(readOnly = true)
+	public LessonDetailResponse getLessonContent(UUID lessonId) {
 
-        Lesson lesson = lessonRepository.findById(lessonId)
-            .orElseThrow(() -> new NotFoundException("Lección no encontrada"));
+		Lesson lesson = lessonRepository.findById(lessonId)
+				.orElseThrow(() -> new NotFoundException("Lección no encontrada"));
 
-        List<LessonBlock> blocks = lessonBlockRepository.findByLessonIdOrderByOrderAsc(lessonId);
+		List<LessonBlock> blocks = lessonBlockRepository.findByLessonIdOrderByOrderAsc(lessonId);
 
-        List<LessonBlockResponse> blocksResponse = blocks.stream()
-            .map(block -> new LessonBlockResponse(
-                block.getId(),
-                block.getType().name(),
-                block.getOrder(),
-                block.getConfig(),
-                block.getXpReward(),
-                block.isExamEligible()
-            )).toList();
+		List<LessonBlockResponse> blocksResponse = blocks.stream()
+				.map(block -> new LessonBlockResponse(block.getId(), block.getType().name(), block.getOrder(),
+						block.getConfig(), block.getXpReward(), block.isExamEligible()))
+				.toList();
 
-        return new LessonDetailResponse(
-            lesson.getId(),
-            lesson.getName(),
-            lesson.getDescription(),
-            lesson.getOrder(),
-            blocksResponse
-        );
-    }
+		return new LessonDetailResponse(lesson.getId(), lesson.getName(), lesson.getDescription(), lesson.getOrder(),
+				blocksResponse);
+	}
 }

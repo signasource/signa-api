@@ -25,50 +25,32 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class CourseService {
 
-    private final CourseRepository courseRepository;
-    private final CourseVersionRepository courseVersionRepository;
-    private final TopicRepository topicRepository;
+	private final CourseRepository courseRepository;
+	private final CourseVersionRepository courseVersionRepository;
+	private final TopicRepository topicRepository;
 
-    @Transactional(readOnly = true)
-    public Page<CourseSummaryResponse> getCoursesCatalog(UUID signLanguageId, Pageable pageable) {
-        Page<Course> courses = courseRepository.findBySignLanguageId(signLanguageId, pageable);
+	@Transactional(readOnly = true)
+	public Page<CourseSummaryResponse> getCoursesCatalog(UUID signLanguageId, Pageable pageable) {
+		Page<Course> courses = courseRepository.findBySignLanguageId(signLanguageId, pageable);
 
-        return courses.map(course -> new CourseSummaryResponse(
-            course.getId(),
-            course.getName(),
-            course.getDescription(),
-            course.getCoverUrl(),
-            course.isFree(),
-            course.getSignLanguage().getCode()
-        ));
-    }
+		return courses.map(course -> new CourseSummaryResponse(course.getId(), course.getName(),
+				course.getDescription(), course.getCoverUrl(), course.isFree(), course.getSignLanguage().getCode()));
+	}
 
-    @Transactional(readOnly = true)
-    public CourseDetailResponse getCourseDetail(UUID courseId) {
-        Course course = courseRepository.findById(courseId)
-            .orElseThrow(() -> new NotFoundException("Curso no encontrado con ID: " + courseId));
+	@Transactional(readOnly = true)
+	public CourseDetailResponse getCourseDetail(UUID courseId) {
+		Course course = courseRepository.findById(courseId)
+				.orElseThrow(() -> new NotFoundException("Curso no encontrado con ID: " + courseId));
 
-        CourseVersion activeVersion = courseVersionRepository.findByCourseIdAndStatus(courseId, VersionStatus.PUBLISHED)
-            .orElseThrow(() -> new NotFoundException("El curso no tiene una versión activa publicada"));
+		CourseVersion activeVersion = courseVersionRepository.findByCourseIdAndStatus(courseId, VersionStatus.PUBLISHED)
+				.orElseThrow(() -> new NotFoundException("El curso no tiene una versión activa publicada"));
 
-        List<Topic> topics = topicRepository.findByCourseVersionIdOrderByOrderAsc(activeVersion.getId());
+		List<Topic> topics = topicRepository.findByCourseVersionIdOrderByOrderAsc(activeVersion.getId());
 
-        List<TopicSummaryResponse> topicsResponse = topics.stream()
-            .map(topic -> new TopicSummaryResponse(
-                topic.getId(),
-                topic.getCode(),
-                topic.getName(),
-                topic.getCoverUrl(),
-                topic.getOrder()
-            )).toList();
+		List<TopicSummaryResponse> topicsResponse = topics.stream().map(topic -> new TopicSummaryResponse(topic.getId(),
+				topic.getCode(), topic.getName(), topic.getCoverUrl(), topic.getOrder())).toList();
 
-        return new CourseDetailResponse(
-            course.getId(),
-            course.getName(),
-            course.getDescription(),
-            course.getCoverUrl(),
-            activeVersion.getVersion(),
-            topicsResponse
-        );
-    }
+		return new CourseDetailResponse(course.getId(), course.getName(), course.getDescription(), course.getCoverUrl(),
+				activeVersion.getVersion(), topicsResponse);
+	}
 }

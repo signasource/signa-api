@@ -15,29 +15,29 @@ import java.util.UUID;
 @Builder
 public class Course {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.UUID)
+	private UUID id;
 
-    @Column(nullable = false, length = 150)
-    private String name;
+	@Column(nullable = false, length = 150)
+	private String name;
 
-    @Column(columnDefinition = "TEXT")
-    private String description;
+	@Column(columnDefinition = "TEXT")
+	private String description;
 
-    @Column(name = "is_free", nullable = false)
-    private boolean isFree;
+	@Column(name = "is_free", nullable = false)
+	private boolean isFree;
 
-    @Column(name = "cover_url")
-    private String coverUrl;
+	@Column(name = "cover_url")
+	private String coverUrl;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sign_language_id", nullable = false)
-    private SignLanguage signLanguage;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "sign_language_id", nullable = false)
+	private SignLanguage signLanguage;
 
-    @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @Builder.Default
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    private List<CourseVersion> versions = new ArrayList<>();
+	@OneToMany(mappedBy = "course", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+	@Builder.Default
+	@ToString.Exclude
+	@EqualsAndHashCode.Exclude
+	private List<CourseVersion> versions = new ArrayList<>();
 }

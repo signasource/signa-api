@@ -14,22 +14,22 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 public class SignLanguage {
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.UUID)
+	private UUID id;
 
-    @Column(nullable = false, unique = true, length = 10)
-    private String code;
+	@Column(nullable = false, unique = true, length = 10)
+	private String code;
 
-    @Column(nullable = false, length = 100)
-    private String name;
+	@Column(nullable = false, length = 100)
+	private String name;
 
-    @Column(name = "country_code", nullable = false, length = 3)
-    private String countryCode;
+	@Column(name = "country_code", nullable = false, length = 3)
+	private String countryCode;
 
-    @OneToMany(mappedBy = "signLanguage", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @Builder.Default
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    private List<Course> courses = new ArrayList<>();
+	@OneToMany(mappedBy = "signLanguage", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+	@Builder.Default
+	@ToString.Exclude
+	@EqualsAndHashCode.Exclude
+	private List<Course> courses = new ArrayList<>();
 }

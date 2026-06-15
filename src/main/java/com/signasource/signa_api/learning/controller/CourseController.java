@@ -19,18 +19,17 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/courses")
 @RequiredArgsConstructor
 public class CourseController {
-    private final CourseService courseService;
+	private final CourseService courseService;
 
-    @GetMapping
-    public ResponseEntity<Page<CourseSummaryResponse>> getCoursesCatalog(
-        @RequestParam UUID signLanguageId,
-        @PageableDefault(size = 10, page = 0) Pageable pageable) {
+	@GetMapping
+	public ResponseEntity<Page<CourseSummaryResponse>> getCoursesCatalog(@RequestParam UUID signLanguageId,
+			@PageableDefault(size = 10, page = 0) Pageable pageable) {
 
-        return ResponseEntity.ok(courseService.getCoursesCatalog(signLanguageId, pageable));
-    }
+		return ResponseEntity.ok(courseService.getCoursesCatalog(signLanguageId, pageable));
+	}
 
-    @GetMapping("/{id}")
-    public ResponseEntity<CourseDetailResponse> getCourseDetail(@NonNull @PathVariable UUID id) {
-        return ResponseEntity.ok(courseService.getCourseDetail(id));
-    }
+	@GetMapping("/{id}")
+	public ResponseEntity<CourseDetailResponse> getCourseDetail(@NonNull @PathVariable UUID id) {
+		return ResponseEntity.ok(courseService.getCourseDetail(id));
+	}
 }

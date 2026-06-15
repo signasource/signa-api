@@ -9,6 +9,6 @@ import com.signasource.signa_api.learning.entity.LessonBlock;
 @Repository
 public interface LessonBlockRepository extends JpaRepository<LessonBlock, UUID> {
 
-    // Trae los bloques de contenido para que la app arme la interfaz de la lección
-    List<LessonBlock> findByLessonIdOrderByOrderAsc(UUID lessonId);
+	// Trae los bloques de contenido para que la app arme la interfaz de la lección
+	List<LessonBlock> findByLessonIdOrderByOrderAsc(UUID lessonId);
 }

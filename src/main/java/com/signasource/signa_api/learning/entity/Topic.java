@@ -15,32 +15,32 @@ import java.util.UUID;
 @Builder
 public class Topic {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.UUID)
+	private UUID id;
 
-    @Column(nullable = false, length = 50)
-    private String code;
+	@Column(nullable = false, length = 50)
+	private String code;
 
-    @Column(nullable = false, length = 150)
-    private String name;
+	@Column(nullable = false, length = 150)
+	private String name;
 
-    @Column(columnDefinition = "TEXT")
-    private String description;
+	@Column(columnDefinition = "TEXT")
+	private String description;
 
-    @Column(nullable = false)
-    private int order;
+	@Column(nullable = false)
+	private int order;
 
-    @Column(name = "cover_url")
-    private String coverUrl;
+	@Column(name = "cover_url")
+	private String coverUrl;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "course_version_id", nullable = false)
-    private CourseVersion courseVersion;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "course_version_id", nullable = false)
+	private CourseVersion courseVersion;
 
-    @OneToMany(mappedBy = "topic", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @Builder.Default
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    private List<Lesson> lessons = new ArrayList<>();
+	@OneToMany(mappedBy = "topic", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+	@Builder.Default
+	@ToString.Exclude
+	@EqualsAndHashCode.Exclude
+	private List<Lesson> lessons = new ArrayList<>();
 }

@@ -15,29 +15,29 @@ import java.util.UUID;
 @Builder
 public class Lesson {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.UUID)
+	private UUID id;
 
-    @Column(nullable = false, length = 50)
-    private String code;
+	@Column(nullable = false, length = 50)
+	private String code;
 
-    @Column(nullable = false, length = 150)
-    private String name;
+	@Column(nullable = false, length = 150)
+	private String name;
 
-    @Column(columnDefinition = "TEXT")
-    private String description;
+	@Column(columnDefinition = "TEXT")
+	private String description;
 
-    @Column(name = "order", nullable = false)
-    private int order;
+	@Column(name = "order", nullable = false)
+	private int order;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "topic_id", nullable = false)
-    private Topic topic;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "topic_id", nullable = false)
+	private Topic topic;
 
-    @OneToMany(mappedBy = "lesson", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @Builder.Default
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    private List<LessonBlock> lessonBlocks = new ArrayList<>();
+	@OneToMany(mappedBy = "lesson", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+	@Builder.Default
+	@ToString.Exclude
+	@EqualsAndHashCode.Exclude
+	private List<LessonBlock> lessonBlocks = new ArrayList<>();
 }

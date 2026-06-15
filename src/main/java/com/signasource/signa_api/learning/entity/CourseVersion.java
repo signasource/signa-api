@@ -16,27 +16,27 @@ import java.util.UUID;
 @Builder
 public class CourseVersion {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.UUID)
+	private UUID id;
 
-    @Column(nullable = false, length = 50)
-    private String version;
+	@Column(nullable = false, length = 50)
+	private String version;
 
-    @Column(name = "published_at")
-    private Instant publishedAt;
+	@Column(name = "published_at")
+	private Instant publishedAt;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private VersionStatus status;
+	@Enumerated(EnumType.STRING)
+	@Column(nullable = false, length = 20)
+	private VersionStatus status;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "course_id", nullable = false)
-    private Course course;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "course_id", nullable = false)
+	private Course course;
 
-    @OneToMany(mappedBy = "courseVersion", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @Builder.Default
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    private List<Topic> topics = new ArrayList<>();
+	@OneToMany(mappedBy = "courseVersion", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+	@Builder.Default
+	@ToString.Exclude
+	@EqualsAndHashCode.Exclude
+	private List<Topic> topics = new ArrayList<>();
 }

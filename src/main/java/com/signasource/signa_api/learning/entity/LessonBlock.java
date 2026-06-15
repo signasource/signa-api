@@ -16,27 +16,27 @@ import java.util.UUID;
 @Builder
 public class LessonBlock {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.UUID)
+	private UUID id;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
-    private BlockType type;
+	@Enumerated(EnumType.STRING)
+	@Column(nullable = false, length = 30)
+	private BlockType type;
 
-    @Column(name = "sort_order", nullable = false)
-    private int order;
+	@Column(name = "sort_order", nullable = false)
+	private int order;
 
-    @Column(columnDefinition = "TEXT")
-    private String config;
+	@Column(columnDefinition = "TEXT")
+	private String config;
 
-    @Column(name = "xp_reward", nullable = false)
-    private int xpReward;
+	@Column(name = "xp_reward", nullable = false)
+	private int xpReward;
 
-    @Column(name = "is_exam_eligible", nullable = false)
-    private boolean isExamEligible;
+	@Column(name = "is_exam_eligible", nullable = false)
+	private boolean isExamEligible;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "lesson_id", nullable = false)
-    private Lesson lesson;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "lesson_id", nullable = false)
+	private Lesson lesson;
 }

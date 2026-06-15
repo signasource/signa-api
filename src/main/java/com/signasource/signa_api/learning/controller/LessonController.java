@@ -16,10 +16,10 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class LessonController {
 
-    private final LessonService lessonService;
+	private final LessonService lessonService;
 
-    @GetMapping("/{id}")
-    public ResponseEntity<LessonDetailResponse> getLessonContent(@NonNull @PathVariable UUID id) {
-        return ResponseEntity.ok(lessonService.getLessonContent(id));
-    }
+	@GetMapping("/{id}")
+	public ResponseEntity<LessonDetailResponse> getLessonContent(@NonNull @PathVariable UUID id) {
+		return ResponseEntity.ok(lessonService.getLessonContent(id));
+	}
 }
