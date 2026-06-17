@@ -5,7 +5,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.signasource.signa_api.exceptions.NotFoundException; // Usamos tu excepción existente
+import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.learning.dto.CourseDetailResponse;
 import com.signasource.signa_api.learning.dto.CourseSummaryResponse;
 import com.signasource.signa_api.learning.dto.TopicSummaryResponse;

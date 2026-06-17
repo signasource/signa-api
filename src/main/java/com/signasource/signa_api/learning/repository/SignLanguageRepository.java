@@ -9,6 +9,6 @@ import java.util.UUID;
 
 @Repository
 public interface SignLanguageRepository extends JpaRepository<SignLanguage, UUID> {
-	// Útil para buscar por código, ej: "LSA"
+
 	Optional<SignLanguage> findByCode(String code);
 }

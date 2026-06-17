@@ -9,6 +9,5 @@ import com.signasource.signa_api.learning.entity.Lesson;
 @Repository
 public interface LessonRepository extends JpaRepository<Lesson, UUID> {
 
-	// Trae las lecciones de un tópico en orden.
 	List<Lesson> findByTopicIdOrderByOrderAsc(UUID topicId);
 }

@@ -9,7 +9,5 @@ import com.signasource.signa_api.learning.entity.Topic;
 @Repository
 public interface TopicRepository extends JpaRepository<Topic, UUID> {
 
-	// Trae todos los módulos de una versión de curso, ORDENADOS por la columna
-	// "order"
 	List<Topic> findByCourseVersionIdOrderByOrderAsc(UUID courseVersionId);
 }
