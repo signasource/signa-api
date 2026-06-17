@@ -88,7 +88,7 @@ class LessonServiceTest {
 		NotFoundException exception = assertThrows(NotFoundException.class,
 				() -> lessonService.getLessonContent(lessonId));
 
-		assertTrue(exception.getMessage().contains("Lección no encontrada"));
+		assertTrue(exception.getMessage().contains("Lesson not found"));
 		verify(lessonRepository).findById(lessonId);
 		verifyNoInteractions(lessonBlockRepository);
 	}

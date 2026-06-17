@@ -3,7 +3,9 @@ package com.signasource.signa_api.learning.service;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.time.Instant;
 import java.util.List;
@@ -31,17 +33,15 @@ import com.signasource.signa_api.learning.entity.Topic;
 import com.signasource.signa_api.learning.entity.VersionStatus;
 import com.signasource.signa_api.learning.repository.CourseRepository;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
-import com.signasource.signa_api.learning.repository.TopicRepository;
 
 @ExtendWith(MockitoExtension.class)
 class CourseServiceTest {
 
 	@Mock
 	private CourseRepository courseRepository;
+
 	@Mock
 	private CourseVersionRepository courseVersionRepository;
-	@Mock
-	private TopicRepository topicRepository;
 
 	@InjectMocks
 	private CourseService courseService;
@@ -93,10 +93,11 @@ class CourseServiceTest {
 
 	@Test
 	void shouldReturnCourseDetailWhenActiveVersionExists() {
-		when(courseRepository.findById(courseId)).thenReturn(Optional.of(course));
+		activeVersion.setCourse(course);
+		activeVersion.setTopics(List.of(topic));
+
 		when(courseVersionRepository.findByCourseIdAndStatus(courseId, VersionStatus.PUBLISHED))
 				.thenReturn(Optional.of(activeVersion));
-		when(topicRepository.findByCourseVersionIdOrderByOrderAsc(activeVersion.getId())).thenReturn(List.of(topic));
 
 		CourseDetailResponse response = courseService.getCourseDetail(courseId);
 
@@ -106,35 +107,20 @@ class CourseServiceTest {
 		assertEquals(1, response.topics().size());
 		assertEquals(topic.getName(), response.topics().get(0).name());
 
-		verify(courseRepository).findById(courseId);
 		verify(courseVersionRepository).findByCourseIdAndStatus(courseId, VersionStatus.PUBLISHED);
-		verify(topicRepository).findByCourseVersionIdOrderByOrderAsc(activeVersion.getId());
-	}
-
-	@Test
-	void shouldThrowNotFoundWhenCourseDoesNotExist() {
-		when(courseRepository.findById(courseId)).thenReturn(Optional.empty());
-
-		NotFoundException exception = assertThrows(NotFoundException.class,
-				() -> courseService.getCourseDetail(courseId));
-
-		assertTrue(exception.getMessage().contains("Curso no encontrado"));
-		verify(courseRepository).findById(courseId);
-		verifyNoInteractions(courseVersionRepository, topicRepository);
+		verifyNoInteractions(courseRepository);
 	}
 
 	@Test
 	void shouldThrowNotFoundWhenCourseHasNoPublishedVersion() {
-		when(courseRepository.findById(courseId)).thenReturn(Optional.of(course));
 		when(courseVersionRepository.findByCourseIdAndStatus(courseId, VersionStatus.PUBLISHED))
 				.thenReturn(Optional.empty());
 
 		NotFoundException exception = assertThrows(NotFoundException.class,
 				() -> courseService.getCourseDetail(courseId));
 
-		assertTrue(exception.getMessage().contains("versión activa"));
-		verify(courseRepository).findById(courseId);
+		assertTrue(exception.getMessage().contains("Active published version not found"));
 		verify(courseVersionRepository).findByCourseIdAndStatus(courseId, VersionStatus.PUBLISHED);
-		verifyNoInteractions(topicRepository);
+		verifyNoInteractions(courseRepository);
 	}
 }

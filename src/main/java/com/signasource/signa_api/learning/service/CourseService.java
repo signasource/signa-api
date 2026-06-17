@@ -15,7 +15,6 @@ import com.signasource.signa_api.learning.entity.Topic;
 import com.signasource.signa_api.learning.entity.VersionStatus;
 import com.signasource.signa_api.learning.repository.CourseRepository;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
-import com.signasource.signa_api.learning.repository.TopicRepository;
 
 import lombok.RequiredArgsConstructor;
 import java.util.List;
@@ -27,7 +26,6 @@ public class CourseService {
 
 	private final CourseRepository courseRepository;
 	private final CourseVersionRepository courseVersionRepository;
-	private final TopicRepository topicRepository;
 
 	@Transactional(readOnly = true)
 	public Page<CourseSummaryResponse> getCoursesCatalog(UUID signLanguageId, Pageable pageable) {
@@ -37,13 +35,13 @@ public class CourseService {
 
 	@Transactional(readOnly = true)
 	public CourseDetailResponse getCourseDetail(UUID courseId) {
-		Course course = courseRepository.findById(courseId)
-				.orElseThrow(() -> new NotFoundException("Curso no encontrado con ID: " + courseId));
 
 		CourseVersion activeVersion = courseVersionRepository.findByCourseIdAndStatus(courseId, VersionStatus.PUBLISHED)
-				.orElseThrow(() -> new NotFoundException("El curso no tiene una versión activa publicada"));
+				.orElseThrow(
+						() -> new NotFoundException("Active published version not found for course ID: " + courseId));
 
-		List<Topic> topics = topicRepository.findByCourseVersionIdOrderByOrderAsc(activeVersion.getId());
+		Course course = activeVersion.getCourse();
+		List<Topic> topics = activeVersion.getTopics();
 
 		List<TopicSummaryResponse> topicsResponse = topics.stream().map(TopicSummaryResponse::from).toList();
 

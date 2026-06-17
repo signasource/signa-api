@@ -13,6 +13,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.EnumType;
+import jakarta.persistence.OrderBy;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -51,6 +52,7 @@ public class CourseVersion {
 	private Course course;
 
 	@OneToMany(mappedBy = "courseVersion", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+	@OrderBy("order ASC")
 	@Builder.Default
 	@ToString.Exclude
 	@EqualsAndHashCode.Exclude
