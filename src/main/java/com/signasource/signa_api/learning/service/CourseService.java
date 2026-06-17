@@ -33,8 +33,7 @@ public class CourseService {
 	public Page<CourseSummaryResponse> getCoursesCatalog(UUID signLanguageId, Pageable pageable) {
 		Page<Course> courses = courseRepository.findBySignLanguageId(signLanguageId, pageable);
 
-		return courses.map(course -> new CourseSummaryResponse(course.getId(), course.getName(),
-				course.getDescription(), course.getCoverUrl(), course.isFree(), course.getSignLanguage().getCode()));
+		return courses.map(CourseSummaryResponse::from);
 	}
 
 	@Transactional(readOnly = true)
