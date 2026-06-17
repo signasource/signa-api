@@ -22,18 +22,16 @@ public class LessonService {
 	private final LessonRepository lessonRepository;
 	private final LessonBlockRepository lessonBlockRepository;
 
-    @Transactional(readOnly = true)
-    public LessonDetailResponse getLessonContent(UUID lessonId) {
+	@Transactional(readOnly = true)
+	public LessonDetailResponse getLessonContent(UUID lessonId) {
 
-        Lesson lesson = lessonRepository.findById(lessonId)
-            .orElseThrow(() -> new NotFoundException("Lección no encontrada"));
+		Lesson lesson = lessonRepository.findById(lessonId)
+				.orElseThrow(() -> new NotFoundException("Lección no encontrada"));
 
-        List<LessonBlock> blocks = lessonBlockRepository.findByLessonIdOrderByOrderAsc(lessonId);
+		List<LessonBlock> blocks = lessonBlockRepository.findByLessonIdOrderByOrderAsc(lessonId);
 
-        List<LessonBlockResponse> blocksResponse = blocks.stream()
-            .map(LessonBlockResponse::from)
-            .toList();
+		List<LessonBlockResponse> blocksResponse = blocks.stream().map(LessonBlockResponse::from).toList();
 
-        return LessonDetailResponse.from(lesson, blocksResponse);
-    }
+		return LessonDetailResponse.from(lesson, blocksResponse);
+	}
 }
