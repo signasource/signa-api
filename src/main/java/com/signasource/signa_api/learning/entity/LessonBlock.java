@@ -24,16 +24,16 @@ public class LessonBlock {
 	@Column(nullable = false, length = 30)
 	private BlockType type;
 
-	@Column(name = "sort_order", nullable = false)
+	@Column(nullable = false)
 	private int order;
 
 	@Column(columnDefinition = "TEXT")
 	private String config;
 
-	@Column(name = "xp_reward", nullable = false)
+	@Column(nullable = false)
 	private int xpReward;
 
-	@Column(name = "is_exam_eligible", nullable = false)
+	@Column(nullable = false)
 	private boolean isExamEligible;
 
 	@ManyToOne(fetch = FetchType.LAZY)

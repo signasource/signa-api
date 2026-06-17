@@ -28,7 +28,7 @@ public class Lesson {
 	@Column(columnDefinition = "TEXT")
 	private String description;
 
-	@Column(name = "order", nullable = false)
+	@Column(nullable = false)
 	private int order;
 
 	@ManyToOne(fetch = FetchType.LAZY)

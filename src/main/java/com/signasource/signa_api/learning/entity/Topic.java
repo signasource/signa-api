@@ -31,7 +31,7 @@ public class Topic {
 	@Column(nullable = false)
 	private int order;
 
-	@Column(name = "cover_url")
+	@Column
 	private String coverUrl;
 
 	@ManyToOne(fetch = FetchType.LAZY)

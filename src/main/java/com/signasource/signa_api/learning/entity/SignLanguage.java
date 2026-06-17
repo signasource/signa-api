@@ -24,7 +24,7 @@ public class SignLanguage {
 	@Column(nullable = false, length = 100)
 	private String name;
 
-	@Column(name = "country_code", nullable = false, length = 3)
+	@Column(nullable = false, length = 3)
 	private String countryCode;
 
 	@OneToMany(mappedBy = "signLanguage", cascade = CascadeType.ALL, fetch = FetchType.LAZY)

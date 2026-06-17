@@ -25,10 +25,10 @@ public class Course {
 	@Column(columnDefinition = "TEXT")
 	private String description;
 
-	@Column(name = "is_free", nullable = false)
+	@Column(nullable = false)
 	private boolean isFree;
 
-	@Column(name = "cover_url")
+	@Column
 	private String coverUrl;
 
 	@ManyToOne(fetch = FetchType.LAZY)

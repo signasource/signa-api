@@ -23,7 +23,7 @@ public class CourseVersion {
 	@Column(nullable = false, length = 50)
 	private String version;
 
-	@Column(name = "published_at")
+	@Column
 	private Instant publishedAt;
 
 	@Enumerated(EnumType.STRING)
