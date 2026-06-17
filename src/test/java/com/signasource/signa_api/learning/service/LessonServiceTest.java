@@ -20,7 +20,6 @@ import com.signasource.signa_api.learning.dto.LessonBlockResponse;
 import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.entity.Lesson;
 import com.signasource.signa_api.learning.entity.LessonBlock;
-import com.signasource.signa_api.learning.repository.LessonBlockRepository;
 import com.signasource.signa_api.learning.repository.LessonRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -28,7 +27,6 @@ class LessonServiceTest {
 
 	@Mock
 	private LessonRepository lessonRepository;
-
 
 	@InjectMocks
 	private LessonService lessonService;
@@ -53,30 +51,30 @@ class LessonServiceTest {
 				.config("{\"expected_sign\": \"A\"}").xpReward(50).isExamEligible(true).lesson(lesson).build();
 	}
 
-    @Test
-    void shouldReturnLessonDetailWithOrderedBlocks() {
-        lesson.setLessonBlocks(List.of(theoryBlock, exerciseBlock));
+	@Test
+	void shouldReturnLessonDetailWithOrderedBlocks() {
+		lesson.setLessonBlocks(List.of(theoryBlock, exerciseBlock));
 
-        when(lessonRepository.findById(lessonId)).thenReturn(Optional.of(lesson));
+		when(lessonRepository.findById(lessonId)).thenReturn(Optional.of(lesson));
 
-        LessonDetailResponse response = lessonService.getLessonContent(lessonId);
+		LessonDetailResponse response = lessonService.getLessonContent(lessonId);
 
-        assertNotNull(response);
-        assertEquals(lessonId, response.id());
-        assertEquals("Introducción al Alfabeto", response.name());
-        assertEquals(2, response.blocks().size());
+		assertNotNull(response);
+		assertEquals(lessonId, response.id());
+		assertEquals("Introducción al Alfabeto", response.name());
+		assertEquals(2, response.blocks().size());
 
-        LessonBlockResponse firstBlock = response.blocks().get(0);
-        assertEquals("THEORY", firstBlock.type());
-        assertEquals(1, firstBlock.order());
-        assertEquals(10, firstBlock.xpReward());
+		LessonBlockResponse firstBlock = response.blocks().get(0);
+		assertEquals("THEORY", firstBlock.type());
+		assertEquals(1, firstBlock.order());
+		assertEquals(10, firstBlock.xpReward());
 
-        LessonBlockResponse secondBlock = response.blocks().get(1);
-        assertEquals("EXERCISE_ATTEMPT", secondBlock.type());
-        assertTrue(secondBlock.isExamEligible());
+		LessonBlockResponse secondBlock = response.blocks().get(1);
+		assertEquals("EXERCISE_ATTEMPT", secondBlock.type());
+		assertTrue(secondBlock.isExamEligible());
 
-        verify(lessonRepository).findById(lessonId);
-    }
+		verify(lessonRepository).findById(lessonId);
+	}
 
 	@Test
 	void shouldThrowNotFoundWhenLessonDoesNotExist() {

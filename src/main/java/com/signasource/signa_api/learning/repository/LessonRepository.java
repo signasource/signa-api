@@ -11,8 +11,8 @@ import com.signasource.signa_api.learning.entity.Lesson;
 @Repository
 public interface LessonRepository extends JpaRepository<Lesson, UUID> {
 
-    @EntityGraph(attributePaths = {"lessonBlocks"})
-    Optional<Lesson> findById(UUID id);
+	@EntityGraph(attributePaths = {"lessonBlocks"})
+	Optional<Lesson> findById(UUID id);
 
-    List<Lesson> findByTopicIdOrderByOrderAsc(UUID topicId);
+	List<Lesson> findByTopicIdOrderByOrderAsc(UUID topicId);
 }

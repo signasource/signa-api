@@ -51,7 +51,7 @@ public class Lesson {
 	private Topic topic;
 
 	@OneToMany(mappedBy = "lesson", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @OrderBy("order ASC")
+	@OrderBy("order ASC")
 	@Builder.Default
 	@ToString.Exclude
 	@EqualsAndHashCode.Exclude
