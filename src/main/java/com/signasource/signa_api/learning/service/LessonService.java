@@ -4,11 +4,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.signasource.signa_api.exceptions.NotFoundException;
-import com.signasource.signa_api.learning.dto.LessonBlockResponse;
 import com.signasource.signa_api.learning.dto.LessonDetailResponse;
+import com.signasource.signa_api.learning.dto.LessonBlockResponse;
 import com.signasource.signa_api.learning.entity.Lesson;
 import com.signasource.signa_api.learning.entity.LessonBlock;
-import com.signasource.signa_api.learning.repository.LessonBlockRepository;
 import com.signasource.signa_api.learning.repository.LessonRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -19,19 +18,20 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class LessonService {
 
-	private final LessonRepository lessonRepository;
-	private final LessonBlockRepository lessonBlockRepository;
+    private final LessonRepository lessonRepository;
 
-	@Transactional(readOnly = true)
-	public LessonDetailResponse getLessonContent(UUID lessonId) {
+    @Transactional(readOnly = true)
+    public LessonDetailResponse getLessonContent(UUID lessonId) {
 
-		Lesson lesson = lessonRepository.findById(lessonId)
-				.orElseThrow(() -> new NotFoundException("Lección no encontrada"));
+        Lesson lesson = lessonRepository.findById(lessonId)
+            .orElseThrow(() -> new NotFoundException("Lesson not found")); // En inglés
 
-		List<LessonBlock> blocks = lessonBlockRepository.findByLessonIdOrderByOrderAsc(lessonId);
+        List<LessonBlock> blocks = lesson.getLessonBlocks();
 
-		List<LessonBlockResponse> blocksResponse = blocks.stream().map(LessonBlockResponse::from).toList();
+        List<LessonBlockResponse> blocksResponse = blocks.stream()
+            .map(LessonBlockResponse::from)
+            .toList();
 
-		return LessonDetailResponse.from(lesson, blocksResponse);
-	}
+        return LessonDetailResponse.from(lesson, blocksResponse);
+    }
 }

@@ -29,8 +29,6 @@ class LessonServiceTest {
 	@Mock
 	private LessonRepository lessonRepository;
 
-	@Mock
-	private LessonBlockRepository lessonBlockRepository;
 
 	@InjectMocks
 	private LessonService lessonService;
@@ -55,31 +53,30 @@ class LessonServiceTest {
 				.config("{\"expected_sign\": \"A\"}").xpReward(50).isExamEligible(true).lesson(lesson).build();
 	}
 
-	@Test
-	void shouldReturnLessonDetailWithOrderedBlocks() {
-		when(lessonRepository.findById(lessonId)).thenReturn(Optional.of(lesson));
-		when(lessonBlockRepository.findByLessonIdOrderByOrderAsc(lessonId))
-				.thenReturn(List.of(theoryBlock, exerciseBlock));
+    @Test
+    void shouldReturnLessonDetailWithOrderedBlocks() {
+        lesson.setLessonBlocks(List.of(theoryBlock, exerciseBlock));
 
-		LessonDetailResponse response = lessonService.getLessonContent(lessonId);
+        when(lessonRepository.findById(lessonId)).thenReturn(Optional.of(lesson));
 
-		assertNotNull(response);
-		assertEquals(lessonId, response.id());
-		assertEquals("Introducción al Alfabeto", response.name());
-		assertEquals(2, response.blocks().size());
+        LessonDetailResponse response = lessonService.getLessonContent(lessonId);
 
-		LessonBlockResponse firstBlock = response.blocks().get(0);
-		assertEquals("THEORY", firstBlock.type());
-		assertEquals(1, firstBlock.order());
-		assertEquals(10, firstBlock.xpReward());
+        assertNotNull(response);
+        assertEquals(lessonId, response.id());
+        assertEquals("Introducción al Alfabeto", response.name());
+        assertEquals(2, response.blocks().size());
 
-		LessonBlockResponse secondBlock = response.blocks().get(1);
-		assertEquals("EXERCISE_ATTEMPT", secondBlock.type());
-		assertTrue(secondBlock.isExamEligible());
+        LessonBlockResponse firstBlock = response.blocks().get(0);
+        assertEquals("THEORY", firstBlock.type());
+        assertEquals(1, firstBlock.order());
+        assertEquals(10, firstBlock.xpReward());
 
-		verify(lessonRepository).findById(lessonId);
-		verify(lessonBlockRepository).findByLessonIdOrderByOrderAsc(lessonId);
-	}
+        LessonBlockResponse secondBlock = response.blocks().get(1);
+        assertEquals("EXERCISE_ATTEMPT", secondBlock.type());
+        assertTrue(secondBlock.isExamEligible());
+
+        verify(lessonRepository).findById(lessonId);
+    }
 
 	@Test
 	void shouldThrowNotFoundWhenLessonDoesNotExist() {
@@ -90,6 +87,5 @@ class LessonServiceTest {
 
 		assertTrue(exception.getMessage().contains("Lesson not found"));
 		verify(lessonRepository).findById(lessonId);
-		verifyNoInteractions(lessonBlockRepository);
 	}
 }
