@@ -24,7 +24,7 @@ public class LessonService {
 	public LessonDetailResponse getLessonContent(UUID lessonId) {
 
 		Lesson lesson = lessonRepository.findById(lessonId)
-				.orElseThrow(() -> new NotFoundException("Lesson not found")); // En inglés
+				.orElseThrow(() -> new NotFoundException("Lesson not found"));
 
 		List<LessonBlock> blocks = lesson.getLessonBlocks();
 
