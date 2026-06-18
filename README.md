@@ -24,6 +24,14 @@ Abrir reporte HTML:
 start build/reports/jacoco/test/html/index.html
 ```
 
+## API Documentation
+
+Swagger UI:
+http://localhost:8080/swagger-ui/index.html
+
+OpenAPI spec:
+http://localhost:8080/v3/api-docs
+
 ## Estrategia de Ramas
 
 El proyecto sige un flujo de trabajo basado en **GitFlow**:
@@ -42,3 +50,10 @@ El proyecto sige un flujo de trabajo basado en **GitFlow**:
 
 **Paso a producción**:
   - Solo se permiten merges hacia `master` provenientes de ramas `release/*` o `hotfix/*`.
+
+## Mandar mail de verificación
+
+```
+MAIL_PASSWORD= // Contraseña que se genera en http://myaccount.google.com/apppasswords
+MAIL_USERNAME= // Mail
+```

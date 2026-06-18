@@ -11,5 +11,32 @@ spring:
     hibernate:
       ddl-auto: validate
 
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.starttls.required: true
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+
 server:
   port: 8080
+
+app:
+  security:
+    enabled: true
+  base-url: 
+
+auth:
+  jwt:
+    secret: ${JWT_SECRET}
+  token-expirations:
+    password-reset: 3600000      # 1 hour
+    access: 900000               # 15 minutes
+    refresh: 604800000           # 7 days
+    email-verification: 86400000 # 24 hours
