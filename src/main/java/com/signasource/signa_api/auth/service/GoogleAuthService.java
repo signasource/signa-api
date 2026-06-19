@@ -2,7 +2,6 @@ package com.signasource.signa_api.auth.service;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Collections;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -12,8 +11,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
-import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.api.client.json.gson.GsonFactory;
 import com.signasource.signa_api.auth.dto.AuthResponse;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.entity.Token;
@@ -34,9 +31,7 @@ public class GoogleAuthService {
 	private final UserRepository userRepository;
 	private final JwtService jwtService;
 	private final TokenRepository tokenRepository;
-
-	@Value("${app.google.client-id}")
-	private String googleClientId;
+	private final GoogleIdTokenVerifier verifier;
 
 	@Value("${auth.token-expirations.refresh}")
 	private Long refreshTokenExpiration;
@@ -44,12 +39,10 @@ public class GoogleAuthService {
 	@Transactional
 	public AuthResponse authenticateWithGoogle(String idTokenString) {
 		try {
-			GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(),
-					new GsonFactory()).setAudience(Collections.singletonList(googleClientId)).build();
-
 			GoogleIdToken idToken = verifier.verify(idTokenString);
+
 			if (idToken == null) {
-				throw new InvalidCredentialsException("Invalid or expired Google token");
+				throw new InvalidCredentialsException("Token de Google inválido");
 			}
 
 			GoogleIdToken.Payload payload = idToken.getPayload();
