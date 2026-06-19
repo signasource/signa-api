@@ -35,7 +35,7 @@ public class GoogleAuthService {
 	private final JwtService jwtService;
 	private final TokenRepository tokenRepository;
 
-	@Value("${spring.security.oauth2.client.registration.google.client-id}")
+	@Value("${app.google.client-id}")
 	private String googleClientId;
 
 	@Value("${auth.token-expirations.refresh}")

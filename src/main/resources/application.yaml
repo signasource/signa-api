@@ -28,9 +28,11 @@ server:
   port: 8080
 
 app:
-  security:
-    enabled: true
-  base-url: 
+    security:
+        enabled: true
+    base-url:
+    google:
+        client-id: ${GOOGLE_CLIENT_ID}
 
 auth:
   jwt:
