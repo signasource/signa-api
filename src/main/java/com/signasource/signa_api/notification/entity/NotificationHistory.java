@@ -3,6 +3,7 @@ package com.signasource.signa_api.notification.entity;
 import java.time.Instant;
 import java.util.Map;
 
+import com.signasource.signa_api.common.converter.StringMapConverter;
 import com.signasource.signa_api.users.entity.User;
 
 import jakarta.persistence.Column;

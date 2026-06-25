@@ -1,8 +1,6 @@
 package com.signasource.signa_api.notification.config;
 
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
@@ -44,12 +42,9 @@ public class NotificationCatalogSeeder implements CommandLineRunner {
 				template(NotificationCode.GLOBAL_ANNOUNCEMENT, NotificationScope.GLOBAL, false, "Novedades",
 						"Tenemos novedades para vos."));
 
-		Map<NotificationCode, List<NotificationTemplate>> byCode = defaults.stream()
-				.collect(Collectors.groupingBy(NotificationTemplate::getCode));
-
-		for (Map.Entry<NotificationCode, List<NotificationTemplate>> entry : byCode.entrySet()) {
-			if (!templateRepository.existsByCode(entry.getKey())) {
-				templateRepository.saveAll(entry.getValue());
+		for (NotificationTemplate t : defaults) {
+			if (!templateRepository.existsByCodeAndDefaultTitle(t.getCode(), t.getDefaultTitle())) {
+				templateRepository.save(t);
 			}
 		}
 	}

@@ -36,6 +36,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class NotificationService {
 
+	private static final String PUSH_KEY_CODE = "code";
+	private static final String PUSH_KEY_NOTIFICATION_ID = "notificationId";
+
 	private final NotificationTemplateRepository templateRepository;
 	private final NotificationHistoryRepository historyRepository;
 	private final UserRepository userRepository;
@@ -44,8 +47,6 @@ public class NotificationService {
 
 	@Value("${firebase.global-topic:global}")
 	private String globalTopic;
-
-	// ---------------------------------------------------------------- dispatch
 
 	@Transactional
 	public void notifyUser(UUID userId, NotificationCode code, Map<String, String> data) {
@@ -71,11 +72,9 @@ public class NotificationService {
 		}
 		String title = StringUtils.hasText(titleOverride) ? titleOverride : template.getDefaultTitle();
 		String body = StringUtils.hasText(bodyOverride) ? bodyOverride : template.getDefaultBody();
-		PushMessage message = new PushMessage(title, body, Map.of("code", code.name()));
+		PushMessage message = new PushMessage(title, body, Map.of(PUSH_KEY_CODE, code.name()));
 		firebaseService.sendToTopic(globalTopic, message);
 	}
-
-	// ------------------------------------------------------------------- inbox
 
 	@Transactional(readOnly = true)
 	public Page<NotificationResponse> getInbox(User user, Pageable pageable) {
@@ -109,11 +108,9 @@ public class NotificationService {
 		historyRepository.markAllAsRead(user, Instant.now());
 	}
 
-	// ----------------------------------------------------------------- helpers
-
 	private void persistAndQueuePush(User user, NotificationTemplate template, Map<String, String> data) {
-		String title = render(template.getDefaultTitle(), data);
-		String body = render(template.getDefaultBody(), data);
+		String title = NotificationTextRenderer.render(template.getDefaultTitle(), data);
+		String body = NotificationTextRenderer.render(template.getDefaultBody(), data);
 
 		NotificationHistory history = historyRepository.save(NotificationHistory.builder().user(user).template(template)
 				.title(title).body(body).sentAt(Instant.now()).read(false).metadata(data).build());
@@ -128,20 +125,9 @@ public class NotificationService {
 		if (data != null) {
 			push.putAll(data);
 		}
-		push.put("code", template.getCode().name());
-		push.put("notificationId", String.valueOf(history.getId()));
+		push.put(PUSH_KEY_CODE, template.getCode().name());
+		push.put(PUSH_KEY_NOTIFICATION_ID, String.valueOf(history.getId()));
 		return push;
-	}
-
-	private String render(String text, Map<String, String> data) {
-		if (data == null || data.isEmpty()) {
-			return text;
-		}
-		String rendered = text;
-		for (Map.Entry<String, String> entry : data.entrySet()) {
-			rendered = rendered.replace("{{" + entry.getKey() + "}}", entry.getValue());
-		}
-		return rendered;
 	}
 
 	private NotificationTemplate getEnabledIndividualTemplate(NotificationCode code) {

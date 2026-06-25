@@ -14,4 +14,6 @@ public interface NotificationTemplateRepository extends JpaRepository<Notificati
 	List<NotificationTemplate> findByCodeAndEnabledTrue(NotificationCode code);
 
 	boolean existsByCode(NotificationCode code);
+
+	boolean existsByCodeAndDefaultTitle(NotificationCode code, String defaultTitle);
 }

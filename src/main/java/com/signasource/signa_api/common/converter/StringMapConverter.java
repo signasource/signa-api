@@ -1,4 +1,4 @@
-package com.signasource.signa_api.notification.entity;
+package com.signasource.signa_api.common.converter;
 
 import java.io.IOException;
 import java.util.Map;
@@ -9,11 +9,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
 
-/**
- * Stores an optional {@code Map<String, String>} of metadata as a JSON string.
- * Using a converter (instead of a native {@code jsonb} column) keeps the
- * mapping portable across PostgreSQL (prod) and H2 (tests).
- */
 @Converter
 public class StringMapConverter implements AttributeConverter<Map<String, String>, String> {
 

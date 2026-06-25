@@ -13,11 +13,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * Catalog entry / template that defines a type of notification. Holds the
- * default copy and the routing/scheduling flags. Rows are seeded from
- * {@link NotificationCode} on startup (see NotificationCatalogSeeder).
- */
 @Entity
 @Table(name = "notification_templates")
 @Data
