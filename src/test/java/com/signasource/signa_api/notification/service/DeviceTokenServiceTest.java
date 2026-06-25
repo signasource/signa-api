@@ -33,6 +33,11 @@ class DeviceTokenServiceTest {
 
 	private static final String TOPIC = "global";
 	private static final String TOKEN = "device-token";
+	private static final String USER_EMAIL = "user@signasource.com";
+	private static final String OTHER_USER_EMAIL = "other@signasource.com";
+	private static final long ROWS_DELETED = 1L;
+	private static final long NO_ROWS_DELETED = 0L;
+	private static final List<String> INVALID_TOKENS = List.of("invalid-token-1", "invalid-token-2");
 
 	@Mock
 	private DeviceTokenRepository deviceTokenRepository;
@@ -42,7 +47,7 @@ class DeviceTokenServiceTest {
 	@InjectMocks
 	private DeviceTokenService deviceTokenService;
 
-	private final User user = User.builder().id(UUID.randomUUID()).email("a@b.com").build();
+	private final User user = User.builder().id(UUID.randomUUID()).email(USER_EMAIL).build();
 
 	@BeforeEach
 	void setUp() {
@@ -68,7 +73,7 @@ class DeviceTokenServiceTest {
 
 	@Test
 	void registerTokenReassignsExistingTokenToNewUser() {
-		User previousOwner = User.builder().id(UUID.randomUUID()).email("old@b.com").build();
+		User previousOwner = User.builder().id(UUID.randomUUID()).email(OTHER_USER_EMAIL).build();
 		DeviceToken existing = DeviceToken.builder().token(TOKEN).user(previousOwner).platform(DevicePlatform.ANDROID)
 				.build();
 		when(deviceTokenRepository.findByToken(TOKEN)).thenReturn(Optional.of(existing));
@@ -116,7 +121,7 @@ class DeviceTokenServiceTest {
 
 	@Test
 	void removeTokenDeletesAndUnsubscribes() {
-		when(deviceTokenRepository.deleteByTokenAndUser(TOKEN, user)).thenReturn(1L);
+		when(deviceTokenRepository.deleteByTokenAndUser(TOKEN, user)).thenReturn(ROWS_DELETED);
 
 		deviceTokenService.removeToken(user, TOKEN);
 
@@ -126,7 +131,7 @@ class DeviceTokenServiceTest {
 
 	@Test
 	void removeTokenDoesNotUnsubscribeWhenNothingDeleted() {
-		when(deviceTokenRepository.deleteByTokenAndUser(TOKEN, user)).thenReturn(0L);
+		when(deviceTokenRepository.deleteByTokenAndUser(TOKEN, user)).thenReturn(NO_ROWS_DELETED);
 
 		deviceTokenService.removeToken(user, TOKEN);
 
@@ -185,11 +190,9 @@ class DeviceTokenServiceTest {
 
 	@Test
 	void purgeInvalidTokensDeletesTokens() {
-		List<String> invalid = List.of("a", "b");
+		deviceTokenService.purgeInvalidTokens(INVALID_TOKENS);
 
-		deviceTokenService.purgeInvalidTokens(invalid);
-
-		verify(deviceTokenRepository).deleteByTokenIn(invalid);
+		verify(deviceTokenRepository).deleteByTokenIn(INVALID_TOKENS);
 	}
 
 	private void triggerAfterCommit() {

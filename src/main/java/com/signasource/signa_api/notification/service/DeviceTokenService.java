@@ -17,10 +17,8 @@ import com.signasource.signa_api.notification.repository.DeviceTokenRepository;
 import com.signasource.signa_api.users.entity.User;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 @Service
-@Slf4j
 @RequiredArgsConstructor
 public class DeviceTokenService {
 
@@ -38,15 +36,7 @@ public class DeviceTokenService {
 		if (deviceToken == null) {
 			deviceToken = DeviceToken.builder().token(token).user(user).platform(platform).createdAt(now)
 					.lastUsedAt(now).build();
-			log.info("Registered new device token for user {} on platform {}", user.getId(), platform);
 		} else {
-			UUID previousOwnerId = deviceToken.getUser().getId();
-			if (previousOwnerId.equals(user.getId())) {
-				log.info("Refreshed device token for user {} on platform {}", user.getId(), platform);
-			} else {
-				log.info("Reassigned device token from user {} to user {} on platform {}", previousOwnerId,
-						user.getId(), platform);
-			}
 			deviceToken.setUser(user);
 			deviceToken.setPlatform(platform);
 			deviceToken.setLastUsedAt(now);
@@ -60,14 +50,9 @@ public class DeviceTokenService {
 	public void removeToken(User user, String token) {
 		long deleted = deviceTokenRepository.deleteByTokenAndUser(token, user);
 		if (deleted == 0) {
-			// Token is absent or owned by another user: leave its topic
-			// subscription untouched, otherwise we would silently unsubscribe a
-			// token that belongs to someone else.
-			log.info("No device token removed for user {} (absent or not owned)", user.getId());
 			return;
 		}
 		unsubscribeFromGlobalTopic(List.of(token));
-		log.info("Removed device token for user {}", user.getId());
 	}
 
 	@Transactional
@@ -75,7 +60,6 @@ public class DeviceTokenService {
 		List<String> tokens = deviceTokenRepository.findTokensByUserId(user.getId());
 		deviceTokenRepository.deleteByUser(user);
 		unsubscribeFromGlobalTopic(tokens);
-		log.info("Removed all {} device token(s) for user {}", tokens.size(), user.getId());
 	}
 
 	@Transactional(readOnly = true)
@@ -97,7 +81,6 @@ public class DeviceTokenService {
 			return;
 		}
 		deviceTokenRepository.deleteByTokenIn(invalidTokens);
-		log.info("Purged {} invalid device token(s)", invalidTokens.size());
 	}
 
 	private void subscribeToGlobalTopic(List<String> tokens) {
