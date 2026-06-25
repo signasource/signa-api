@@ -7,8 +7,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import com.signasource.signa_api.notification.dto.FcmResult;
 import com.signasource.signa_api.notification.service.DeviceTokenService;
-import com.signasource.signa_api.notification.service.FcmResult;
 import com.signasource.signa_api.notification.service.FirebaseService;
 
 import lombok.RequiredArgsConstructor;
@@ -29,7 +29,7 @@ public class NotificationPushListener {
 	@Async
 	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
 	public void onNotificationPersisted(NotificationPersistedEvent event) {
-		List<String> tokens = deviceTokenService.getActiveTokens(event.userId());
+		List<String> tokens = deviceTokenService.getTokens(event.userId());
 		if (tokens.isEmpty()) {
 			return;
 		}

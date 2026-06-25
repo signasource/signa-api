@@ -19,6 +19,7 @@ import org.springframework.util.StringUtils;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.notification.dto.NotificationResponse;
+import com.signasource.signa_api.notification.dto.PushMessage;
 import com.signasource.signa_api.notification.entity.NotificationCode;
 import com.signasource.signa_api.notification.entity.NotificationHistory;
 import com.signasource.signa_api.notification.entity.NotificationScope;

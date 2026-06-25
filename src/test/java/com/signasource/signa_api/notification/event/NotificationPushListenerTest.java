@@ -17,10 +17,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.signasource.signa_api.notification.dto.FcmResult;
+import com.signasource.signa_api.notification.dto.PushMessage;
 import com.signasource.signa_api.notification.service.DeviceTokenService;
-import com.signasource.signa_api.notification.service.FcmResult;
 import com.signasource.signa_api.notification.service.FirebaseService;
-import com.signasource.signa_api.notification.service.PushMessage;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationPushListenerTest {
@@ -38,7 +38,7 @@ class NotificationPushListenerTest {
 
 	@Test
 	void skipsWhenUserHasNoTokens() {
-		when(deviceTokenService.getActiveTokens(userId)).thenReturn(List.of());
+		when(deviceTokenService.getTokens(userId)).thenReturn(List.of());
 
 		listener.onNotificationPersisted(new NotificationPersistedEvent(userId, message));
 
@@ -48,9 +48,9 @@ class NotificationPushListenerTest {
 
 	@Test
 	void sendsAndPurgesInvalidTokens() {
-		when(deviceTokenService.getActiveTokens(userId)).thenReturn(List.of("t1", "t2"));
+		when(deviceTokenService.getTokens(userId)).thenReturn(List.of("t1", "t2"));
 		when(firebaseService.sendToTokens(anyList(), any(PushMessage.class)))
-				.thenReturn(new FcmResult(1, List.of("t2")));
+				.thenReturn(FcmResult.of(1, 1, List.of("t2")));
 
 		listener.onNotificationPersisted(new NotificationPersistedEvent(userId, message));
 
@@ -60,8 +60,8 @@ class NotificationPushListenerTest {
 
 	@Test
 	void doesNotPurgeWhenAllTokensValid() {
-		when(deviceTokenService.getActiveTokens(userId)).thenReturn(List.of("t1"));
-		when(firebaseService.sendToTokens(anyList(), any(PushMessage.class))).thenReturn(new FcmResult(1, List.of()));
+		when(deviceTokenService.getTokens(userId)).thenReturn(List.of("t1"));
+		when(firebaseService.sendToTokens(anyList(), any(PushMessage.class))).thenReturn(FcmResult.of(1, 0, List.of()));
 
 		listener.onNotificationPersisted(new NotificationPersistedEvent(userId, message));
 
