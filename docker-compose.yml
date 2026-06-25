@@ -28,6 +28,8 @@ services:
       MAIL_PASSWORD: ${MAIL_PASSWORD}
     depends_on:
       - postgres
+    volumes:
+      - ./secrets/firebase.json:/secrets/firebase.json:ro
 
 volumes:
   postgres_data: {}

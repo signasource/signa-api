@@ -43,5 +43,4 @@ auth:
 
 firebase:
   enabled: true
-  credentials-path: /secrets/firebase.json
   global-topic: global
