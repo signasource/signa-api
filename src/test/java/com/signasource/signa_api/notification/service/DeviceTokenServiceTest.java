@@ -20,6 +20,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.signasource.signa_api.notification.entity.DevicePlatform;
 import com.signasource.signa_api.notification.entity.DeviceToken;
@@ -81,6 +83,24 @@ class DeviceTokenServiceTest {
 	}
 
 	@Test
+	void registerTokenDefersSubscribeUntilTransactionCommits() {
+		when(deviceTokenRepository.findByToken(TOKEN)).thenReturn(Optional.empty());
+		TransactionSynchronizationManager.initSynchronization();
+		try {
+			deviceTokenService.registerToken(user, TOKEN, DevicePlatform.ANDROID);
+
+			// The token is saved, but FCM is not touched until the commit happens.
+			verify(deviceTokenRepository).save(any(DeviceToken.class));
+			verifyNoInteractions(firebaseService);
+
+			triggerAfterCommit();
+			verify(firebaseService).subscribeToTopic(List.of(TOKEN), TOPIC);
+		} finally {
+			TransactionSynchronizationManager.clearSynchronization();
+		}
+	}
+
+	@Test
 	void removeTokenDeletesAndUnsubscribes() {
 		deviceTokenService.removeToken(user, TOKEN);
 
@@ -89,32 +109,45 @@ class DeviceTokenServiceTest {
 	}
 
 	@Test
-	void removeAllTokensForUserDelegatesToRepository() {
+	void removeAllTokensForUserDeletesAndUnsubscribesEachToken() {
+		when(deviceTokenRepository.findTokensByUserId(user.getId())).thenReturn(List.of(TOKEN));
+
 		deviceTokenService.removeAllTokensForUser(user);
 
 		verify(deviceTokenRepository).deleteByUser(user);
+		verify(firebaseService).unsubscribeFromTopic(List.of(TOKEN), TOPIC);
 	}
 
 	@Test
-	void getActiveTokensByUserIdReturnsTokens() {
+	void removeAllTokensForUserSkipsUnsubscribeWhenUserHasNoTokens() {
+		when(deviceTokenRepository.findTokensByUserId(user.getId())).thenReturn(List.of());
+
+		deviceTokenService.removeAllTokensForUser(user);
+
+		verify(deviceTokenRepository).deleteByUser(user);
+		verify(firebaseService, never()).unsubscribeFromTopic(any(), any());
+	}
+
+	@Test
+	void getTokensByUserIdReturnsTokens() {
 		UUID userId = user.getId();
 		when(deviceTokenRepository.findTokensByUserId(userId)).thenReturn(List.of(TOKEN));
 
-		assertEquals(List.of(TOKEN), deviceTokenService.getActiveTokens(userId));
+		assertEquals(List.of(TOKEN), deviceTokenService.getTokens(userId));
 	}
 
 	@Test
-	void getActiveTokensByUserIdsReturnsEmptyWhenNoIds() {
-		assertEquals(List.of(), deviceTokenService.getActiveTokens(List.of()));
+	void getTokensByUserIdsReturnsEmptyWhenNoIds() {
+		assertEquals(List.of(), deviceTokenService.getTokens(List.of()));
 		verify(deviceTokenRepository, never()).findTokensByUserIds(any());
 	}
 
 	@Test
-	void getActiveTokensByUserIdsReturnsTokens() {
+	void getTokensByUserIdsReturnsTokens() {
 		List<UUID> ids = List.of(user.getId());
 		when(deviceTokenRepository.findTokensByUserIds(ids)).thenReturn(List.of(TOKEN));
 
-		assertEquals(List.of(TOKEN), deviceTokenService.getActiveTokens(ids));
+		assertEquals(List.of(TOKEN), deviceTokenService.getTokens(ids));
 	}
 
 	@Test
@@ -131,5 +164,9 @@ class DeviceTokenServiceTest {
 		deviceTokenService.purgeInvalidTokens(invalid);
 
 		verify(deviceTokenRepository).deleteByTokenIn(invalid);
+	}
+
+	private void triggerAfterCommit() {
+		TransactionSynchronizationManager.getSynchronizations().forEach(TransactionSynchronization::afterCommit);
 	}
 }
