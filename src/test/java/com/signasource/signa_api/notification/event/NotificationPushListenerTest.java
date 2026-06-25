@@ -25,6 +25,9 @@ import com.signasource.signa_api.notification.service.FirebaseService;
 @ExtendWith(MockitoExtension.class)
 class NotificationPushListenerTest {
 
+	private static final String VALID_TOKEN = "t1";
+	private static final String INVALID_TOKEN = "t2";
+
 	@Mock
 	private DeviceTokenService deviceTokenService;
 	@Mock
@@ -48,19 +51,19 @@ class NotificationPushListenerTest {
 
 	@Test
 	void sendsAndPurgesInvalidTokens() {
-		when(deviceTokenService.getTokens(userId)).thenReturn(List.of("t1", "t2"));
+		when(deviceTokenService.getTokens(userId)).thenReturn(List.of(VALID_TOKEN, INVALID_TOKEN));
 		when(firebaseService.sendToTokens(anyList(), any(PushMessage.class)))
-				.thenReturn(FcmResult.of(1, 1, List.of("t2")));
+				.thenReturn(FcmResult.of(1, 1, List.of(INVALID_TOKEN)));
 
 		listener.onNotificationPersisted(new NotificationPersistedEvent(userId, message));
 
-		verify(firebaseService).sendToTokens(List.of("t1", "t2"), message);
-		verify(deviceTokenService).purgeInvalidTokens(List.of("t2"));
+		verify(firebaseService).sendToTokens(List.of(VALID_TOKEN, INVALID_TOKEN), message);
+		verify(deviceTokenService).purgeInvalidTokens(List.of(INVALID_TOKEN));
 	}
 
 	@Test
 	void doesNotPurgeWhenAllTokensValid() {
-		when(deviceTokenService.getTokens(userId)).thenReturn(List.of("t1"));
+		when(deviceTokenService.getTokens(userId)).thenReturn(List.of(VALID_TOKEN));
 		when(firebaseService.sendToTokens(anyList(), any(PushMessage.class))).thenReturn(FcmResult.of(1, 0, List.of()));
 
 		listener.onNotificationPersisted(new NotificationPersistedEvent(userId, message));

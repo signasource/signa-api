@@ -48,6 +48,19 @@ import com.signasource.signa_api.users.repository.UserRepository;
 @ExtendWith(MockitoExtension.class)
 class NotificationServiceTest {
 
+	private static final String TOPIC = "global";
+	private static final String USER_EMAIL = "a@b.com";
+	private static final String OTHER_USER_EMAIL = "c@d.com";
+	private static final String TEMPLATE_TITLE = "Hola";
+	private static final String TEMPLATE_BODY = "Hola {{name}}";
+	private static final String DATA_KEY = "name";
+	private static final String DATA_VALUE = "Ana";
+	private static final String RENDERED_BODY = "Hola Ana";
+	private static final String DEFAULT_TITLE = "Default title";
+	private static final String DEFAULT_BODY = "Default body";
+	private static final String OVERRIDE_TITLE = "Custom";
+	private static final String OVERRIDE_BODY = "Custom body";
+
 	@Mock
 	private NotificationTemplateRepository templateRepository;
 	@Mock
@@ -67,10 +80,10 @@ class NotificationServiceTest {
 
 	@BeforeEach
 	void setUp() {
-		user = User.builder().id(UUID.randomUUID()).email("a@b.com").build();
-		individualTemplate = template(NotificationCode.DAILY_REMINDER, NotificationScope.INDIVIDUAL, true, "Hola",
-				"Hola {{name}}");
-		ReflectionTestUtils.setField(notificationService, "globalTopic", "global");
+		user = User.builder().id(UUID.randomUUID()).email(USER_EMAIL).build();
+		individualTemplate = template(NotificationCode.DAILY_REMINDER, NotificationScope.INDIVIDUAL, true,
+				TEMPLATE_TITLE, TEMPLATE_BODY);
+		ReflectionTestUtils.setField(notificationService, "globalTopic", TOPIC);
 	}
 
 	@Test
@@ -80,18 +93,18 @@ class NotificationServiceTest {
 		when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
 		when(historyRepository.save(any(NotificationHistory.class))).thenAnswer(returnsFirstArg());
 
-		notificationService.notifyUser(user.getId(), NotificationCode.DAILY_REMINDER, Map.of("name", "Ana"));
+		notificationService.notifyUser(user.getId(), NotificationCode.DAILY_REMINDER, Map.of(DATA_KEY, DATA_VALUE));
 
 		ArgumentCaptor<NotificationHistory> historyCaptor = ArgumentCaptor.forClass(NotificationHistory.class);
 		verify(historyRepository).save(historyCaptor.capture());
-		assertEquals("Hola Ana", historyCaptor.getValue().getBody());
+		assertEquals(RENDERED_BODY, historyCaptor.getValue().getBody());
 		assertFalse(historyCaptor.getValue().isRead());
 
 		ArgumentCaptor<NotificationPersistedEvent> eventCaptor = ArgumentCaptor
 				.forClass(NotificationPersistedEvent.class);
 		verify(eventPublisher).publishEvent(eventCaptor.capture());
 		assertEquals(user.getId(), eventCaptor.getValue().userId());
-		assertEquals("Hola Ana", eventCaptor.getValue().message().body());
+		assertEquals(RENDERED_BODY, eventCaptor.getValue().message().body());
 	}
 
 	@Test
@@ -149,7 +162,7 @@ class NotificationServiceTest {
 
 	@Test
 	void notifyUsersNotifiesEachUser() {
-		User other = User.builder().id(UUID.randomUUID()).email("c@d.com").build();
+		User other = User.builder().id(UUID.randomUUID()).email(OTHER_USER_EMAIL).build();
 		when(templateRepository.findByCodeAndEnabledTrue(NotificationCode.DAILY_REMINDER))
 				.thenReturn(List.of(individualTemplate));
 		when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
@@ -166,31 +179,31 @@ class NotificationServiceTest {
 	@Test
 	void broadcastGlobalSendsToTopicWithDefaults() {
 		NotificationTemplate global = template(NotificationCode.GLOBAL_ANNOUNCEMENT, NotificationScope.GLOBAL, true,
-				"Default title", "Default body");
+				DEFAULT_TITLE, DEFAULT_BODY);
 		when(templateRepository.findByCodeAndEnabledTrue(NotificationCode.GLOBAL_ANNOUNCEMENT))
 				.thenReturn(List.of(global));
 
 		notificationService.broadcastGlobal(NotificationCode.GLOBAL_ANNOUNCEMENT, null, null);
 
 		ArgumentCaptor<PushMessage> captor = ArgumentCaptor.forClass(PushMessage.class);
-		verify(firebaseService).sendToTopic(eq("global"), captor.capture());
-		assertEquals("Default title", captor.getValue().title());
-		assertEquals("Default body", captor.getValue().body());
+		verify(firebaseService).sendToTopic(eq(TOPIC), captor.capture());
+		assertEquals(DEFAULT_TITLE, captor.getValue().title());
+		assertEquals(DEFAULT_BODY, captor.getValue().body());
 	}
 
 	@Test
 	void broadcastGlobalUsesOverrides() {
 		NotificationTemplate global = template(NotificationCode.GLOBAL_ANNOUNCEMENT, NotificationScope.GLOBAL, true,
-				"Default title", "Default body");
+				DEFAULT_TITLE, DEFAULT_BODY);
 		when(templateRepository.findByCodeAndEnabledTrue(NotificationCode.GLOBAL_ANNOUNCEMENT))
 				.thenReturn(List.of(global));
 
-		notificationService.broadcastGlobal(NotificationCode.GLOBAL_ANNOUNCEMENT, "Custom", "Custom body");
+		notificationService.broadcastGlobal(NotificationCode.GLOBAL_ANNOUNCEMENT, OVERRIDE_TITLE, OVERRIDE_BODY);
 
 		ArgumentCaptor<PushMessage> captor = ArgumentCaptor.forClass(PushMessage.class);
-		verify(firebaseService).sendToTopic(eq("global"), captor.capture());
-		assertEquals("Custom", captor.getValue().title());
-		assertEquals("Custom body", captor.getValue().body());
+		verify(firebaseService).sendToTopic(eq(TOPIC), captor.capture());
+		assertEquals(OVERRIDE_TITLE, captor.getValue().title());
+		assertEquals(OVERRIDE_BODY, captor.getValue().body());
 	}
 
 	@Test
