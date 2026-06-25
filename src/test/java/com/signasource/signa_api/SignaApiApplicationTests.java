@@ -11,9 +11,6 @@ import com.google.firebase.messaging.FirebaseMessaging;
 @ActiveProfiles("test")
 class SignaApiApplicationTests {
 
-	// Firebase is disabled under the test profile, so FirebaseConfig (and its
-	// FirebaseMessaging bean) is not created. FirebaseService still needs the
-	// dependency to wire, so we supply a mock for the context-load test.
 	@MockitoBean
 	private FirebaseMessaging firebaseMessaging;
 
