@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.signasource.signa_api.auth.dto.AuthResponse;
 import com.signasource.signa_api.auth.dto.ForgotPasswordRequest;
 import com.signasource.signa_api.auth.dto.LoginRequest;
+import com.signasource.signa_api.auth.dto.LogoutRequest;
 import com.signasource.signa_api.auth.dto.RefreshTokenRequest;
 import com.signasource.signa_api.auth.dto.RegisterRequest;
 import com.signasource.signa_api.auth.dto.ResendVerificationEmailRequest;
@@ -70,5 +71,17 @@ public class AuthController {
 	public ResponseEntity<Void> resendVerificationEmail(@Valid @RequestBody ResendVerificationEmailRequest request) {
 		authService.resendVerificationEmail(request);
 		return ResponseEntity.ok().build();
+	}
+
+	@PostMapping("/logout")
+	public ResponseEntity<Void> logout(@Valid @RequestBody LogoutRequest request) {
+		authService.logout(request);
+		return ResponseEntity.noContent().build();
+	}
+
+	@PostMapping("/logout-all")
+	public ResponseEntity<Void> logoutAll() {
+		authService.logoutAll();
+		return ResponseEntity.noContent().build();
 	}
 }

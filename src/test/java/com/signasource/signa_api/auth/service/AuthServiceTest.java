@@ -26,6 +26,7 @@ import com.signasource.signa_api.auth.dto.AuthResponse;
 import com.signasource.signa_api.auth.dto.ChangePasswordRequest;
 import com.signasource.signa_api.auth.dto.ForgotPasswordRequest;
 import com.signasource.signa_api.auth.dto.LoginRequest;
+import com.signasource.signa_api.auth.dto.LogoutRequest;
 import com.signasource.signa_api.auth.dto.RefreshTokenRequest;
 import com.signasource.signa_api.auth.dto.RegisterRequest;
 import com.signasource.signa_api.auth.dto.ResendVerificationEmailRequest;
@@ -34,6 +35,7 @@ import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.entity.Token;
 import com.signasource.signa_api.auth.entity.TokenType;
 import com.signasource.signa_api.auth.repository.TokenRepository;
+import com.signasource.signa_api.notification.service.DeviceTokenService;
 import com.signasource.signa_api.exceptions.InvalidCredentialsException;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.InvalidTokenException;
@@ -71,6 +73,9 @@ class AuthServiceTest {
 
 	@Mock
 	private EmailService emailService;
+
+	@Mock
+	private DeviceTokenService deviceTokenService;
 
 	@InjectMocks
 	private AuthService authService;
@@ -354,6 +359,7 @@ class AuthServiceTest {
 		verify(userRepository).save(testUser);
 		verify(tokenRepository).delete(resetToken);
 		verify(tokenRepository).deleteByUserAndType(testUser, TokenType.REFRESH);
+		verify(deviceTokenService).removeAllTokensForUser(testUser);
 	}
 
 	@Test
@@ -395,6 +401,45 @@ class AuthServiceTest {
 		verify(tokenRepository, never()).deleteByUserAndType(any(), any());
 		verify(tokenRepository, never()).save(any());
 		verify(emailService, never()).sendVerificationEmail(any(), any());
+	}
+
+	@Test
+	void shouldLogoutSingleDevice() {
+		SecurityContextHolder.getContext()
+				.setAuthentication(new UsernamePasswordAuthenticationToken(userDetails, null));
+		Token refreshToken = createRefreshToken(REFRESH_TOKEN, Instant.now().plusSeconds(3600));
+		when(tokenRepository.findByTokenAndType(REFRESH_TOKEN, TokenType.REFRESH))
+				.thenReturn(Optional.of(refreshToken));
+
+		authService.logout(new LogoutRequest(REFRESH_TOKEN, "device-token"));
+
+		verify(tokenRepository).delete(refreshToken);
+		verify(deviceTokenService).removeToken(testUser, "device-token");
+	}
+
+	@Test
+	void shouldLogoutWithoutRemovingDeviceWhenTokenAbsent() {
+		SecurityContextHolder.getContext()
+				.setAuthentication(new UsernamePasswordAuthenticationToken(userDetails, null));
+		Token refreshToken = createRefreshToken(REFRESH_TOKEN, Instant.now().plusSeconds(3600));
+		when(tokenRepository.findByTokenAndType(REFRESH_TOKEN, TokenType.REFRESH))
+				.thenReturn(Optional.of(refreshToken));
+
+		authService.logout(new LogoutRequest(REFRESH_TOKEN, null));
+
+		verify(tokenRepository).delete(refreshToken);
+		verify(deviceTokenService, never()).removeToken(any(), any());
+	}
+
+	@Test
+	void shouldLogoutAllDevices() {
+		SecurityContextHolder.getContext()
+				.setAuthentication(new UsernamePasswordAuthenticationToken(userDetails, null));
+
+		authService.logoutAll();
+
+		verify(tokenRepository).deleteByUserAndType(testUser, TokenType.REFRESH);
+		verify(deviceTokenService).removeAllTokensForUser(testUser);
 	}
 
 	private Token createRefreshToken(String token, Instant expiryDate) {

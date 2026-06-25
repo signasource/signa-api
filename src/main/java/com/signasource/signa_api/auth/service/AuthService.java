@@ -11,11 +11,13 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import com.signasource.signa_api.auth.dto.AuthResponse;
 import com.signasource.signa_api.auth.dto.ChangePasswordRequest;
 import com.signasource.signa_api.auth.dto.ForgotPasswordRequest;
 import com.signasource.signa_api.auth.dto.LoginRequest;
+import com.signasource.signa_api.auth.dto.LogoutRequest;
 import com.signasource.signa_api.auth.dto.RefreshTokenRequest;
 import com.signasource.signa_api.auth.dto.RegisterRequest;
 import com.signasource.signa_api.auth.dto.ResendVerificationEmailRequest;
@@ -24,6 +26,7 @@ import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.entity.Token;
 import com.signasource.signa_api.auth.entity.TokenType;
 import com.signasource.signa_api.auth.repository.TokenRepository;
+import com.signasource.signa_api.notification.service.DeviceTokenService;
 import com.signasource.signa_api.exceptions.InvalidCredentialsException;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.InvalidTokenException;
@@ -45,6 +48,7 @@ public class AuthService {
 	private final JwtService jwtService;
 	private final TokenRepository tokenRepository;
 	private final EmailService emailService;
+	private final DeviceTokenService deviceTokenService;
 
 	@Value("${auth.token-expirations.refresh}")
 	private Long refreshTokenExpiration;
@@ -153,6 +157,7 @@ public class AuthService {
 		userRepository.save(user);
 		tokenRepository.delete(resetToken);
 		tokenRepository.deleteByUserAndType(user, TokenType.REFRESH);
+		deviceTokenService.removeAllTokensForUser(user);
 	}
 
 	@Transactional
@@ -174,6 +179,23 @@ public class AuthService {
 
 		emailService.sendVerificationEmail(user.getEmail(), token.getToken());
 
+	}
+
+	@Transactional
+	public void logout(LogoutRequest request) {
+		User user = getAuthenticatedUser();
+		tokenRepository.findByTokenAndType(request.refreshToken(), TokenType.REFRESH)
+				.ifPresent(tokenRepository::delete);
+		if (StringUtils.hasText(request.deviceToken())) {
+			deviceTokenService.removeToken(user, request.deviceToken());
+		}
+	}
+
+	@Transactional
+	public void logoutAll() {
+		User user = getAuthenticatedUser();
+		tokenRepository.deleteByUserAndType(user, TokenType.REFRESH);
+		deviceTokenService.removeAllTokensForUser(user);
 	}
 
 	private AuthResponse generateTokens(User user) {

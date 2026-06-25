@@ -18,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import com.signasource.signa_api.auth.dto.AuthResponse;
 import com.signasource.signa_api.auth.dto.ForgotPasswordRequest;
 import com.signasource.signa_api.auth.dto.LoginRequest;
+import com.signasource.signa_api.auth.dto.LogoutRequest;
 import com.signasource.signa_api.auth.dto.RefreshTokenRequest;
 import com.signasource.signa_api.auth.dto.RegisterRequest;
 import com.signasource.signa_api.auth.dto.ResendVerificationEmailRequest;
@@ -105,5 +106,26 @@ class AuthControllerTest {
 
 		verify(authService).resendVerificationEmail(any(ResendVerificationEmailRequest.class));
 		assertEquals(HttpStatus.OK, response.getStatusCode());
+	}
+
+	@Test
+	void testLogout() {
+		LogoutRequest request = new LogoutRequest("refresh-token", "device-token");
+		doNothing().when(authService).logout(any(LogoutRequest.class));
+
+		ResponseEntity<Void> response = authController.logout(request);
+
+		verify(authService).logout(any(LogoutRequest.class));
+		assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+	}
+
+	@Test
+	void testLogoutAll() {
+		doNothing().when(authService).logoutAll();
+
+		ResponseEntity<Void> response = authController.logoutAll();
+
+		verify(authService).logoutAll();
+		assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
 	}
 }
