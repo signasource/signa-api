@@ -19,12 +19,6 @@ import com.signasource.signa_api.users.entity.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * Manages the lifecycle of FCM device tokens. Every registered token is kept
- * subscribed to the global topic so it can receive broadcasts. Firebase calls
- * are deferred until the surrounding transaction commits, so they never widen
- * the database transaction nor act on a change that ends up rolled back.
- */
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -39,22 +33,39 @@ public class DeviceTokenService {
 	@Transactional
 	public void registerToken(User user, String token, DevicePlatform platform) {
 		Instant now = Instant.now();
-		DeviceToken deviceToken = deviceTokenRepository.findByToken(token).map(existing -> {
-			existing.setUser(user);
-			existing.setPlatform(platform);
-			existing.setLastUsedAt(now);
-			return existing;
-		}).orElseGet(() -> DeviceToken.builder().token(token).user(user).platform(platform).createdAt(now)
-				.lastUsedAt(now).build());
+		DeviceToken deviceToken = deviceTokenRepository.findByToken(token).orElse(null);
+
+		if (deviceToken == null) {
+			deviceToken = DeviceToken.builder().token(token).user(user).platform(platform).createdAt(now)
+					.lastUsedAt(now).build();
+			log.info("Registered new device token for user {} on platform {}", user.getId(), platform);
+		} else {
+			UUID previousOwnerId = deviceToken.getUser().getId();
+			if (previousOwnerId.equals(user.getId())) {
+				log.info("Refreshed device token for user {} on platform {}", user.getId(), platform);
+			} else {
+				log.info("Reassigned device token from user {} to user {} on platform {}", previousOwnerId,
+						user.getId(), platform);
+			}
+			deviceToken.setUser(user);
+			deviceToken.setPlatform(platform);
+			deviceToken.setLastUsedAt(now);
+		}
 
 		deviceTokenRepository.save(deviceToken);
 		subscribeToGlobalTopic(List.of(token));
-		log.info("Registered device token for user {} on platform {}", user.getId(), platform);
 	}
 
 	@Transactional
 	public void removeToken(User user, String token) {
-		deviceTokenRepository.deleteByTokenAndUser(token, user);
+		long deleted = deviceTokenRepository.deleteByTokenAndUser(token, user);
+		if (deleted == 0) {
+			// Token is absent or owned by another user: leave its topic
+			// subscription untouched, otherwise we would silently unsubscribe a
+			// token that belongs to someone else.
+			log.info("No device token removed for user {} (absent or not owned)", user.getId());
+			return;
+		}
 		unsubscribeFromGlobalTopic(List.of(token));
 		log.info("Removed device token for user {}", user.getId());
 	}
@@ -85,8 +96,6 @@ public class DeviceTokenService {
 		if (invalidTokens == null || invalidTokens.isEmpty()) {
 			return;
 		}
-		// FCM already rejected these tokens as unregistered, so it has dropped
-		// them from every topic; we only need to delete our own copy.
 		deviceTokenRepository.deleteByTokenIn(invalidTokens);
 		log.info("Purged {} invalid device token(s)", invalidTokens.size());
 	}

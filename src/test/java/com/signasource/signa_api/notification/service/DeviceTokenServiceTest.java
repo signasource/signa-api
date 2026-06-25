@@ -83,6 +83,20 @@ class DeviceTokenServiceTest {
 	}
 
 	@Test
+	void registerTokenRefreshesExistingTokenForSameUser() {
+		DeviceToken existing = DeviceToken.builder().token(TOKEN).user(user).platform(DevicePlatform.ANDROID).build();
+		when(deviceTokenRepository.findByToken(TOKEN)).thenReturn(Optional.of(existing));
+
+		deviceTokenService.registerToken(user, TOKEN, DevicePlatform.WEB);
+
+		assertEquals(user, existing.getUser());
+		assertEquals(DevicePlatform.WEB, existing.getPlatform());
+		assertNotNull(existing.getLastUsedAt());
+		verify(deviceTokenRepository).save(existing);
+		verify(firebaseService).subscribeToTopic(List.of(TOKEN), TOPIC);
+	}
+
+	@Test
 	void registerTokenDefersSubscribeUntilTransactionCommits() {
 		when(deviceTokenRepository.findByToken(TOKEN)).thenReturn(Optional.empty());
 		TransactionSynchronizationManager.initSynchronization();
@@ -102,10 +116,22 @@ class DeviceTokenServiceTest {
 
 	@Test
 	void removeTokenDeletesAndUnsubscribes() {
+		when(deviceTokenRepository.deleteByTokenAndUser(TOKEN, user)).thenReturn(1L);
+
 		deviceTokenService.removeToken(user, TOKEN);
 
 		verify(deviceTokenRepository).deleteByTokenAndUser(TOKEN, user);
 		verify(firebaseService).unsubscribeFromTopic(List.of(TOKEN), TOPIC);
+	}
+
+	@Test
+	void removeTokenDoesNotUnsubscribeWhenNothingDeleted() {
+		when(deviceTokenRepository.deleteByTokenAndUser(TOKEN, user)).thenReturn(0L);
+
+		deviceTokenService.removeToken(user, TOKEN);
+
+		verify(deviceTokenRepository).deleteByTokenAndUser(TOKEN, user);
+		verifyNoInteractions(firebaseService);
 	}
 
 	@Test
