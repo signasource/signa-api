@@ -1,5 +1,6 @@
 package com.signasource.signa_api.auth.service;
 
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
 
@@ -19,7 +20,7 @@ public class JwtService {
 	private Long accessTokenExpiration;
 
 	private Key getSigningKey() {
-		return Keys.hmacShaKeyFor(secret.getBytes());
+		return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
 	}
 
 	public String generateToken(UserDetails user) {

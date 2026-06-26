@@ -4,6 +4,7 @@ plugins {
 	id 'io.spring.dependency-management' version '1.1.7'
 	id 'com.diffplug.spotless' version '7.2.1'
 	id 'jacoco'
+	id 'com.github.spotbugs' version '6.1.7'
 }
 
 group = 'com.signasource'
@@ -102,14 +103,43 @@ jacocoTestCoverageVerification {
 
 check.dependsOn jacocoTestCoverageVerification
 
+spotbugs {
+	toolVersion = '4.8.6'
+	ignoreFailures = false
+	showProgress = false
+	excludeFilter = file('config/spotbugs-exclude.xml')
+}
+
+spotbugsMain {
+	reports {
+		html.required = true
+		xml.required = false
+	}
+}
+
+spotbugsTest {
+	reports {
+		html.required = true
+		xml.required = false
+	}
+}
+
 spotless {
 	java {
 		target 'src/**/*.java'
 
-		eclipse()
+		googleJavaFormat().aosp()
 
 		removeUnusedImports()
 		formatAnnotations()
+		endWithNewline()
+
+		custom('No wildcard imports') { String content ->
+			if (content =~ /import\s+[\w.]+\*;/) {
+				throw new AssertionError("Wildcard imports no están permitidos.")
+			}
+			content
+		}
 	}
 
 	format 'misc', {

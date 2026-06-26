@@ -15,7 +15,7 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public class CustomUserDetails implements UserDetails {
-	private User user;
+	private transient User user;
 
 	@Override
 	public String getUsername() {
