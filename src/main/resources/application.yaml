@@ -40,3 +40,7 @@ auth:
     access: 900000               # 15 minutes
     refresh: 604800000           # 7 days
     email-verification: 86400000 # 24 hours
+
+firebase:
+  enabled: true
+  global-topic: global
