@@ -48,7 +48,7 @@ class LessonServiceTest {
         theoryBlock =
                 LessonBlock.builder()
                         .id(UUID.randomUUID())
-                        .type(BlockType.THEORY)
+                        .type(BlockType.INFO)
                         .order(1)
                         .config("{\"text\": \"El alfabeto dactilológico...\"}")
                         .xpReward(10)
@@ -59,7 +59,7 @@ class LessonServiceTest {
         exerciseBlock =
                 LessonBlock.builder()
                         .id(UUID.randomUUID())
-                        .type(BlockType.EXERCISE_ATTEMPT)
+                        .type(BlockType.SELECT_MEANING)
                         .order(2)
                         .config("{\"expected_sign\": \"A\"}")
                         .xpReward(50)
@@ -82,12 +82,12 @@ class LessonServiceTest {
         assertEquals(2, response.blocks().size());
 
         LessonBlockResponse firstBlock = response.blocks().get(0);
-        assertEquals("THEORY", firstBlock.type());
+        assertEquals("INFO", firstBlock.type());
         assertEquals(1, firstBlock.order());
         assertEquals(10, firstBlock.xpReward());
 
         LessonBlockResponse secondBlock = response.blocks().get(1);
-        assertEquals("EXERCISE_ATTEMPT", secondBlock.type());
+        assertEquals("SELECT_MEANING", secondBlock.type());
         assertTrue(secondBlock.isExamEligible());
 
         verify(lessonRepository).findById(lessonId);
