@@ -21,27 +21,27 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class NotificationTemplate {
 
-	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private Long id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-	@Enumerated(EnumType.STRING)
-	@Column(nullable = false)
-	private NotificationCode code;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private NotificationCode code;
 
-	@Column(nullable = false)
-	private String defaultTitle;
+    @Column(nullable = false)
+    private String defaultTitle;
 
-	@Column(nullable = false, length = 1000)
-	private String defaultBody;
+    @Column(nullable = false, length = 1000)
+    private String defaultBody;
 
-	@Enumerated(EnumType.STRING)
-	@Column(nullable = false)
-	private NotificationScope scope;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private NotificationScope scope;
 
-	@Column(nullable = false)
-	private boolean schedulable;
+    @Column(nullable = false)
+    private boolean schedulable;
 
-	@Column(nullable = false)
-	private boolean enabled;
+    @Column(nullable = false)
+    private boolean enabled;
 }
