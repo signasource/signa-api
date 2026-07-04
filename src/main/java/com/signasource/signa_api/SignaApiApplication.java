@@ -7,7 +7,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @SpringBootApplication
 @EnableAsync
 public class SignaApiApplication {
-	public static void main(String[] args) {
-		SpringApplication.run(SignaApiApplication.class, args);
-	}
+    public static void main(String[] args) {
+        SpringApplication.run(SignaApiApplication.class, args);
+    }
 }
