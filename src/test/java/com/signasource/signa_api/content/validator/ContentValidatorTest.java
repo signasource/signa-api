@@ -4,7 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.signasource.signa_api.content.validator.block.BlockConfigParser;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.signasource.signa_api.content.dto.CourseMetadataDto;
 import com.signasource.signa_api.content.dto.CourseVersionDto;
 import com.signasource.signa_api.content.dto.CourseYaml;
@@ -14,6 +17,7 @@ import com.signasource.signa_api.content.dto.TopicDto;
 import com.signasource.signa_api.content.dto.TopicYaml;
 import com.signasource.signa_api.content.exception.ContentValidationException;
 import com.signasource.signa_api.content.loader.LoadedCourse;
+import com.signasource.signa_api.content.validator.block.InfoValidator;
 import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.entity.VersionStatus;
 import java.util.List;
@@ -26,7 +30,8 @@ class ContentValidatorTest {
 
     @BeforeEach
     void setUp() {
-        validator = new ContentValidator();
+        BlockConfigParser parser = new BlockConfigParser(new ObjectMapper());
+        validator = new ContentValidator(List.of(new InfoValidator(parser)));
     }
 
     // --- Valid cases ---
@@ -137,8 +142,7 @@ class ContentValidatorTest {
     @Test
     void shouldFailWhenLessonCodesAreDuplicatedWithinTopic() {
         assertValidationFails(
-                courseWith(
-                        List.of(topicWith("t1", List.of(validLesson("l1"), validLesson("l1"))))),
+                courseWith(List.of(topicWith("t1", List.of(validLesson("l1"), validLesson("l1"))))),
                 "Topic t1: duplicate lesson code: l1");
     }
 
@@ -163,11 +167,19 @@ class ContentValidatorTest {
 
     @Test
     void shouldFailWhenXpRewardIsNegative() {
-        LessonBlockDto block =
-                new LessonBlockDto(BlockType.INFO, -1, JsonNodeFactory.instance.objectNode());
+        LessonBlockDto block = new LessonBlockDto(BlockType.INFO, -1, infoConfig("Hello"));
         assertValidationFails(
                 courseWith(List.of(topicWith("t1", List.of(lessonWith("l1", List.of(block)))))),
                 "Topic t1 > Lesson l1 > Block #1: xpReward must be >= 0 (got -1)");
+    }
+
+    @Test
+    void shouldFailWhenNoValidatorRegisteredForBlockType() {
+        LessonBlockDto block =
+                new LessonBlockDto(BlockType.CONTEXT, null, JsonNodeFactory.instance.objectNode());
+        assertValidationFails(
+                courseWith(List.of(topicWith("t1", List.of(lessonWith("l1", List.of(block)))))),
+                "Topic t1 > Lesson l1 > Block #1: no validator registered for block type CONTEXT");
     }
 
     // --- Multiple errors ---
@@ -177,7 +189,7 @@ class ContentValidatorTest {
         var meta = new CourseMetadataDto("", "", null, false, null);
         var version = new CourseVersionDto("", VersionStatus.DRAFT);
         var yaml = new CourseYaml(meta, version, List.of());
-        var course = new LoadedCourse("LSA", "LSA/c", yaml, List.of());
+        var course = new LoadedCourse("LSA", yaml, List.of());
 
         assertThatThrownBy(() -> validator.validate(course))
                 .isInstanceOf(ContentValidationException.class)
@@ -200,17 +212,17 @@ class ContentValidatorTest {
     }
 
     private LoadedCourse courseWith(List<TopicYaml> topics) {
-        return new LoadedCourse("LSA", "LSA/course-01", validCourseYaml(), topics);
+        return new LoadedCourse("LSA", validCourseYaml(), topics);
     }
 
     private LoadedCourse courseWithMeta(CourseMetadataDto meta) {
         var yaml = new CourseYaml(meta, validVersion(), List.of("topic-01.yml"));
-        return new LoadedCourse("LSA", "LSA/course-01", yaml, List.of(validTopic("topic-1")));
+        return new LoadedCourse("LSA", yaml, List.of(validTopic("topic-1")));
     }
 
     private LoadedCourse courseWithVersion(CourseVersionDto version) {
         var yaml = new CourseYaml(validMeta(), version, List.of("topic-01.yml"));
-        return new LoadedCourse("LSA", "LSA/course-01", yaml, List.of(validTopic("topic-1")));
+        return new LoadedCourse("LSA", yaml, List.of(validTopic("topic-1")));
     }
 
     private CourseYaml validCourseYaml() {
@@ -243,7 +255,13 @@ class ContentValidatorTest {
     }
 
     private LessonBlockDto validBlock() {
-        return new LessonBlockDto(BlockType.INFO, null, JsonNodeFactory.instance.objectNode());
+        return new LessonBlockDto(BlockType.INFO, null, infoConfig("Hello"));
+    }
+
+    private ObjectNode infoConfig(String text) {
+        ObjectNode node = JsonNodeFactory.instance.objectNode();
+        node.put("text", text);
+        return node;
     }
 
     private void assertValidationFails(LoadedCourse course, String... expectedErrors) {

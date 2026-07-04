@@ -5,4 +5,4 @@ import com.signasource.signa_api.content.dto.TopicYaml;
 import java.util.List;
 
 public record LoadedCourse(
-        String signLanguageCode, String coursePath, CourseYaml course, List<TopicYaml> topics) {}
+        String signLanguageCode, CourseYaml course, List<TopicYaml> topics) {}

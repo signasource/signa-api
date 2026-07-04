@@ -26,7 +26,7 @@ class ContentLoaderTest {
         LoadedCourse result = loader.load("TSLANG", "happy-course");
 
         assertThat(result.signLanguageCode()).isEqualTo("TSLANG");
-        assertThat(result.coursePath()).isEqualTo("TSLANG/happy-course");
+        assertThat(result.course().course().code()).isEqualTo("happy-course");
         assertThat(result.course().course().name()).isEqualTo("Test Course");
         assertThat(result.course().version().status()).isEqualTo(VersionStatus.DRAFT);
     }

@@ -8,14 +8,26 @@ import com.signasource.signa_api.content.dto.TopicDto;
 import com.signasource.signa_api.content.dto.TopicYaml;
 import com.signasource.signa_api.content.exception.ContentValidationException;
 import com.signasource.signa_api.content.loader.LoadedCourse;
+import com.signasource.signa_api.content.validator.block.BlockValidator;
+import com.signasource.signa_api.content.validator.block.ValidationContext;
+import com.signasource.signa_api.learning.entity.BlockType;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 @Component
 public class ContentValidator {
+
+    private final Map<BlockType, BlockValidator> blockValidators;
+
+    public ContentValidator(List<BlockValidator> blockValidators) {
+        this.blockValidators = blockValidators.stream()
+                .collect(Collectors.toMap(BlockValidator::supports, v -> v));
+    }
 
     public void validate(LoadedCourse loaded) {
         List<String> errors = new ArrayList<>();
@@ -53,31 +65,35 @@ public class ContentValidator {
 
     private void validateTopic(TopicYaml topicYaml, List<String> errors) {
         TopicDto topic = topicYaml.topic();
+        String topicCode = topic.code();
         String ctx = topicContext(topic);
 
-        requireNotBlank(topic.code(), ctx + ": code is required", errors);
+        requireNotBlank(topicCode, ctx + ": code is required", errors);
         requireNotBlank(topic.name(), ctx + ": name is required", errors);
 
         List<LessonDto> lessons = topicYaml.lessons();
         if (lessons == null || lessons.isEmpty()) {
             errors.add(ctx + " has no lessons");
         } else {
-            validateLessons(lessons, ctx, errors);
+            validateLessons(lessons, topicCode, ctx, errors);
         }
     }
 
-    private void validateLessons(List<LessonDto> lessons, String topicCtx, List<String> errors) {
+    private void validateLessons(
+            List<LessonDto> lessons, String topicCode, String topicCtx, List<String> errors) {
         checkDuplicates(
                 lessons.stream().map(LessonDto::code).toList(),
                 topicCtx + ": duplicate lesson code",
                 errors);
         for (LessonDto lesson : lessons) {
-            validateLesson(lesson, topicCtx, errors);
+            validateLesson(lesson, topicCode, topicCtx, errors);
         }
     }
 
-    private void validateLesson(LessonDto lesson, String topicCtx, List<String> errors) {
-        String label = lesson.code() != null && !lesson.code().isBlank() ? lesson.code() : "(unknown)";
+    private void validateLesson(
+            LessonDto lesson, String topicCode, String topicCtx, List<String> errors) {
+        String label =
+                lesson.code() != null && !lesson.code().isBlank() ? lesson.code() : "(unknown)";
         String ctx = topicCtx + " > Lesson " + label;
 
         requireNotBlank(lesson.code(), ctx + ": code is required", errors);
@@ -87,32 +103,36 @@ public class ContentValidator {
         if (blocks == null || blocks.isEmpty()) {
             errors.add(ctx + " has no blocks");
         } else {
-            validateBlocks(blocks, ctx, errors);
+            validateBlocks(blocks, topicCode, lesson.code(), errors);
         }
     }
 
-    private void validateBlocks(List<LessonBlockDto> blocks, String lessonCtx, List<String> errors) {
+    private void validateBlocks(
+            List<LessonBlockDto> blocks, String topicCode, String lessonCode, List<String> errors) {
         for (int i = 0; i < blocks.size(); i++) {
-            validateBlock(blocks.get(i), lessonCtx + " > Block #" + (i + 1), errors);
+            validateBlock(blocks.get(i), new ValidationContext(topicCode, lessonCode, i + 1), errors);
         }
     }
 
-    private void validateBlock(LessonBlockDto block, String ctx, List<String> errors) {
+    private void validateBlock(LessonBlockDto block, ValidationContext ctx, List<String> errors) {
         if (block.type() == null) {
-            errors.add(ctx + ": type is required");
+            errors.add(ctx.location() + ": type is required");
         }
         if (block.config() == null) {
-            errors.add(ctx + ": config is required");
+            errors.add(ctx.location() + ": config is required");
         }
         if (block.xp() != null && block.xp() < 0) {
-            errors.add(ctx + ": xpReward must be >= 0 (got " + block.xp() + ")");
+            errors.add(ctx.location() + ": xpReward must be >= 0 (got " + block.xp() + ")");
         }
-        validateBlockConfig(block, ctx, errors);
+        if (block.type() != null && block.config() != null) {
+            BlockValidator validator = blockValidators.get(block.type());
+            if (validator == null) {
+                errors.add(ctx.location() + ": no validator registered for block type " + block.type());
+            } else {
+                validator.validate(block, ctx, errors);
+            }
+        }
     }
-
-    // Extension point for the next phase: per-BlockType config validation.
-    @SuppressWarnings("unused")
-    protected void validateBlockConfig(LessonBlockDto block, String ctx, List<String> errors) {}
 
     private void requireNotBlank(String value, String message, List<String> errors) {
         if (value == null || value.isBlank()) {

@@ -8,6 +8,7 @@ import com.signasource.signa_api.content.dto.TopicYaml;
 import com.signasource.signa_api.content.exception.ContentParseException;
 import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.entity.VersionStatus;
+import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ByteArrayResource;
@@ -27,6 +28,7 @@ class YamlParserTest {
         String yaml =
                 """
                 course:
+                  code: test-course
                   name: Test
                   description: A description.
                   free: true
@@ -41,6 +43,7 @@ class YamlParserTest {
 
         CourseYaml result = parser.parse(resource(yaml), CourseYaml.class);
 
+        assertThat(result.course().code()).isEqualTo("test-course");
         assertThat(result.course().name()).isEqualTo("Test");
         assertThat(result.course().free()).isTrue();
         assertThat(result.version().version()).isEqualTo("1.0.0");
@@ -89,6 +92,6 @@ class YamlParserTest {
     }
 
     private Resource resource(String yaml) {
-        return new ByteArrayResource(yaml.getBytes());
+        return new ByteArrayResource(yaml.getBytes(StandardCharsets.UTF_8));
     }
 }

@@ -52,7 +52,6 @@ class LessonServiceTest {
                         .order(1)
                         .config("{\"text\": \"El alfabeto dactilológico...\"}")
                         .xpReward(10)
-                        .isExamEligible(false)
                         .lesson(lesson)
                         .build();
 
@@ -63,7 +62,6 @@ class LessonServiceTest {
                         .order(2)
                         .config("{\"expected_sign\": \"A\"}")
                         .xpReward(50)
-                        .isExamEligible(true)
                         .lesson(lesson)
                         .build();
     }
@@ -88,7 +86,6 @@ class LessonServiceTest {
 
         LessonBlockResponse secondBlock = response.blocks().get(1);
         assertEquals("SELECT_MEANING", secondBlock.type());
-        assertTrue(secondBlock.isExamEligible());
 
         verify(lessonRepository).findById(lessonId);
     }

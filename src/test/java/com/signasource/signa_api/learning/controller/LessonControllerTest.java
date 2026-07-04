@@ -32,7 +32,7 @@ class LessonControllerTest {
         // Arrange
         LessonBlockResponse blockResponse =
                 new LessonBlockResponse(
-                        UUID.randomUUID(), "VIDEO", 1, "{\"url\":\"video.mp4\"}", 20, false);
+                        UUID.randomUUID(), "VIDEO", 1, "{\"url\":\"video.mp4\"}", 20);
 
         LessonDetailResponse mockDetail =
                 new LessonDetailResponse(

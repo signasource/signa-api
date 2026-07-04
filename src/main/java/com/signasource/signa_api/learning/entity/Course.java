@@ -33,6 +33,9 @@ public class Course {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @Column(nullable = false, unique = true)
+    private String code;
+
     @Column(nullable = false, length = 150)
     private String name;
 

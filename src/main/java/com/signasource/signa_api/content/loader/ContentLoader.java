@@ -34,8 +34,7 @@ public class ContentLoader {
         CourseYaml courseYaml = yamlParser.parse(courseFile, CourseYaml.class);
         List<TopicYaml> topics = loadTopics(courseYaml.topics(), courseBasePath);
 
-        return new LoadedCourse(
-                signLanguageCode, signLanguageCode + "/" + courseCode, courseYaml, topics);
+        return new LoadedCourse(signLanguageCode, courseYaml, topics);
     }
 
     private List<TopicYaml> loadTopics(List<String> topicFiles, String courseBasePath) {

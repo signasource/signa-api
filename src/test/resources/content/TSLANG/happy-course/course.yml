@@ -1,4 +1,5 @@
 course:
+  code: happy-course
   name: Test Course
   description: A course for testing.
   free: true
