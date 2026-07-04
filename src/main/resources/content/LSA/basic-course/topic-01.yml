@@ -1,0 +1,53 @@
+topic:
+  code: unidad-1
+  name: Cortesía
+  description: Saludos básicos
+
+lessons:
+  - code: cortesia
+    name: Cortesía
+    description: Aprende las expresiones básicas de cortesía.
+
+    blocks:
+      - type: INFO
+        config:
+          concepts:
+            - hola
+            - chau
+            - gracias
+
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: hola
+          options:
+            - hola
+            - gracias
+            - por_favor
+
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: por_favor
+          options:
+            - hola
+            - perdon
+            - por_favor
+
+      - type: MATCH
+        xp: 15
+        config:
+          concepts:
+            - hola
+            - chau
+            - gracias
+
+      - type: CONTEXT
+        xp: 15
+        config:
+          sentence: "¡_ por ayudarme a estudiar LSA!"
+          answer: gracias
+          options:
+            - hola
+            - gracias
+            - chau
