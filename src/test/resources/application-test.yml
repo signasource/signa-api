@@ -34,3 +34,7 @@ jwt:
   secret: test-secret-key-with-sufficient-length-for-hmac-256-algorithm-12345
   access-token-expiration: 15000
   refresh-token-expiration: 604800000
+
+firebase:
+  enabled: false
+  global-topic: test-global
