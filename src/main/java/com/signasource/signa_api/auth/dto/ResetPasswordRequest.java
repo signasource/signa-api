@@ -1,6 +1,5 @@
 package com.signasource.signa_api.auth.dto;
 
-import jakarta.validation.constraints.NotBlank;
+import com.signasource.signa_api.validation.ValidPassword;
 
-public record ResetPasswordRequest(@NotBlank String newPassword) {
-}
+public record ResetPasswordRequest(@ValidPassword String newPassword) {}
