@@ -10,8 +10,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 @ActiveProfiles("test")
 class SignaApiApplicationTests {
 
-    @MockitoBean
-    private FirebaseMessaging firebaseMessaging;
+    @MockitoBean private FirebaseMessaging firebaseMessaging;
 
     @Test
     void contextLoads() {}
