@@ -1,23 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <FindBugsFilter>
 
-    <!-- Lombok genera código que SpotBugs interpreta mal -->
+    <!-- Lombok generates code that SpotBugs misinterprets -->
     <Match>
         <Source name="~.*\.java"/>
         <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
     </Match>
 
-    <!-- Spring inyecta campos por reflexión, no es un bug real -->
+    <!-- Spring injects fields via reflection, this is not a real bug -->
     <Match>
         <Bug pattern="UWF_UNWRITTEN_FIELD,NP_UNWRITTEN_FIELD"/>
     </Match>
 
-    <!-- DTOs y entidades generalmente no necesitan serialVersionUID -->
+    <!-- DTOs and entities generally do not need serialVersionUID -->
     <Match>
         <Bug pattern="SE_NO_SERIALVERSIONID"/>
     </Match>
 
-    <!-- \n en text blocks de HTML es intencional; %n no aplica para contenido HTML -->
+    <!-- \n in HTML text blocks is intentional; %n does not apply to HTML content -->
     <Match>
         <Class name="com.signasource.signa_api.auth.service.EmailService"/>
         <Bug pattern="VA_FORMAT_STRING_USES_NEWLINE"/>
