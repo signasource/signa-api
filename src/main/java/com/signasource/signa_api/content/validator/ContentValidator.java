@@ -10,6 +10,8 @@ import com.signasource.signa_api.content.exception.ContentValidationException;
 import com.signasource.signa_api.content.loader.LoadedCourse;
 import com.signasource.signa_api.content.validator.block.BlockValidator;
 import com.signasource.signa_api.content.validator.block.ValidationContext;
+import com.signasource.signa_api.content.validator.semantic.SemanticValidator;
+import com.signasource.signa_api.content.validator.semantic.ValidationError;
 import com.signasource.signa_api.learning.entity.BlockType;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -23,15 +25,22 @@ import org.springframework.stereotype.Component;
 public class ContentValidator {
 
     private final Map<BlockType, BlockValidator> blockValidators;
+    private final List<SemanticValidator> semanticValidators;
 
-    public ContentValidator(List<BlockValidator> blockValidators) {
+    public ContentValidator(List<BlockValidator> blockValidators, List<SemanticValidator> semanticValidators) {
         this.blockValidators = blockValidators.stream()
                 .collect(Collectors.toMap(BlockValidator::supports, v -> v));
+        this.semanticValidators = semanticValidators;
     }
 
     public void validate(LoadedCourse loaded) {
         List<String> errors = new ArrayList<>();
         validateCourse(loaded, errors);
+        for (SemanticValidator sv : semanticValidators) {
+            List<ValidationError> semanticErrors = new ArrayList<>();
+            sv.validate(loaded, semanticErrors);
+            semanticErrors.forEach(e -> errors.add(e.location() + ": " + e.message()));
+        }
         if (!errors.isEmpty()) {
             throw new ContentValidationException(errors);
         }

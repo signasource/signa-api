@@ -31,7 +31,7 @@ class ContentValidatorTest {
     @BeforeEach
     void setUp() {
         BlockConfigParser parser = new BlockConfigParser(new ObjectMapper());
-        validator = new ContentValidator(List.of(new InfoValidator(parser)));
+        validator = new ContentValidator(List.of(new InfoValidator(parser)), List.of());
     }
 
     // --- Valid cases ---
