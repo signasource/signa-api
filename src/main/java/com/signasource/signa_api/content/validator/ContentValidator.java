@@ -1,16 +1,16 @@
 package com.signasource.signa_api.content.validator;
 
-import com.signasource.signa_api.content.dto.CourseMetadataDto;
-import com.signasource.signa_api.content.dto.CourseVersionDto;
-import com.signasource.signa_api.content.dto.LessonBlockDto;
-import com.signasource.signa_api.content.dto.LessonDto;
-import com.signasource.signa_api.content.dto.TopicDto;
-import com.signasource.signa_api.content.dto.TopicYaml;
+import com.signasource.signa_api.content.dto.load.LoadedCourse;
+import com.signasource.signa_api.content.dto.validation.ValidationContext;
+import com.signasource.signa_api.content.dto.validation.ValidationError;
+import com.signasource.signa_api.content.dto.yaml.CourseMetadataDto;
+import com.signasource.signa_api.content.dto.yaml.CourseVersionDto;
+import com.signasource.signa_api.content.dto.yaml.LessonBlockDto;
+import com.signasource.signa_api.content.dto.yaml.LessonDto;
+import com.signasource.signa_api.content.dto.yaml.TopicDto;
+import com.signasource.signa_api.content.dto.yaml.TopicYaml;
 import com.signasource.signa_api.content.exception.ContentValidationException;
-import com.signasource.signa_api.content.loader.LoadedCourse;
 import com.signasource.signa_api.content.validator.block.BlockValidator;
-import com.signasource.signa_api.content.validator.block.ValidationContext;
-import com.signasource.signa_api.content.validator.semantic.SemanticValidator;
 import com.signasource.signa_api.learning.entity.BlockType;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -27,22 +27,16 @@ public class ContentValidator {
     private static final String UNKNOWN = "(unknown)";
 
     private final Map<BlockType, BlockValidator> blockValidators;
-    private final List<SemanticValidator> semanticValidators;
 
-    public ContentValidator(
-            List<BlockValidator> blockValidators, List<SemanticValidator> semanticValidators) {
+    public ContentValidator(List<BlockValidator> blockValidators) {
         this.blockValidators =
                 blockValidators.stream()
                         .collect(Collectors.toMap(BlockValidator::supports, v -> v));
-        this.semanticValidators = semanticValidators;
     }
 
     public void validate(LoadedCourse loaded) {
         List<ValidationError> errors = new ArrayList<>();
         validateCourse(loaded, errors);
-        for (SemanticValidator sv : semanticValidators) {
-            sv.validate(loaded, errors);
-        }
         if (!errors.isEmpty()) {
             throw new ContentValidationException(errors);
         }

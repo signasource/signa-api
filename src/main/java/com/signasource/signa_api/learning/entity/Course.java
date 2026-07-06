@@ -47,6 +47,13 @@ public class Course {
 
     @Column private String coverUrl;
 
+    /**
+     * SHA-256 fingerprint of the imported content tree. Used by the importer to skip re-importing
+     * when the source content is unchanged. See {@code ContentPersister}.
+     */
+    @Column(length = 64)
+    private String contentHash;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sign_language_id", nullable = false)
     private SignLanguage signLanguage;

@@ -7,16 +7,17 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.signasource.signa_api.content.dto.CourseMetadataDto;
-import com.signasource.signa_api.content.dto.CourseVersionDto;
-import com.signasource.signa_api.content.dto.CourseYaml;
-import com.signasource.signa_api.content.dto.LessonBlockDto;
-import com.signasource.signa_api.content.dto.LessonDto;
-import com.signasource.signa_api.content.dto.TopicDto;
-import com.signasource.signa_api.content.dto.TopicYaml;
+import com.signasource.signa_api.content.dto.load.LoadedCourse;
+import com.signasource.signa_api.content.dto.validation.ValidationError;
+import com.signasource.signa_api.content.dto.yaml.CourseMetadataDto;
+import com.signasource.signa_api.content.dto.yaml.CourseVersionDto;
+import com.signasource.signa_api.content.dto.yaml.CourseYaml;
+import com.signasource.signa_api.content.dto.yaml.LessonBlockDto;
+import com.signasource.signa_api.content.dto.yaml.LessonDto;
+import com.signasource.signa_api.content.dto.yaml.TopicDto;
+import com.signasource.signa_api.content.dto.yaml.TopicYaml;
 import com.signasource.signa_api.content.exception.ContentValidationException;
-import com.signasource.signa_api.content.loader.LoadedCourse;
-import com.signasource.signa_api.content.validator.block.BlockConfigParser;
+import com.signasource.signa_api.content.util.BlockConfigParser;
 import com.signasource.signa_api.content.validator.block.InfoValidator;
 import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.entity.VersionStatus;
@@ -31,7 +32,7 @@ class ContentValidatorTest {
     @BeforeEach
     void setUp() {
         BlockConfigParser parser = new BlockConfigParser(new ObjectMapper());
-        validator = new ContentValidator(List.of(new InfoValidator(parser)), List.of());
+        validator = new ContentValidator(List.of(new InfoValidator(parser)));
     }
 
     // --- Valid cases ---

@@ -1,6 +1,6 @@
 package com.signasource.signa_api.content.exception;
 
-import com.signasource.signa_api.content.validator.ValidationError;
+import com.signasource.signa_api.content.dto.validation.ValidationError;
 import java.util.List;
 
 public class ContentValidationException extends ContentLoadException {

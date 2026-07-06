@@ -1,10 +1,13 @@
 package com.signasource.signa_api.content.command;
 
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
+import com.signasource.signa_api.content.dto.result.ContentImportOutcome;
+import com.signasource.signa_api.content.dto.result.ImportResult;
 import com.signasource.signa_api.content.service.ContentImportService;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -26,33 +29,26 @@ class ContentImportRunnerTest {
     }
 
     @Test
-    void shouldImportWhenOptionPresent() {
+    void shouldImportAllWhenOptionPresent() {
+        when(importService.importAll())
+                .thenReturn(
+                        List.of(
+                                new ContentImportOutcome(
+                                        "LSA", "basic-course", ImportResult.CREATED)));
         ContentImportRunner runner = new ContentImportRunner(importService);
 
-        runner.run(new DefaultApplicationArguments("--import-content=LSA/basic-course"));
+        runner.run(new DefaultApplicationArguments("--import-content"));
 
-        verify(importService).importContent("LSA", "basic-course");
+        verify(importService).importAll();
     }
 
     @Test
-    void shouldImportEachValueWhenOptionRepeated() {
+    void shouldNotFailWhenNothingToImport() {
+        when(importService.importAll()).thenReturn(List.of());
         ContentImportRunner runner = new ContentImportRunner(importService);
 
-        runner.run(
-                new DefaultApplicationArguments(
-                        "--import-content=LSA/basic-course", "--import-content=ASL/intro"));
+        runner.run(new DefaultApplicationArguments("--import-content"));
 
-        verify(importService).importContent("LSA", "basic-course");
-        verify(importService).importContent("ASL", "intro");
-    }
-
-    @Test
-    void shouldThrowWhenValueHasNoCourse() {
-        ContentImportRunner runner = new ContentImportRunner(importService);
-
-        assertThatThrownBy(
-                        () -> runner.run(new DefaultApplicationArguments("--import-content=LSA")))
-                .isInstanceOf(IllegalArgumentException.class);
-        verifyNoInteractions(importService);
+        verify(importService).importAll();
     }
 }

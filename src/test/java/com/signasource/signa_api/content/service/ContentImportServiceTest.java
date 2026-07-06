@@ -1,22 +1,24 @@
 package com.signasource.signa_api.content.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.signasource.signa_api.content.dto.load.CourseRef;
+import com.signasource.signa_api.content.dto.load.LoadedCourse;
+import com.signasource.signa_api.content.dto.result.ContentImportOutcome;
+import com.signasource.signa_api.content.dto.result.ImportResult;
+import com.signasource.signa_api.content.dto.validation.ValidationError;
+import com.signasource.signa_api.content.dto.yaml.CourseMetadataDto;
+import com.signasource.signa_api.content.dto.yaml.CourseYaml;
 import com.signasource.signa_api.content.exception.ContentValidationException;
-import com.signasource.signa_api.content.importer.ContentImporter;
-import com.signasource.signa_api.content.loader.ContentLoader;
-import com.signasource.signa_api.content.loader.LoadedCourse;
 import com.signasource.signa_api.content.validator.ContentValidator;
-import com.signasource.signa_api.content.validator.ValidationError;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -25,35 +27,68 @@ class ContentImportServiceTest {
 
     @Mock private ContentLoader loader;
     @Mock private ContentValidator validator;
-    @Mock private ContentImporter importer;
+    @Mock private ContentPersister persister;
 
-    @Test
-    void shouldLoadValidateThenImportInOrder() {
-        LoadedCourse loaded = new LoadedCourse("LSA", null, List.of());
-        when(loader.load("LSA", "basic-course")).thenReturn(loaded);
+    private ContentImportService service() {
+        return new ContentImportService(loader, validator, persister);
+    }
 
-        ContentImportService service = new ContentImportService(loader, validator, importer);
-        service.importContent("LSA", "basic-course");
-
-        InOrder inOrder = inOrder(loader, validator, importer);
-        inOrder.verify(loader).load("LSA", "basic-course");
-        inOrder.verify(validator).validate(loaded);
-        inOrder.verify(importer).importCourse(loaded);
+    private LoadedCourse loadedWithCode(String code) {
+        CourseYaml yaml =
+                new CourseYaml(
+                        new CourseMetadataDto(code, code, null, false, null), null, List.of());
+        return new LoadedCourse("LSA", yaml, List.of());
     }
 
     @Test
-    void shouldNotImportWhenValidationFails() {
-        LoadedCourse loaded = new LoadedCourse("LSA", null, List.of());
-        when(loader.load("LSA", "basic-course")).thenReturn(loaded);
-        doThrow(new ContentValidationException(List.of(new ValidationError("Course", "boom"))))
+    void shouldImportAllDiscoveredCourses() {
+        LoadedCourse first = loadedWithCode("course-a");
+        LoadedCourse second = loadedWithCode("course-b");
+        when(loader.discover())
+                .thenReturn(
+                        List.of(
+                                new CourseRef("LSA", "course-a"),
+                                new CourseRef("LSA", "course-b")));
+        when(loader.load("LSA", "course-a")).thenReturn(first);
+        when(loader.load("LSA", "course-b")).thenReturn(second);
+        when(persister.importCourse(first)).thenReturn(ImportResult.CREATED);
+        when(persister.importCourse(second)).thenReturn(ImportResult.UNCHANGED);
+
+        List<ContentImportOutcome> outcomes = service().importAll();
+
+        assertThat(outcomes)
+                .containsExactly(
+                        new ContentImportOutcome("LSA", "course-a", ImportResult.CREATED),
+                        new ContentImportOutcome("LSA", "course-b", ImportResult.UNCHANGED));
+        verify(validator).validate(first);
+        verify(validator).validate(second);
+    }
+
+    @Test
+    void shouldValidateEveryCourseBeforeImportingAny() {
+        LoadedCourse first = loadedWithCode("course-a");
+        LoadedCourse second = loadedWithCode("course-b");
+        when(loader.discover())
+                .thenReturn(
+                        List.of(
+                                new CourseRef("LSA", "course-a"),
+                                new CourseRef("LSA", "course-b")));
+        when(loader.load("LSA", "course-a")).thenReturn(first);
+        when(loader.load("LSA", "course-b")).thenReturn(second);
+        // course-a validates fine; course-b is invalid. Lenient because validate(course-a) is a
+        // legitimate call with different args than this stub.
+        lenient()
+                .doThrow(
+                        new ContentValidationException(
+                                List.of(new ValidationError("Course", "boom"))))
                 .when(validator)
-                .validate(loaded);
+                .validate(second);
 
-        ContentImportService service = new ContentImportService(loader, validator, importer);
-
-        assertThatThrownBy(() -> service.importContent("LSA", "basic-course"))
+        assertThatThrownBy(() -> service().importAll())
                 .isInstanceOf(ContentValidationException.class);
 
-        verify(importer, never()).importCourse(loaded);
+        // First course was valid, but nothing is imported because a later course is invalid.
+        verify(persister, never()).importCourse(first);
+        verify(persister, never()).importCourse(second);
     }
 }

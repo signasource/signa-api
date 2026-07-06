@@ -16,6 +16,9 @@ services:
     build: .
     container_name: signa-api
     restart: unless-stopped
+    # Validate + import ALL content under content/ on startup. Unchanged courses are skipped;
+    # if any YAML is invalid, startup fails and the error shows in the logs.
+    command: ["--import-content"]
     ports:
       - "8080:8080"
     environment:

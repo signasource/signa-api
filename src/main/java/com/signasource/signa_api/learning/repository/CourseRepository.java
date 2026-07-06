@@ -18,4 +18,6 @@ public interface CourseRepository extends JpaRepository<Course, UUID> {
     Optional<Course> findById(UUID id);
 
     boolean existsByCode(String code);
+
+    Optional<Course> findByCode(String code);
 }
