@@ -41,11 +41,7 @@ public class UserController {
 
     @GetMapping("/username-availability")
     public ResponseEntity<UsernameAvailabilityResponse> checkUsernameAvailability(
-            @RequestParam
-                    @NotBlank
-                    @Size(min = 3, max = 50)
-                    @Pattern(regexp = "^[a-zA-Z0-9_]+$")
-                    String username) {
+            @RequestParam @NotBlank @Size(min = 3, max = 50) @Pattern(regexp = "^[a-zA-Z0-9_]+$") String username) {
         return ResponseEntity.ok(userService.checkUsernameAvailability(username));
     }
 

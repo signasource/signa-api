@@ -51,8 +51,7 @@ class UserServiceTest {
     void checkUsernameAvailability_whenUsernameIsFree_returnsAvailableTrue() {
         when(userRepository.existsByUsername(NEW_USERNAME)).thenReturn(false);
 
-        UsernameAvailabilityResponse response =
-                userService.checkUsernameAvailability(NEW_USERNAME);
+        UsernameAvailabilityResponse response = userService.checkUsernameAvailability(NEW_USERNAME);
 
         assertTrue(response.available());
     }
