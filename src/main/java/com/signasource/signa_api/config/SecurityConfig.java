@@ -43,6 +43,8 @@ public class SecurityConfig {
                         auth ->
                                 auth.requestMatchers("/auth/**")
                                         .permitAll()
+                                        .requestMatchers("/users/username-availability")
+                                        .permitAll()
                                         .anyRequest()
                                         .authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
