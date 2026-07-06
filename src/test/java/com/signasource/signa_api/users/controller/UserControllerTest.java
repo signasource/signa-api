@@ -29,7 +29,6 @@ import org.springframework.http.ResponseEntity;
 @ExtendWith(MockitoExtension.class)
 class UserControllerTest {
 
-    private static final UUID SETTINGS_ID = UUID.randomUUID();
     private static final String TIMEZONE = "America/Argentina/Buenos_Aires";
     private static final Theme THEME = Theme.DARK;
     private static final FontSize FONT_SIZE = FontSize.LARGE;
@@ -109,7 +108,6 @@ class UserControllerTest {
 
     private UserSettingsResponse buildSettingsResponse() {
         return new UserSettingsResponse(
-                SETTINGS_ID,
                 TIMEZONE,
                 false,
                 THEME,

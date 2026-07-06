@@ -5,10 +5,8 @@ import com.signasource.signa_api.users.entity.FontSize;
 import com.signasource.signa_api.users.entity.Theme;
 import com.signasource.signa_api.users.entity.UserSettings;
 import java.time.LocalTime;
-import java.util.UUID;
 
 public record UserSettingsResponse(
-        UUID id,
         String timezone,
         boolean notificationsEnabled,
         Theme theme,
@@ -20,7 +18,6 @@ public record UserSettingsResponse(
         LocalTime dailyNotificationTime) {
     public static UserSettingsResponse from(UserSettings settings) {
         return new UserSettingsResponse(
-                settings.getId(),
                 settings.getTimezone(),
                 settings.isNotificationsEnabled(),
                 settings.getTheme(),

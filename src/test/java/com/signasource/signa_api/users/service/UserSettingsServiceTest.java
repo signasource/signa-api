@@ -94,7 +94,6 @@ class UserSettingsServiceTest {
 
         UserSettingsResponse response = userSettingsService.getSettings(user);
 
-        assertEquals(SETTINGS_ID, response.id());
         assertEquals(INITIAL_TIMEZONE, response.timezone());
         assertEquals(INITIAL_THEME, response.theme());
         verify(userSettingsRepository, never()).save(settings);
