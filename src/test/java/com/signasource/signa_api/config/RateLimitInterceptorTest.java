@@ -6,6 +6,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.PrintWriter;
@@ -25,7 +26,7 @@ class RateLimitInterceptorTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        interceptor = new RateLimitInterceptor();
+        interceptor = new RateLimitInterceptor(new ObjectMapper());
         request = mock(HttpServletRequest.class);
         response = mock(HttpServletResponse.class);
         handler = new Object();

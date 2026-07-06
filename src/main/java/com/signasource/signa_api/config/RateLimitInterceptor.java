@@ -1,5 +1,7 @@
 package com.signasource.signa_api.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.signasource.signa_api.exceptions.ErrorResponse;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import jakarta.servlet.http.HttpServletRequest;
@@ -7,11 +9,13 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 @Component
+@RequiredArgsConstructor
 public class RateLimitInterceptor implements HandlerInterceptor {
 
     static final int BUCKET_CAPACITY = 30;
@@ -19,7 +23,9 @@ public class RateLimitInterceptor implements HandlerInterceptor {
     static final int TOO_MANY_REQUESTS = 429;
     private static final int TOKENS_PER_REQUEST = 1;
     private static final String X_FORWARDED_FOR = "X-Forwarded-For";
+    private static final String TOO_MANY_REQUESTS_MESSAGE = "Too many requests";
 
+    private final ObjectMapper objectMapper;
     private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
 
     @Override
@@ -35,7 +41,8 @@ public class RateLimitInterceptor implements HandlerInterceptor {
 
         response.setStatus(TOO_MANY_REQUESTS);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.getWriter().write("{\"message\": \"Too many requests\", \"status\": 429}");
+        ErrorResponse body = ErrorResponse.of(TOO_MANY_REQUESTS_MESSAGE, TOO_MANY_REQUESTS);
+        response.getWriter().write(objectMapper.writeValueAsString(body));
         return false;
     }
 
