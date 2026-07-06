@@ -11,10 +11,7 @@ lessons:
     blocks:
       - type: INFO
         config:
-          concepts:
-            - hola
-            - chau
-            - gracias
+          text: "En esta lección aprenderás las expresiones básicas de cortesía en LSA."
 
       - type: SELECT_MEANING
         xp: 10

@@ -6,8 +6,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.signasource.signa_api.content.validator.block.BlockConfigParser;
 import com.signasource.signa_api.content.dto.LessonBlockDto;
+import com.signasource.signa_api.content.validator.ValidationError;
 import com.signasource.signa_api.learning.entity.BlockType;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,54 +27,66 @@ class SelectSignValidatorTest {
 
     @Test
     void shouldPassForValidBlock() {
-        List<String> errors = new ArrayList<>();
+        List<ValidationError> errors = new ArrayList<>();
         validator.validate(block(config("hola", List.of("hola", "chau"))), ctx, errors);
         assertThat(errors).isEmpty();
     }
 
     @Test
     void shouldFailWhenWordIsNull() {
-        List<String> errors = new ArrayList<>();
+        List<ValidationError> errors = new ArrayList<>();
         validator.validate(block(config(null, List.of("hola", "chau"))), ctx, errors);
-        assertThat(errors).contains("Topic topic-1 > Lesson lesson-1 > Block #3: word is required");
+        assertThat(errors)
+                .extracting(ValidationError::render)
+                .contains("Topic topic-1 > Lesson lesson-1 > Block #3: word is required");
     }
 
     @Test
     void shouldFailWhenWordIsBlank() {
-        List<String> errors = new ArrayList<>();
+        List<ValidationError> errors = new ArrayList<>();
         validator.validate(block(config("  ", List.of("hola", "chau"))), ctx, errors);
-        assertThat(errors).contains("Topic topic-1 > Lesson lesson-1 > Block #3: word is required");
+        assertThat(errors)
+                .extracting(ValidationError::render)
+                .contains("Topic topic-1 > Lesson lesson-1 > Block #3: word is required");
     }
 
     @Test
     void shouldFailWhenOptionsIsNull() {
-        List<String> errors = new ArrayList<>();
+        List<ValidationError> errors = new ArrayList<>();
         validator.validate(block(configNullOptions("hola")), ctx, errors);
-        assertThat(errors).contains("Topic topic-1 > Lesson lesson-1 > Block #3: options is required");
+        assertThat(errors)
+                .extracting(ValidationError::render)
+                .contains("Topic topic-1 > Lesson lesson-1 > Block #3: options is required");
     }
 
     @Test
     void shouldFailWhenOptionsHasFewerThanTwoElements() {
-        List<String> errors = new ArrayList<>();
+        List<ValidationError> errors = new ArrayList<>();
         validator.validate(block(config("hola", List.of("hola"))), ctx, errors);
         assertThat(errors)
-                .contains("Topic topic-1 > Lesson lesson-1 > Block #3: options must have at least 2 elements");
+                .extracting(ValidationError::render)
+                .contains(
+                        "Topic topic-1 > Lesson lesson-1 > Block #3: options must have at least 2 elements");
     }
 
     @Test
     void shouldFailWhenWordIsNotInOptions() {
-        List<String> errors = new ArrayList<>();
+        List<ValidationError> errors = new ArrayList<>();
         validator.validate(block(config("hola", List.of("chau", "gracias"))), ctx, errors);
         assertThat(errors)
-                .contains("Topic topic-1 > Lesson lesson-1 > Block #3: word must be one of the options");
+                .extracting(ValidationError::render)
+                .contains(
+                        "Topic topic-1 > Lesson lesson-1 > Block #3: word must be one of the options");
     }
 
     @Test
     void shouldFailWhenConfigIsInvalidJson() {
-        List<String> errors = new ArrayList<>();
+        List<ValidationError> errors = new ArrayList<>();
         validator.validate(block(JsonNodeFactory.instance.arrayNode()), ctx, errors);
         assertThat(errors)
-                .contains("Topic topic-1 > Lesson lesson-1 > Block #3: invalid config for SELECT_SIGN block");
+                .extracting(ValidationError::render)
+                .contains(
+                        "Topic topic-1 > Lesson lesson-1 > Block #3: invalid config for SELECT_SIGN block");
     }
 
     private LessonBlockDto block(JsonNode config) {

@@ -1,6 +1,7 @@
 package com.signasource.signa_api.content.validator.block;
 
 import com.signasource.signa_api.content.dto.LessonBlockDto;
+import com.signasource.signa_api.content.validator.ValidationError;
 import com.signasource.signa_api.content.validator.block.config.SelectMeaningConfig;
 import com.signasource.signa_api.learning.entity.BlockType;
 import java.util.List;
@@ -22,28 +23,32 @@ public class SelectMeaningValidator implements BlockValidator {
     }
 
     @Override
-    public void validate(LessonBlockDto block, ValidationContext ctx, List<String> errors) {
+    public void validate(
+            LessonBlockDto block, ValidationContext ctx, List<ValidationError> errors) {
         Optional<SelectMeaningConfig> parsed =
                 parser.parse(block.config(), SelectMeaningConfig.class);
         if (parsed.isEmpty()) {
-            errors.add(ctx.location() + ": invalid config for SELECT_MEANING block");
+            errors.add(
+                    new ValidationError(ctx.location(), "invalid config for SELECT_MEANING block"));
             return;
         }
         SelectMeaningConfig config = parsed.get();
 
         boolean signValid = config.sign() != null && !config.sign().isBlank();
         if (!signValid) {
-            errors.add(ctx.location() + ": sign is required");
+            errors.add(new ValidationError(ctx.location(), "sign is required"));
         }
 
         if (config.options() == null) {
-            errors.add(ctx.location() + ": options is required");
+            errors.add(new ValidationError(ctx.location(), "options is required"));
         } else {
             if (config.options().size() < 2) {
-                errors.add(ctx.location() + ": options must have at least 2 elements");
+                errors.add(
+                        new ValidationError(
+                                ctx.location(), "options must have at least 2 elements"));
             }
             if (signValid && !config.options().contains(config.sign())) {
-                errors.add(ctx.location() + ": sign must be one of the options");
+                errors.add(new ValidationError(ctx.location(), "sign must be one of the options"));
             }
         }
     }

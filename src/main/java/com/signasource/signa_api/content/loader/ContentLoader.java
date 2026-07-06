@@ -2,6 +2,7 @@ package com.signasource.signa_api.content.loader;
 
 import com.signasource.signa_api.content.dto.CourseYaml;
 import com.signasource.signa_api.content.dto.TopicYaml;
+import com.signasource.signa_api.content.exception.ContentLoadException;
 import com.signasource.signa_api.content.exception.CourseFileNotFoundException;
 import com.signasource.signa_api.content.exception.TopicFileNotFoundException;
 import com.signasource.signa_api.content.parser.YamlParser;
@@ -32,6 +33,10 @@ public class ContentLoader {
         }
 
         CourseYaml courseYaml = yamlParser.parse(courseFile, CourseYaml.class);
+        if (courseYaml.topics() == null) {
+            throw new ContentLoadException(
+                    "course.yml at " + courseBasePath + " has no 'topics' section");
+        }
         List<TopicYaml> topics = loadTopics(courseYaml.topics(), courseBasePath);
 
         return new LoadedCourse(signLanguageCode, courseYaml, topics);

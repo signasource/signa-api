@@ -1,6 +1,7 @@
 package com.signasource.signa_api.content.validator.block;
 
 import com.signasource.signa_api.content.dto.LessonBlockDto;
+import com.signasource.signa_api.content.validator.ValidationError;
 import com.signasource.signa_api.content.validator.block.config.InfoConfig;
 import com.signasource.signa_api.learning.entity.BlockType;
 import java.util.List;
@@ -22,15 +23,16 @@ public class InfoValidator implements BlockValidator {
     }
 
     @Override
-    public void validate(LessonBlockDto block, ValidationContext ctx, List<String> errors) {
+    public void validate(
+            LessonBlockDto block, ValidationContext ctx, List<ValidationError> errors) {
         Optional<InfoConfig> parsed = parser.parse(block.config(), InfoConfig.class);
         if (parsed.isEmpty()) {
-            errors.add(ctx.location() + ": invalid config for INFO block");
+            errors.add(new ValidationError(ctx.location(), "invalid config for INFO block"));
             return;
         }
         InfoConfig config = parsed.get();
         if (config.text() == null || config.text().isBlank()) {
-            errors.add(ctx.location() + ": text is required");
+            errors.add(new ValidationError(ctx.location(), "text is required"));
         }
     }
 }

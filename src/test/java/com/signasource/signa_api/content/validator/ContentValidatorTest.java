@@ -6,7 +6,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.signasource.signa_api.content.validator.block.BlockConfigParser;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.signasource.signa_api.content.dto.CourseMetadataDto;
 import com.signasource.signa_api.content.dto.CourseVersionDto;
@@ -17,6 +16,7 @@ import com.signasource.signa_api.content.dto.TopicDto;
 import com.signasource.signa_api.content.dto.TopicYaml;
 import com.signasource.signa_api.content.exception.ContentValidationException;
 import com.signasource.signa_api.content.loader.LoadedCourse;
+import com.signasource.signa_api.content.validator.block.BlockConfigParser;
 import com.signasource.signa_api.content.validator.block.InfoValidator;
 import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.entity.VersionStatus;
@@ -62,26 +62,26 @@ class ContentValidatorTest {
     void shouldFailWhenCourseCodeIsBlank() {
         assertValidationFails(
                 courseWithMeta(new CourseMetadataDto("", "Name", null, false, null)),
-                "Course code is required");
+                "Course: code is required");
     }
 
     @Test
     void shouldFailWhenCourseNameIsBlank() {
         assertValidationFails(
                 courseWithMeta(new CourseMetadataDto("code", null, null, false, null)),
-                "Course name is required");
+                "Course: name is required");
     }
 
     @Test
     void shouldFailWhenVersionIsBlank() {
         assertValidationFails(
                 courseWithVersion(new CourseVersionDto("", VersionStatus.DRAFT)),
-                "Version is required");
+                "Course: version is required");
     }
 
     @Test
     void shouldFailWhenTopicsListIsEmpty() {
-        assertValidationFails(courseWith(List.of()), "Course has no topics");
+        assertValidationFails(courseWith(List.of()), "Course: has no topics");
     }
 
     // --- Topic validation ---
@@ -103,14 +103,14 @@ class ContentValidatorTest {
     @Test
     void shouldFailWhenTopicHasNoLessons() {
         TopicYaml topic = new TopicYaml(new TopicDto("t1", "Name", null, null), List.of());
-        assertValidationFails(courseWith(List.of(topic)), "Topic t1 has no lessons");
+        assertValidationFails(courseWith(List.of(topic)), "Topic t1: has no lessons");
     }
 
     @Test
     void shouldFailWhenTopicCodesAreDuplicated() {
         assertValidationFails(
                 courseWith(List.of(validTopic("t1"), validTopic("t1"))),
-                "Duplicate topic code: t1");
+                "Course: duplicate topic code: t1");
     }
 
     // --- Lesson validation ---
@@ -136,7 +136,7 @@ class ContentValidatorTest {
         LessonDto lesson = new LessonDto("l1", "Name", null, List.of());
         assertValidationFails(
                 courseWith(List.of(topicWith("t1", List.of(lesson)))),
-                "Topic t1 > Lesson l1 has no blocks");
+                "Topic t1 > Lesson l1: has no blocks");
     }
 
     @Test
@@ -195,13 +195,15 @@ class ContentValidatorTest {
                 .isInstanceOf(ContentValidationException.class)
                 .satisfies(
                         ex -> {
-                            List<String> errors = ((ContentValidationException) ex).errors();
+                            List<ValidationError> errors =
+                                    ((ContentValidationException) ex).errors();
                             assertThat(errors)
+                                    .extracting(ValidationError::render)
                                     .containsExactlyInAnyOrder(
-                                            "Course code is required",
-                                            "Course name is required",
-                                            "Version is required",
-                                            "Course has no topics");
+                                            "Course: code is required",
+                                            "Course: name is required",
+                                            "Course: version is required",
+                                            "Course: has no topics");
                         });
     }
 
@@ -270,6 +272,7 @@ class ContentValidatorTest {
                 .satisfies(
                         ex ->
                                 assertThat(((ContentValidationException) ex).errors())
+                                        .extracting(ValidationError::render)
                                         .contains(expectedErrors));
     }
 }

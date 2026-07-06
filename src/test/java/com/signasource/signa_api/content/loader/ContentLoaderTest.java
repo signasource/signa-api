@@ -3,6 +3,8 @@ package com.signasource.signa_api.content.loader;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.signasource.signa_api.content.exception.ContentLoadException;
 import com.signasource.signa_api.content.exception.ContentParseException;
 import com.signasource.signa_api.content.exception.CourseFileNotFoundException;
 import com.signasource.signa_api.content.exception.TopicFileNotFoundException;
@@ -18,7 +20,7 @@ class ContentLoaderTest {
 
     @BeforeEach
     void setUp() {
-        loader = new ContentLoader(new DefaultResourceLoader(), new YamlParser());
+        loader = new ContentLoader(new DefaultResourceLoader(), new YamlParser(new ObjectMapper()));
     }
 
     @Test
@@ -66,5 +68,12 @@ class ContentLoaderTest {
     void shouldThrowWhenTopicYamlIsInvalid() {
         assertThatThrownBy(() -> loader.load("TSLANG", "bad-yaml-course"))
                 .isInstanceOf(ContentParseException.class);
+    }
+
+    @Test
+    void shouldThrowWhenCourseYmlHasNoTopicsSection() {
+        assertThatThrownBy(() -> loader.load("TSLANG", "no-topics-course"))
+                .isInstanceOf(ContentLoadException.class)
+                .hasMessageContaining("no 'topics' section");
     }
 }

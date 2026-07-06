@@ -65,7 +65,8 @@ public class ContentImporter {
         }
 
         Course course = courseMapper.toEntity(loaded.course().course(), signLanguage);
-        CourseVersion courseVersion = courseVersionMapper.toEntity(loaded.course().version(), course);
+        CourseVersion courseVersion =
+                courseVersionMapper.toEntity(loaded.course().version(), course);
         course.getVersions().add(courseVersion);
 
         List<TopicYaml> topicYamls = loaded.topics();
@@ -82,7 +83,8 @@ public class ContentImporter {
 
                 List<LessonBlockDto> blocks = lessonDto.blocks();
                 for (int k = 0; k < blocks.size(); k++) {
-                    lesson.getLessonBlocks().add(lessonBlockMapper.toEntity(blocks.get(k), k, lesson));
+                    lesson.getLessonBlocks()
+                            .add(lessonBlockMapper.toEntity(blocks.get(k), k, lesson));
                 }
             }
         }

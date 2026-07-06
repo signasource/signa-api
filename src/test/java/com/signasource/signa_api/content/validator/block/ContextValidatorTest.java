@@ -14,46 +14,67 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-class SelectMeaningValidatorTest {
+class ContextValidatorTest {
 
-    private SelectMeaningValidator validator;
+    private ContextValidator validator;
     private ValidationContext ctx;
 
     @BeforeEach
     void setUp() {
-        validator = new SelectMeaningValidator(new BlockConfigParser(new ObjectMapper()));
+        validator = new ContextValidator(new BlockConfigParser(new ObjectMapper()));
         ctx = new ValidationContext("topic-1", "lesson-1", 2);
     }
 
     @Test
     void shouldPassForValidBlock() {
         List<ValidationError> errors = new ArrayList<>();
-        validator.validate(block(config("hola", List.of("hola", "chau"))), ctx, errors);
+        validator.validate(
+                block(config("¡_ por ayudarme!", "gracias", List.of("hola", "gracias", "chau"))),
+                ctx,
+                errors);
         assertThat(errors).isEmpty();
     }
 
     @Test
-    void shouldFailWhenSignIsNull() {
+    void shouldFailWhenSentenceIsNull() {
         List<ValidationError> errors = new ArrayList<>();
-        validator.validate(block(config(null, List.of("hola", "chau"))), ctx, errors);
+        validator.validate(block(config(null, "gracias", List.of("hola", "gracias"))), ctx, errors);
         assertThat(errors)
                 .extracting(ValidationError::render)
-                .contains("Topic topic-1 > Lesson lesson-1 > Block #2: sign is required");
+                .contains("Topic topic-1 > Lesson lesson-1 > Block #2: sentence is required");
     }
 
     @Test
-    void shouldFailWhenSignIsBlank() {
+    void shouldFailWhenSentenceIsBlank() {
         List<ValidationError> errors = new ArrayList<>();
-        validator.validate(block(config("  ", List.of("hola", "chau"))), ctx, errors);
+        validator.validate(block(config("  ", "gracias", List.of("hola", "gracias"))), ctx, errors);
         assertThat(errors)
                 .extracting(ValidationError::render)
-                .contains("Topic topic-1 > Lesson lesson-1 > Block #2: sign is required");
+                .contains("Topic topic-1 > Lesson lesson-1 > Block #2: sentence is required");
+    }
+
+    @Test
+    void shouldFailWhenAnswerIsNull() {
+        List<ValidationError> errors = new ArrayList<>();
+        validator.validate(block(config("¡_!", null, List.of("hola", "gracias"))), ctx, errors);
+        assertThat(errors)
+                .extracting(ValidationError::render)
+                .contains("Topic topic-1 > Lesson lesson-1 > Block #2: answer is required");
+    }
+
+    @Test
+    void shouldFailWhenAnswerIsBlank() {
+        List<ValidationError> errors = new ArrayList<>();
+        validator.validate(block(config("¡_!", "  ", List.of("hola", "gracias"))), ctx, errors);
+        assertThat(errors)
+                .extracting(ValidationError::render)
+                .contains("Topic topic-1 > Lesson lesson-1 > Block #2: answer is required");
     }
 
     @Test
     void shouldFailWhenOptionsIsNull() {
         List<ValidationError> errors = new ArrayList<>();
-        validator.validate(block(configNullOptions("hola")), ctx, errors);
+        validator.validate(block(configNullOptions("¡_!", "gracias")), ctx, errors);
         assertThat(errors)
                 .extracting(ValidationError::render)
                 .contains("Topic topic-1 > Lesson lesson-1 > Block #2: options is required");
@@ -62,7 +83,7 @@ class SelectMeaningValidatorTest {
     @Test
     void shouldFailWhenOptionsHasFewerThanTwoElements() {
         List<ValidationError> errors = new ArrayList<>();
-        validator.validate(block(config("hola", List.of("hola"))), ctx, errors);
+        validator.validate(block(config("¡_!", "gracias", List.of("gracias"))), ctx, errors);
         assertThat(errors)
                 .extracting(ValidationError::render)
                 .contains(
@@ -70,13 +91,13 @@ class SelectMeaningValidatorTest {
     }
 
     @Test
-    void shouldFailWhenSignIsNotInOptions() {
+    void shouldFailWhenAnswerIsNotInOptions() {
         List<ValidationError> errors = new ArrayList<>();
-        validator.validate(block(config("hola", List.of("chau", "gracias"))), ctx, errors);
+        validator.validate(block(config("¡_!", "gracias", List.of("hola", "chau"))), ctx, errors);
         assertThat(errors)
                 .extracting(ValidationError::render)
                 .contains(
-                        "Topic topic-1 > Lesson lesson-1 > Block #2: sign must be one of the options");
+                        "Topic topic-1 > Lesson lesson-1 > Block #2: answer must be one of the options");
     }
 
     @Test
@@ -86,37 +107,42 @@ class SelectMeaningValidatorTest {
         assertThat(errors)
                 .extracting(ValidationError::render)
                 .contains(
-                        "Topic topic-1 > Lesson lesson-1 > Block #2: invalid config for SELECT_MEANING block");
+                        "Topic topic-1 > Lesson lesson-1 > Block #2: invalid config for CONTEXT block");
     }
 
     @Test
     void shouldAccumulateMultipleErrors() {
         List<ValidationError> errors = new ArrayList<>();
-        validator.validate(block(config(null, List.of("solo"))), ctx, errors);
+        validator.validate(block(config(null, null, List.of("solo"))), ctx, errors);
         assertThat(errors)
                 .extracting(ValidationError::render)
                 .contains(
-                        "Topic topic-1 > Lesson lesson-1 > Block #2: sign is required",
+                        "Topic topic-1 > Lesson lesson-1 > Block #2: sentence is required",
+                        "Topic topic-1 > Lesson lesson-1 > Block #2: answer is required",
                         "Topic topic-1 > Lesson lesson-1 > Block #2: options must have at least 2 elements");
     }
 
     private LessonBlockDto block(JsonNode config) {
-        return new LessonBlockDto(BlockType.SELECT_MEANING, null, config);
+        return new LessonBlockDto(BlockType.CONTEXT, null, config);
     }
 
-    private ObjectNode config(String sign, List<String> options) {
+    private ObjectNode config(String sentence, String answer, List<String> options) {
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode node = JsonNodeFactory.instance.objectNode();
-        if (sign != null) {
-            node.put("sign", sign);
+        if (sentence != null) {
+            node.put("sentence", sentence);
+        }
+        if (answer != null) {
+            node.put("answer", answer);
         }
         node.set("options", mapper.valueToTree(options));
         return node;
     }
 
-    private ObjectNode configNullOptions(String sign) {
+    private ObjectNode configNullOptions(String sentence, String answer) {
         ObjectNode node = JsonNodeFactory.instance.objectNode();
-        node.put("sign", sign);
+        node.put("sentence", sentence);
+        node.put("answer", answer);
         return node;
     }
 }

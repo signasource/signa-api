@@ -6,8 +6,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.signasource.signa_api.content.validator.block.BlockConfigParser;
 import com.signasource.signa_api.content.dto.LessonBlockDto;
+import com.signasource.signa_api.content.validator.ValidationError;
 import com.signasource.signa_api.learning.entity.BlockType;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,50 +27,55 @@ class MatchValidatorTest {
 
     @Test
     void shouldPassForValidBlock() {
-        List<String> errors = new ArrayList<>();
+        List<ValidationError> errors = new ArrayList<>();
         validator.validate(block(config(List.of("hola", "chau"))), ctx, errors);
         assertThat(errors).isEmpty();
     }
 
     @Test
     void shouldPassWithMoreThanTwoConcepts() {
-        List<String> errors = new ArrayList<>();
+        List<ValidationError> errors = new ArrayList<>();
         validator.validate(block(config(List.of("hola", "chau", "gracias"))), ctx, errors);
         assertThat(errors).isEmpty();
     }
 
     @Test
     void shouldFailWhenConceptsIsNull() {
-        List<String> errors = new ArrayList<>();
+        List<ValidationError> errors = new ArrayList<>();
         validator.validate(block(JsonNodeFactory.instance.objectNode()), ctx, errors);
         assertThat(errors)
+                .extracting(ValidationError::render)
                 .contains("Topic topic-1 > Lesson lesson-1 > Block #1: concepts is required");
     }
 
     @Test
     void shouldFailWhenConceptsHasFewerThanTwoElements() {
-        List<String> errors = new ArrayList<>();
+        List<ValidationError> errors = new ArrayList<>();
         validator.validate(block(config(List.of("hola"))), ctx, errors);
         assertThat(errors)
+                .extracting(ValidationError::render)
                 .contains(
                         "Topic topic-1 > Lesson lesson-1 > Block #1: concepts must have at least 2 elements");
     }
 
     @Test
     void shouldFailWhenConceptsIsEmpty() {
-        List<String> errors = new ArrayList<>();
+        List<ValidationError> errors = new ArrayList<>();
         validator.validate(block(config(List.of())), ctx, errors);
         assertThat(errors)
+                .extracting(ValidationError::render)
                 .contains(
                         "Topic topic-1 > Lesson lesson-1 > Block #1: concepts must have at least 2 elements");
     }
 
     @Test
     void shouldFailWhenConfigIsInvalidJson() {
-        List<String> errors = new ArrayList<>();
+        List<ValidationError> errors = new ArrayList<>();
         validator.validate(block(JsonNodeFactory.instance.arrayNode()), ctx, errors);
         assertThat(errors)
-                .contains("Topic topic-1 > Lesson lesson-1 > Block #1: invalid config for MATCH block");
+                .extracting(ValidationError::render)
+                .contains(
+                        "Topic topic-1 > Lesson lesson-1 > Block #1: invalid config for MATCH block");
     }
 
     private LessonBlockDto block(JsonNode config) {

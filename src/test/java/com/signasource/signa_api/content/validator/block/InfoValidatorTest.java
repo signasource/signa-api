@@ -6,8 +6,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.signasource.signa_api.content.validator.block.BlockConfigParser;
 import com.signasource.signa_api.content.dto.LessonBlockDto;
+import com.signasource.signa_api.content.validator.ValidationError;
 import com.signasource.signa_api.learning.entity.BlockType;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,31 +27,37 @@ class InfoValidatorTest {
 
     @Test
     void shouldPassForValidInfoBlock() {
-        List<String> errors = new ArrayList<>();
+        List<ValidationError> errors = new ArrayList<>();
         validator.validate(block(infoConfig("Hello world")), ctx, errors);
         assertThat(errors).isEmpty();
     }
 
     @Test
     void shouldFailWhenTextIsNull() {
-        List<String> errors = new ArrayList<>();
+        List<ValidationError> errors = new ArrayList<>();
         validator.validate(block(JsonNodeFactory.instance.objectNode()), ctx, errors);
-        assertThat(errors).contains("Topic topic-1 > Lesson lesson-1 > Block #1: text is required");
+        assertThat(errors)
+                .extracting(ValidationError::render)
+                .contains("Topic topic-1 > Lesson lesson-1 > Block #1: text is required");
     }
 
     @Test
     void shouldFailWhenTextIsBlank() {
-        List<String> errors = new ArrayList<>();
+        List<ValidationError> errors = new ArrayList<>();
         validator.validate(block(infoConfig("   ")), ctx, errors);
-        assertThat(errors).contains("Topic topic-1 > Lesson lesson-1 > Block #1: text is required");
+        assertThat(errors)
+                .extracting(ValidationError::render)
+                .contains("Topic topic-1 > Lesson lesson-1 > Block #1: text is required");
     }
 
     @Test
     void shouldFailWhenConfigIsInvalidJson() {
-        List<String> errors = new ArrayList<>();
+        List<ValidationError> errors = new ArrayList<>();
         validator.validate(block(JsonNodeFactory.instance.arrayNode()), ctx, errors);
         assertThat(errors)
-                .contains("Topic topic-1 > Lesson lesson-1 > Block #1: invalid config for INFO block");
+                .extracting(ValidationError::render)
+                .contains(
+                        "Topic topic-1 > Lesson lesson-1 > Block #1: invalid config for INFO block");
     }
 
     private LessonBlockDto block(JsonNode config) {

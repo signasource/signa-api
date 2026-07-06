@@ -2,39 +2,43 @@ package com.signasource.signa_api.content.validator.block;
 
 import com.signasource.signa_api.content.dto.LessonBlockDto;
 import com.signasource.signa_api.content.validator.ValidationError;
-import com.signasource.signa_api.content.validator.block.config.SelectSignConfig;
+import com.signasource.signa_api.content.validator.block.config.ContextConfig;
 import com.signasource.signa_api.learning.entity.BlockType;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
 
 @Component
-public class SelectSignValidator implements BlockValidator {
+public class ContextValidator implements BlockValidator {
 
     private final BlockConfigParser parser;
 
-    public SelectSignValidator(BlockConfigParser parser) {
+    public ContextValidator(BlockConfigParser parser) {
         this.parser = parser;
     }
 
     @Override
     public BlockType supports() {
-        return BlockType.SELECT_SIGN;
+        return BlockType.CONTEXT;
     }
 
     @Override
     public void validate(
             LessonBlockDto block, ValidationContext ctx, List<ValidationError> errors) {
-        Optional<SelectSignConfig> parsed = parser.parse(block.config(), SelectSignConfig.class);
+        Optional<ContextConfig> parsed = parser.parse(block.config(), ContextConfig.class);
         if (parsed.isEmpty()) {
-            errors.add(new ValidationError(ctx.location(), "invalid config for SELECT_SIGN block"));
+            errors.add(new ValidationError(ctx.location(), "invalid config for CONTEXT block"));
             return;
         }
-        SelectSignConfig config = parsed.get();
+        ContextConfig config = parsed.get();
 
-        boolean wordValid = config.word() != null && !config.word().isBlank();
-        if (!wordValid) {
-            errors.add(new ValidationError(ctx.location(), "word is required"));
+        if (config.sentence() == null || config.sentence().isBlank()) {
+            errors.add(new ValidationError(ctx.location(), "sentence is required"));
+        }
+
+        boolean answerValid = config.answer() != null && !config.answer().isBlank();
+        if (!answerValid) {
+            errors.add(new ValidationError(ctx.location(), "answer is required"));
         }
 
         if (config.options() == null) {
@@ -45,8 +49,9 @@ public class SelectSignValidator implements BlockValidator {
                         new ValidationError(
                                 ctx.location(), "options must have at least 2 elements"));
             }
-            if (wordValid && !config.options().contains(config.word())) {
-                errors.add(new ValidationError(ctx.location(), "word must be one of the options"));
+            if (answerValid && !config.options().contains(config.answer())) {
+                errors.add(
+                        new ValidationError(ctx.location(), "answer must be one of the options"));
             }
         }
     }

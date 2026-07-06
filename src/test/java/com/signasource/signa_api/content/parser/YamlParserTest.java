@@ -3,6 +3,7 @@ package com.signasource.signa_api.content.parser;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.signasource.signa_api.content.dto.CourseYaml;
 import com.signasource.signa_api.content.dto.TopicYaml;
 import com.signasource.signa_api.content.exception.ContentParseException;
@@ -20,7 +21,7 @@ class YamlParserTest {
 
     @BeforeEach
     void setUp() {
-        parser = new YamlParser();
+        parser = new YamlParser(new ObjectMapper());
     }
 
     @Test
@@ -88,6 +89,24 @@ class YamlParserTest {
         Resource invalid = resource("{{invalid yaml: [unclosed");
 
         assertThatThrownBy(() -> parser.parse(invalid, CourseYaml.class))
+                .isInstanceOf(ContentParseException.class);
+    }
+
+    @Test
+    void shouldThrowContentParseExceptionOnUnknownProperty() {
+        String yaml =
+                """
+                course:
+                  code: test-course
+                  name: Test
+                  unexpected: oops
+                version:
+                  version: "1.0.0"
+                  status: DRAFT
+                topics: []
+                """;
+
+        assertThatThrownBy(() -> parser.parse(resource(yaml), CourseYaml.class))
                 .isInstanceOf(ContentParseException.class);
     }
 
