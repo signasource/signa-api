@@ -4,8 +4,6 @@ Esta guía para **crear y actualizar el contenido de los cursos**
 (temas, lecciones y ejercicios). No hace falta saber programar. Explica dónde viven los archivos,
 qué forma tiene cada uno, qué se valida y cómo probar que todo esté bien antes de subirlo.
 
-> ¿Sos desarrollador/a y buscás el detalle técnico? Ver [`CONTENT_DEV.md`](CONTENT_DEV.md).
-
 ---
 
 ## 1. Ideas básicas
