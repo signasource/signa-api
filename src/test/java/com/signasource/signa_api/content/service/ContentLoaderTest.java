@@ -19,6 +19,9 @@ import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 
 class ContentLoaderTest {
 
+    private static final String SIGN_LANG = "TSLANG";
+    private static final String HAPPY_COURSE = "happy-course";
+
     private ContentLoader loader;
 
     @BeforeEach
@@ -33,11 +36,10 @@ class ContentLoaderTest {
     void shouldDiscoverEveryCourseOnClasspath() {
         List<CourseRef> refs = loader.discover();
 
-        // Main content plus the test fixtures are all on the test classpath.
         assertThat(refs)
                 .contains(
                         new CourseRef("LSA", "basic-course"),
-                        new CourseRef("TSLANG", "happy-course"));
+                        new CourseRef(SIGN_LANG, HAPPY_COURSE));
     }
 
     @Test
@@ -55,17 +57,17 @@ class ContentLoaderTest {
 
     @Test
     void shouldLoadCourseSuccessfully() {
-        LoadedCourse result = loader.load("TSLANG", "happy-course");
+        LoadedCourse result = loader.load(SIGN_LANG, HAPPY_COURSE);
 
-        assertThat(result.signLanguageCode()).isEqualTo("TSLANG");
-        assertThat(result.course().course().code()).isEqualTo("happy-course");
+        assertThat(result.signLanguageCode()).isEqualTo(SIGN_LANG);
+        assertThat(result.course().course().code()).isEqualTo(HAPPY_COURSE);
         assertThat(result.course().course().name()).isEqualTo("Test Course");
         assertThat(result.course().version().status()).isEqualTo(VersionStatus.DRAFT);
     }
 
     @Test
     void shouldLoadAllTopicsListedInCourseYml() {
-        LoadedCourse result = loader.load("TSLANG", "happy-course");
+        LoadedCourse result = loader.load(SIGN_LANG, HAPPY_COURSE);
 
         assertThat(result.topics()).hasSize(2);
         assertThat(result.topics().get(0).topic().code()).isEqualTo("topic-1");
@@ -74,7 +76,7 @@ class ContentLoaderTest {
 
     @Test
     void shouldLoadLessonsAndBlocksWithinEachTopic() {
-        LoadedCourse result = loader.load("TSLANG", "happy-course");
+        LoadedCourse result = loader.load(SIGN_LANG, HAPPY_COURSE);
 
         assertThat(result.topics().get(0).lessons()).hasSize(1);
         assertThat(result.topics().get(0).lessons().get(0).blocks()).hasSize(2);
@@ -82,27 +84,27 @@ class ContentLoaderTest {
 
     @Test
     void shouldThrowWhenCourseYmlIsMissing() {
-        assertThatThrownBy(() -> loader.load("TSLANG", "nonexistent-course"))
+        assertThatThrownBy(() -> loader.load(SIGN_LANG, "nonexistent-course"))
                 .isInstanceOf(CourseFileNotFoundException.class)
                 .hasMessageContaining("course.yml");
     }
 
     @Test
     void shouldThrowWhenTopicFileIsMissing() {
-        assertThatThrownBy(() -> loader.load("TSLANG", "missing-topic-course"))
+        assertThatThrownBy(() -> loader.load(SIGN_LANG, "missing-topic-course"))
                 .isInstanceOf(TopicFileNotFoundException.class)
                 .hasMessageContaining("nonexistent-topic.yml");
     }
 
     @Test
     void shouldThrowWhenTopicYamlIsInvalid() {
-        assertThatThrownBy(() -> loader.load("TSLANG", "bad-yaml-course"))
+        assertThatThrownBy(() -> loader.load(SIGN_LANG, "bad-yaml-course"))
                 .isInstanceOf(ContentParseException.class);
     }
 
     @Test
     void shouldThrowWhenCourseYmlHasNoTopicsSection() {
-        assertThatThrownBy(() -> loader.load("TSLANG", "no-topics-course"))
+        assertThatThrownBy(() -> loader.load(SIGN_LANG, "no-topics-course"))
                 .isInstanceOf(ContentLoadException.class)
                 .hasMessageContaining("no 'topics' section");
     }

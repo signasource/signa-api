@@ -75,8 +75,6 @@ class ContentImportServiceTest {
                                 new CourseRef("LSA", "course-b")));
         when(loader.load("LSA", "course-a")).thenReturn(first);
         when(loader.load("LSA", "course-b")).thenReturn(second);
-        // course-a validates fine; course-b is invalid. Lenient because validate(course-a) is a
-        // legitimate call with different args than this stub.
         lenient()
                 .doThrow(
                         new ContentValidationException(
@@ -87,7 +85,6 @@ class ContentImportServiceTest {
         assertThatThrownBy(() -> service().importAll())
                 .isInstanceOf(ContentValidationException.class);
 
-        // First course was valid, but nothing is imported because a later course is invalid.
         verify(persister, never()).importCourse(first);
         verify(persister, never()).importCourse(second);
     }

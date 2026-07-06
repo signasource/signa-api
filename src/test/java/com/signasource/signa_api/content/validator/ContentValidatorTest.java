@@ -35,8 +35,6 @@ class ContentValidatorTest {
         validator = new ContentValidator(List.of(new InfoValidator(parser)));
     }
 
-    // --- Valid cases ---
-
     @Test
     void shouldPassForValidCourse() {
         assertThatNoException().isThrownBy(() -> validator.validate(validCourse()));
@@ -56,8 +54,6 @@ class ContentValidatorTest {
         TopicYaml topic = topicWith("t1", List.of(validLesson("l1"), validLesson("l2")));
         assertThatNoException().isThrownBy(() -> validator.validate(courseWith(List.of(topic))));
     }
-
-    // --- Course validation ---
 
     @Test
     void shouldFailWhenCourseCodeIsBlank() {
@@ -85,8 +81,6 @@ class ContentValidatorTest {
         assertValidationFails(courseWith(List.of()), "Course: has no topics");
     }
 
-    // --- Topic validation ---
-
     @Test
     void shouldFailWhenTopicCodeIsBlank() {
         TopicYaml topic =
@@ -113,8 +107,6 @@ class ContentValidatorTest {
                 courseWith(List.of(validTopic("t1"), validTopic("t1"))),
                 "Course: duplicate topic code: t1");
     }
-
-    // --- Lesson validation ---
 
     @Test
     void shouldFailWhenLessonCodeIsBlank() {
@@ -146,8 +138,6 @@ class ContentValidatorTest {
                 courseWith(List.of(topicWith("t1", List.of(validLesson("l1"), validLesson("l1"))))),
                 "Topic t1: duplicate lesson code: l1");
     }
-
-    // --- Block validation ---
 
     @Test
     void shouldFailWhenBlockTypeIsNull() {
@@ -183,8 +173,6 @@ class ContentValidatorTest {
                 "Topic t1 > Lesson l1 > Block #1: no validator registered for block type CONTEXT");
     }
 
-    // --- Multiple errors ---
-
     @Test
     void shouldAccumulateAllErrorsBeforeThrowing() {
         var meta = new CourseMetadataDto("", "", null, false, null);
@@ -207,8 +195,6 @@ class ContentValidatorTest {
                                             "Course: has no topics");
                         });
     }
-
-    // --- Helpers ---
 
     private LoadedCourse validCourse() {
         return courseWith(List.of(validTopic("topic-1")));

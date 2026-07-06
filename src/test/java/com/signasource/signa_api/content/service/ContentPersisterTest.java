@@ -39,6 +39,12 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 @ActiveProfiles("test")
 class ContentPersisterTest {
 
+    private static final String SIGN_LANG_CODE = "TSLANG";
+    private static final int HAPPY_COURSE_TOPIC_COUNT = 2;
+    private static final int HAPPY_COURSE_LESSON_COUNT = 2;
+    private static final int HAPPY_COURSE_BLOCK_COUNT = 3;
+    private static final int SELECT_MEANING_XP_REWARD = 10;
+
     @MockitoBean private FirebaseMessaging firebaseMessaging;
 
     @Autowired private ContentPersister contentPersister;
@@ -55,11 +61,11 @@ class ContentPersisterTest {
     void setUp() {
         signLanguageRepository.save(
                 SignLanguage.builder()
-                        .code("TSLANG")
+                        .code(SIGN_LANG_CODE)
                         .name("Test Sign Language")
                         .countryCode("TST")
                         .build());
-        happyCourse = contentLoader.load("TSLANG", "happy-course");
+        happyCourse = contentLoader.load(SIGN_LANG_CODE, "happy-course");
     }
 
     @AfterEach
@@ -72,23 +78,21 @@ class ContentPersisterTest {
         contentPersister.importCourse(happyCourse);
 
         assertThat(courseRepository.count()).isEqualTo(1);
-        assertThat(topicRepository.count()).isEqualTo(2);
-        assertThat(lessonRepository.count()).isEqualTo(2);
-        assertThat(lessonBlockRepository.count()).isEqualTo(3);
+        assertThat(topicRepository.count()).isEqualTo(HAPPY_COURSE_TOPIC_COUNT);
+        assertThat(lessonRepository.count()).isEqualTo(HAPPY_COURSE_LESSON_COUNT);
+        assertThat(lessonBlockRepository.count()).isEqualTo(HAPPY_COURSE_BLOCK_COUNT);
     }
 
     @Test
     void shouldAssignOrderByListPosition() {
         contentPersister.importCourse(happyCourse);
 
-        // Topics have globally unique orders within the course version
         var topics = topicRepository.findAll(Sort.by("order"));
         assertThat(topics.get(0).getCode()).isEqualTo("topic-1");
         assertThat(topics.get(0).getOrder()).isEqualTo(0);
         assertThat(topics.get(1).getCode()).isEqualTo("topic-2");
         assertThat(topics.get(1).getOrder()).isEqualTo(1);
 
-        // Each lesson is first (and only) in its topic, so order=0 for both
         var allLessons = lessonRepository.findAll();
         var lesson1 =
                 allLessons.stream()
@@ -103,7 +107,6 @@ class ContentPersisterTest {
         assertThat(lesson1.getOrder()).isEqualTo(0);
         assertThat(lesson2.getOrder()).isEqualTo(0);
 
-        // Blocks within lesson-1: INFO first, SELECT_MEANING second
         var allBlocks = lessonBlockRepository.findAll();
         var infoBlock =
                 allBlocks.stream()
@@ -159,13 +162,12 @@ class ContentPersisterTest {
                         .findFirst()
                         .orElseThrow();
 
-        assertThat(selectBlock.getXpReward()).isEqualTo(10);
+        assertThat(selectBlock.getXpReward()).isEqualTo(SELECT_MEANING_XP_REWARD);
     }
 
     @Test
     void shouldThrowWhenSignLanguageNotFound() {
-        LoadedCourse unknown =
-                new LoadedCourse("UNKNOWN", happyCourse.course(), happyCourse.topics());
+        LoadedCourse unknown = new LoadedCourse("UNKNOWN", happyCourse.course(), happyCourse.topics());
 
         assertThatThrownBy(() -> contentPersister.importCourse(unknown))
                 .isInstanceOf(SignLanguageNotFoundException.class)
@@ -177,20 +179,17 @@ class ContentPersisterTest {
     @Test
     void shouldReportCreatedThenUnchangedWhenReimportingIdenticalContent() {
         assertThat(contentPersister.importCourse(happyCourse)).isEqualTo(ImportResult.CREATED);
-
-        // Re-importing byte-for-byte equivalent content is a no-op.
         assertThat(contentPersister.importCourse(happyCourse)).isEqualTo(ImportResult.UNCHANGED);
 
         assertThat(courseRepository.count()).isEqualTo(1);
-        assertThat(topicRepository.count()).isEqualTo(2);
-        assertThat(lessonBlockRepository.count()).isEqualTo(3);
+        assertThat(topicRepository.count()).isEqualTo(HAPPY_COURSE_TOPIC_COUNT);
+        assertThat(lessonBlockRepository.count()).isEqualTo(HAPPY_COURSE_BLOCK_COUNT);
     }
 
     @Test
     void shouldUpdateWhenContentChanged() {
         contentPersister.importCourse(happyCourse);
 
-        // Same course code, different metadata → content changed → replaced.
         CourseYaml original = happyCourse.course();
         CourseMetadataDto meta = original.course();
         CourseMetadataDto changedMeta =
@@ -198,7 +197,7 @@ class ContentPersisterTest {
                         meta.code(), meta.name(), "Updated description", meta.free(), meta.cover());
         LoadedCourse changed =
                 new LoadedCourse(
-                        "TSLANG",
+                        SIGN_LANG_CODE,
                         new CourseYaml(changedMeta, original.version(), original.topics()),
                         happyCourse.topics());
 
@@ -211,9 +210,6 @@ class ContentPersisterTest {
 
     @Test
     void shouldRollbackWhenSaveFails() {
-        // Build a LoadedCourse that passes the pre-save checks (sign language exists,
-        // course code is new) but has a null block type, which Hibernate rejects
-        // with a PropertyValueException during flush — triggering full rollback.
         LessonBlockDto badBlock =
                 new LessonBlockDto(null, null, JsonNodeFactory.instance.objectNode());
         LessonDto lesson = new LessonDto("l1", "Lesson", null, List.of(badBlock));

@@ -24,14 +24,13 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-/**
- * End-to-end test over the real shipped content ({@code content/LSA/basic-course}), as opposed to
- * the synthetic {@code TSLANG/happy-course} fixture used by {@link ContentPersisterTest}. Guards
- * against the real content diverging from the model/validators.
- */
 @SpringBootTest
 @ActiveProfiles("test")
 class RealContentImportTest {
+
+    private static final String SIGN_LANG_CODE = "LSA";
+    private static final String COURSE_CODE = "basic-course";
+    private static final int EXPECTED_BLOCK_COUNT = 5;
 
     @MockitoBean private FirebaseMessaging firebaseMessaging;
 
@@ -51,11 +50,11 @@ class RealContentImportTest {
     void setUp() {
         signLanguageRepository.save(
                 SignLanguage.builder()
-                        .code("LSA")
+                        .code(SIGN_LANG_CODE)
                         .name("Lengua de Señas Argentina")
                         .countryCode("ARG")
                         .build());
-        basicCourse = contentLoader.load("LSA", "basic-course");
+        basicCourse = contentLoader.load(SIGN_LANG_CODE, COURSE_CODE);
     }
 
     @AfterEach
@@ -75,10 +74,10 @@ class RealContentImportTest {
         assertThat(courseRepository.count()).isEqualTo(1);
         assertThat(topicRepository.count()).isEqualTo(1);
         assertThat(lessonRepository.count()).isEqualTo(1);
-        assertThat(lessonBlockRepository.count()).isEqualTo(5);
+        assertThat(lessonBlockRepository.count()).isEqualTo(EXPECTED_BLOCK_COUNT);
 
         Course course = courseRepository.findAll().get(0);
-        assertThat(course.getCode()).isEqualTo("basic-course");
+        assertThat(course.getCode()).isEqualTo(COURSE_CODE);
     }
 
     @Test

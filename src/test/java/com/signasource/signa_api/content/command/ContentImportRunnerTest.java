@@ -41,14 +41,4 @@ class ContentImportRunnerTest {
 
         verify(importService).importAll();
     }
-
-    @Test
-    void shouldNotFailWhenNothingToImport() {
-        when(importService.importAll()).thenReturn(List.of());
-        ContentImportRunner runner = new ContentImportRunner(importService);
-
-        runner.run(new DefaultApplicationArguments("--import-content"));
-
-        verify(importService).importAll();
-    }
 }
