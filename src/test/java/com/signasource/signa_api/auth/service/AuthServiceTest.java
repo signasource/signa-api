@@ -22,7 +22,9 @@ import com.signasource.signa_api.exceptions.InvalidTokenException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
+import com.signasource.signa_api.users.entity.UserSettings;
 import com.signasource.signa_api.users.repository.UserRepository;
+import com.signasource.signa_api.users.repository.UserSettingsRepository;
 import java.time.Instant;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,6 +59,7 @@ class AuthServiceTest {
     private static final String ENCODED_PASSWORD = "hashed_password";
 
     @Mock private UserRepository userRepository;
+    @Mock private UserSettingsRepository userSettingsRepository;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private AuthenticationManager authenticationManager;
     @Mock private JwtService jwtService;
@@ -97,6 +100,7 @@ class AuthServiceTest {
         verify(userRepository).existsByEmail(EMAIL);
         verify(passwordEncoder).encode(PASSWORD);
         verify(userRepository).save(any(User.class));
+        verify(userSettingsRepository).save(any(UserSettings.class));
         verify(tokenRepository).save(any());
         verify(emailService).sendVerificationEmail(eq(EMAIL), any(String.class));
     }
