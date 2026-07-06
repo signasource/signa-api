@@ -167,7 +167,8 @@ class ContentPersisterTest {
 
     @Test
     void shouldThrowWhenSignLanguageNotFound() {
-        LoadedCourse unknown = new LoadedCourse("UNKNOWN", happyCourse.course(), happyCourse.topics());
+        LoadedCourse unknown =
+                new LoadedCourse("UNKNOWN", happyCourse.course(), happyCourse.topics());
 
         assertThatThrownBy(() -> contentPersister.importCourse(unknown))
                 .isInstanceOf(SignLanguageNotFoundException.class)
