@@ -7,6 +7,8 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.signasource.signa_api.auth.service.GoogleAuthService;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -20,6 +22,7 @@ import com.signasource.signa_api.auth.dto.ForgotPasswordRequest;
 import com.signasource.signa_api.auth.dto.LoginRequest;
 import com.signasource.signa_api.auth.dto.RefreshTokenRequest;
 import com.signasource.signa_api.auth.dto.RegisterRequest;
+import com.signasource.signa_api.auth.dto.GoogleAuthRequest;
 import com.signasource.signa_api.auth.dto.ResendVerificationEmailRequest;
 import com.signasource.signa_api.auth.dto.ResetPasswordRequest;
 import com.signasource.signa_api.auth.service.AuthService;
@@ -30,11 +33,15 @@ class AuthControllerTest {
 	@Mock
 	private AuthService authService;
 
+	@Mock
+	private GoogleAuthService googleAuthService;
+
 	@InjectMocks
 	private AuthController authController;
 
 	private RegisterRequest registerRequest = new RegisterRequest("test@example.com", "password123", "Test User");
 	private LoginRequest loginRequest = new LoginRequest("test@example.com", "password123");
+	private GoogleAuthRequest googleAuthRequest = new GoogleAuthRequest("valid.google.id.token");
 
 	@Test
 	void testRegister() {
@@ -105,5 +112,19 @@ class AuthControllerTest {
 
 		verify(authService).resendVerificationEmail(any(ResendVerificationEmailRequest.class));
 		assertEquals(HttpStatus.OK, response.getStatusCode());
+	}
+
+	@Test
+	void testAuthenticateWithGoogle() {
+		AuthResponse expectedResponse = new AuthResponse("google-access-token", "google-refresh-token");
+		when(googleAuthService.authenticateWithGoogle(googleAuthRequest.idToken())).thenReturn(expectedResponse);
+
+		ResponseEntity<AuthResponse> response = authController.authenticateWithGoogle(googleAuthRequest);
+
+		verify(googleAuthService).authenticateWithGoogle(googleAuthRequest.idToken());
+		assertEquals(HttpStatus.OK, response.getStatusCode());
+		Assertions.assertNotNull(response.getBody());
+		assertEquals(expectedResponse.accessToken(), response.getBody().accessToken());
+		assertEquals(expectedResponse.refreshToken(), response.getBody().refreshToken());
 	}
 }

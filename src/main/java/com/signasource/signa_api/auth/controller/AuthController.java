@@ -1,5 +1,7 @@
 package com.signasource.signa_api.auth.controller;
 
+import com.signasource.signa_api.auth.dto.*;
+import com.signasource.signa_api.auth.service.GoogleAuthService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -10,13 +12,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.signasource.signa_api.auth.dto.AuthResponse;
-import com.signasource.signa_api.auth.dto.ForgotPasswordRequest;
-import com.signasource.signa_api.auth.dto.LoginRequest;
-import com.signasource.signa_api.auth.dto.RefreshTokenRequest;
-import com.signasource.signa_api.auth.dto.RegisterRequest;
-import com.signasource.signa_api.auth.dto.ResendVerificationEmailRequest;
-import com.signasource.signa_api.auth.dto.ResetPasswordRequest;
 import com.signasource.signa_api.auth.service.AuthService;
 
 import jakarta.validation.Valid;
@@ -30,6 +25,14 @@ import lombok.RequiredArgsConstructor;
 @Validated
 public class AuthController {
 	private final AuthService authService;
+
+	private final GoogleAuthService googleAuthService;
+
+	@PostMapping("/google")
+	public ResponseEntity<AuthResponse> authenticateWithGoogle(@Valid @RequestBody GoogleAuthRequest request) {
+		AuthResponse authResponse = googleAuthService.authenticateWithGoogle(request.idToken());
+		return ResponseEntity.ok(authResponse);
+	}
 
 	@PostMapping("/register")
 	public ResponseEntity<Void> register(@Valid @RequestBody RegisterRequest request) {
