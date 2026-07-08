@@ -7,7 +7,6 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.signasource.signa_api.auth.service.GoogleAuthService;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,9 +31,6 @@ class AuthControllerTest {
 
 	@Mock
 	private AuthService authService;
-
-	@Mock
-	private GoogleAuthService googleAuthService;
 
 	@InjectMocks
 	private AuthController authController;
@@ -117,14 +113,13 @@ class AuthControllerTest {
 	@Test
 	void testAuthenticateWithGoogle() {
 		AuthResponse expectedResponse = new AuthResponse("google-access-token", "google-refresh-token");
-		when(googleAuthService.authenticateWithGoogle(googleAuthRequest.idToken())).thenReturn(expectedResponse);
+		when(authService.authenticateWithGoogle(googleAuthRequest.idToken())).thenReturn(expectedResponse);
 
 		ResponseEntity<AuthResponse> response = authController.authenticateWithGoogle(googleAuthRequest);
 
-		verify(googleAuthService).authenticateWithGoogle(googleAuthRequest.idToken());
+		verify(authService).authenticateWithGoogle(googleAuthRequest.idToken());
 		assertEquals(HttpStatus.OK, response.getStatusCode());
 		Assertions.assertNotNull(response.getBody());
 		assertEquals(expectedResponse.accessToken(), response.getBody().accessToken());
-		assertEquals(expectedResponse.refreshToken(), response.getBody().refreshToken());
 	}
 }

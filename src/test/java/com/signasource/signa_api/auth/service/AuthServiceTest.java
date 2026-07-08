@@ -6,7 +6,11 @@ import static org.mockito.Mockito.*;
 
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.signasource.signa_api.users.entity.AuthProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -74,6 +78,14 @@ class AuthServiceTest {
 
 	@InjectMocks
 	private AuthService authService;
+
+	@Mock
+	private GoogleIdTokenVerifier googleIdTokenVerifier;
+
+	@Mock
+	private GoogleIdToken mockedGoogleToken;
+
+	private final String VALID_TOKEN_STRING = "valid.google.token";
 
 	private final User testUser = User.builder().email(EMAIL).name(NAME).passwordHash("hashed_password").role(Role.USER)
 			.enabled(true).build();
@@ -395,6 +407,75 @@ class AuthServiceTest {
 		verify(tokenRepository, never()).deleteByUserAndType(any(), any());
 		verify(tokenRepository, never()).save(any());
 		verify(emailService, never()).sendVerificationEmail(any(), any());
+	}
+
+	@Test
+	void shouldAuthenticateWithGoogleAndRegisterNewUser() throws Exception {
+		GoogleIdToken.Payload payload = new GoogleIdToken.Payload();
+		payload.setEmail(EMAIL);
+		payload.set("name", NAME);
+
+		when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);
+		when(mockedGoogleToken.getPayload()).thenReturn(payload);
+		when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
+		when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
+
+		when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(tokenRepository.save(any(Token.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		AuthResponse response = authService.authenticateWithGoogle(VALID_TOKEN_STRING);
+
+		assertNotNull(response);
+		assertEquals(ACCESS_TOKEN, response.accessToken());
+		assertNotNull(response.refreshToken());
+
+		ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+		verify(userRepository).save(userCaptor.capture());
+
+		User savedUser = userCaptor.getValue();
+		assertEquals(EMAIL, savedUser.getEmail());
+		assertEquals(NAME, savedUser.getName());
+		assertEquals(AuthProvider.GOOGLE, savedUser.getProvider());
+		assertNull(savedUser.getPasswordHash());
+		assertTrue(savedUser.isEnabled());
+	}
+
+	@Test
+	void shouldAuthenticateWithGoogleForExistingUser() throws Exception {
+		GoogleIdToken.Payload payload = new GoogleIdToken.Payload();
+		payload.setEmail(EMAIL);
+
+		User existingUser = User.builder().id(UUID.randomUUID()).email(EMAIL).provider(AuthProvider.LOCAL).build();
+
+		when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);
+		when(mockedGoogleToken.getPayload()).thenReturn(payload);
+		when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(existingUser));
+		when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
+
+		when(tokenRepository.save(any(Token.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		AuthResponse response = authService.authenticateWithGoogle(VALID_TOKEN_STRING);
+
+		assertNotNull(response);
+		assertEquals(ACCESS_TOKEN, response.accessToken());
+
+		verify(userRepository, never()).save(any(User.class));
+		verify(tokenRepository).save(any(Token.class));
+	}
+
+	@Test
+	void shouldThrowExceptionWhenGoogleTokenIsInvalid() throws Exception {
+		String invalidToken = "invalid.token";
+		when(googleIdTokenVerifier.verify(invalidToken)).thenReturn(null);
+
+		InvalidCredentialsException exception = assertThrows(InvalidCredentialsException.class,
+				() -> authService.authenticateWithGoogle(invalidToken));
+
+		assertTrue(exception.getMessage().contains("Token de Google inválido"));
+
+		verifyNoInteractions(userRepository);
+		verifyNoInteractions(jwtService);
+		verifyNoInteractions(tokenRepository);
 	}
 
 	private Token createRefreshToken(String token, Instant expiryDate) {

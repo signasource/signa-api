@@ -2,8 +2,12 @@ package com.signasource.signa_api.auth.service;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.signasource.signa_api.users.entity.AuthProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -45,6 +49,7 @@ public class AuthService {
 	private final JwtService jwtService;
 	private final TokenRepository tokenRepository;
 	private final EmailService emailService;
+	private final GoogleIdTokenVerifier googleIdTokenVerifier;
 
 	@Value("${auth.token-expirations.refresh}")
 	private Long refreshTokenExpiration;
@@ -174,6 +179,37 @@ public class AuthService {
 
 		emailService.sendVerificationEmail(user.getEmail(), token.getToken());
 
+	}
+
+	@Transactional
+	public AuthResponse authenticateWithGoogle(String idTokenString) {
+		try {
+			GoogleIdToken idToken = googleIdTokenVerifier.verify(idTokenString);
+
+			if (idToken == null) {
+				throw new InvalidCredentialsException("Token de Google inválido");
+			}
+
+			GoogleIdToken.Payload payload = idToken.getPayload();
+			String email = payload.getEmail();
+			String name = (String) payload.get("name");
+
+			Optional<User> userOptional = userRepository.findByEmail(email);
+			User user;
+
+			if (userOptional.isPresent()) {
+				user = userOptional.get();
+			} else {
+				user = User.builder().email(email).name(name).passwordHash(null).role(Role.USER).enabled(true)
+						.provider(AuthProvider.GOOGLE).build();
+				userRepository.save(user);
+			}
+
+			return generateTokens(user);
+
+		} catch (Exception e) {
+			throw new InvalidCredentialsException("Error authenticating with Google: " + e.getMessage());
+		}
 	}
 
 	private AuthResponse generateTokens(User user) {
