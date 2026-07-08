@@ -23,7 +23,7 @@ public class SignReportService {
     private final UserRepository userRepository;
 
     @Transactional
-    public SignReport createReport(CreateSignReportRequest request, UUID userId) {
+    public void createReport(CreateSignReportRequest request, UUID userId) {
         User user =
                 userRepository
                         .findById(userId)
@@ -41,6 +41,6 @@ public class SignReportService {
         report.setDescription(request.description());
         report.setStatus(ReportStatus.PENDING);
 
-        return signReportRepository.save(report);
+        signReportRepository.save(report);
     }
 }
