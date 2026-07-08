@@ -445,13 +445,15 @@ class AuthServiceTest {
 		GoogleIdToken.Payload payload = new GoogleIdToken.Payload();
 		payload.setEmail(EMAIL);
 
-		User existingUser = User.builder().id(UUID.randomUUID()).email(EMAIL).provider(AuthProvider.LOCAL).build();
+		User existingUser = User.builder().id(UUID.randomUUID()).email(EMAIL).provider(AuthProvider.LOCAL)
+				.enabled(false).build();
 
 		when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);
 		when(mockedGoogleToken.getPayload()).thenReturn(payload);
 		when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(existingUser));
 		when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
 
+		when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		when(tokenRepository.save(any(Token.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		AuthResponse response = authService.authenticateWithGoogle(VALID_TOKEN_STRING);
@@ -459,7 +461,13 @@ class AuthServiceTest {
 		assertNotNull(response);
 		assertEquals(ACCESS_TOKEN, response.accessToken());
 
-		verify(userRepository, never()).save(any(User.class));
+		ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+		verify(userRepository).save(userCaptor.capture());
+
+		User savedUser = userCaptor.getValue();
+		assertTrue(savedUser.isEnabled());
+		assertEquals(AuthProvider.GOOGLE, savedUser.getProvider());
+
 		verify(tokenRepository).save(any(Token.class));
 	}
 

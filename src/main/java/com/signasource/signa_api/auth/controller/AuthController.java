@@ -1,7 +1,6 @@
 package com.signasource.signa_api.auth.controller;
 
 import com.signasource.signa_api.auth.dto.*;
-import com.signasource.signa_api.auth.service.GoogleAuthService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -25,8 +24,6 @@ import lombok.RequiredArgsConstructor;
 @Validated
 public class AuthController {
 	private final AuthService authService;
-
-	private final GoogleAuthService googleAuthService;
 
 	@PostMapping("/google")
 	public ResponseEntity<AuthResponse> authenticateWithGoogle(@Valid @RequestBody GoogleAuthRequest request) {

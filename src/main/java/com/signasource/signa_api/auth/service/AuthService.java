@@ -199,10 +199,24 @@ public class AuthService {
 
 			if (userOptional.isPresent()) {
 				user = userOptional.get();
+				boolean needsUpdate = false;
+
+				if (!user.isEnabled()) {
+					user.setEnabled(true);
+					needsUpdate = true;
+				}
+
+				if (user.getProvider() != AuthProvider.GOOGLE) {
+					user.setProvider(AuthProvider.GOOGLE);
+					needsUpdate = true;
+				}
+
+				if (needsUpdate) {
+					user = userRepository.save(user);
+				}
 			} else {
-				user = User.builder().email(email).name(name).passwordHash(null).role(Role.USER).enabled(true)
-						.provider(AuthProvider.GOOGLE).build();
-				userRepository.save(user);
+				user = userRepository.save(User.builder().email(email).name(name).passwordHash(null).role(Role.USER)
+						.enabled(true).provider(AuthProvider.GOOGLE).build());
 			}
 
 			return generateTokens(user);
