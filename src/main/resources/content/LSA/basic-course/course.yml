@@ -10,4 +10,5 @@ version:
   status: PUBLISHED
 
 topics:
+  - saludos.yml
   - topic-01.yml

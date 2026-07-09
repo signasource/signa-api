@@ -29,7 +29,6 @@ lessons:
           options:
             - hola
             - perdon
-            - por_favor
 
       - type: MATCH
         xp: 15
