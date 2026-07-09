@@ -4,5 +4,4 @@ import com.signasource.signa_api.gamification.entity.UserChallenge;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface UserChallengeRepository extends JpaRepository<UserChallenge, UUID> {
-}
+public interface UserChallengeRepository extends JpaRepository<UserChallenge, UUID> {}

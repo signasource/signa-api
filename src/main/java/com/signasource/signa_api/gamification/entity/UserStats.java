@@ -66,19 +66,16 @@ public class UserStats {
     @Column(nullable = false)
     private double xpMultiplier;
 
-    @Column
-    private Instant xpMultiplierExpiresAt;
+    @Column private Instant xpMultiplierExpiresAt;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
     private LivesMode livesMode = LivesMode.LIMITED;
 
-    @Column
-    private Integer currentLives;
+    @Column private Integer currentLives;
 
-    @Column
-    private Instant nextLifeAt;
+    @Column private Instant nextLifeAt;
 
     @Column(nullable = false)
     private Instant updatedAt;
@@ -95,8 +92,6 @@ public class UserStats {
     }
 
     public boolean isLivesRegenerating() {
-        return livesMode == LivesMode.LIMITED
-                && currentLives != null
-                && currentLives < MAX_LIVES;
+        return livesMode == LivesMode.LIMITED && currentLives != null && currentLives < MAX_LIVES;
     }
 }

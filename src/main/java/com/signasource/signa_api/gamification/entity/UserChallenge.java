@@ -49,8 +49,8 @@ public class UserChallenge {
     private Challenge challenge;
 
     /**
-     * Start of the period this entry belongs to.
-     * For DAILY challenges: the day itself. For WEEKLY: the Monday of that week.
+     * Start of the period this entry belongs to. For DAILY challenges: the day itself. For WEEKLY:
+     * the Monday of that week.
      */
     @Column(nullable = false)
     private LocalDate periodStart;
@@ -67,11 +67,9 @@ public class UserChallenge {
     @Builder.Default
     private boolean completed = false;
 
-    @Column
-    private Instant completedAt;
+    @Column private Instant completedAt;
 
-    @Column
-    private Instant rewardClaimedAt;
+    @Column private Instant rewardClaimedAt;
 
     @Column(nullable = false)
     private Instant startedAt;

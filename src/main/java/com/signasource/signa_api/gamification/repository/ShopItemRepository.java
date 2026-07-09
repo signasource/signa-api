@@ -4,5 +4,4 @@ import com.signasource.signa_api.gamification.entity.ShopItem;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface ShopItemRepository extends JpaRepository<ShopItem, UUID> {
-}
+public interface ShopItemRepository extends JpaRepository<ShopItem, UUID> {}

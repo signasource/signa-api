@@ -35,8 +35,7 @@ public class Achievement {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column
-    private String iconUrl;
+    @Column private String iconUrl;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

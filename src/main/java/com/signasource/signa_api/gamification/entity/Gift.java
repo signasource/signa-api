@@ -62,9 +62,7 @@ public class Gift {
     @Column(nullable = false)
     private Instant sentAt;
 
-    @Column
-    private Instant claimedAt;
+    @Column private Instant claimedAt;
 
-    @Column
-    private Instant expiresAt;
+    @Column private Instant expiresAt;
 }

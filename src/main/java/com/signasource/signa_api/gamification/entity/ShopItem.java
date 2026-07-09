@@ -47,12 +47,10 @@ public class ShopItem {
     private int quantity = 1;
 
     /** For XP_MULTIPLIER items: how long the multiplier effect lasts in minutes. */
-    @Column
-    private Integer durationMinutes;
+    @Column private Integer durationMinutes;
 
     /** For XP_MULTIPLIER items: the multiplier value (e.g., 1.5 for 1.5x XP). */
-    @Column
-    private Double multiplierValue;
+    @Column private Double multiplierValue;
 
     @Column(nullable = false)
     @Builder.Default

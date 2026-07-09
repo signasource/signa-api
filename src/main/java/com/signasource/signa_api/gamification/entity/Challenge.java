@@ -44,7 +44,7 @@ public class Challenge {
     private ChallengeCriteriaType criteriaType;
 
     @Column(nullable = false)
-    private int targetValue;
+    private int criteriaValue;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -54,12 +54,10 @@ public class Challenge {
     private int rewardQuantity;
 
     /** For XP_MULTIPLIER rewards: how long the effect lasts in minutes. */
-    @Column
-    private Integer rewardDurationMinutes;
+    @Column private Integer rewardDurationMinutes;
 
     /** For XP_MULTIPLIER rewards: the multiplier value (e.g., 2.0 for 2x XP). */
-    @Column
-    private Double rewardMultiplierValue;
+    @Column private Double rewardMultiplierValue;
 
     @Column(nullable = false)
     @Builder.Default
