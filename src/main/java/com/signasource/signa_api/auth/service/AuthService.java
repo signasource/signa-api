@@ -61,9 +61,14 @@ public class AuthService {
             throw new ResourceAlreadyInUseException("Email already in use");
         }
 
+        if (userRepository.existsByUsername(request.username())) {
+            throw new ResourceAlreadyInUseException("Username already in use");
+        }
+
         User user =
                 User.builder()
                         .email(request.email())
+                        .username(request.username())
                         .name(request.name())
                         .passwordHash(passwordEncoder.encode(request.password()))
                         .role(Role.USER)
@@ -87,7 +92,7 @@ public class AuthService {
         Authentication authentication =
                 authenticationManager.authenticate(
                         new UsernamePasswordAuthenticationToken(
-                                request.email(), request.password()));
+                                request.identifier(), request.password()));
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         User user = userDetails.getUser();
