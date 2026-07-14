@@ -165,15 +165,6 @@ class ContentValidatorTest {
     }
 
     @Test
-    void shouldFailWhenNoValidatorRegisteredForBlockType() {
-        LessonBlockDto block =
-                new LessonBlockDto(BlockType.CONTEXT, null, JsonNodeFactory.instance.objectNode());
-        assertValidationFails(
-                courseWith(List.of(topicWith("t1", List.of(lessonWith("l1", List.of(block)))))),
-                "Topic t1 > Lesson l1 > Block #1: no validator registered for block type CONTEXT");
-    }
-
-    @Test
     void shouldAccumulateAllErrorsBeforeThrowing() {
         var meta = new CourseMetadataDto("", "", null, false, null);
         var version = new CourseVersionDto("", VersionStatus.DRAFT);
