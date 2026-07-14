@@ -44,6 +44,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 class AuthServiceTest {
 
     private static final String EMAIL = "test@example.com";
+    private static final String USERNAME = "testuser";
     private static final String PASSWORD = "password123";
     private static final String NAME = "Test User";
     private static final Long EXPIRATION = 3600000L;
@@ -69,6 +70,7 @@ class AuthServiceTest {
     private final User testUser =
             User.builder()
                     .email(EMAIL)
+                    .username(USERNAME)
                     .name(NAME)
                     .passwordHash("hashed_password")
                     .role(Role.USER)
@@ -86,8 +88,9 @@ class AuthServiceTest {
 
     @Test
     void shouldRegisterUserSuccessfully() {
-        RegisterRequest request = new RegisterRequest(EMAIL, PASSWORD, NAME);
+        RegisterRequest request = new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME);
         when(userRepository.existsByEmail(EMAIL)).thenReturn(false);
+        when(userRepository.existsByUsername(USERNAME)).thenReturn(false);
         when(passwordEncoder.encode(PASSWORD)).thenReturn("hashed_password");
         when(tokenRepository.save(any(Token.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -103,12 +106,25 @@ class AuthServiceTest {
 
     @Test
     void shouldThrowWhenEmailAlreadyExists() {
-        RegisterRequest request = new RegisterRequest(EMAIL, PASSWORD, NAME);
+        RegisterRequest request = new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME);
         when(userRepository.existsByEmail(EMAIL)).thenReturn(true);
 
         assertThrows(ResourceAlreadyInUseException.class, () -> authService.register(request));
 
         verify(userRepository).existsByEmail(EMAIL);
+        verifyNoInteractions(passwordEncoder);
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldThrowWhenUsernameAlreadyExists() {
+        RegisterRequest request = new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME);
+        when(userRepository.existsByEmail(EMAIL)).thenReturn(false);
+        when(userRepository.existsByUsername(USERNAME)).thenReturn(true);
+
+        assertThrows(ResourceAlreadyInUseException.class, () -> authService.register(request));
+
+        verify(userRepository).existsByUsername(USERNAME);
         verifyNoInteractions(passwordEncoder);
         verify(userRepository, never()).save(any());
     }
@@ -135,8 +151,9 @@ class AuthServiceTest {
 
     @Test
     void shouldCaptureEncodedPasswordOnRegister() {
-        RegisterRequest request = new RegisterRequest(EMAIL, PASSWORD, NAME);
+        RegisterRequest request = new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME);
         when(userRepository.existsByEmail(EMAIL)).thenReturn(false);
+        when(userRepository.existsByUsername(USERNAME)).thenReturn(false);
         when(passwordEncoder.encode(PASSWORD)).thenReturn("hashed_password");
         when(tokenRepository.save(any(Token.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
