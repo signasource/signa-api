@@ -10,7 +10,6 @@ import com.signasource.signa_api.content.util.BlockConfigParser;
 import com.signasource.signa_api.content.util.YamlParser;
 import com.signasource.signa_api.content.validator.ContentValidator;
 import com.signasource.signa_api.content.validator.block.BlockValidator;
-import com.signasource.signa_api.content.validator.block.ContextValidator;
 import com.signasource.signa_api.content.validator.block.InfoValidator;
 import com.signasource.signa_api.content.validator.block.MatchValidator;
 import com.signasource.signa_api.content.validator.block.SelectMeaningValidator;
@@ -44,8 +43,7 @@ class ContentValidationCheckTest {
                         new InfoValidator(configParser),
                         new SelectMeaningValidator(configParser),
                         new SelectSignValidator(configParser),
-                        new MatchValidator(configParser),
-                        new ContextValidator(configParser));
+                        new MatchValidator(configParser));
         this.validator = new ContentValidator(blockValidators);
     }
 
