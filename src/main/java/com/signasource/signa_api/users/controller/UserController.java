@@ -4,9 +4,12 @@ import com.signasource.signa_api.auth.dto.AuthResponse;
 import com.signasource.signa_api.auth.dto.ChangePasswordRequest;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.service.AuthService;
+import com.signasource.signa_api.users.dto.UpdateUserSettingsRequest;
 import com.signasource.signa_api.users.dto.UpdateUsernameRequest;
+import com.signasource.signa_api.users.dto.UserSettingsResponse;
 import com.signasource.signa_api.users.dto.UsernameAvailabilityResponse;
 import com.signasource.signa_api.users.service.UserService;
+import com.signasource.signa_api.users.service.UserSettingsService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -30,6 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
     private final AuthService authService;
+    private final UserSettingsService userSettingsService;
     private final UserService userService;
 
     @PutMapping("/password")
@@ -37,6 +41,20 @@ public class UserController {
             @Valid @RequestBody ChangePasswordRequest request) {
         AuthResponse response = authService.changePassword(request);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/settings")
+    public ResponseEntity<UserSettingsResponse> getSettings(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(userSettingsService.getSettings(userDetails.getUser()));
+    }
+
+    @PatchMapping("/settings")
+    public ResponseEntity<UserSettingsResponse> updateSettings(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody UpdateUserSettingsRequest request) {
+        return ResponseEntity.ok(
+                userSettingsService.updateSettings(userDetails.getUser(), request));
     }
 
     @GetMapping("/username-availability")
