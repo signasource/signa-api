@@ -29,10 +29,12 @@ class CustomUserDetailsServiceTest {
     @InjectMocks private CustomUserDetailsService customUserDetailsService;
 
     private String testEmail = "test@example.com";
+    private String testUsername = "testuser";
     private User testUser =
             User.builder()
                     .id(UUID.randomUUID())
                     .email(testEmail)
+                    .username(testUsername)
                     .name("Test User")
                     .passwordHash("hashed_password_123")
                     .role(Role.USER)
@@ -70,5 +72,26 @@ class CustomUserDetailsServiceTest {
                         () -> customUserDetailsService.loadUserByUsername(testEmail));
 
         assertEquals("User not found", exception.getMessage());
+    }
+
+    @Test
+    void testLoadUserByUsernameWithUsernameSuccess() {
+        when(userRepository.findByUsername(testUsername)).thenReturn(Optional.of(testUser));
+
+        UserDetails userDetails = customUserDetailsService.loadUserByUsername(testUsername);
+
+        assertNotNull(userDetails);
+        verify(userRepository).findByUsername(testUsername);
+    }
+
+    @Test
+    void testLoadUserByUsernameWithUsernameNotFound() {
+        when(userRepository.findByUsername(testUsername)).thenReturn(Optional.empty());
+
+        assertThrows(
+                NotFoundException.class,
+                () -> customUserDetailsService.loadUserByUsername(testUsername));
+
+        verify(userRepository).findByUsername(testUsername);
     }
 }

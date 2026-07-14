@@ -31,7 +31,7 @@ class AuthControllerTest {
     @InjectMocks private AuthController authController;
 
     private RegisterRequest registerRequest =
-            new RegisterRequest("test@example.com", "password123", "Test User");
+            new RegisterRequest("test@example.com", "testuser", "password123", "Test User");
     private LoginRequest loginRequest = new LoginRequest("test@example.com", "password123");
 
     @Test
