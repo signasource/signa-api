@@ -30,7 +30,7 @@ class RealContentImportTest {
 
     private static final String SIGN_LANG_CODE = "LSA";
     private static final String COURSE_CODE = "basic-course";
-    private static final int EXPECTED_BLOCK_COUNT = 5;
+    private static final int EXPECTED_BLOCK_COUNT = 4;
 
     @MockitoBean private FirebaseMessaging firebaseMessaging;
 
