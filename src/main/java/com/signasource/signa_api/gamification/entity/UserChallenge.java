@@ -48,14 +48,9 @@ public class UserChallenge {
     @EqualsAndHashCode.Exclude
     private Challenge challenge;
 
-    /**
-     * Start of the period this entry belongs to. For DAILY challenges: the day itself. For WEEKLY:
-     * the Monday of that week.
-     */
     @Column(nullable = false)
     private LocalDate periodStart;
 
-    /** Inclusive end of the period (last day to submit progress). */
     @Column(nullable = false)
     private LocalDate periodEnd;
 
