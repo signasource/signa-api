@@ -24,13 +24,13 @@ public class FriendshipService {
     @Transactional
     public void sendFriendRequest(User requester, UUID addresseeId) {
         if (requester.getId().equals(addresseeId)) {
-            throw new InvalidInputException("No puedes enviarte una solicitud a ti mismo.");
+            throw new InvalidInputException("You can't send a friend request to yourself");
         }
 
         User addressee =
                 userRepository
                         .findById(addresseeId)
-                        .orElseThrow(() -> new NotFoundException("Usuario destino no encontrado"));
+                        .orElseThrow(() -> new NotFoundException("Destination user not found"));
 
         Optional<Friendship> existingRelation =
                 friendshipRepository.findFriendshipBetween(requester, addressee);
@@ -45,7 +45,7 @@ public class FriendshipService {
                 friendshipRepository.save(friendship);
                 return;
             } else {
-                throw new ResourceAlreadyInUseException("La relación o solicitud ya existe.");
+                throw new ResourceAlreadyInUseException("The relationship or request already exists.");
             }
         }
 
@@ -64,16 +64,16 @@ public class FriendshipService {
         User requester =
                 userRepository
                         .findById(requesterId)
-                        .orElseThrow(() -> new NotFoundException("Usuario origen no encontrado"));
+                        .orElseThrow(() -> new NotFoundException("Origin user not found."));
 
         Friendship friendship =
                 friendshipRepository
                         .findByRequesterAndAddressee(requester, addressee)
-                        .orElseThrow(() -> new NotFoundException("Solicitud no encontrada"));
+                        .orElseThrow(() -> new NotFoundException("Request not found."));
 
         if (friendship.getStatus() != FriendshipStatus.PENDING) {
             throw new InvalidInputException(
-                    "Solo se pueden aceptar solicitudes que estén pendientes.");
+                    "Only pending requests can be accepted.");
         }
 
         friendship.setStatus(FriendshipStatus.ACCEPTED);
