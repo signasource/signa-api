@@ -34,6 +34,7 @@ class FriendshipControllerTest {
     private CustomUserDetails mockUserDetails;
     private UUID currentUserId;
     private UUID otherUserId;
+    private User currentUser;
 
     @BeforeEach
     void setUp() {
@@ -42,9 +43,9 @@ class FriendshipControllerTest {
         currentUserId = UUID.randomUUID();
         otherUserId = UUID.randomUUID();
 
-        User mockUser = new User();
-        mockUser.setId(currentUserId);
-        mockUserDetails = new CustomUserDetails(mockUser);
+        currentUser = new User();
+        currentUser.setId(currentUserId);
+        mockUserDetails = new CustomUserDetails(currentUser);
 
         mockMvc =
                 MockMvcBuilders.standaloneSetup(friendshipController)
@@ -71,21 +72,21 @@ class FriendshipControllerTest {
 
     @Test
     void sendFriendRequest_ReturnsCreated() throws Exception {
-        doNothing().when(friendshipService).sendFriendRequest(currentUserId, otherUserId);
+        doNothing().when(friendshipService).sendFriendRequest(currentUser, otherUserId);
 
         mockMvc.perform(post("/friendships/request/{addresseeId}", otherUserId))
                 .andExpect(status().isCreated());
 
-        verify(friendshipService).sendFriendRequest(currentUserId, otherUserId);
+        verify(friendshipService).sendFriendRequest(currentUser, otherUserId);
     }
 
     @Test
     void acceptFriendRequest_ReturnsOk() throws Exception {
-        doNothing().when(friendshipService).acceptFriendRequest(otherUserId, currentUserId);
+        doNothing().when(friendshipService).acceptFriendRequest(otherUserId, currentUser);
 
         mockMvc.perform(patch("/friendships/accept/{requesterId}", otherUserId))
                 .andExpect(status().isOk());
 
-        verify(friendshipService).acceptFriendRequest(otherUserId, currentUserId);
+        verify(friendshipService).acceptFriendRequest(otherUserId, currentUser);
     }
 }

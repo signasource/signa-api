@@ -25,7 +25,7 @@ public class FriendshipController {
             @AuthenticationPrincipal CustomUserDetails currentUser,
             @PathVariable UUID addresseeId) {
 
-        friendshipService.sendFriendRequest(currentUser.getUser().getId(), addresseeId);
+        friendshipService.sendFriendRequest(currentUser.getUser(), addresseeId);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
@@ -34,7 +34,7 @@ public class FriendshipController {
             @AuthenticationPrincipal CustomUserDetails currentUser,
             @PathVariable UUID requesterId) {
 
-        friendshipService.acceptFriendRequest(requesterId, currentUser.getUser().getId());
+        friendshipService.acceptFriendRequest(requesterId, currentUser.getUser());
         return ResponseEntity.ok().build();
     }
 }

@@ -22,15 +22,11 @@ public class FriendshipService {
     private final UserRepository userRepository;
 
     @Transactional
-    public void sendFriendRequest(UUID requesterId, UUID addresseeId) {
-        if (requesterId.equals(addresseeId)) {
+    public void sendFriendRequest(User requester, UUID addresseeId) {
+        if (requester.getId().equals(addresseeId)) {
             throw new InvalidInputException("No puedes enviarte una solicitud a ti mismo.");
         }
 
-        User requester =
-                userRepository
-                        .findById(requesterId)
-                        .orElseThrow(() -> new NotFoundException("Usuario origen no encontrado"));
         User addressee =
                 userRepository
                         .findById(addresseeId)
@@ -64,15 +60,11 @@ public class FriendshipService {
     }
 
     @Transactional
-    public void acceptFriendRequest(UUID requesterId, UUID addresseeId) {
+    public void acceptFriendRequest(UUID requesterId, User addressee) {
         User requester =
                 userRepository
                         .findById(requesterId)
                         .orElseThrow(() -> new NotFoundException("Usuario origen no encontrado"));
-        User addressee =
-                userRepository
-                        .findById(addresseeId)
-                        .orElseThrow(() -> new NotFoundException("Usuario destino no encontrado"));
 
         Friendship friendship =
                 friendshipRepository
