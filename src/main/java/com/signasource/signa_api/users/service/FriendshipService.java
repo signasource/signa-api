@@ -2,6 +2,7 @@ package com.signasource.signa_api.users.service;
 
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
+import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.users.entity.Friendship;
 import com.signasource.signa_api.users.entity.FriendshipStatus;
 import com.signasource.signa_api.users.entity.User;
@@ -35,7 +36,7 @@ public class FriendshipService {
                         .orElseThrow(() -> new NotFoundException("Usuario destino no encontrado"));
 
         if (friendshipRepository.friendshipExists(requester, addressee)) {
-            throw new InvalidInputException("La relación o solicitud ya existe.");
+            throw new ResourceAlreadyInUseException("La relación o solicitud ya existe.");
         }
 
         Friendship friendship =

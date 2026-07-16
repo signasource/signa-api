@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
+import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.users.entity.Friendship;
 import com.signasource.signa_api.users.entity.FriendshipStatus;
 import com.signasource.signa_api.users.entity.User;
@@ -87,13 +88,13 @@ class FriendshipServiceTest {
     }
 
     @Test
-    void sendFriendRequest_ThrowsInvalidInputException_WhenFriendshipExists() {
+    void sendFriendRequest_ThrowsResourceAlreadyInUseException_WhenFriendshipExists() {
         when(userRepository.findById(requesterId)).thenReturn(Optional.of(requester));
         when(userRepository.findById(addresseeId)).thenReturn(Optional.of(addressee));
         when(friendshipRepository.friendshipExists(requester, addressee)).thenReturn(true);
 
         assertThrows(
-                InvalidInputException.class,
+                ResourceAlreadyInUseException.class,
                 () -> friendshipService.sendFriendRequest(requesterId, addresseeId));
     }
 
