@@ -1,10 +1,8 @@
 package com.signasource.signa_api.users.controller;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.users.entity.User;
@@ -12,20 +10,15 @@ import com.signasource.signa_api.users.service.FriendshipService;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.springframework.core.MethodParameter;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.web.bind.support.WebDataBinderFactory;
-import org.springframework.web.context.request.NativeWebRequest;
-import org.springframework.web.method.support.HandlerMethodArgumentResolver;
-import org.springframework.web.method.support.ModelAndViewContainer;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
+@ExtendWith(MockitoExtension.class)
 class FriendshipControllerTest {
-
-    private MockMvc mockMvc;
 
     @Mock private FriendshipService friendshipService;
 
@@ -38,55 +31,34 @@ class FriendshipControllerTest {
 
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
-
         currentUserId = UUID.randomUUID();
         otherUserId = UUID.randomUUID();
 
         currentUser = new User();
         currentUser.setId(currentUserId);
+
         mockUserDetails = new CustomUserDetails(currentUser);
-
-        mockMvc =
-                MockMvcBuilders.standaloneSetup(friendshipController)
-                        .setCustomArgumentResolvers(
-                                new HandlerMethodArgumentResolver() {
-                                    @Override
-                                    public boolean supportsParameter(MethodParameter parameter) {
-                                        return parameter
-                                                .getParameterType()
-                                                .isAssignableFrom(CustomUserDetails.class);
-                                    }
-
-                                    @Override
-                                    public Object resolveArgument(
-                                            MethodParameter parameter,
-                                            ModelAndViewContainer mavContainer,
-                                            NativeWebRequest webRequest,
-                                            WebDataBinderFactory binderFactory) {
-                                        return mockUserDetails;
-                                    }
-                                })
-                        .build();
     }
 
     @Test
-    void sendFriendRequest_ReturnsCreated() throws Exception {
+    void sendFriendRequest_ReturnsCreated() {
         doNothing().when(friendshipService).sendFriendRequest(currentUser, otherUserId);
 
-        mockMvc.perform(post("/friendships/request/{addresseeId}", otherUserId))
-                .andExpect(status().isCreated());
+        ResponseEntity<Void> response =
+                friendshipController.sendFriendRequest(mockUserDetails, otherUserId);
 
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
         verify(friendshipService).sendFriendRequest(currentUser, otherUserId);
     }
 
     @Test
-    void acceptFriendRequest_ReturnsOk() throws Exception {
+    void acceptFriendRequest_ReturnsOk() {
         doNothing().when(friendshipService).acceptFriendRequest(otherUserId, currentUser);
 
-        mockMvc.perform(patch("/friendships/accept/{requesterId}", otherUserId))
-                .andExpect(status().isOk());
+        ResponseEntity<Void> response =
+                friendshipController.acceptFriendRequest(mockUserDetails, otherUserId);
 
+        assertEquals(HttpStatus.OK, response.getStatusCode());
         verify(friendshipService).acceptFriendRequest(otherUserId, currentUser);
     }
 }
