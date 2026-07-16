@@ -70,6 +70,7 @@ class AuthServiceTest {
     private static final String CURRENT_PASSWORD = "current-password";
     private static final String NEW_PASSWORD = "new-password";
     private static final String ENCODED_PASSWORD = "hashed_password";
+    private static final String VALID_TOKEN_STRING = "valid.google.token";
 
     @Mock private UserRepository userRepository;
     @Mock private PasswordEncoder passwordEncoder;
@@ -93,8 +94,6 @@ class AuthServiceTest {
     @Mock private GoogleIdTokenVerifier googleIdTokenVerifier;
 
     @Mock private GoogleIdToken mockedGoogleToken;
-
-    private final String VALID_TOKEN_STRING = "valid.google.token";
 
     private final CustomUserDetails userDetails = new CustomUserDetails(testUser);
 
