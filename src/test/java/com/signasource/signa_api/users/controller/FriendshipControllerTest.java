@@ -70,11 +70,11 @@ class FriendshipControllerTest {
     }
 
     @Test
-    void sendFriendRequest_ReturnsOk() throws Exception {
+    void sendFriendRequest_ReturnsCreated() throws Exception {
         doNothing().when(friendshipService).sendFriendRequest(currentUserId, otherUserId);
 
         mockMvc.perform(post("/api/v1/friendships/request/{addresseeId}", otherUserId))
-                .andExpect(status().isOk());
+                .andExpect(status().isCreated());
 
         verify(friendshipService).sendFriendRequest(currentUserId, otherUserId);
     }
