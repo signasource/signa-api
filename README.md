@@ -7,20 +7,17 @@
 docker compose up --build
 ```
 
-### Formateo de código
-```
-./gradlew spotlessApply
-```
+### Checks de calidad
 
-### Coverage
+| Check | Qué previene | Comando |
+|---|---|---|
+| **Spotless** | Formato y estándares | `./gradlew spotlessCheck` / `./gradlew spotlessApply` |
+| **SpotBugs** | Null pointers, resource leaks, lógica incorrecta, bugs de seguridad | `./gradlew spotbugsMain` |
+| **JaCoCo** | Código sin cobertura de tests (mínimo 90%) | `./gradlew clean test jacocoTestReport jacocoTestCoverageVerification` |
 
-Ejecutar tests y generar reporte de cobertura:
+Abrir reportes HTML:
 ```
-./gradlew clean test jacocoTestReport jacocoTestCoverageVerification
-```
-
-Abrir reporte HTML:
-```
+start build/reports/spotbugs/main.html
 start build/reports/jacoco/test/html/index.html
 ```
 
