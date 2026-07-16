@@ -11,6 +11,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -21,7 +22,13 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 @Entity
-@Table(name = "friendships")
+@Table(
+        name = "friendships",
+        uniqueConstraints = {
+            @UniqueConstraint(
+                    name = "uk_requester_addressee",
+                    columnNames = {"requester_user_id", "addressee_user_id"})
+        })
 @Getter
 @Setter
 @NoArgsConstructor
