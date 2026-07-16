@@ -64,6 +64,11 @@ public class FriendshipService {
                         .findByRequesterAndAddressee(requester, addressee)
                         .orElseThrow(() -> new NotFoundException("Solicitud no encontrada"));
 
+        if (friendship.getStatus() != FriendshipStatus.PENDING) {
+            throw new InvalidInputException(
+                    "Solo se pueden aceptar solicitudes que estén pendientes.");
+        }
+
         friendship.setStatus(FriendshipStatus.ACCEPTED);
         friendshipRepository.save(friendship);
     }

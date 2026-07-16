@@ -2,6 +2,8 @@ package com.signasource.signa_api.users.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -123,5 +125,24 @@ class FriendshipServiceTest {
         assertThrows(
                 NotFoundException.class,
                 () -> friendshipService.acceptFriendRequest(requesterId, addresseeId));
+    }
+
+    @Test
+    void acceptFriendRequest_ThrowsInvalidInputException_WhenStatusIsNotPending() {
+        Friendship nonPendingFriendship = new Friendship();
+        nonPendingFriendship.setRequester(requester);
+        nonPendingFriendship.setAddressee(addressee);
+        nonPendingFriendship.setStatus(FriendshipStatus.ACCEPTED);
+
+        when(userRepository.findById(requesterId)).thenReturn(Optional.of(requester));
+        when(userRepository.findById(addresseeId)).thenReturn(Optional.of(addressee));
+        when(friendshipRepository.findByRequesterAndAddressee(requester, addressee))
+                .thenReturn(Optional.of(nonPendingFriendship));
+
+        assertThrows(
+                InvalidInputException.class,
+                () -> friendshipService.acceptFriendRequest(requesterId, addresseeId));
+
+        verify(friendshipRepository, never()).save(any(Friendship.class));
     }
 }
