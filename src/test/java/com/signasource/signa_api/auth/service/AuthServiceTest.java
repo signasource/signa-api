@@ -82,13 +82,13 @@ class AuthServiceTest {
     @InjectMocks private AuthService authService;
 
     private final User testUser =
-        User.builder()
-            .email(EMAIL)
-            .name(NAME)
-            .passwordHash("hashed_password")
-            .role(Role.USER)
-            .enabled(true)
-            .build();
+            User.builder()
+                    .email(EMAIL)
+                    .name(NAME)
+                    .passwordHash("hashed_password")
+                    .role(Role.USER)
+                    .enabled(true)
+                    .build();
 
     @Mock private GoogleIdTokenVerifier googleIdTokenVerifier;
 
@@ -111,7 +111,7 @@ class AuthServiceTest {
         when(userRepository.existsByEmail(EMAIL)).thenReturn(false);
         when(passwordEncoder.encode(PASSWORD)).thenReturn("hashed_password");
         when(tokenRepository.save(any(Token.class)))
-            .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         authService.register(request);
 
@@ -138,8 +138,8 @@ class AuthServiceTest {
     void shouldLoginAndReturnTokens() {
         LoginRequest request = new LoginRequest(EMAIL, PASSWORD);
         Authentication auth =
-            new UsernamePasswordAuthenticationToken(
-                userDetails, null, userDetails.getAuthorities());
+                new UsernamePasswordAuthenticationToken(
+                        userDetails, null, userDetails.getAuthorities());
         when(authenticationManager.authenticate(any())).thenReturn(auth);
         when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
         Token refresh = createRefreshToken(REFRESH_TOKEN, Instant.now().plusSeconds(3600));
@@ -160,7 +160,7 @@ class AuthServiceTest {
         when(userRepository.existsByEmail(EMAIL)).thenReturn(false);
         when(passwordEncoder.encode(PASSWORD)).thenReturn("hashed_password");
         when(tokenRepository.save(any(Token.class)))
-            .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         authService.register(request);
 
@@ -174,12 +174,12 @@ class AuthServiceTest {
         Token oldToken = createRefreshToken(OLD_REFRESH_TOKEN, Instant.now().plusSeconds(3600));
         Token newToken = createRefreshToken(REFRESH_TOKEN, Instant.now().plusSeconds(3600));
         when(tokenRepository.findByTokenAndType(OLD_REFRESH_TOKEN, TokenType.REFRESH))
-            .thenReturn(Optional.of(oldToken));
+                .thenReturn(Optional.of(oldToken));
         when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
         when(tokenRepository.save(any())).thenReturn(newToken);
 
         AuthResponse response =
-            authService.refreshToken(new RefreshTokenRequest(OLD_REFRESH_TOKEN));
+                authService.refreshToken(new RefreshTokenRequest(OLD_REFRESH_TOKEN));
 
         assertEquals(ACCESS_TOKEN, response.accessToken());
         assertEquals(REFRESH_TOKEN, response.refreshToken());
@@ -192,11 +192,11 @@ class AuthServiceTest {
     @Test
     void shouldFailWhenRefreshTokenNotFound() {
         when(tokenRepository.findByTokenAndType(INVALID_REFRESH_TOKEN, TokenType.REFRESH))
-            .thenReturn(Optional.empty());
+                .thenReturn(Optional.empty());
 
         assertThrows(
-            InvalidTokenException.class,
-            () -> authService.refreshToken(new RefreshTokenRequest(INVALID_REFRESH_TOKEN)));
+                InvalidTokenException.class,
+                () -> authService.refreshToken(new RefreshTokenRequest(INVALID_REFRESH_TOKEN)));
 
         verify(tokenRepository).findByTokenAndType(INVALID_REFRESH_TOKEN, TokenType.REFRESH);
     }
@@ -205,11 +205,11 @@ class AuthServiceTest {
     void shouldFailWhenRefreshTokenExpired() {
         Token expired = createRefreshToken(EXPIRED_REFRESH_TOKEN, Instant.now().minusSeconds(3600));
         when(tokenRepository.findByTokenAndType(EXPIRED_REFRESH_TOKEN, TokenType.REFRESH))
-            .thenReturn(Optional.of(expired));
+                .thenReturn(Optional.of(expired));
 
         assertThrows(
-            InvalidTokenException.class,
-            () -> authService.refreshToken(new RefreshTokenRequest(EXPIRED_REFRESH_TOKEN)));
+                InvalidTokenException.class,
+                () -> authService.refreshToken(new RefreshTokenRequest(EXPIRED_REFRESH_TOKEN)));
 
         verify(tokenRepository).findByTokenAndType(EXPIRED_REFRESH_TOKEN, TokenType.REFRESH);
         verify(tokenRepository).delete(expired);
@@ -218,22 +218,22 @@ class AuthServiceTest {
     @Test
     void shouldFailLoginWhenAccountIsNotVerified() {
         User disabledUser =
-            User.builder()
-                .email(EMAIL)
-                .name(NAME)
-                .passwordHash("hashed_password")
-                .role(Role.USER)
-                .enabled(false)
-                .build();
+                User.builder()
+                        .email(EMAIL)
+                        .name(NAME)
+                        .passwordHash("hashed_password")
+                        .role(Role.USER)
+                        .enabled(false)
+                        .build();
         CustomUserDetails disabledUserDetails = new CustomUserDetails(disabledUser);
         Authentication auth =
-            new UsernamePasswordAuthenticationToken(
-                disabledUserDetails, null, disabledUserDetails.getAuthorities());
+                new UsernamePasswordAuthenticationToken(
+                        disabledUserDetails, null, disabledUserDetails.getAuthorities());
         when(authenticationManager.authenticate(any())).thenReturn(auth);
 
         assertThrows(
-            InvalidCredentialsException.class,
-            () -> authService.login(new LoginRequest(EMAIL, PASSWORD)));
+                InvalidCredentialsException.class,
+                () -> authService.login(new LoginRequest(EMAIL, PASSWORD)));
         verify(authenticationManager).authenticate(any());
         verifyNoInteractions(jwtService);
         verify(tokenRepository, never()).save(any());
@@ -244,23 +244,23 @@ class AuthServiceTest {
         String token = "verification-token";
 
         User disabledUser =
-            User.builder()
-                .email(EMAIL)
-                .name(NAME)
-                .passwordHash("hashed_password")
-                .role(Role.USER)
-                .enabled(false)
-                .build();
+                User.builder()
+                        .email(EMAIL)
+                        .name(NAME)
+                        .passwordHash("hashed_password")
+                        .role(Role.USER)
+                        .enabled(false)
+                        .build();
 
         var verificationToken =
-            Token.builder()
-                .token(token)
-                .user(disabledUser)
-                .expiryDate(Instant.now().plusSeconds(3600))
-                .build();
+                Token.builder()
+                        .token(token)
+                        .user(disabledUser)
+                        .expiryDate(Instant.now().plusSeconds(3600))
+                        .build();
 
         when(tokenRepository.findByTokenAndType(token, TokenType.EMAIL_VERIFICATION))
-            .thenReturn(Optional.of(verificationToken));
+                .thenReturn(Optional.of(verificationToken));
 
         authService.verifyAccount(token);
 
@@ -275,7 +275,7 @@ class AuthServiceTest {
     void shouldFailWhenVerificationTokenDoesNotExist() {
         String token = "invalid-token";
         when(tokenRepository.findByTokenAndType(token, TokenType.EMAIL_VERIFICATION))
-            .thenReturn(Optional.empty());
+                .thenReturn(Optional.empty());
 
         assertThrows(InvalidTokenException.class, () -> authService.verifyAccount(token));
 
@@ -287,7 +287,7 @@ class AuthServiceTest {
     void shouldChangePasswordSuccessfully() {
         ChangePasswordRequest request = new ChangePasswordRequest(CURRENT_PASSWORD, NEW_PASSWORD);
         SecurityContextHolder.getContext()
-            .setAuthentication(new UsernamePasswordAuthenticationToken(userDetails, null));
+                .setAuthentication(new UsernamePasswordAuthenticationToken(userDetails, null));
         when(passwordEncoder.matches(CURRENT_PASSWORD, ENCODED_PASSWORD)).thenReturn(true);
         when(passwordEncoder.matches(NEW_PASSWORD, ENCODED_PASSWORD)).thenReturn(false);
         when(passwordEncoder.encode(NEW_PASSWORD)).thenReturn("new-hashed-password");
@@ -314,7 +314,7 @@ class AuthServiceTest {
     void shouldFailWhenCurrentPasswordIsIncorrect() {
         ChangePasswordRequest request = new ChangePasswordRequest(CURRENT_PASSWORD, NEW_PASSWORD);
         SecurityContextHolder.getContext()
-            .setAuthentication(new UsernamePasswordAuthenticationToken(userDetails, null));
+                .setAuthentication(new UsernamePasswordAuthenticationToken(userDetails, null));
         when(passwordEncoder.matches(CURRENT_PASSWORD, ENCODED_PASSWORD)).thenReturn(false);
 
         assertThrows(InvalidInputException.class, () -> authService.changePassword(request));
@@ -328,7 +328,7 @@ class AuthServiceTest {
     void shouldFailWhenNewPasswordMatchesCurrentPassword() {
         ChangePasswordRequest request = new ChangePasswordRequest(CURRENT_PASSWORD, NEW_PASSWORD);
         SecurityContextHolder.getContext()
-            .setAuthentication(new UsernamePasswordAuthenticationToken(userDetails, null));
+                .setAuthentication(new UsernamePasswordAuthenticationToken(userDetails, null));
         when(passwordEncoder.matches(CURRENT_PASSWORD, ENCODED_PASSWORD)).thenReturn(true);
         when(passwordEncoder.matches(NEW_PASSWORD, ENCODED_PASSWORD)).thenReturn(true);
 
@@ -344,13 +344,13 @@ class AuthServiceTest {
     void shouldInvalidateAllRefreshTokensBeforeGeneratingNewOnes() {
         ChangePasswordRequest request = new ChangePasswordRequest(CURRENT_PASSWORD, NEW_PASSWORD);
         SecurityContextHolder.getContext()
-            .setAuthentication(new UsernamePasswordAuthenticationToken(userDetails, null));
+                .setAuthentication(new UsernamePasswordAuthenticationToken(userDetails, null));
         when(passwordEncoder.matches(CURRENT_PASSWORD, ENCODED_PASSWORD)).thenReturn(true);
         when(passwordEncoder.matches(NEW_PASSWORD, ENCODED_PASSWORD)).thenReturn(false);
         when(passwordEncoder.encode(NEW_PASSWORD)).thenReturn("new-hashed-password");
         when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
         when(tokenRepository.save(any()))
-            .thenReturn(createRefreshToken(REFRESH_TOKEN, Instant.now().plusSeconds(3600)));
+                .thenReturn(createRefreshToken(REFRESH_TOKEN, Instant.now().plusSeconds(3600)));
 
         authService.changePassword(request);
 
@@ -366,7 +366,7 @@ class AuthServiceTest {
         ForgotPasswordRequest request = new ForgotPasswordRequest(EMAIL);
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(testUser));
         when(tokenRepository.save(any(Token.class)))
-            .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         authService.forgotPassword(request);
 
@@ -391,13 +391,13 @@ class AuthServiceTest {
     void shouldResetPasswordSuccessfully() {
         String token = "reset-token";
         Token resetToken =
-            Token.builder()
-                .token(token)
-                .user(testUser)
-                .expiryDate(Instant.now().plusSeconds(3600))
-                .build();
+                Token.builder()
+                        .token(token)
+                        .user(testUser)
+                        .expiryDate(Instant.now().plusSeconds(3600))
+                        .build();
         when(tokenRepository.findByTokenAndType(token, TokenType.PASSWORD_RESET))
-            .thenReturn(Optional.of(resetToken));
+                .thenReturn(Optional.of(resetToken));
         when(passwordEncoder.encode(PASSWORD)).thenReturn("new-hashed-password");
 
         authService.resetPassword(new ResetPasswordRequest(PASSWORD), token);
@@ -412,11 +412,11 @@ class AuthServiceTest {
     void shouldFailWhenResetTokenDoesNotExist() {
         String token = "invalid-token";
         when(tokenRepository.findByTokenAndType(token, TokenType.PASSWORD_RESET))
-            .thenReturn(Optional.empty());
+                .thenReturn(Optional.empty());
 
         assertThrows(
-            InvalidTokenException.class,
-            () -> authService.resetPassword(new ResetPasswordRequest(PASSWORD), token));
+                InvalidTokenException.class,
+                () -> authService.resetPassword(new ResetPasswordRequest(PASSWORD), token));
 
         verify(tokenRepository).findByTokenAndType(token, TokenType.PASSWORD_RESET);
         verifyNoInteractions(userRepository);
@@ -428,7 +428,7 @@ class AuthServiceTest {
         testUser.setEnabled(false);
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(testUser));
         when(tokenRepository.save(any(Token.class)))
-            .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         authService.resendVerificationEmail(request);
 
@@ -464,9 +464,9 @@ class AuthServiceTest {
         when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
 
         when(userRepository.save(any(User.class)))
-            .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenAnswer(invocation -> invocation.getArgument(0));
         when(tokenRepository.save(any(Token.class)))
-            .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         AuthResponse response = authService.authenticateWithGoogle(VALID_TOKEN_STRING);
 
@@ -490,12 +490,13 @@ class AuthServiceTest {
         GoogleIdToken.Payload payload = new GoogleIdToken.Payload();
         payload.setEmail(EMAIL);
 
-        User existingUser = User.builder()
-            .id(UUID.randomUUID())
-            .email(EMAIL)
-            .providers(new HashSet<>(Set.of(AuthProvider.LOCAL)))
-            .enabled(false)
-            .build();
+        User existingUser =
+                User.builder()
+                        .id(UUID.randomUUID())
+                        .email(EMAIL)
+                        .providers(new HashSet<>(Set.of(AuthProvider.LOCAL)))
+                        .enabled(false)
+                        .build();
 
         when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);
         when(mockedGoogleToken.getPayload()).thenReturn(payload);
@@ -503,9 +504,9 @@ class AuthServiceTest {
         when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
 
         when(userRepository.save(any(User.class)))
-            .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenAnswer(invocation -> invocation.getArgument(0));
         when(tokenRepository.save(any(Token.class)))
-            .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         AuthResponse response = authService.authenticateWithGoogle(VALID_TOKEN_STRING);
 
@@ -527,18 +528,20 @@ class AuthServiceTest {
         GoogleIdToken.Payload payload = new GoogleIdToken.Payload();
         payload.setEmail(EMAIL);
 
-        User existingUser = User.builder()
-            .id(UUID.randomUUID())
-            .email(EMAIL)
-            .providers(new HashSet<>(Set.of(AuthProvider.GOOGLE)))
-            .enabled(true)
-            .build();
+        User existingUser =
+                User.builder()
+                        .id(UUID.randomUUID())
+                        .email(EMAIL)
+                        .providers(new HashSet<>(Set.of(AuthProvider.GOOGLE)))
+                        .enabled(true)
+                        .build();
 
         when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);
         when(mockedGoogleToken.getPayload()).thenReturn(payload);
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(existingUser));
         when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
-        when(tokenRepository.save(any(Token.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(tokenRepository.save(any(Token.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         AuthResponse response = authService.authenticateWithGoogle(VALID_TOKEN_STRING);
 
@@ -551,10 +554,13 @@ class AuthServiceTest {
 
     @Test
     void shouldThrowInvalidCredentialsWhenGoogleAuthFailsUnexpectedly() throws Exception {
-        when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenThrow(new IllegalArgumentException("Network error"));
+        when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING))
+                .thenThrow(new IllegalArgumentException("Network error"));
 
-        InvalidCredentialsException exception = assertThrows(InvalidCredentialsException.class,
-            () -> authService.authenticateWithGoogle(VALID_TOKEN_STRING));
+        InvalidCredentialsException exception =
+                assertThrows(
+                        InvalidCredentialsException.class,
+                        () -> authService.authenticateWithGoogle(VALID_TOKEN_STRING));
 
         assertTrue(exception.getMessage().contains("Error authenticating with Google"));
         verifyNoInteractions(userRepository);
@@ -566,9 +572,9 @@ class AuthServiceTest {
         when(googleIdTokenVerifier.verify(invalidToken)).thenReturn(null);
 
         InvalidCredentialsException exception =
-            assertThrows(
-                InvalidCredentialsException.class,
-                () -> authService.authenticateWithGoogle(invalidToken));
+                assertThrows(
+                        InvalidCredentialsException.class,
+                        () -> authService.authenticateWithGoogle(invalidToken));
 
         assertTrue(exception.getMessage().contains("Invalid Google token"));
 
@@ -579,10 +585,10 @@ class AuthServiceTest {
 
     private Token createRefreshToken(String token, Instant expiryDate) {
         return Token.builder()
-            .token(token)
-            .user(testUser)
-            .expiryDate(expiryDate)
-            .type(TokenType.REFRESH)
-            .build();
+                .token(token)
+                .user(testUser)
+                .expiryDate(expiryDate)
+                .type(TokenType.REFRESH)
+                .build();
     }
 }

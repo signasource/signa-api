@@ -66,14 +66,14 @@ public class AuthService {
         }
 
         User user =
-            User.builder()
-                .email(request.email())
-                .name(request.name())
-                .passwordHash(passwordEncoder.encode(request.password()))
-                .role(Role.USER)
-                .enabled(false)
-                .providers(new HashSet<>(Set.of(AuthProvider.LOCAL)))
-                .build();
+                User.builder()
+                        .email(request.email())
+                        .name(request.name())
+                        .passwordHash(passwordEncoder.encode(request.password()))
+                        .role(Role.USER)
+                        .enabled(false)
+                        .providers(new HashSet<>(Set.of(AuthProvider.LOCAL)))
+                        .build();
 
         userRepository.save(user);
 
@@ -242,16 +242,16 @@ public class AuthService {
                     user = userRepository.save(user);
                 }
             } else {
-                user = userRepository.save(
-                    User.builder()
-                        .email(email)
-                        .name(name)
-                        .passwordHash(null)
-                        .role(Role.USER)
-                        .enabled(true)
-                        .providers(new HashSet<>(Set.of(AuthProvider.GOOGLE)))
-                        .build()
-                );
+                user =
+                        userRepository.save(
+                                User.builder()
+                                        .email(email)
+                                        .name(name)
+                                        .passwordHash(null)
+                                        .role(Role.USER)
+                                        .enabled(true)
+                                        .providers(new HashSet<>(Set.of(AuthProvider.GOOGLE)))
+                                        .build());
             }
 
             return generateTokens(user);
