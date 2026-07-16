@@ -1,21 +1,7 @@
 package com.signasource.signa_api.auth.service;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Optional;
-import java.util.UUID;
-
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
-import com.signasource.signa_api.users.entity.AuthProvider;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-
 import com.signasource.signa_api.auth.dto.AuthResponse;
 import com.signasource.signa_api.auth.dto.ChangePasswordRequest;
 import com.signasource.signa_api.auth.dto.ForgotPasswordRequest;
@@ -32,11 +18,23 @@ import com.signasource.signa_api.exceptions.InvalidCredentialsException;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.InvalidTokenException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
+import com.signasource.signa_api.users.entity.AuthProvider;
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.repository.UserRepository;
 import jakarta.transaction.Transactional;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
@@ -48,7 +46,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final TokenRepository tokenRepository;
     private final EmailService emailService;
-	private final GoogleIdTokenVerifier googleIdTokenVerifier;
+    private final GoogleIdTokenVerifier googleIdTokenVerifier;
 
     @Value("${auth.token-expirations.refresh}")
     private Long refreshTokenExpiration;
@@ -241,14 +239,23 @@ public class AuthService {
                     user = userRepository.save(user);
                 }
             } else {
-                user = userRepository.save(User.builder().email(email).name(name).passwordHash(null).role(Role.USER)
-                    .enabled(true).provider(AuthProvider.GOOGLE).build());
+                user =
+                        userRepository.save(
+                                User.builder()
+                                        .email(email)
+                                        .name(name)
+                                        .passwordHash(null)
+                                        .role(Role.USER)
+                                        .enabled(true)
+                                        .provider(AuthProvider.GOOGLE)
+                                        .build());
             }
 
             return generateTokens(user);
 
         } catch (Exception e) {
-            throw new InvalidCredentialsException("Error authenticating with Google: " + e.getMessage());
+            throw new InvalidCredentialsException(
+                    "Error authenticating with Google: " + e.getMessage());
         }
     }
 

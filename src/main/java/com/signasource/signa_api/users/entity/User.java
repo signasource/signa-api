@@ -28,7 +28,7 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
-	private String passwordHash;
+    private String passwordHash;
 
     @Column(nullable = false)
     private String name;
@@ -36,11 +36,11 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Role role;
 
-	@Column(nullable = false)
-	private boolean enabled;
+    @Column(nullable = false)
+    private boolean enabled;
 
-	@Enumerated(EnumType.STRING)
-	@Builder.Default
-	@Column(nullable = false)
-	private AuthProvider provider = AuthProvider.LOCAL;
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    @Column(nullable = false)
+    private AuthProvider provider = AuthProvider.LOCAL;
 }

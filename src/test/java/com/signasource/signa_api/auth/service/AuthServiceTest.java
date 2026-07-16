@@ -4,29 +4,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-import java.time.Instant;
-import java.util.Optional;
-import java.util.UUID;
-
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InOrder;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.util.ReflectionTestUtils;
-
 import com.signasource.signa_api.auth.dto.AuthResponse;
-import com.signasource.signa_api.users.entity.AuthProvider;
 import com.signasource.signa_api.auth.dto.ChangePasswordRequest;
 import com.signasource.signa_api.auth.dto.ForgotPasswordRequest;
 import com.signasource.signa_api.auth.dto.LoginRequest;
@@ -42,9 +22,27 @@ import com.signasource.signa_api.exceptions.InvalidCredentialsException;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.InvalidTokenException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
+import com.signasource.signa_api.users.entity.AuthProvider;
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.repository.UserRepository;
+import java.time.Instant;
+import java.util.Optional;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
@@ -81,11 +79,9 @@ class AuthServiceTest {
                     .enabled(true)
                     .build();
 
-    @Mock
-    private GoogleIdTokenVerifier googleIdTokenVerifier;
+    @Mock private GoogleIdTokenVerifier googleIdTokenVerifier;
 
-    @Mock
-    private GoogleIdToken mockedGoogleToken;
+    @Mock private GoogleIdToken mockedGoogleToken;
 
     private final String VALID_TOKEN_STRING = "valid.google.token";
 
@@ -445,91 +441,100 @@ class AuthServiceTest {
         verify(emailService, never()).sendVerificationEmail(any(), any());
     }
 
+    @Test
+    void shouldAuthenticateWithGoogleAndRegisterNewUser() throws Exception {
+        GoogleIdToken.Payload payload = new GoogleIdToken.Payload();
+        payload.setEmail(EMAIL);
+        payload.set("name", NAME);
 
+        when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);
+        when(mockedGoogleToken.getPayload()).thenReturn(payload);
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
+        when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
 
-	@Test
-	void shouldAuthenticateWithGoogleAndRegisterNewUser() throws Exception {
-		GoogleIdToken.Payload payload = new GoogleIdToken.Payload();
-		payload.setEmail(EMAIL);
-		payload.set("name", NAME);
+        when(userRepository.save(any(User.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(tokenRepository.save(any(Token.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
-		when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);
-		when(mockedGoogleToken.getPayload()).thenReturn(payload);
-		when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
-		when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
+        AuthResponse response = authService.authenticateWithGoogle(VALID_TOKEN_STRING);
 
-		when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
-		when(tokenRepository.save(any(Token.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        assertNotNull(response);
+        assertEquals(ACCESS_TOKEN, response.accessToken());
+        assertNotNull(response.refreshToken());
 
-		AuthResponse response = authService.authenticateWithGoogle(VALID_TOKEN_STRING);
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(userCaptor.capture());
 
-		assertNotNull(response);
-		assertEquals(ACCESS_TOKEN, response.accessToken());
-		assertNotNull(response.refreshToken());
+        User savedUser = userCaptor.getValue();
+        assertEquals(EMAIL, savedUser.getEmail());
+        assertEquals(NAME, savedUser.getName());
+        assertEquals(AuthProvider.GOOGLE, savedUser.getProvider());
+        assertNull(savedUser.getPasswordHash());
+        assertTrue(savedUser.isEnabled());
+    }
 
-		ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
-		verify(userRepository).save(userCaptor.capture());
+    @Test
+    void shouldAuthenticateWithGoogleForExistingUser() throws Exception {
+        GoogleIdToken.Payload payload = new GoogleIdToken.Payload();
+        payload.setEmail(EMAIL);
 
-		User savedUser = userCaptor.getValue();
-		assertEquals(EMAIL, savedUser.getEmail());
-		assertEquals(NAME, savedUser.getName());
-		assertEquals(AuthProvider.GOOGLE, savedUser.getProvider());
-		assertNull(savedUser.getPasswordHash());
-		assertTrue(savedUser.isEnabled());
-	}
+        User existingUser =
+                User.builder()
+                        .id(UUID.randomUUID())
+                        .email(EMAIL)
+                        .provider(AuthProvider.LOCAL)
+                        .enabled(false)
+                        .build();
 
-	@Test
-	void shouldAuthenticateWithGoogleForExistingUser() throws Exception {
-		GoogleIdToken.Payload payload = new GoogleIdToken.Payload();
-		payload.setEmail(EMAIL);
+        when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);
+        when(mockedGoogleToken.getPayload()).thenReturn(payload);
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(existingUser));
+        when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
 
-		User existingUser = User.builder().id(UUID.randomUUID()).email(EMAIL).provider(AuthProvider.LOCAL)
-				.enabled(false).build();
+        when(userRepository.save(any(User.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(tokenRepository.save(any(Token.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
-		when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);
-		when(mockedGoogleToken.getPayload()).thenReturn(payload);
-		when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(existingUser));
-		when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
+        AuthResponse response = authService.authenticateWithGoogle(VALID_TOKEN_STRING);
 
-		when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
-		when(tokenRepository.save(any(Token.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        assertNotNull(response);
+        assertEquals(ACCESS_TOKEN, response.accessToken());
 
-		AuthResponse response = authService.authenticateWithGoogle(VALID_TOKEN_STRING);
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(userCaptor.capture());
 
-		assertNotNull(response);
-		assertEquals(ACCESS_TOKEN, response.accessToken());
+        User savedUser = userCaptor.getValue();
+        assertTrue(savedUser.isEnabled());
+        assertEquals(AuthProvider.GOOGLE, savedUser.getProvider());
 
-		ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
-		verify(userRepository).save(userCaptor.capture());
+        verify(tokenRepository).save(any(Token.class));
+    }
 
-		User savedUser = userCaptor.getValue();
-		assertTrue(savedUser.isEnabled());
-		assertEquals(AuthProvider.GOOGLE, savedUser.getProvider());
+    @Test
+    void shouldThrowExceptionWhenGoogleTokenIsInvalid() throws Exception {
+        String invalidToken = "invalid.token";
+        when(googleIdTokenVerifier.verify(invalidToken)).thenReturn(null);
 
-		verify(tokenRepository).save(any(Token.class));
-	}
+        InvalidCredentialsException exception =
+                assertThrows(
+                        InvalidCredentialsException.class,
+                        () -> authService.authenticateWithGoogle(invalidToken));
 
-	@Test
-	void shouldThrowExceptionWhenGoogleTokenIsInvalid() throws Exception {
-		String invalidToken = "invalid.token";
-		when(googleIdTokenVerifier.verify(invalidToken)).thenReturn(null);
+        assertTrue(exception.getMessage().contains("Token de Google inválido"));
 
-		InvalidCredentialsException exception = assertThrows(InvalidCredentialsException.class,
-				() -> authService.authenticateWithGoogle(invalidToken));
-
-		assertTrue(exception.getMessage().contains("Token de Google inválido"));
-
-		verifyNoInteractions(userRepository);
-		verifyNoInteractions(jwtService);
-		verifyNoInteractions(tokenRepository);
-	}
+        verifyNoInteractions(userRepository);
+        verifyNoInteractions(jwtService);
+        verifyNoInteractions(tokenRepository);
+    }
 
     private Token createRefreshToken(String token, Instant expiryDate) {
         return Token.builder()
-            .token(token)
-            .user(testUser)
-            .expiryDate(expiryDate)
-            .type(TokenType.REFRESH)
-            .build();
+                .token(token)
+                .user(testUser)
+                .expiryDate(expiryDate)
+                .type(TokenType.REFRESH)
+                .build();
     }
 }
