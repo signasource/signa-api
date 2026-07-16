@@ -15,10 +15,11 @@ public class CustomUserDetailsService implements UserDetailsService {
     private final UserRepository userRepository;
 
     @Override
-    public UserDetails loadUserByUsername(String email) {
+    public UserDetails loadUserByUsername(String identifier) {
         User user =
-                userRepository
-                        .findByEmail(email)
+                (identifier.contains("@")
+                                ? userRepository.findByEmail(identifier)
+                                : userRepository.findByUsername(identifier))
                         .orElseThrow(() -> new NotFoundException("User not found"));
         return new CustomUserDetails(user);
     }

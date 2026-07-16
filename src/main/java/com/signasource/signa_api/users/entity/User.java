@@ -34,6 +34,9 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
+    @Column(nullable = false, unique = true)
+    private String username;
+  
     private String passwordHash;
 
     @Column(nullable = false)
