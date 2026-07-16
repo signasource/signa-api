@@ -2,8 +2,8 @@ package com.signasource.signa_api.users.controller;
 
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
@@ -83,7 +83,7 @@ class FriendshipControllerTest {
     void acceptFriendRequest_ReturnsOk() throws Exception {
         doNothing().when(friendshipService).acceptFriendRequest(otherUserId, currentUserId);
 
-        mockMvc.perform(put("/friendships/accept/{requesterId}", otherUserId))
+        mockMvc.perform(patch("/friendships/accept/{requesterId}", otherUserId))
                 .andExpect(status().isOk());
 
         verify(friendshipService).acceptFriendRequest(otherUserId, currentUserId);
