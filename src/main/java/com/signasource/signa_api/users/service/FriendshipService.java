@@ -45,7 +45,8 @@ public class FriendshipService {
                 friendshipRepository.save(friendship);
                 return;
             } else {
-                throw new ResourceAlreadyInUseException("The relationship or request already exists.");
+                throw new ResourceAlreadyInUseException(
+                        "The relationship or request already exists.");
             }
         }
 
@@ -72,8 +73,7 @@ public class FriendshipService {
                         .orElseThrow(() -> new NotFoundException("Request not found."));
 
         if (friendship.getStatus() != FriendshipStatus.PENDING) {
-            throw new InvalidInputException(
-                    "Only pending requests can be accepted.");
+            throw new InvalidInputException("Only pending requests can be accepted.");
         }
 
         friendship.setStatus(FriendshipStatus.ACCEPTED);
