@@ -113,7 +113,6 @@ class DeviceTokenServiceTest {
         try {
             deviceTokenService.registerToken(user, TOKEN, DevicePlatform.ANDROID);
 
-            // The token is saved, but FCM is not touched until the commit happens.
             verify(deviceTokenRepository).save(any(DeviceToken.class));
             verifyNoInteractions(firebaseService);
 
