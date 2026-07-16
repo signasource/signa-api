@@ -25,7 +25,9 @@ import com.signasource.signa_api.users.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -64,13 +66,14 @@ public class AuthService {
         }
 
         User user =
-                User.builder()
-                        .email(request.email())
-                        .name(request.name())
-                        .passwordHash(passwordEncoder.encode(request.password()))
-                        .role(Role.USER)
-                        .enabled(false)
-                        .build();
+            User.builder()
+                .email(request.email())
+                .name(request.name())
+                .passwordHash(passwordEncoder.encode(request.password()))
+                .role(Role.USER)
+                .enabled(false)
+                .providers(new HashSet<>(Set.of(AuthProvider.LOCAL)))
+                .build();
 
         userRepository.save(user);
 
@@ -211,7 +214,7 @@ public class AuthService {
             GoogleIdToken idToken = googleIdTokenVerifier.verify(idTokenString);
 
             if (idToken == null) {
-                throw new InvalidCredentialsException("Token de Google inválido");
+                throw new InvalidCredentialsException("Invalid Google token");
             }
 
             GoogleIdToken.Payload payload = idToken.getPayload();
@@ -230,8 +233,8 @@ public class AuthService {
                     needsUpdate = true;
                 }
 
-                if (user.getProvider() != AuthProvider.GOOGLE) {
-                    user.setProvider(AuthProvider.GOOGLE);
+                if (!user.getProviders().contains(AuthProvider.GOOGLE)) {
+                    user.getProviders().add(AuthProvider.GOOGLE);
                     needsUpdate = true;
                 }
 
@@ -239,20 +242,21 @@ public class AuthService {
                     user = userRepository.save(user);
                 }
             } else {
-                user =
-                        userRepository.save(
-                                User.builder()
-                                        .email(email)
-                                        .name(name)
-                                        .passwordHash(null)
-                                        .role(Role.USER)
-                                        .enabled(true)
-                                        .provider(AuthProvider.GOOGLE)
-                                        .build());
+                user = userRepository.save(
+                    User.builder()
+                        .email(email)
+                        .name(name)
+                        .passwordHash(null)
+                        .role(Role.USER)
+                        .enabled(true)
+                        .providers(new HashSet<>(Set.of(AuthProvider.GOOGLE)))
+                        .build()
+                );
             }
 
             return generateTokens(user);
-
+        } catch (InvalidCredentialsException e) {
+            throw e;
         } catch (Exception e) {
             throw new InvalidCredentialsException(
                     "Error authenticating with Google: " + e.getMessage());
