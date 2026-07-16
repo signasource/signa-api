@@ -12,10 +12,10 @@ import org.springframework.data.repository.query.Param;
 public interface FriendshipRepository extends JpaRepository<Friendship, Long> {
 
     @Query(
-            "SELECT CASE WHEN COUNT(f) > 0 THEN true ELSE false END FROM Friendship f "
-                    + "WHERE (f.requester = :user1 AND f.addressee = :user2) "
+            "SELECT f FROM Friendship f WHERE (f.requester = :user1 AND f.addressee = :user2) "
                     + "OR (f.requester = :user2 AND f.addressee = :user1)")
-    boolean friendshipExists(@Param("user1") User user1, @Param("user2") User user2);
+    Optional<Friendship> findFriendshipBetween(
+            @Param("user1") User user1, @Param("user2") User user2);
 
     Optional<Friendship> findByRequesterAndAddressee(User requester, User addressee);
 

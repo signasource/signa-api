@@ -8,6 +8,7 @@ import com.signasource.signa_api.users.entity.FriendshipStatus;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.repository.FriendshipRepository;
 import com.signasource.signa_api.users.repository.UserRepository;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -35,18 +36,31 @@ public class FriendshipService {
                         .findById(addresseeId)
                         .orElseThrow(() -> new NotFoundException("Usuario destino no encontrado"));
 
-        if (friendshipRepository.friendshipExists(requester, addressee)) {
-            throw new ResourceAlreadyInUseException("La relación o solicitud ya existe.");
+        Optional<Friendship> existingRelation =
+                friendshipRepository.findFriendshipBetween(requester, addressee);
+
+        if (existingRelation.isPresent()) {
+            Friendship friendship = existingRelation.get();
+
+            if (friendship.getStatus() == FriendshipStatus.REJECTED) {
+                friendship.setRequester(requester);
+                friendship.setAddressee(addressee);
+                friendship.setStatus(FriendshipStatus.PENDING);
+                friendshipRepository.save(friendship);
+                return;
+            } else {
+                throw new ResourceAlreadyInUseException("La relación o solicitud ya existe.");
+            }
         }
 
-        Friendship friendship =
+        Friendship newFriendship =
                 Friendship.builder()
                         .requester(requester)
                         .addressee(addressee)
                         .status(FriendshipStatus.PENDING)
                         .build();
 
-        friendshipRepository.save(friendship);
+        friendshipRepository.save(newFriendship);
     }
 
     @Transactional

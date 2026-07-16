@@ -57,7 +57,9 @@ class FriendshipServiceTest {
     void sendFriendRequest_Success() {
         when(userRepository.findById(requesterId)).thenReturn(Optional.of(requester));
         when(userRepository.findById(addresseeId)).thenReturn(Optional.of(addressee));
-        when(friendshipRepository.friendshipExists(requester, addressee)).thenReturn(false);
+
+        when(friendshipRepository.findFriendshipBetween(requester, addressee))
+                .thenReturn(Optional.empty());
 
         friendshipService.sendFriendRequest(requesterId, addresseeId);
 
@@ -88,10 +90,14 @@ class FriendshipServiceTest {
     }
 
     @Test
-    void sendFriendRequest_ThrowsResourceAlreadyInUseException_WhenFriendshipExists() {
+    void sendFriendRequest_ThrowsResourceAlreadyInUseException_WhenFriendshipIsPendingOrAccepted() {
+        Friendship existingFriendship = new Friendship();
+        existingFriendship.setStatus(FriendshipStatus.PENDING);
+
         when(userRepository.findById(requesterId)).thenReturn(Optional.of(requester));
         when(userRepository.findById(addresseeId)).thenReturn(Optional.of(addressee));
-        when(friendshipRepository.friendshipExists(requester, addressee)).thenReturn(true);
+        when(friendshipRepository.findFriendshipBetween(requester, addressee))
+                .thenReturn(Optional.of(existingFriendship));
 
         assertThrows(
                 ResourceAlreadyInUseException.class,
@@ -145,5 +151,28 @@ class FriendshipServiceTest {
                 () -> friendshipService.acceptFriendRequest(requesterId, addresseeId));
 
         verify(friendshipRepository, never()).save(any(Friendship.class));
+    }
+
+    @Test
+    void sendFriendRequest_UpdatesExistingRecord_WhenStatusIsRejected() {
+        Friendship rejectedFriendship = new Friendship();
+        rejectedFriendship.setRequester(addressee);
+        rejectedFriendship.setAddressee(requester);
+        rejectedFriendship.setStatus(FriendshipStatus.REJECTED);
+
+        when(userRepository.findById(requesterId)).thenReturn(Optional.of(requester));
+        when(userRepository.findById(addresseeId)).thenReturn(Optional.of(addressee));
+        when(friendshipRepository.findFriendshipBetween(requester, addressee))
+                .thenReturn(Optional.of(rejectedFriendship));
+
+        friendshipService.sendFriendRequest(requesterId, addresseeId);
+
+        ArgumentCaptor<Friendship> friendshipCaptor = ArgumentCaptor.forClass(Friendship.class);
+        verify(friendshipRepository, times(1)).save(friendshipCaptor.capture());
+
+        Friendship savedFriendship = friendshipCaptor.getValue();
+        assertEquals(requester, savedFriendship.getRequester());
+        assertEquals(addressee, savedFriendship.getAddressee());
+        assertEquals(FriendshipStatus.PENDING, savedFriendship.getStatus());
     }
 }
