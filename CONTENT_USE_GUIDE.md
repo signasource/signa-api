@@ -129,7 +129,7 @@ Cada bloque tiene:
   ser un número **cero o positivo**.
 - `config`: los datos propios de ese tipo de bloque.
 
-Hay **4 tipos de bloque**:
+Hay **6 tipos de bloque**:
 
 ### `INFO` — pantalla de información
 
@@ -185,6 +185,28 @@ Al revés del anterior: se muestra una palabra y el usuario elige la seña corre
 | `word` | Obligatorio. La respuesta correcta. |
 | `options` | Obligatorio. Al menos **2** opciones. **Debe incluir el valor de `word`.** |
 
+### `CONTEXT_RESPONSE` — pregunta con respuesta de selección
+
+Se muestra una pregunta y el usuario elige la respuesta correcta entre varias opciones.
+
+```yaml
+- type: CONTEXT_RESPONSE
+  xp: 10
+  config:
+    question: "¿Cómo se saluda en LSA?"
+    answer: hola
+    options:
+      - hola
+      - gracias
+      - por_favor
+```
+
+| Campo | Regla |
+|---|---|
+| `question` | Obligatorio, no puede estar vacío. |
+| `answer` | Obligatorio. La respuesta correcta. |
+| `options` | Obligatorio. Al menos **2** opciones. **Debe incluir el valor de `answer`.** |
+
 ### `MATCH` — unir / emparejar
 
 Ejercicio de emparejar conceptos.
@@ -202,6 +224,30 @@ Ejercicio de emparejar conceptos.
 | Campo | Regla |
 |---|---|
 | `concepts` | Obligatorio. Al menos **2** conceptos. |
+
+### `VISUAL_RECOGNITION` — reconocimiento visual
+
+Se muestra una secuencia de señas y el usuario selecciona cuáles reconoce dentro de la secuencia.
+
+```yaml
+- type: VISUAL_RECOGNITION
+  xp: 15
+  config:
+    signSequence:
+      - hola
+      - gracias
+    options:
+      - hola
+      - gracias
+      - por_favor
+    keepOrder: true
+```
+
+| Campo | Regla |
+|---|---|
+| `signSequence` | Obligatorio. Al menos **1** seña. Secuencia que se muestra al usuario. |
+| `options` | Obligatorio. Al menos **1** opción. Puede incluir señas que no están en la secuencia (distractores). |
+| `keepOrder` | Obligatorio. `true` si las señas seleccionadas deben respetar el orden de la secuencia, `false` si no. |
 
 ---
 
