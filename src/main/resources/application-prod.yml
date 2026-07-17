@@ -1,6 +1,7 @@
 spring:
   jpa:
     hibernate:
-      ddl-auto: validate
-  flyway:
-    enabled: true
+      ddl-auto: update
+
+app:
+  base-url: ${BASE_URL}

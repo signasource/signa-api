@@ -28,10 +28,10 @@ services:
       MAIL_USERNAME: ${MAIL_USERNAME}
       MAIL_PASSWORD: ${MAIL_PASSWORD}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      BASE_URL: ${BASE_URL}
+      FIREBASE_CREDENTIALS_JSON: ${FIREBASE_CREDENTIALS_JSON}
     depends_on:
       - postgres
-    volumes:
-      - ./secrets/firebase.json:/secrets/firebase.json:ro
 
 volumes:
   postgres_data: {}

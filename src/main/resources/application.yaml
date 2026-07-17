@@ -11,10 +11,6 @@ spring:
     hibernate:
       ddl-auto: validate
 
-  flyway:
-    enabled: true
-    baseline-on-migrate: true
-
   mail:
     host: smtp.gmail.com
     port: 587
@@ -41,11 +37,7 @@ management:
       show-details: when-authorized
 
 app:
-  security:
-    enabled: true
   base-url:
-  cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
 
 auth:
     google:
@@ -61,3 +53,4 @@ auth:
 firebase:
   enabled: true
   global-topic: global
+  credentials-json: ${FIREBASE_CREDENTIALS_JSON}
