@@ -129,7 +129,7 @@ Cada bloque tiene:
   ser un número **cero o positivo**.
 - `config`: los datos propios de ese tipo de bloque.
 
-Hay **5 tipos de bloque**:
+Hay **4 tipos de bloque**:
 
 ### `INFO` — pantalla de información
 
@@ -202,28 +202,6 @@ Ejercicio de emparejar conceptos.
 | Campo | Regla |
 |---|---|
 | `concepts` | Obligatorio. Al menos **2** conceptos. |
-
-### `CONTEXT` — completar la frase
-
-Una frase con un hueco (`_`) que el usuario completa eligiendo una opción.
-
-```yaml
-- type: CONTEXT
-  xp: 15
-  config:
-    sentence: "¡_ por ayudarme a estudiar LSA!"
-    answer: gracias
-    options:
-      - hola
-      - gracias
-      - chau
-```
-
-| Campo | Regla |
-|---|---|
-| `sentence` | Obligatorio. La frase (usá `_` donde va el hueco). |
-| `answer` | Obligatorio. La respuesta correcta. |
-| `options` | Obligatorio. Al menos **2** opciones. **Debe incluir el valor de `answer`.** |
 
 ---
 

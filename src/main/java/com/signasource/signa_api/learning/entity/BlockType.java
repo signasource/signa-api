@@ -4,5 +4,7 @@ public enum BlockType {
     INFO,
     SELECT_MEANING,
     SELECT_SIGN,
-    MATCH
+    CONTEXT_RESPONSE,
+    MATCH,
+    VISUAL_RECOGNITION
 }
