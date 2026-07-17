@@ -26,10 +26,14 @@ spring:
 server:
   port: 8080
 
-jwt:
-  secret: test-secret-key-with-sufficient-length-for-hmac-256-algorithm-12345
-  access-token-expiration: 15000
-  refresh-token-expiration: 604800000
+auth:
+  jwt:
+    secret: test-secret-key-with-sufficient-length-for-hmac-256-algorithm-12345
+  token-expirations:
+    access: 15000
+    refresh: 604800000
+    password-reset: 3600000
+    email-verification: 86400000
 
 firebase:
   enabled: false
