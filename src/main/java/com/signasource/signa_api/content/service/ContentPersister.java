@@ -27,6 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 public class ContentPersister {
 
+    private static final String HASH_ALGORITHM = "SHA-256";
+
     private final SignLanguageRepository signLanguageRepository;
     private final CourseRepository courseRepository;
     private final ObjectMapper objectMapper;
@@ -40,13 +42,6 @@ public class ContentPersister {
         this.objectMapper = objectMapper;
     }
 
-    /**
-     * Imports a course idempotently. If the course does not exist it is inserted; if it exists and
-     * its content is unchanged (same fingerprint) nothing is written; if it exists and its content
-     * changed, the previous course is deleted and reinserted from scratch. There is no versioning
-     * and no attempt to preserve row identity: on change, the whole tree is replaced. Runs in a
-     * single transaction, so a failure leaves the database untouched.
-     */
     @Transactional
     public ImportResult importCourse(LoadedCourse loaded) {
         String courseCode = loaded.course().course().code();
@@ -100,11 +95,6 @@ public class ContentPersister {
         return course;
     }
 
-    /**
-     * SHA-256 hex fingerprint of the loaded content. Derived from the parsed DTO tree (not the raw
-     * bytes), so cosmetic edits (whitespace, comments, key order preserved by the YAML parser) that
-     * do not change the meaning produce the same hash and skip the re-import.
-     */
     private String fingerprint(LoadedCourse loaded) {
         try {
             byte[] canonical =
@@ -112,7 +102,7 @@ public class ContentPersister {
                             new Object[] {
                                 loaded.signLanguageCode(), loaded.course(), loaded.topics()
                             });
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            MessageDigest digest = MessageDigest.getInstance(HASH_ALGORITHM);
             return HexFormat.of().formatHex(digest.digest(canonical));
         } catch (JsonProcessingException | NoSuchAlgorithmException e) {
             throw new ContentLoadException(
