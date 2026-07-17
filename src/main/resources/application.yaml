@@ -25,7 +25,7 @@ spring:
       mail.smtp.writetimeout: 5000
 
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 management:
   endpoints:
@@ -53,4 +53,4 @@ auth:
 firebase:
   enabled: true
   global-topic: global
-  credentials-json: ${FIREBASE_CREDENTIALS_JSON}
+  credentials-json: ${FIREBASE_CREDENTIALS_JSON:}
