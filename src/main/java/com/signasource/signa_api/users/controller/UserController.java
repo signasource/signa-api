@@ -74,12 +74,13 @@ public class UserController {
         userService.updateUsername(request, userDetails.getUser());
         return ResponseEntity.noContent().build();
     }
-    
+
     @GetMapping("/me")
-    public ResponseEntity<UserProfileResponse> getMe(@AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ResponseEntity<UserProfileResponse> getMe(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(UserProfileResponse.from(userDetails.getUser()));
     }
-      
+
     @GetMapping("/{username}")
     public ResponseEntity<PublicUserProfileResponse> getByUsername(
             @PathVariable @NotBlank @Size(min = 3, max = 50) String username) {
@@ -87,8 +88,8 @@ public class UserController {
     }
 
     @DeleteMapping("/me")
-            public ResponseEntity<Void> deleteMe(@AuthenticationPrincipal CustomUserDetails userDetails) {
-            userService.deleteAccount(userDetails.getUser());
+    public ResponseEntity<Void> deleteMe(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        userService.deleteAccount(userDetails.getUser());
         return ResponseEntity.noContent().build();
     }
 }

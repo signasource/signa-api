@@ -1,5 +1,6 @@
 package com.signasource.signa_api.users.service;
 
+import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.users.dto.PublicUserProfileResponse;
 import com.signasource.signa_api.users.dto.UpdateUsernameRequest;
@@ -9,7 +10,6 @@ import com.signasource.signa_api.users.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.signasource.signa_api.exceptions.NotFoundException;
 
 @Service
 @RequiredArgsConstructor
@@ -20,9 +20,12 @@ public class UserService {
     public UsernameAvailabilityResponse checkUsernameAvailability(String username) {
         return new UsernameAvailabilityResponse(!userRepository.existsByUsername(username));
     }
+
     public PublicUserProfileResponse getPublicProfileByUsername(String username) {
-        User user = userRepository.findByUsername(username)
-            .orElseThrow(() -> new NotFoundException("User not found"));
+        User user =
+                userRepository
+                        .findByUsername(username)
+                        .orElseThrow(() -> new NotFoundException("User not found"));
         return PublicUserProfileResponse.from(user);
     }
 
@@ -44,6 +47,6 @@ public class UserService {
         user.setEnabled(false);
         user.setEmail("deleted_" + user.getId() + "@signa.invalid");
         userRepository.save(user);
-        //+- revocar sus tokens activos 
+        //  revocar sus tokens activos
     }
 }

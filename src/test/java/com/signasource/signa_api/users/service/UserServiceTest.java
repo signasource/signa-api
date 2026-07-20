@@ -20,6 +20,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import static org.mockito.Mockito.anyString;
+
+import com.signasource.signa_api.exceptions.NotFoundException;
+import com.signasource.signa_api.users.dto.PublicUserProfileResponse;
+import java.util.Optional;
+import java.util.UUID;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
@@ -94,4 +100,43 @@ class UserServiceTest {
 
         verify(userRepository, never()).save(user);
     }
+    @Test
+void getPublicProfileByUsername_whenUserExists_returnsPublicProfile() {
+    when(userRepository.findByUsername(CURRENT_USERNAME)).thenReturn(Optional.of(user));
+
+    PublicUserProfileResponse response = userService.getPublicProfileByUsername(CURRENT_USERNAME);
+
+    assertEquals(user.getId(), response.id());
+    assertEquals(CURRENT_USERNAME, response.username());
+    assertEquals(user.getName(), response.name());
+}
+
+@Test
+void getPublicProfileByUsername_whenUserDoesNotExist_throwsNotFound() {
+    when(userRepository.findByUsername("ghost")).thenReturn(Optional.empty());
+
+    assertThrows(
+            NotFoundException.class, () -> userService.getPublicProfileByUsername("ghost"));
+}
+
+@Test
+void deleteAccount_disablesUserAndObfuscatesEmail() {
+    UUID userId = UUID.randomUUID();
+    user =
+            User.builder()
+                    .id(userId)
+                    .email("user@example.com")
+                    .username(CURRENT_USERNAME)
+                    .name("Test User")
+                    .passwordHash("hashed")
+                    .role(Role.USER)
+                    .enabled(true)
+                    .build();
+
+    userService.deleteAccount(user);
+
+    assertFalse(user.isEnabled());
+    assertTrue(user.getEmail().startsWith("deleted_" + userId));
+    verify(userRepository).save(user);
+}
 }
