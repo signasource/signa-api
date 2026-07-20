@@ -12,7 +12,7 @@ docker compose up --build
 | Check | Qué previene | Comando |
 |---|---|---|
 | **Spotless** | Formato y estándares | `./gradlew spotlessCheck` / `./gradlew spotlessApply` |
-| **SpotBugs** | Null pointers, resource leaks, lógica incorrecta, bugs de seguridad | `./gradlew spotbugsMain` |
+| **SpotBugs** | Null pointers, resource leaks, lógica incorrecta, bugs de seguridad | `./gradlew spotbugsMain` | `./gradlew spotbugsTest` |
 | **JaCoCo** | Código sin cobertura de tests (mínimo 90%) | `./gradlew clean test jacocoTestReport jacocoTestCoverageVerification` |
 
 Abrir reportes HTML:

@@ -1,6 +1,7 @@
 package com.signasource.signa_api.users.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
@@ -194,6 +195,7 @@ class UserControllerTest {
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         UserProfileResponse body = response.getBody();
+        assertNotNull(body);
         assertEquals(user.getId(), body.id());
         assertEquals(EMAIL, body.email());
         assertEquals(USERNAME, body.username());
