@@ -8,15 +8,15 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.signasource.signa_api.users.dto.PublicUserProfileResponse;
-import com.signasource.signa_api.users.dto.UserProfileResponse;
 import com.signasource.signa_api.auth.dto.AuthResponse;
 import com.signasource.signa_api.auth.dto.ChangePasswordRequest;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.service.AuthService;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
+import com.signasource.signa_api.users.dto.PublicUserProfileResponse;
 import com.signasource.signa_api.users.dto.UpdateUserSettingsRequest;
 import com.signasource.signa_api.users.dto.UpdateUsernameRequest;
+import com.signasource.signa_api.users.dto.UserProfileResponse;
 import com.signasource.signa_api.users.dto.UserSettingsResponse;
 import com.signasource.signa_api.users.dto.UsernameAvailabilityResponse;
 import com.signasource.signa_api.users.entity.AccountVisibility;
@@ -189,40 +189,39 @@ class UserControllerTest {
     }
 
     @Test
-void shouldReturnCurrentUserProfile() {
-    ResponseEntity<UserProfileResponse> response = userController.getMe(userDetails);
+    void shouldReturnCurrentUserProfile() {
+        ResponseEntity<UserProfileResponse> response = userController.getMe(userDetails);
 
-    assertEquals(HttpStatus.OK, response.getStatusCode());
-    UserProfileResponse body = response.getBody();
-    assertEquals(user.getId(), body.id());
-    assertEquals(EMAIL, body.email());
-    assertEquals(USERNAME, body.username());
-    assertEquals(user.getName(), body.name());
-    assertEquals(Role.USER, body.role());
-    assertEquals(true, body.enabled());
-}
-
-    @Test
-void shouldReturnPublicProfileByUsername() {
-    PublicUserProfileResponse expected =
-            new PublicUserProfileResponse(user.getId(), USERNAME, user.getName());
-    when(userService.getPublicProfileByUsername(USERNAME)).thenReturn(expected);
-
-    ResponseEntity<PublicUserProfileResponse> response =
-            userController.getByUsername(USERNAME);
-
-    verify(userService).getPublicProfileByUsername(USERNAME);
-    assertEquals(HttpStatus.OK, response.getStatusCode());
-    assertEquals(expected, response.getBody());
-}
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        UserProfileResponse body = response.getBody();
+        assertEquals(user.getId(), body.id());
+        assertEquals(EMAIL, body.email());
+        assertEquals(USERNAME, body.username());
+        assertEquals(user.getName(), body.name());
+        assertEquals(Role.USER, body.role());
+        assertEquals(true, body.enabled());
+    }
 
     @Test
-void shouldDeleteAccount_returnsNoContent() {
-    doNothing().when(userService).deleteAccount(user);
+    void shouldReturnPublicProfileByUsername() {
+        PublicUserProfileResponse expected =
+                new PublicUserProfileResponse(user.getId(), USERNAME, user.getName());
+        when(userService.getPublicProfileByUsername(USERNAME)).thenReturn(expected);
 
-    ResponseEntity<Void> response = userController.deleteMe(userDetails);
+        ResponseEntity<PublicUserProfileResponse> response = userController.getByUsername(USERNAME);
 
-    verify(userService).deleteAccount(user);
-    assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
-}
+        verify(userService).getPublicProfileByUsername(USERNAME);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(expected, response.getBody());
+    }
+
+    @Test
+    void shouldDeleteAccount_returnsNoContent() {
+        doNothing().when(userService).deleteAccount(user);
+
+        ResponseEntity<Void> response = userController.deleteMe(userDetails);
+
+        verify(userService).deleteAccount(user);
+        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+    }
 }
