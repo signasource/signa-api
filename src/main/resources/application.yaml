@@ -34,7 +34,7 @@ management:
         include: health,info
   endpoint:
     health:
-      show-details: when-authorized
+      show-details: always
 
 app:
   base-url:
