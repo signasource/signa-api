@@ -34,21 +34,12 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"
-      - "443:443"
     environment:
       DOMAIN: ${DOMAIN}
     volumes:
       - ./nginx/templates:/etc/nginx/templates
-      - ./certbot/www:/var/www/certbot
-      - ./certbot/conf:/etc/letsencrypt
     depends_on:
       - signa-api
-
-  certbot:
-    image: certbot/certbot
-    volumes:
-      - ./certbot/www:/var/www/certbot
-      - ./certbot/conf:/etc/letsencrypt
 
 volumes:
   postgres_data: {}
