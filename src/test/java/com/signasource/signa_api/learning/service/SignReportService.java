@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.learning.dto.CreateSignReportRequest;
+import com.signasource.signa_api.learning.entity.ReportReason;
 import com.signasource.signa_api.learning.entity.Sign;
 import com.signasource.signa_api.learning.entity.SignReport;
 import com.signasource.signa_api.learning.repository.SignReportRepository;
@@ -47,7 +48,8 @@ class SignReportServiceTest {
         sign = Sign.builder().id(signId).meaning("Prueba").build();
 
         request =
-                new CreateSignReportRequest(signId, "Error en animación", "La mano está al revés");
+                new CreateSignReportRequest(
+                        signId, ReportReason.UNCLEAR_ANIMATION, "The hand is backwards.");
     }
 
     @Test

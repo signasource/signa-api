@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.learning.dto.CreateSignReportRequest;
+import com.signasource.signa_api.learning.entity.ReportReason;
 import com.signasource.signa_api.learning.service.SignReportService;
 import com.signasource.signa_api.users.entity.User;
 import java.util.UUID;
@@ -33,7 +34,8 @@ class SignReportControllerTest {
         CustomUserDetails userDetails = new CustomUserDetails(mockUser);
 
         CreateSignReportRequest request =
-                new CreateSignReportRequest(UUID.randomUUID(), "Razón", "Desc");
+                new CreateSignReportRequest(
+                        userId, ReportReason.UNCLEAR_ANIMATION, "The hand is backwards");
 
         doNothing()
                 .when(signReportService)

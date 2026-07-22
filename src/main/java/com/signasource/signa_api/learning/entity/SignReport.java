@@ -48,6 +48,7 @@ public class SignReport {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(nullable = false)
-    private String reason;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 50)
+    private ReportReason reason;
 }
