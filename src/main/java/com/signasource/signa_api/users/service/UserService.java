@@ -45,12 +45,12 @@ public class UserService {
         userRepository.save(user);
     }
 
-    @Transactional 
+    @Transactional
     public void deleteAccount(User user) {
         user.setEnabled(false);
         user.setEmail("deleted_" + user.getId() + "@signa.invalid");
         userRepository.save(user);
-        
+
         tokenRepository.deleteByUser(user);
     }
 }

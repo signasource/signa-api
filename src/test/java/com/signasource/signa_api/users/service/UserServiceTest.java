@@ -8,7 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.signasource.signa_api.auth.repository.TokenRepository; 
+import com.signasource.signa_api.auth.repository.TokenRepository;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.users.dto.PublicUserProfileResponse;
@@ -122,7 +122,7 @@ class UserServiceTest {
     }
 
     @Test
-    void deleteAccount_disablesUserObfuscatesEmailAndRevokesTokens() { 
+    void deleteAccount_disablesUserObfuscatesEmailAndRevokesTokens() {
         UUID userId = UUID.randomUUID();
         user =
                 User.builder()
@@ -140,6 +140,6 @@ class UserServiceTest {
         assertFalse(user.isEnabled());
         assertTrue(user.getEmail().startsWith("deleted_" + userId));
         verify(userRepository).save(user);
-        verify(tokenRepository).deleteByUser(user); 
-}
+        verify(tokenRepository).deleteByUser(user);
+    }
 }
