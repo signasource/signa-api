@@ -35,15 +35,15 @@ class SignReportControllerTest {
 
         CreateSignReportRequest request =
                 new CreateSignReportRequest(
-                        userId, ReportReason.UNCLEAR_ANIMATION, "The hand is backwards");
+                        UUID.randomUUID(), ReportReason.UNCLEAR_ANIMATION, "Desc");
 
         doNothing()
                 .when(signReportService)
-                .createReport(any(CreateSignReportRequest.class), eq(userId));
+                .createReport(any(CreateSignReportRequest.class), eq(mockUser));
 
         ResponseEntity<Void> response = signReportController.submitReport(request, userDetails);
 
-        verify(signReportService).createReport(request, userId);
+        verify(signReportService).createReport(request, mockUser);
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
     }
 }

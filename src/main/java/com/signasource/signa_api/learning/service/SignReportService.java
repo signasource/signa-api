@@ -9,7 +9,6 @@ import com.signasource.signa_api.learning.repository.SignReportRepository;
 import com.signasource.signa_api.learning.repository.SignRepository;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.repository.UserRepository;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,12 +22,7 @@ public class SignReportService {
     private final UserRepository userRepository;
 
     @Transactional
-    public void createReport(CreateSignReportRequest request, UUID userId) {
-        User user =
-                userRepository
-                        .findById(userId)
-                        .orElseThrow(() -> new NotFoundException("User not found"));
-
+    public void createReport(CreateSignReportRequest request, User user) {
         Sign sign =
                 signRepository
                         .findById(request.signId())

@@ -42,8 +42,7 @@ public class SignService {
         SignLanguage signLanguage =
                 signLanguageRepository
                         .findById(request.signLanguageId())
-                        .orElseThrow(
-                                () -> new NotFoundException("Sign language not found"));
+                        .orElseThrow(() -> new NotFoundException("Sign language not found"));
 
         Sign sign =
                 Sign.builder()

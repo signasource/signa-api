@@ -36,20 +36,20 @@ public class SecurityConfig {
     @Profile("!local")
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthFilter jwtAuthFilter)
-        throws Exception {
+            throws Exception {
         return http.csrf(AbstractHttpConfigurer::disable)
-            .sessionManagement(
-                session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(
-                auth ->
-                    auth.requestMatchers("/auth/**")
-                        .permitAll()
-                        .requestMatchers(HttpMethod.POST, "/signs")
-                        .hasRole("ADMIN")
-                        .anyRequest()
-                        .authenticated())
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-            .build();
+                .sessionManagement(
+                        session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(
+                        auth ->
+                                auth.requestMatchers("/auth/**")
+                                        .permitAll()
+                                        .requestMatchers(HttpMethod.POST, "/signs")
+                                        .hasRole("ADMIN")
+                                        .anyRequest()
+                                        .authenticated())
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .build();
     }
 
     @Profile("local")

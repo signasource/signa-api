@@ -25,7 +25,7 @@ public class SignReportController {
             @Valid @RequestBody CreateSignReportRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
-        signReportService.createReport(request, userDetails.getUser().getId());
+        signReportService.createReport(request, userDetails.getUser());
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 }
