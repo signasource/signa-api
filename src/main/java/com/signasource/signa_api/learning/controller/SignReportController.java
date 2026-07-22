@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/sign-reports")
+@RequestMapping("/sign-reports")
 @RequiredArgsConstructor
 public class SignReportController {
 
