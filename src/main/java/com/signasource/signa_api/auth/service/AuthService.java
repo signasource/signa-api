@@ -252,16 +252,22 @@ public class AuthService {
                     user = userRepository.save(user);
                 }
             } else {
-                user =
-                        userRepository.save(
-                                User.builder()
-                                        .email(email)
-                                        .name(name)
-                                        .passwordHash(null)
-                                        .role(Role.USER)
-                                        .enabled(true)
-                                        .providers(new HashSet<>(Set.of(AuthProvider.GOOGLE)))
-                                        .build());
+                String cleanName = name.toLowerCase().replaceAll("\\s+", "");
+                String generatedUsername = cleanName + (int) (Math.random() * 10000);
+
+                user = User.builder()
+                    .email(email)
+                    .name(name)
+                    .username(generatedUsername)
+                    .passwordHash(null)
+                    .role(Role.USER)
+                    .enabled(true)
+                    .providers(new HashSet<>(Set.of(AuthProvider.GOOGLE)))
+                    .build();
+
+                user = userRepository.save(user);
+
+                userSettingsRepository.save(UserSettings.builder().user(user).build());
             }
 
             return generateTokens(user);
