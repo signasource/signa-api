@@ -31,6 +31,8 @@ import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -253,7 +255,7 @@ public class AuthService {
                 }
             } else {
                 String cleanName = name.toLowerCase().replaceAll("\\s+", "");
-                String generatedUsername = cleanName + (int) (Math.random() * 10000);
+                String generatedUsername = cleanName + ThreadLocalRandom.current().nextInt(10000);
 
                 user =
                         User.builder()
