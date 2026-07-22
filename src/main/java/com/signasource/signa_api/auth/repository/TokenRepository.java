@@ -14,4 +14,6 @@ public interface TokenRepository extends JpaRepository<Token, Long> {
     void delete(Token token);
 
     void deleteByUserAndType(User user, TokenType type);
+
+    void deleteByUser(User user);
 }

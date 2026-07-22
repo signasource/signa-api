@@ -1,4 +1,3 @@
-// users/dto/PublicUserProfileResponse.java
 package com.signasource.signa_api.users.dto;
 
 import com.signasource.signa_api.users.entity.User;

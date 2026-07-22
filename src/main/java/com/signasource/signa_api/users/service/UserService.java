@@ -1,5 +1,6 @@
 package com.signasource.signa_api.users.service;
 
+import com.signasource.signa_api.auth.repository.TokenRepository; // Importación añadida
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.users.dto.PublicUserProfileResponse;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final TokenRepository tokenRepository; // Inyección añadida
 
     public UsernameAvailabilityResponse checkUsernameAvailability(String username) {
         return new UsernameAvailabilityResponse(!userRepository.existsByUsername(username));
@@ -43,10 +45,12 @@ public class UserService {
         userRepository.save(user);
     }
 
+    @Transactional 
     public void deleteAccount(User user) {
         user.setEnabled(false);
         user.setEmail("deleted_" + user.getId() + "@signa.invalid");
         userRepository.save(user);
-        //  revocar sus tokens activos
+        
+        tokenRepository.deleteByUser(user);
     }
 }
