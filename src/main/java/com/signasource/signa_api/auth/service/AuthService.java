@@ -255,15 +255,16 @@ public class AuthService {
                 String cleanName = name.toLowerCase().replaceAll("\\s+", "");
                 String generatedUsername = cleanName + (int) (Math.random() * 10000);
 
-                user = User.builder()
-                    .email(email)
-                    .name(name)
-                    .username(generatedUsername)
-                    .passwordHash(null)
-                    .role(Role.USER)
-                    .enabled(true)
-                    .providers(new HashSet<>(Set.of(AuthProvider.GOOGLE)))
-                    .build();
+                user =
+                        User.builder()
+                                .email(email)
+                                .name(name)
+                                .username(generatedUsername)
+                                .passwordHash(null)
+                                .role(Role.USER)
+                                .enabled(true)
+                                .providers(new HashSet<>(Set.of(AuthProvider.GOOGLE)))
+                                .build();
 
                 user = userRepository.save(user);
 
