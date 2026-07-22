@@ -27,12 +27,12 @@ public class SignReportService {
         User user =
                 userRepository
                         .findById(userId)
-                        .orElseThrow(() -> new NotFoundException("Usuario no encontrado"));
+                        .orElseThrow(() -> new NotFoundException("User not found"));
 
         Sign sign =
                 signRepository
                         .findById(request.signId())
-                        .orElseThrow(() -> new NotFoundException("Seña no encontrada"));
+                        .orElseThrow(() -> new NotFoundException("Sign not found"));
 
         SignReport report = new SignReport();
         report.setUser(user);
