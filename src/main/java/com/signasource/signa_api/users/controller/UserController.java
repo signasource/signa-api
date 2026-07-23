@@ -10,6 +10,7 @@ import com.signasource.signa_api.users.dto.UpdateUsernameRequest;
 import com.signasource.signa_api.users.dto.UserProfileResponse;
 import com.signasource.signa_api.users.dto.UserSettingsResponse;
 import com.signasource.signa_api.users.dto.UsernameAvailabilityResponse;
+import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.service.UserService;
 import com.signasource.signa_api.users.service.UserSettingsService;
 import jakarta.validation.Valid;
@@ -83,8 +84,10 @@ public class UserController {
 
     @GetMapping("/{username}")
     public ResponseEntity<PublicUserProfileResponse> getByUsername(
-            @PathVariable @NotBlank @Size(min = 3, max = 50) String username) {
-        return ResponseEntity.ok(userService.getPublicProfileByUsername(username));
+            @PathVariable @NotBlank @Size(min = 3, max = 50) String username,
+            @AuthenticationPrincipal(errorOnInvalidType = false) CustomUserDetails userDetails) {
+        User requester = userDetails != null ? userDetails.getUser() : null;
+        return ResponseEntity.ok(userService.getPublicProfileByUsername(username, requester));
     }
 
     @DeleteMapping("/me")

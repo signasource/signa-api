@@ -205,14 +205,29 @@ class UserControllerTest {
     }
 
     @Test
-    void shouldReturnPublicProfileByUsername() {
+    void shouldReturnPublicProfileByUsername_whenAuthenticated() {
         PublicUserProfileResponse expected =
                 new PublicUserProfileResponse(user.getId(), USERNAME, user.getName());
-        when(userService.getPublicProfileByUsername(USERNAME)).thenReturn(expected);
+        when(userService.getPublicProfileByUsername(USERNAME, user)).thenReturn(expected);
 
-        ResponseEntity<PublicUserProfileResponse> response = userController.getByUsername(USERNAME);
+        ResponseEntity<PublicUserProfileResponse> response =
+                userController.getByUsername(USERNAME, userDetails);
 
-        verify(userService).getPublicProfileByUsername(USERNAME);
+        verify(userService).getPublicProfileByUsername(USERNAME, user);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(expected, response.getBody());
+    }
+
+    @Test
+    void shouldReturnPublicProfileByUsername_whenAnonymous() {
+        PublicUserProfileResponse expected =
+                new PublicUserProfileResponse(user.getId(), USERNAME, user.getName());
+        when(userService.getPublicProfileByUsername(USERNAME, null)).thenReturn(expected);
+
+        ResponseEntity<PublicUserProfileResponse> response =
+                userController.getByUsername(USERNAME, null);
+
+        verify(userService).getPublicProfileByUsername(USERNAME, null);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(expected, response.getBody());
     }

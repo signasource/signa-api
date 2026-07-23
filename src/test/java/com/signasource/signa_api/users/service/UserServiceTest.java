@@ -11,11 +11,16 @@ import static org.mockito.Mockito.when;
 import com.signasource.signa_api.auth.repository.TokenRepository;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
+import com.signasource.signa_api.notification.repository.DeviceTokenRepository;
 import com.signasource.signa_api.users.dto.PublicUserProfileResponse;
 import com.signasource.signa_api.users.dto.UpdateUsernameRequest;
 import com.signasource.signa_api.users.dto.UsernameAvailabilityResponse;
+import com.signasource.signa_api.users.entity.AccountVisibility;
+import com.signasource.signa_api.users.entity.Friendship;
+import com.signasource.signa_api.users.entity.FriendshipStatus;
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
+import com.signasource.signa_api.users.repository.FriendshipRepository;
 import com.signasource.signa_api.users.repository.UserRepository;
 import java.util.Optional;
 import java.util.UUID;
@@ -35,6 +40,8 @@ class UserServiceTest {
 
     @Mock private UserRepository userRepository;
     @Mock private TokenRepository tokenRepository;
+    @Mock private DeviceTokenRepository deviceTokenRepository;
+    @Mock private FriendshipRepository friendshipRepository;
 
     @InjectMocks private UserService userService;
 
@@ -44,12 +51,14 @@ class UserServiceTest {
     void setUp() {
         user =
                 User.builder()
+                        .id(UUID.randomUUID())
                         .email("user@example.com")
                         .username(CURRENT_USERNAME)
                         .name("Test User")
                         .passwordHash("hashed")
                         .role(Role.USER)
                         .enabled(true)
+                        .accountVisibility(AccountVisibility.PUBLIC)
                         .build();
     }
 
@@ -102,11 +111,20 @@ class UserServiceTest {
     }
 
     @Test
-    void getPublicProfileByUsername_whenUserExists_returnsPublicProfile() {
+    void getPublicProfileByUsername_whenUserDoesNotExist_throwsNotFound() {
+        when(userRepository.findByUsername("ghost")).thenReturn(Optional.empty());
+
+        assertThrows(
+                NotFoundException.class,
+                () -> userService.getPublicProfileByUsername("ghost", null));
+    }
+
+    @Test
+    void getPublicProfileByUsername_whenAccountIsPublic_returnsProfileEvenWithoutRequester() {
         when(userRepository.findByUsername(CURRENT_USERNAME)).thenReturn(Optional.of(user));
 
         PublicUserProfileResponse response =
-                userService.getPublicProfileByUsername(CURRENT_USERNAME);
+                userService.getPublicProfileByUsername(CURRENT_USERNAME, null);
 
         assertEquals(user.getId(), response.id());
         assertEquals(CURRENT_USERNAME, response.username());
@@ -114,11 +132,103 @@ class UserServiceTest {
     }
 
     @Test
-    void getPublicProfileByUsername_whenUserDoesNotExist_throwsNotFound() {
-        when(userRepository.findByUsername("ghost")).thenReturn(Optional.empty());
+    void getPublicProfileByUsername_whenRequesterIsSameUser_returnsProfile() {
+        user.setAccountVisibility(AccountVisibility.PRIVATE);
+        when(userRepository.findByUsername(CURRENT_USERNAME)).thenReturn(Optional.of(user));
+
+        PublicUserProfileResponse response =
+                userService.getPublicProfileByUsername(CURRENT_USERNAME, user);
+
+        assertEquals(user.getId(), response.id());
+    }
+
+    @Test
+    void getPublicProfileByUsername_whenPrivateAndNoRequester_throwsNotFound() {
+        user.setAccountVisibility(AccountVisibility.PRIVATE);
+        when(userRepository.findByUsername(CURRENT_USERNAME)).thenReturn(Optional.of(user));
 
         assertThrows(
-                NotFoundException.class, () -> userService.getPublicProfileByUsername("ghost"));
+                NotFoundException.class,
+                () -> userService.getPublicProfileByUsername(CURRENT_USERNAME, null));
+    }
+
+    @Test
+    void getPublicProfileByUsername_whenPrivateAndRequesterNotFriend_throwsNotFound() {
+        user.setAccountVisibility(AccountVisibility.PRIVATE);
+        User requester =
+                User.builder()
+                        .id(UUID.randomUUID())
+                        .email("other@example.com")
+                        .username("otheruser")
+                        .name("Other User")
+                        .passwordHash("hashed")
+                        .role(Role.USER)
+                        .enabled(true)
+                        .build();
+        when(userRepository.findByUsername(CURRENT_USERNAME)).thenReturn(Optional.of(user));
+        when(friendshipRepository.findFriendshipBetween(requester, user))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                NotFoundException.class,
+                () -> userService.getPublicProfileByUsername(CURRENT_USERNAME, requester));
+    }
+
+    @Test
+    void getPublicProfileByUsername_whenPrivateAndRequesterIsAcceptedFriend_returnsProfile() {
+        user.setAccountVisibility(AccountVisibility.PRIVATE);
+        User requester =
+                User.builder()
+                        .id(UUID.randomUUID())
+                        .email("other@example.com")
+                        .username("otheruser")
+                        .name("Other User")
+                        .passwordHash("hashed")
+                        .role(Role.USER)
+                        .enabled(true)
+                        .build();
+        Friendship friendship =
+                Friendship.builder()
+                        .requester(requester)
+                        .addressee(user)
+                        .status(FriendshipStatus.ACCEPTED)
+                        .build();
+        when(userRepository.findByUsername(CURRENT_USERNAME)).thenReturn(Optional.of(user));
+        when(friendshipRepository.findFriendshipBetween(requester, user))
+                .thenReturn(Optional.of(friendship));
+
+        PublicUserProfileResponse response =
+                userService.getPublicProfileByUsername(CURRENT_USERNAME, requester);
+
+        assertEquals(user.getId(), response.id());
+    }
+
+    @Test
+    void getPublicProfileByUsername_whenPrivateAndRequesterIsPendingFriend_throwsNotFound() {
+        user.setAccountVisibility(AccountVisibility.PRIVATE);
+        User requester =
+                User.builder()
+                        .id(UUID.randomUUID())
+                        .email("other@example.com")
+                        .username("otheruser")
+                        .name("Other User")
+                        .passwordHash("hashed")
+                        .role(Role.USER)
+                        .enabled(true)
+                        .build();
+        Friendship friendship =
+                Friendship.builder()
+                        .requester(requester)
+                        .addressee(user)
+                        .status(FriendshipStatus.PENDING)
+                        .build();
+        when(userRepository.findByUsername(CURRENT_USERNAME)).thenReturn(Optional.of(user));
+        when(friendshipRepository.findFriendshipBetween(requester, user))
+                .thenReturn(Optional.of(friendship));
+
+        assertThrows(
+                NotFoundException.class,
+                () -> userService.getPublicProfileByUsername(CURRENT_USERNAME, requester));
     }
 
     @Test
@@ -141,5 +251,6 @@ class UserServiceTest {
         assertTrue(user.getEmail().startsWith("deleted_" + userId));
         verify(userRepository).save(user);
         verify(tokenRepository).deleteByUser(user);
+        verify(deviceTokenRepository).deleteByUser(user);
     }
 }

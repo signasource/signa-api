@@ -42,4 +42,9 @@ public class User {
 
     @Column(nullable = false)
     private boolean enabled;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "account_visibility", nullable = false)
+    @Builder.Default
+    private AccountVisibility accountVisibility = AccountVisibility.PUBLIC;
 }
