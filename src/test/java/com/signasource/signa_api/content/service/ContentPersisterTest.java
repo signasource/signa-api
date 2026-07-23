@@ -21,6 +21,7 @@ import com.signasource.signa_api.learning.entity.LessonBlock;
 import com.signasource.signa_api.learning.entity.SignLanguage;
 import com.signasource.signa_api.learning.entity.VersionStatus;
 import com.signasource.signa_api.learning.repository.CourseRepository;
+import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.learning.repository.LessonBlockRepository;
 import com.signasource.signa_api.learning.repository.LessonRepository;
 import com.signasource.signa_api.learning.repository.SignLanguageRepository;
@@ -51,6 +52,7 @@ class ContentPersisterTest {
     @Autowired private ContentLoader contentLoader;
     @Autowired private SignLanguageRepository signLanguageRepository;
     @Autowired private CourseRepository courseRepository;
+    @Autowired private CourseVersionRepository courseVersionRepository;
     @Autowired private TopicRepository topicRepository;
     @Autowired private LessonRepository lessonRepository;
     @Autowired private LessonBlockRepository lessonBlockRepository;
@@ -70,7 +72,12 @@ class ContentPersisterTest {
 
     @AfterEach
     void tearDown() {
-        signLanguageRepository.deleteAll();
+        lessonBlockRepository.deleteAll();
+        lessonRepository.deleteAll();
+        topicRepository.deleteAll();
+        courseVersionRepository.deleteAll();
+        courseRepository.deleteAll();
+        signLanguageRepository.findByCode(SIGN_LANG_CODE).ifPresent(signLanguageRepository::delete);
     }
 
     @Test
