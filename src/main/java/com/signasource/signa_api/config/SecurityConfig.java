@@ -44,6 +44,8 @@ public class SecurityConfig {
                         auth ->
                                 auth.requestMatchers("/auth/**")
                                         .permitAll()
+                                        .requestMatchers("/users/username-availability")
+                                        .permitAll()
                                         .requestMatchers(HttpMethod.POST, "/signs")
                                         .hasRole("ADMIN")
                                         .anyRequest()

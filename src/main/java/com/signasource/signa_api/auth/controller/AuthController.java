@@ -2,6 +2,7 @@ package com.signasource.signa_api.auth.controller;
 
 import com.signasource.signa_api.auth.dto.AuthResponse;
 import com.signasource.signa_api.auth.dto.ForgotPasswordRequest;
+import com.signasource.signa_api.auth.dto.GoogleAuthRequest;
 import com.signasource.signa_api.auth.dto.LoginRequest;
 import com.signasource.signa_api.auth.dto.RefreshTokenRequest;
 import com.signasource.signa_api.auth.dto.RegisterRequest;
@@ -33,6 +34,12 @@ public class AuthController {
     public ResponseEntity<Void> register(@Valid @RequestBody RegisterRequest request) {
         authService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @PostMapping("/google")
+    public ResponseEntity<AuthResponse> authenticateWithGoogle(
+            @Valid @RequestBody GoogleAuthRequest request) {
+        return ResponseEntity.ok(authService.authenticateWithGoogle(request.idToken()));
     }
 
     @PostMapping("/login")

@@ -33,17 +33,13 @@ public class LessonBlock {
     @Column(nullable = false, length = 30)
     private BlockType type;
 
-    @Column(nullable = false)
+    @Column(name = "\"order\"", nullable = false)
     private int order;
 
     @Column(columnDefinition = "TEXT")
     private String config;
 
-    @Column(nullable = false)
-    private int xpReward;
-
-    @Column(nullable = false)
-    private boolean isExamEligible;
+    @Column private Integer xpReward;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "lesson_id", nullable = false)

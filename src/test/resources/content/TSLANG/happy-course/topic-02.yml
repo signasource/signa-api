@@ -1,0 +1,14 @@
+topic:
+  code: topic-2
+  name: Second Topic
+  description: The second topic.
+
+lessons:
+  - code: lesson-2
+    name: Second Lesson
+    description: The second lesson.
+    blocks:
+      - type: MATCH
+        xp: 15
+        config:
+          concepts: [hola, chau]
