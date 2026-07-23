@@ -29,7 +29,7 @@ class RealContentImportTest {
 
     private static final String SIGN_LANG_CODE = "LSA";
     private static final String COURSE_CODE = "basic-course";
-    private static final int EXPECTED_BLOCK_COUNT = 4;
+    private static final int EXPECTED_BLOCK_COUNT = 20;
 
     @MockitoBean private FirebaseMessaging firebaseMessaging;
 
@@ -70,7 +70,7 @@ class RealContentImportTest {
 
         assertThat(courseRepository.count()).isEqualTo(1);
         assertThat(topicRepository.count()).isEqualTo(1);
-        assertThat(lessonRepository.count()).isEqualTo(1);
+        assertThat(lessonRepository.count()).isEqualTo(3);
         assertThat(lessonBlockRepository.count()).isEqualTo(EXPECTED_BLOCK_COUNT);
 
         Course course = courseRepository.findAll().get(0);
