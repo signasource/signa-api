@@ -1,0 +1,12 @@
+course:
+  name: Missing Topic Course
+  description: References a topic file that does not exist.
+  free: false
+  cover: cover.png
+
+version:
+  version: "1.0.0"
+  status: DRAFT
+
+topics:
+  - nonexistent-topic.yml

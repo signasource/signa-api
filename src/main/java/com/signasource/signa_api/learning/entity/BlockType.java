@@ -1,7 +1,10 @@
 package com.signasource.signa_api.learning.entity;
 
 public enum BlockType {
-    THEORY,
-    VIDEO,
-    EXERCISE_ATTEMPT
+    INFO,
+    SELECT_MEANING,
+    SELECT_SIGN,
+    CONTEXT_RESPONSE,
+    MATCH,
+    VISUAL_RECOGNITION
 }

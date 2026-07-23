@@ -42,7 +42,7 @@ public class Topic {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(nullable = false)
+    @Column(name = "\"order\"", nullable = false)
     private int order;
 
     @Column private String coverUrl;
