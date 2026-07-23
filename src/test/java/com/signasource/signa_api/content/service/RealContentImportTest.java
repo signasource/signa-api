@@ -66,13 +66,12 @@ class RealContentImportTest {
     @Test
     void shouldImportRealContent() {
         int expectedTopics = basicCourse.topics().size();
-        int expectedLessons = basicCourse.topics().stream()
-                .mapToInt(t -> t.lessons().size())
-                .sum();
-        int expectedBlocks = basicCourse.topics().stream()
-                .flatMap(t -> t.lessons().stream())
-                .mapToInt(l -> l.blocks().size())
-                .sum();
+        int expectedLessons = basicCourse.topics().stream().mapToInt(t -> t.lessons().size()).sum();
+        int expectedBlocks =
+                basicCourse.topics().stream()
+                        .flatMap(t -> t.lessons().stream())
+                        .mapToInt(l -> l.blocks().size())
+                        .sum();
 
         contentPersister.importCourse(basicCourse);
 
