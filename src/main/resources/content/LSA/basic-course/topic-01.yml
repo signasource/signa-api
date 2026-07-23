@@ -32,7 +32,7 @@ lessons:
       - type: VISUAL_RECOGNITION
         xp: 15
         config:
-          signSequence:
+          sign_sequence:
             - hola
             - gracias
             - chau
@@ -43,7 +43,7 @@ lessons:
             - gracias
             - por favor
             - perdón
-          keepOrder: false
+          keep_order: false
 
       - type: SELECT_MEANING
         xp: 5
@@ -135,7 +135,7 @@ lessons:
       - type: VISUAL_RECOGNITION
         xp: 15
         config:
-          signSequence:
+          sign_sequence:
             - yo
             - vos
             - ella
@@ -146,7 +146,7 @@ lessons:
             - ella
             - nosotros
             - vos
-          keepOrder: false
+          keep_order: false
 
       - type: CONTEXT_RESPONSE
         xp: 5
@@ -230,7 +230,7 @@ lessons:
       - type: VISUAL_RECOGNITION
         xp: 5
         config:
-          signSequence:
+          sign_sequence:
             - lunes
             - miércoles
             - viernes
@@ -243,6 +243,6 @@ lessons:
             - viernes
             - sábado
             - domingo
-          keepOrder: false
+          keep_order: false
 
       
