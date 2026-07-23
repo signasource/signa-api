@@ -33,6 +33,9 @@ public class Course {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @Column(nullable = false, unique = true)
+    private String code;
+
     @Column(nullable = false, length = 150)
     private String name;
 
@@ -43,6 +46,9 @@ public class Course {
     private boolean isFree;
 
     @Column private String coverUrl;
+
+    @Column(length = 64)
+    private String contentHash;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sign_language_id", nullable = false)

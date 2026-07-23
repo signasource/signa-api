@@ -1,0 +1,12 @@
+course:
+  name: Bad YAML Course
+  description: Course that references a syntactically invalid topic file.
+  free: false
+  cover: cover.png
+
+version:
+  version: "1.0.0"
+  status: DRAFT
+
+topics:
+  - bad-topic.yml

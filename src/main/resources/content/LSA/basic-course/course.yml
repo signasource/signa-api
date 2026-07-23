@@ -1,0 +1,13 @@
+course:
+  code: basic-course
+  name: Curso Básico
+  description: Aprende las bases de la Lengua de Señas Argentina.
+  free: true
+  cover: "mock-cover"
+
+version:
+  version: "0.1.0"
+  status: PUBLISHED
+
+topics:
+  - topic-01.yml

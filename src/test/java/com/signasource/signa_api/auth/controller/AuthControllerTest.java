@@ -9,12 +9,14 @@ import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.auth.dto.AuthResponse;
 import com.signasource.signa_api.auth.dto.ForgotPasswordRequest;
+import com.signasource.signa_api.auth.dto.GoogleAuthRequest;
 import com.signasource.signa_api.auth.dto.LoginRequest;
 import com.signasource.signa_api.auth.dto.RefreshTokenRequest;
 import com.signasource.signa_api.auth.dto.RegisterRequest;
 import com.signasource.signa_api.auth.dto.ResendVerificationEmailRequest;
 import com.signasource.signa_api.auth.dto.ResetPasswordRequest;
 import com.signasource.signa_api.auth.service.AuthService;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -33,6 +35,7 @@ class AuthControllerTest {
     private RegisterRequest registerRequest =
             new RegisterRequest("test@example.com", "testuser", "password123", "Test User");
     private LoginRequest loginRequest = new LoginRequest("test@example.com", "password123");
+    private GoogleAuthRequest googleAuthRequest = new GoogleAuthRequest("valid.google.id.token");
 
     @Test
     void testRegister() {
@@ -106,5 +109,21 @@ class AuthControllerTest {
 
         verify(authService).resendVerificationEmail(any(ResendVerificationEmailRequest.class));
         assertEquals(HttpStatus.OK, response.getStatusCode());
+    }
+
+    @Test
+    void testAuthenticateWithGoogle() {
+        AuthResponse expectedResponse =
+                new AuthResponse("google-access-token", "google-refresh-token");
+        when(authService.authenticateWithGoogle(googleAuthRequest.idToken()))
+                .thenReturn(expectedResponse);
+
+        ResponseEntity<AuthResponse> response =
+                authController.authenticateWithGoogle(googleAuthRequest);
+
+        verify(authService).authenticateWithGoogle(googleAuthRequest.idToken());
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        Assertions.assertNotNull(response.getBody());
+        assertEquals(expectedResponse.accessToken(), response.getBody().accessToken());
     }
 }
