@@ -54,3 +54,16 @@ El proyecto sige un flujo de trabajo basado en **GitFlow**:
 MAIL_PASSWORD= // Contraseña que se genera en http://myaccount.google.com/apppasswords
 MAIL_USERNAME= // Mail
 ```
+
+## Configuración de Google Auth
+
+Para que funcione el inicio de sesión con Google, es necesario configurar la variable `GOOGLE_CLIENT_ID` en el archivo `.env`.
+
+**¿Cómo obtener el Client ID?**
+1. Ingresar a la [Consola de Google Cloud](https://console.cloud.google.com/).
+2. Crear un proyecto nuevo o seleccionar uno existente.
+3. Ir al menú lateral > **API y Servicios** > **Credenciales**.
+4. Clic en **Crear credenciales** > **ID de cliente de OAuth**.
+5. Seleccionar como Tipo de aplicación: **Aplicación web**.
+6. Configurar los orígenes autorizados (ej. `http://localhost:8080` o el puerto del frontend).
+7. Copiar el **ID de cliente** generado y pegarlo en el `.env`.

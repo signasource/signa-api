@@ -28,18 +28,20 @@ server:
   port: 8080
 
 app:
-  security:
-    enabled: true
-  base-url: 
+    security:
+        enabled: true
+    base-url:
 
 auth:
-  jwt:
-    secret: ${JWT_SECRET}
-  token-expirations:
-    password-reset: 3600000      # 1 hour
-    access: 900000               # 15 minutes
-    refresh: 604800000           # 7 days
-    email-verification: 86400000 # 24 hours
+    google:
+        client-id: ${GOOGLE_CLIENT_ID:default-client-id}
+    jwt:
+        secret: ${JWT_SECRET}
+    token-expirations:
+        password-reset: 3600000      # 1 hour
+        access: 900000               # 15 minutes
+        refresh: 604800000           # 7 days
+        email-verification: 86400000 # 24 hours
 
 firebase:
   enabled: true
