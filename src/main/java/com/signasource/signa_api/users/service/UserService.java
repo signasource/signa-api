@@ -58,6 +58,9 @@ public class UserService {
     }
 
     private boolean canView(User target, User requester) {
+        if (!target.isEnabled()) {
+            return false;
+        }
         if (target.getAccountVisibility() == AccountVisibility.PUBLIC) {
             return true;
         }
