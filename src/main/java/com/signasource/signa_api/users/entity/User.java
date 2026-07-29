@@ -37,6 +37,7 @@ public class User {
     @Column(nullable = false, unique = true)
     private String username;
 
+    @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
     @Column(nullable = false)
@@ -47,6 +48,11 @@ public class User {
 
     @Column(nullable = false)
     private boolean enabled;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "account_visibility", nullable = false)
+    @Builder.Default
+    private AccountVisibility accountVisibility = AccountVisibility.PUBLIC;
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "user_providers", joinColumns = @JoinColumn(name = "user_id"))

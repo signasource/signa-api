@@ -4,10 +4,13 @@ import com.signasource.signa_api.auth.dto.AuthResponse;
 import com.signasource.signa_api.auth.dto.ChangePasswordRequest;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.service.AuthService;
+import com.signasource.signa_api.users.dto.PublicUserProfileResponse;
 import com.signasource.signa_api.users.dto.UpdateUserSettingsRequest;
 import com.signasource.signa_api.users.dto.UpdateUsernameRequest;
+import com.signasource.signa_api.users.dto.UserProfileResponse;
 import com.signasource.signa_api.users.dto.UserSettingsResponse;
 import com.signasource.signa_api.users.dto.UsernameAvailabilityResponse;
+import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.service.UserService;
 import com.signasource.signa_api.users.service.UserSettingsService;
 import jakarta.validation.Valid;
@@ -18,8 +21,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -68,6 +73,26 @@ public class UserController {
             @Valid @RequestBody UpdateUsernameRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         userService.updateUsername(request, userDetails.getUser());
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<UserProfileResponse> getMe(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(UserProfileResponse.from(userDetails.getUser()));
+    }
+
+    @GetMapping("/{username}")
+    public ResponseEntity<PublicUserProfileResponse> getByUsername(
+            @PathVariable @NotBlank @Size(min = 3, max = 50) String username,
+            @AuthenticationPrincipal(errorOnInvalidType = false) CustomUserDetails userDetails) {
+        User requester = userDetails != null ? userDetails.getUser() : null;
+        return ResponseEntity.ok(userService.getPublicProfileByUsername(username, requester));
+    }
+
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> deleteMe(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        userService.deleteAccount(userDetails.getUser());
         return ResponseEntity.noContent().build();
     }
 }
