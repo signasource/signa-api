@@ -1,0 +1,10 @@
+# Dependencias para generar la documentación humana (sitio MkDocs).
+# No forman parte del runtime de la aplicación Java.
+#
+#   python -m pip install -r requirements-docs.txt
+#   mkdocs serve      # http://127.0.0.1:8000
+#   mkdocs build      # genera el sitio estático en build/docs-site/
+# Nota: pymdown-extensions >= 11 usa la opción `emoji_generator` para los iconos de Material
+# (en versiones 10.x se llamaba `emoji_generate`). mkdocs.yml está configurado para la 11+.
+mkdocs-material>=9.5
+pymdown-extensions>=11
