@@ -51,7 +51,8 @@ class InventoryControllerTest {
                 new UserInventoryResponse(100, 1, LivesMode.LIMITED, 4, null, 1.0, null, false);
         when(inventoryService.getInventory(user)).thenReturn(expected);
 
-        ResponseEntity<UserInventoryResponse> response = inventoryController.getMyInventory(userDetails);
+        ResponseEntity<UserInventoryResponse> response =
+                inventoryController.getMyInventory(userDetails);
 
         verify(inventoryService).getInventory(user);
         assertEquals(HttpStatus.OK, response.getStatusCode());
