@@ -11,6 +11,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -22,8 +23,11 @@ public class AchievementController {
 
     @GetMapping
     public ResponseEntity<List<AchievementResponse>> getAchievements(
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ResponseEntity.ok(achievementService.getAchievements(userDetails.getUser()));
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam(required = false) Boolean unlocked,
+            @RequestParam(required = false) Boolean active) {
+        return ResponseEntity.ok(
+                achievementService.getAchievements(userDetails.getUser(), unlocked, active));
     }
 
     @GetMapping("/{id}")

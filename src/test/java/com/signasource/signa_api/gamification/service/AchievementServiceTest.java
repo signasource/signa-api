@@ -13,7 +13,6 @@ import com.signasource.signa_api.gamification.entity.Achievement;
 import com.signasource.signa_api.gamification.entity.AchievementCriteriaType;
 import com.signasource.signa_api.gamification.entity.UserAchievement;
 import com.signasource.signa_api.gamification.repository.AchievementRepository;
-import com.signasource.signa_api.gamification.repository.UserAchievementRepository;
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
 import java.time.Instant;
@@ -31,7 +30,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class AchievementServiceTest {
 
     @Mock private AchievementRepository achievementRepository;
-    @Mock private UserAchievementRepository userAchievementRepository;
 
     @InjectMocks private AchievementService achievementService;
 
@@ -86,11 +84,13 @@ class AchievementServiceTest {
 
     @Test
     void getAchievements_whenUserEnabled_returnsAllWithEarnedFlagsSet() {
-        when(achievementRepository.findAllByOrderByTitleAsc())
-                .thenReturn(List.of(earnedAchievement, unearnedAchievement));
-        when(userAchievementRepository.findByUser(user)).thenReturn(List.of(userAchievement));
+        when(achievementRepository.findAllWithUserAchievement(user))
+                .thenReturn(
+                        List.of(
+                                new Object[] {earnedAchievement, userAchievement},
+                                new Object[] {unearnedAchievement, null}));
 
-        List<AchievementResponse> responses = achievementService.getAchievements(user);
+        List<AchievementResponse> responses = achievementService.getAchievements(user, null, null);
 
         assertEquals(2, responses.size());
 
@@ -114,28 +114,59 @@ class AchievementServiceTest {
 
     @Test
     void getAchievements_whenUserHasNoneEarned_returnsAllUnearned() {
-        when(achievementRepository.findAllByOrderByTitleAsc())
-                .thenReturn(List.of(earnedAchievement, unearnedAchievement));
-        when(userAchievementRepository.findByUser(user)).thenReturn(List.of());
+        when(achievementRepository.findAllWithUserAchievement(user))
+                .thenReturn(
+                        List.of(
+                                new Object[] {earnedAchievement, null},
+                                new Object[] {unearnedAchievement, null}));
 
-        List<AchievementResponse> responses = achievementService.getAchievements(user);
+        List<AchievementResponse> responses = achievementService.getAchievements(user, null, null);
 
         assertTrue(responses.stream().noneMatch(AchievementResponse::earned));
+    }
+
+    @Test
+    void getAchievements_whenFilteringByUnlocked_returnsOnlyEarned() {
+        when(achievementRepository.findAllWithUserAchievement(user))
+                .thenReturn(
+                        List.of(
+                                new Object[] {earnedAchievement, userAchievement},
+                                new Object[] {unearnedAchievement, null}));
+
+        List<AchievementResponse> responses = achievementService.getAchievements(user, true, null);
+
+        assertEquals(1, responses.size());
+        assertEquals(earnedAchievement.getId(), responses.get(0).id());
+    }
+
+    @Test
+    void getAchievements_whenFilteringByActive_returnsOnlyActive() {
+        when(achievementRepository.findAllWithUserAchievement(user))
+                .thenReturn(
+                        List.of(
+                                new Object[] {earnedAchievement, userAchievement},
+                                new Object[] {unearnedAchievement, null}));
+
+        List<AchievementResponse> responses = achievementService.getAchievements(user, null, true);
+
+        assertEquals(1, responses.size());
+        assertEquals(earnedAchievement.getId(), responses.get(0).id());
     }
 
     @Test
     void getAchievements_whenUserDisabled_throwsNotFound() {
         user.setEnabled(false);
 
-        assertThrows(NotFoundException.class, () -> achievementService.getAchievements(user));
+        assertThrows(
+                NotFoundException.class,
+                () -> achievementService.getAchievements(user, null, null));
     }
 
     @Test
     void getAchievementById_whenEarned_returnsResponseWithEarnedTrue() {
         UUID id = earnedAchievement.getId();
-        when(achievementRepository.findById(id)).thenReturn(Optional.of(earnedAchievement));
-        when(userAchievementRepository.findByUserAndAchievementId(user, id))
-                .thenReturn(Optional.of(userAchievement));
+        when(achievementRepository.findByIdWithUserAchievement(id, user))
+                .thenReturn(Optional.of(new Object[] {earnedAchievement, userAchievement}));
 
         AchievementResponse response = achievementService.getAchievementById(id, user);
 
@@ -147,9 +178,8 @@ class AchievementServiceTest {
     @Test
     void getAchievementById_whenNotEarned_returnsResponseWithEarnedFalse() {
         UUID id = unearnedAchievement.getId();
-        when(achievementRepository.findById(id)).thenReturn(Optional.of(unearnedAchievement));
-        when(userAchievementRepository.findByUserAndAchievementId(user, id))
-                .thenReturn(Optional.empty());
+        when(achievementRepository.findByIdWithUserAchievement(id, user))
+                .thenReturn(Optional.of(new Object[] {unearnedAchievement, null}));
 
         AchievementResponse response = achievementService.getAchievementById(id, user);
 
@@ -161,7 +191,8 @@ class AchievementServiceTest {
     @Test
     void getAchievementById_whenAchievementNotFound_throwsNotFound() {
         UUID id = UUID.randomUUID();
-        when(achievementRepository.findById(id)).thenReturn(Optional.empty());
+        when(achievementRepository.findByIdWithUserAchievement(id, user))
+                .thenReturn(Optional.empty());
 
         assertThrows(
                 NotFoundException.class, () -> achievementService.getAchievementById(id, user));

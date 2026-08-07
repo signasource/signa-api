@@ -11,13 +11,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/inventory")
+@RequestMapping("/inventories")
 @RequiredArgsConstructor
 public class InventoryController {
 
     private final InventoryService inventoryService;
 
-    @GetMapping
+    @GetMapping("/me")
     public ResponseEntity<UserInventoryResponse> getMyInventory(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(inventoryService.getInventory(userDetails.getUser()));

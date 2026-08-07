@@ -61,12 +61,12 @@ class AchievementControllerTest {
                         true,
                         false,
                         null);
-        when(achievementService.getAchievements(user)).thenReturn(List.of(achievement));
+        when(achievementService.getAchievements(user, null, null)).thenReturn(List.of(achievement));
 
         ResponseEntity<List<AchievementResponse>> response =
-                achievementController.getAchievements(userDetails);
+                achievementController.getAchievements(userDetails, null, null);
 
-        verify(achievementService).getAchievements(user);
+        verify(achievementService).getAchievements(user, null, null);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
         assertEquals(1, response.getBody().size());
