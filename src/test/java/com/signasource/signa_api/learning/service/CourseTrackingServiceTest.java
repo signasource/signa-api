@@ -1,7 +1,6 @@
 package com.signasource.signa_api.learning.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -27,11 +26,13 @@ import com.signasource.signa_api.learning.event.XpEarnedEvent;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.learning.repository.ExerciseAttemptRepository;
 import com.signasource.signa_api.learning.repository.LessonBlockRepository;
+import com.signasource.signa_api.learning.repository.LessonRepository;
+import com.signasource.signa_api.learning.repository.TopicRepository;
+import com.signasource.signa_api.learning.repository.UserBlockProgressRepository;
 import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
 import com.signasource.signa_api.learning.repository.UserLessonProgressRepository;
 import com.signasource.signa_api.learning.repository.UserTopicProgressRepository;
 import com.signasource.signa_api.users.entity.User;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,9 +50,12 @@ class CourseTrackingServiceTest {
     @Mock private UserCourseEnrollmentRepository enrollmentRepository;
     @Mock private UserTopicProgressRepository topicProgressRepository;
     @Mock private UserLessonProgressRepository lessonProgressRepository;
+    @Mock private UserBlockProgressRepository blockProgressRepository;
     @Mock private ExerciseAttemptRepository attemptRepository;
     @Mock private CourseVersionRepository courseVersionRepository;
     @Mock private LessonBlockRepository lessonBlockRepository;
+    @Mock private LessonRepository lessonRepository;
+    @Mock private TopicRepository topicRepository;
     @Mock private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks private CourseTrackingService courseTrackingService;
@@ -66,6 +70,31 @@ class CourseTrackingServiceTest {
         courseVersionId = UUID.randomUUID();
         mockUser = new User();
         mockUser.setId(userId);
+    }
+
+    private LessonBlock buildBlock(BlockType type, int xpReward, Lesson lesson) {
+        return LessonBlock.builder()
+                .id(UUID.randomUUID())
+                .type(type)
+                .xpReward(xpReward)
+                .lesson(lesson)
+                .build();
+    }
+
+    /**
+     * Single block / single lesson / single topic hierarchy attached to {@code courseVersionId}.
+     */
+    private LessonBlock buildSingleBlockHierarchy(BlockType type, int xpReward) {
+        CourseVersion courseVersion = CourseVersion.builder().id(courseVersionId).build();
+        Topic topic = Topic.builder().id(UUID.randomUUID()).courseVersion(courseVersion).build();
+        Lesson lesson = Lesson.builder().id(UUID.randomUUID()).topic(topic).build();
+        return buildBlock(type, xpReward, lesson);
+    }
+
+    private void enrollmentActive() {
+        when(enrollmentRepository.existsByUserIdAndCourseVersionIdAndStatusNot(
+                        userId, courseVersionId, EnrollmentStatus.DROPPED))
+                .thenReturn(true);
     }
 
     @Test
@@ -113,184 +142,115 @@ class CourseTrackingServiceTest {
     }
 
     @Test
-    void recordExerciseAttempt_ThrowsNotFound_WhenBlockMissing() {
+    void recordBlockProgress_ThrowsNotFound_WhenBlockMissing() {
         UUID blockId = UUID.randomUUID();
         when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.empty());
 
         assertThrows(
                 NotFoundException.class,
-                () -> courseTrackingService.recordExerciseAttempt(mockUser, blockId, true));
+                () -> courseTrackingService.recordBlockProgress(mockUser, blockId, true));
         verify(attemptRepository, never()).save(any());
     }
 
     @Test
-    void recordExerciseAttempt_ThrowsInvalidInput_WhenBlockIsNotExercise() {
-        UUID blockId = UUID.randomUUID();
-        LessonBlock theoryBlock = LessonBlock.builder().id(blockId).type(BlockType.THEORY).build();
-        when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.of(theoryBlock));
+    void recordBlockProgress_ThrowsInvalidInput_WhenNotEnrolled() {
+        LessonBlock block = buildSingleBlockHierarchy(BlockType.EXERCISE_ATTEMPT, 50);
+        when(lessonBlockRepository.findById(block.getId())).thenReturn(Optional.of(block));
+        when(enrollmentRepository.existsByUserIdAndCourseVersionIdAndStatusNot(
+                        userId, courseVersionId, EnrollmentStatus.DROPPED))
+                .thenReturn(false);
 
         assertThrows(
                 InvalidInputException.class,
-                () -> courseTrackingService.recordExerciseAttempt(mockUser, blockId, true));
+                () -> courseTrackingService.recordBlockProgress(mockUser, block.getId(), true));
         verify(attemptRepository, never()).save(any());
     }
 
     @Test
-    void recordExerciseAttempt_IncorrectAttempt_DoesNotAwardXp() {
-        UUID blockId = UUID.randomUUID();
-        Lesson lesson = Lesson.builder().id(UUID.randomUUID()).build();
-        LessonBlock block =
-                LessonBlock.builder()
-                        .id(blockId)
-                        .type(BlockType.EXERCISE_ATTEMPT)
-                        .xpReward(50)
-                        .lesson(lesson)
-                        .build();
+    void recordBlockProgress_ThrowsInvalidInput_WhenExerciseAndIsCorrectNull() {
+        LessonBlock block = buildSingleBlockHierarchy(BlockType.EXERCISE_ATTEMPT, 50);
+        when(lessonBlockRepository.findById(block.getId())).thenReturn(Optional.of(block));
+        enrollmentActive();
 
-        when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.of(block));
-        when(attemptRepository.save(any(ExerciseAttempt.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-
-        ExerciseAttempt result =
-                courseTrackingService.recordExerciseAttempt(mockUser, blockId, false);
-
-        assertFalse(result.getIsCorrect());
-        verify(eventPublisher, never()).publishEvent(any());
-        verify(lessonProgressRepository, never()).findByUserIdAndLessonId(any(), any());
+        assertThrows(
+                InvalidInputException.class,
+                () -> courseTrackingService.recordBlockProgress(mockUser, block.getId(), null));
+        verify(attemptRepository, never()).save(any());
     }
 
     @Test
-    void recordExerciseAttempt_RepeatedCorrectAttempt_DoesNotAwardXpAgain() {
-        UUID blockId = UUID.randomUUID();
-        Lesson lesson = Lesson.builder().id(UUID.randomUUID()).build();
-        LessonBlock block =
-                LessonBlock.builder()
-                        .id(blockId)
-                        .type(BlockType.EXERCISE_ATTEMPT)
-                        .xpReward(50)
-                        .lesson(lesson)
-                        .build();
+    void recordBlockProgress_IncorrectExercise_RecordsAttempt_NoXp_NoCompletion() {
+        LessonBlock block = buildSingleBlockHierarchy(BlockType.EXERCISE_ATTEMPT, 50);
+        when(lessonBlockRepository.findById(block.getId())).thenReturn(Optional.of(block));
+        enrollmentActive();
 
-        when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.of(block));
-        when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, blockId))
+        courseTrackingService.recordBlockProgress(mockUser, block.getId(), false);
+
+        verify(attemptRepository).save(any(ExerciseAttempt.class));
+        verify(blockProgressRepository, never()).save(any());
+        verify(eventPublisher, never()).publishEvent(any());
+        verify(lessonProgressRepository, never()).save(any());
+    }
+
+    @Test
+    void recordBlockProgress_RepeatedCorrect_DoesNotAwardXpAgain() {
+        LessonBlock block = buildSingleBlockHierarchy(BlockType.EXERCISE_ATTEMPT, 50);
+        when(lessonBlockRepository.findById(block.getId())).thenReturn(Optional.of(block));
+        enrollmentActive();
+        when(blockProgressRepository.existsByUserIdAndLessonBlockId(userId, block.getId()))
                 .thenReturn(true);
-        when(attemptRepository.save(any(ExerciseAttempt.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
 
-        courseTrackingService.recordExerciseAttempt(mockUser, blockId, true);
+        courseTrackingService.recordBlockProgress(mockUser, block.getId(), true);
 
+        verify(attemptRepository).save(any(ExerciseAttempt.class));
+        verify(blockProgressRepository, never()).save(any());
         verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test
-    void recordExerciseAttempt_FirstCorrectAttempt_CompletesLessonOnly_WhenTopicHasOtherLessons() {
-        UUID blockId = UUID.randomUUID();
-        UUID lessonId = UUID.randomUUID();
-        UUID topicId = UUID.randomUUID();
-        UUID otherLessonId = UUID.randomUUID();
+    void recordBlockProgress_TheoryBlock_CompletesWithoutRecordingAttempt() {
+        LessonBlock block = buildSingleBlockHierarchy(BlockType.THEORY, 20);
+        Lesson lesson = block.getLesson();
+        Topic topic = lesson.getTopic();
 
-        Topic topic = Topic.builder().id(topicId).build();
-        Lesson lesson = Lesson.builder().id(lessonId).topic(topic).build();
-        Lesson otherLesson = Lesson.builder().id(otherLessonId).topic(topic).build();
-        topic.setLessons(List.of(lesson, otherLesson));
-
-        LessonBlock block =
-                LessonBlock.builder()
-                        .id(blockId)
-                        .type(BlockType.EXERCISE_ATTEMPT)
-                        .xpReward(50)
-                        .lesson(lesson)
-                        .build();
-        lesson.setLessonBlocks(List.of(block));
-
-        when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.of(block));
-        when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, blockId))
-                .thenReturn(false, true);
-        when(attemptRepository.save(any(ExerciseAttempt.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-        when(lessonProgressRepository.findByUserIdAndLessonId(userId, lessonId))
+        when(lessonBlockRepository.findById(block.getId())).thenReturn(Optional.of(block));
+        enrollmentActive();
+        when(blockProgressRepository.existsByUserIdAndLessonBlockId(userId, block.getId()))
+                .thenReturn(false);
+        // Cascade: single block lesson, single lesson topic, single topic course -> all complete.
+        when(lessonBlockRepository.countByLessonId(lesson.getId())).thenReturn(1L);
+        when(blockProgressRepository.countByUserIdAndLessonBlockLessonId(userId, lesson.getId()))
+                .thenReturn(1L);
+        when(lessonProgressRepository.findByUserIdAndLessonId(userId, lesson.getId()))
                 .thenReturn(Optional.empty());
-        when(lessonProgressRepository.save(any(UserLessonProgress.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-        when(lessonProgressRepository.findByUserIdAndLessonTopicId(userId, topicId))
-                .thenReturn(
-                        List.of(
-                                UserLessonProgress.builder()
-                                        .lesson(lesson)
-                                        .status(ProgressStatus.COMPLETED)
-                                        .build()));
-
-        courseTrackingService.recordExerciseAttempt(mockUser, blockId, true);
-
-        verify(eventPublisher).publishEvent(any(XpEarnedEvent.class));
-
-        ArgumentCaptor<UserLessonProgress> progressCaptor =
-                ArgumentCaptor.forClass(UserLessonProgress.class);
-        verify(lessonProgressRepository).save(progressCaptor.capture());
-        assertEquals(ProgressStatus.COMPLETED, progressCaptor.getValue().getStatus());
-        assertEquals(50, progressCaptor.getValue().getXpEarned());
-
-        verify(topicProgressRepository, never()).save(any());
-    }
-
-    @Test
-    void recordExerciseAttempt_CascadesUpToCourseCompletion_WhenSingleLessonAndTopic() {
-        UUID blockId = UUID.randomUUID();
-        UUID lessonId = UUID.randomUUID();
-        UUID topicId = UUID.randomUUID();
-
-        CourseVersion courseVersion = CourseVersion.builder().id(courseVersionId).build();
-        Topic topic = Topic.builder().id(topicId).courseVersion(courseVersion).build();
-        courseVersion.setTopics(List.of(topic));
-
-        Lesson lesson = Lesson.builder().id(lessonId).topic(topic).build();
-        topic.setLessons(List.of(lesson));
-
-        LessonBlock block =
-                LessonBlock.builder()
-                        .id(blockId)
-                        .type(BlockType.EXERCISE_ATTEMPT)
-                        .xpReward(50)
-                        .lesson(lesson)
-                        .build();
-        lesson.setLessonBlocks(List.of(block));
-
-        when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.of(block));
-        when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, blockId))
-                .thenReturn(false, true);
-        when(attemptRepository.save(any(ExerciseAttempt.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-        when(lessonProgressRepository.findByUserIdAndLessonId(userId, lessonId))
+        when(lessonBlockRepository.sumXpRewardByLessonId(lesson.getId())).thenReturn(20);
+        when(lessonRepository.countByTopicId(topic.getId())).thenReturn(1L);
+        when(lessonProgressRepository.countByUserIdAndLessonTopicIdAndStatus(
+                        userId, topic.getId(), ProgressStatus.COMPLETED))
+                .thenReturn(1L);
+        when(topicProgressRepository.findByUserIdAndTopicId(userId, topic.getId()))
                 .thenReturn(Optional.empty());
-        when(lessonProgressRepository.save(any(UserLessonProgress.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-        when(lessonProgressRepository.findByUserIdAndLessonTopicId(userId, topicId))
-                .thenReturn(
-                        List.of(
-                                UserLessonProgress.builder()
-                                        .lesson(lesson)
-                                        .status(ProgressStatus.COMPLETED)
-                                        .build()));
-        when(topicProgressRepository.findByUserIdAndTopicId(userId, topicId))
-                .thenReturn(Optional.empty());
-        when(topicProgressRepository.save(any(UserTopicProgress.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-        when(topicProgressRepository.findByUserIdAndTopicCourseVersionId(userId, courseVersionId))
-                .thenReturn(
-                        List.of(
-                                UserTopicProgress.builder()
-                                        .topic(topic)
-                                        .status(ProgressStatus.COMPLETED)
-                                        .build()));
-
+        when(topicRepository.countByCourseVersionId(courseVersionId)).thenReturn(1L);
+        when(topicProgressRepository.countByUserIdAndTopicCourseVersionIdAndStatus(
+                        userId, courseVersionId, ProgressStatus.COMPLETED))
+                .thenReturn(1L);
         UserCourseEnrollment enrollment = new UserCourseEnrollment();
         enrollment.setStatus(EnrollmentStatus.ENROLLED);
         when(enrollmentRepository.findByUserIdAndCourseVersionId(userId, courseVersionId))
                 .thenReturn(Optional.of(enrollment));
 
-        courseTrackingService.recordExerciseAttempt(mockUser, blockId, true);
+        courseTrackingService.recordBlockProgress(mockUser, block.getId(), null);
 
-        verify(lessonProgressRepository).save(any(UserLessonProgress.class));
+        verify(attemptRepository, never()).save(any());
+        verify(blockProgressRepository).save(any());
+        verify(eventPublisher).publishEvent(any(XpEarnedEvent.class));
+
+        ArgumentCaptor<UserLessonProgress> lessonCaptor =
+                ArgumentCaptor.forClass(UserLessonProgress.class);
+        verify(lessonProgressRepository).save(lessonCaptor.capture());
+        assertEquals(ProgressStatus.COMPLETED, lessonCaptor.getValue().getStatus());
+        assertEquals(20, lessonCaptor.getValue().getXpEarned());
+
         verify(topicProgressRepository).save(any(UserTopicProgress.class));
         verify(enrollmentRepository).save(enrollment);
         assertEquals(EnrollmentStatus.COMPLETED, enrollment.getStatus());
@@ -298,37 +258,30 @@ class CourseTrackingServiceTest {
     }
 
     @Test
-    void recordExerciseAttempt_DoesNotCompleteLesson_WhenOtherBlocksPending() {
-        UUID blockId = UUID.randomUUID();
-        UUID otherBlockId = UUID.randomUUID();
-        Lesson lesson = Lesson.builder().id(UUID.randomUUID()).build();
-        LessonBlock block =
-                LessonBlock.builder()
-                        .id(blockId)
-                        .type(BlockType.EXERCISE_ATTEMPT)
-                        .xpReward(50)
-                        .lesson(lesson)
-                        .build();
-        LessonBlock otherBlock =
-                LessonBlock.builder()
-                        .id(otherBlockId)
-                        .type(BlockType.EXERCISE_ATTEMPT)
-                        .xpReward(50)
-                        .lesson(lesson)
-                        .build();
-        lesson.setLessonBlocks(List.of(block, otherBlock));
+    void recordBlockProgress_FirstCorrect_MarksLessonInProgress_WhenBlocksPending() {
+        LessonBlock block = buildSingleBlockHierarchy(BlockType.EXERCISE_ATTEMPT, 50);
+        Lesson lesson = block.getLesson();
 
-        when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.of(block));
-        when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, blockId))
-                .thenReturn(false, true);
-        when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, otherBlockId))
+        when(lessonBlockRepository.findById(block.getId())).thenReturn(Optional.of(block));
+        enrollmentActive();
+        when(blockProgressRepository.existsByUserIdAndLessonBlockId(userId, block.getId()))
                 .thenReturn(false);
-        when(attemptRepository.save(any(ExerciseAttempt.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(lessonBlockRepository.countByLessonId(lesson.getId())).thenReturn(2L);
+        when(blockProgressRepository.countByUserIdAndLessonBlockLessonId(userId, lesson.getId()))
+                .thenReturn(1L);
+        when(lessonProgressRepository.findByUserIdAndLessonId(userId, lesson.getId()))
+                .thenReturn(Optional.empty());
 
-        courseTrackingService.recordExerciseAttempt(mockUser, blockId, true);
+        courseTrackingService.recordBlockProgress(mockUser, block.getId(), true);
 
+        verify(attemptRepository).save(any(ExerciseAttempt.class));
         verify(eventPublisher).publishEvent(any(XpEarnedEvent.class));
-        verify(lessonProgressRepository, never()).save(any());
+
+        ArgumentCaptor<UserLessonProgress> lessonCaptor =
+                ArgumentCaptor.forClass(UserLessonProgress.class);
+        verify(lessonProgressRepository).save(lessonCaptor.capture());
+        assertEquals(ProgressStatus.IN_PROGRESS, lessonCaptor.getValue().getStatus());
+
+        verify(topicProgressRepository, never()).save(any());
     }
 }

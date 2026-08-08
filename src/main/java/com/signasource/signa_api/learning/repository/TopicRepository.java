@@ -10,4 +10,6 @@ import org.springframework.stereotype.Repository;
 public interface TopicRepository extends JpaRepository<Topic, UUID> {
 
     List<Topic> findByCourseVersionIdOrderByOrderAsc(UUID courseVersionId);
+
+    long countByCourseVersionId(UUID courseVersionId);
 }

@@ -6,7 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
-import com.signasource.signa_api.learning.dto.ExerciseAttemptRequest;
+import com.signasource.signa_api.learning.dto.BlockAttemptRequest;
 import com.signasource.signa_api.learning.service.CourseTrackingService;
 import com.signasource.signa_api.users.entity.User;
 import java.util.UUID;
@@ -49,14 +49,25 @@ class CourseTrackingControllerTest {
     }
 
     @Test
-    void recordAttempt_ShouldReturn201() {
+    void recordAttempt_ExerciseBlock_ShouldReturn201() {
         UUID lessonBlockId = UUID.randomUUID();
-        ExerciseAttemptRequest request = new ExerciseAttemptRequest(true);
+        BlockAttemptRequest request = new BlockAttemptRequest(true);
 
         ResponseEntity<Void> response =
                 courseTrackingController.recordAttempt(lessonBlockId, request, mockUserDetails);
 
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
-        verify(trackingService).recordExerciseAttempt(mockUser, lessonBlockId, true);
+        verify(trackingService).recordBlockProgress(mockUser, lessonBlockId, true);
+    }
+
+    @Test
+    void recordAttempt_NoBody_ShouldReturn201_WithNullIsCorrect() {
+        UUID lessonBlockId = UUID.randomUUID();
+
+        ResponseEntity<Void> response =
+                courseTrackingController.recordAttempt(lessonBlockId, null, mockUserDetails);
+
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        verify(trackingService).recordBlockProgress(mockUser, lessonBlockId, null);
     }
 }

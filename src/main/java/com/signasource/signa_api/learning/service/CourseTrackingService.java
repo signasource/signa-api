@@ -11,6 +11,7 @@ import com.signasource.signa_api.learning.entity.Lesson;
 import com.signasource.signa_api.learning.entity.LessonBlock;
 import com.signasource.signa_api.learning.entity.ProgressStatus;
 import com.signasource.signa_api.learning.entity.Topic;
+import com.signasource.signa_api.learning.entity.UserBlockProgress;
 import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import com.signasource.signa_api.learning.entity.UserLessonProgress;
 import com.signasource.signa_api.learning.entity.UserTopicProgress;
@@ -18,12 +19,14 @@ import com.signasource.signa_api.learning.event.XpEarnedEvent;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.learning.repository.ExerciseAttemptRepository;
 import com.signasource.signa_api.learning.repository.LessonBlockRepository;
+import com.signasource.signa_api.learning.repository.LessonRepository;
+import com.signasource.signa_api.learning.repository.TopicRepository;
+import com.signasource.signa_api.learning.repository.UserBlockProgressRepository;
 import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
 import com.signasource.signa_api.learning.repository.UserLessonProgressRepository;
 import com.signasource.signa_api.learning.repository.UserTopicProgressRepository;
 import com.signasource.signa_api.users.entity.User;
 import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -37,10 +40,13 @@ public class CourseTrackingService {
     private final UserCourseEnrollmentRepository enrollmentRepository;
     private final UserTopicProgressRepository topicProgressRepository;
     private final UserLessonProgressRepository lessonProgressRepository;
+    private final UserBlockProgressRepository blockProgressRepository;
     private final ExerciseAttemptRepository attemptRepository;
 
     private final CourseVersionRepository courseVersionRepository;
     private final LessonBlockRepository lessonBlockRepository;
+    private final LessonRepository lessonRepository;
+    private final TopicRepository topicRepository;
 
     private final ApplicationEventPublisher eventPublisher;
 
@@ -65,62 +71,69 @@ public class CourseTrackingService {
     }
 
     /**
-     * Records an attempt on an exercise block and cascades completion up the hierarchy: the block's
-     * XP is awarded once, on its first correct attempt; once every exercise block in a lesson has
-     * been answered correctly the lesson is completed; once every lesson in a topic is completed
-     * the topic is completed; once every topic in a course version is completed the enrollment is
-     * completed.
+     * Single entry point for block progression. Exercise blocks always record the attempt and are
+     * completed on the first correct answer; other block types (theory, video) are completed on the
+     * first call without recording an attempt. Completing a block for the first time awards its XP
+     * once and recomputes the status of the lesson, topic and course version in cascade.
      */
     @Transactional
-    public ExerciseAttempt recordExerciseAttempt(User user, UUID lessonBlockId, boolean isCorrect) {
+    public void recordBlockProgress(User user, UUID lessonBlockId, Boolean isCorrect) {
         LessonBlock block =
                 lessonBlockRepository
                         .findById(lessonBlockId)
                         .orElseThrow(() -> new NotFoundException("Lesson block not found"));
 
-        if (block.getType() != BlockType.EXERCISE_ATTEMPT) {
-            throw new InvalidInputException("This lesson block does not accept exercise attempts");
+        Lesson lesson = block.getLesson();
+        CourseVersion courseVersion = lesson.getTopic().getCourseVersion();
+
+        if (!enrollmentRepository.existsByUserIdAndCourseVersionIdAndStatusNot(
+                user.getId(), courseVersion.getId(), EnrollmentStatus.DROPPED)) {
+            throw new InvalidInputException("User is not enrolled in this course version");
         }
 
-        boolean isFirstCorrectAttempt =
-                isCorrect
-                        && !attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(
-                                user.getId(), lessonBlockId);
-
-        ExerciseAttempt attempt =
-                attemptRepository.save(
-                        ExerciseAttempt.builder()
-                                .user(user)
-                                .lessonBlock(block)
-                                .isCorrect(isCorrect)
-                                .build());
-
-        if (isFirstCorrectAttempt) {
-            eventPublisher.publishEvent(new XpEarnedEvent(this, user, block.getXpReward()));
-            checkLessonCompletion(user, block.getLesson());
+        boolean firstCompletion;
+        if (block.getType() == BlockType.EXERCISE_ATTEMPT) {
+            if (isCorrect == null) {
+                throw new InvalidInputException("isCorrect is required for exercise blocks");
+            }
+            attemptRepository.save(
+                    ExerciseAttempt.builder()
+                            .user(user)
+                            .lessonBlock(block)
+                            .isCorrect(isCorrect)
+                            .build());
+            firstCompletion = isCorrect && markBlockCompleted(user, block);
+        } else {
+            firstCompletion = markBlockCompleted(user, block);
         }
 
-        return attempt;
+        if (firstCompletion) {
+            if (block.getXpReward() > 0) {
+                eventPublisher.publishEvent(new XpEarnedEvent(this, user, block.getXpReward()));
+            }
+            recomputeLessonStatus(user, lesson);
+        }
     }
 
-    private void checkLessonCompletion(User user, Lesson lesson) {
-        List<LessonBlock> exerciseBlocks =
-                lesson.getLessonBlocks().stream()
-                        .filter(b -> b.getType() == BlockType.EXERCISE_ATTEMPT)
-                        .toList();
-
-        boolean allCompleted =
-                !exerciseBlocks.isEmpty()
-                        && exerciseBlocks.stream()
-                                .allMatch(
-                                        b ->
-                                                attemptRepository
-                                                        .existsByUserIdAndLessonBlockIdAndIsCorrectTrue(
-                                                                user.getId(), b.getId()));
-
-        if (!allCompleted) {
-            return;
+    /**
+     * Persists the block completion if it is not yet recorded. The unique constraint on (user,
+     * block) plus the same-transaction XP listener guarantee XP is never awarded twice under
+     * concurrent completions of the same block: the losing transaction rolls back entirely.
+     */
+    private boolean markBlockCompleted(User user, LessonBlock block) {
+        if (blockProgressRepository.existsByUserIdAndLessonBlockId(user.getId(), block.getId())) {
+            return false;
         }
+        blockProgressRepository.save(
+                UserBlockProgress.builder().user(user).lessonBlock(block).build());
+        return true;
+    }
+
+    private void recomputeLessonStatus(User user, Lesson lesson) {
+        long total = lessonBlockRepository.countByLessonId(lesson.getId());
+        long done =
+                blockProgressRepository.countByUserIdAndLessonBlockLessonId(
+                        user.getId(), lesson.getId());
 
         UserLessonProgress progress =
                 lessonProgressRepository
@@ -136,68 +149,56 @@ public class CourseTrackingService {
             return;
         }
 
-        int xpEarned = exerciseBlocks.stream().mapToInt(LessonBlock::getXpReward).sum();
-
-        progress.setStatus(ProgressStatus.COMPLETED);
-        progress.setCompletedAt(Instant.now());
-        progress.setXpEarned(xpEarned);
-        lessonProgressRepository.save(progress);
-
-        checkTopicCompletion(user, lesson.getTopic());
+        if (total > 0 && done >= total) {
+            progress.setStatus(ProgressStatus.COMPLETED);
+            progress.setCompletedAt(Instant.now());
+            progress.setXpEarned(lessonBlockRepository.sumXpRewardByLessonId(lesson.getId()));
+            lessonProgressRepository.save(progress);
+            recomputeTopicStatus(user, lesson.getTopic());
+        } else {
+            progress.setStatus(ProgressStatus.IN_PROGRESS);
+            lessonProgressRepository.save(progress);
+        }
     }
 
-    private void checkTopicCompletion(User user, Topic topic) {
-        List<Lesson> lessons = topic.getLessons();
-        List<UUID> completedLessonIds =
-                lessonProgressRepository
-                        .findByUserIdAndLessonTopicId(user.getId(), topic.getId())
-                        .stream()
-                        .filter(p -> p.getStatus() == ProgressStatus.COMPLETED)
-                        .map(p -> p.getLesson().getId())
-                        .toList();
+    private void recomputeTopicStatus(User user, Topic topic) {
+        long total = lessonRepository.countByTopicId(topic.getId());
+        long done =
+                lessonProgressRepository.countByUserIdAndLessonTopicIdAndStatus(
+                        user.getId(), topic.getId(), ProgressStatus.COMPLETED);
 
-        boolean allCompleted =
-                !lessons.isEmpty()
-                        && lessons.stream()
-                                .allMatch(lesson -> completedLessonIds.contains(lesson.getId()));
-
-        if (!allCompleted) {
-            return;
-        }
-
-        UserTopicProgress topicProgress =
+        UserTopicProgress progress =
                 topicProgressRepository
                         .findByUserIdAndTopicId(user.getId(), topic.getId())
                         .orElseGet(
                                 () -> UserTopicProgress.builder().user(user).topic(topic).build());
 
-        if (topicProgress.getStatus() == ProgressStatus.COMPLETED) {
+        if (progress.getStatus() == ProgressStatus.COMPLETED) {
             return;
         }
 
-        topicProgress.setStatus(ProgressStatus.COMPLETED);
-        topicProgress.setCompletedAt(Instant.now());
-        topicProgressRepository.save(topicProgress);
+        if (progress.getStartedAt() == null) {
+            progress.setStartedAt(Instant.now());
+        }
 
-        checkCourseCompletion(user, topic.getCourseVersion());
+        if (total > 0 && done >= total) {
+            progress.setStatus(ProgressStatus.COMPLETED);
+            progress.setCompletedAt(Instant.now());
+            topicProgressRepository.save(progress);
+            recomputeCourseStatus(user, topic.getCourseVersion());
+        } else {
+            progress.setStatus(ProgressStatus.IN_PROGRESS);
+            topicProgressRepository.save(progress);
+        }
     }
 
-    private void checkCourseCompletion(User user, CourseVersion courseVersion) {
-        List<Topic> topics = courseVersion.getTopics();
-        List<UUID> completedTopicIds =
-                topicProgressRepository
-                        .findByUserIdAndTopicCourseVersionId(user.getId(), courseVersion.getId())
-                        .stream()
-                        .filter(p -> p.getStatus() == ProgressStatus.COMPLETED)
-                        .map(p -> p.getTopic().getId())
-                        .toList();
+    private void recomputeCourseStatus(User user, CourseVersion courseVersion) {
+        long total = topicRepository.countByCourseVersionId(courseVersion.getId());
+        long done =
+                topicProgressRepository.countByUserIdAndTopicCourseVersionIdAndStatus(
+                        user.getId(), courseVersion.getId(), ProgressStatus.COMPLETED);
 
-        boolean allCompleted =
-                !topics.isEmpty()
-                        && topics.stream()
-                                .allMatch(topic -> completedTopicIds.contains(topic.getId()));
-
-        if (!allCompleted) {
+        if (total == 0 || done < total) {
             return;
         }
 
