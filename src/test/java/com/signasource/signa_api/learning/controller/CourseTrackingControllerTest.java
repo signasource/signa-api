@@ -7,9 +7,6 @@ import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.learning.dto.ExerciseAttemptRequest;
-import com.signasource.signa_api.learning.dto.LessonCompletionRequest;
-import com.signasource.signa_api.learning.dto.TopicStatusRequest;
-import com.signasource.signa_api.learning.entity.ProgressStatus;
 import com.signasource.signa_api.learning.service.CourseTrackingService;
 import com.signasource.signa_api.users.entity.User;
 import java.util.UUID;
@@ -29,15 +26,12 @@ class CourseTrackingControllerTest {
 
     @InjectMocks private CourseTrackingController courseTrackingController;
 
-    private UUID userId;
+    private User mockUser;
     private CustomUserDetails mockUserDetails;
 
     @BeforeEach
     void setUp() {
-        userId = UUID.randomUUID();
-
-        User mockUser = mock(User.class);
-        when(mockUser.getId()).thenReturn(userId);
+        mockUser = mock(User.class);
 
         mockUserDetails = mock(CustomUserDetails.class);
         when(mockUserDetails.getUser()).thenReturn(mockUser);
@@ -51,31 +45,7 @@ class CourseTrackingControllerTest {
                 courseTrackingController.enroll(courseVersionId, mockUserDetails);
 
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
-        verify(trackingService).enrollUserInCourse(userId, courseVersionId);
-    }
-
-    @Test
-    void updateTopicStatus_ShouldReturn200() {
-        UUID topicId = UUID.randomUUID();
-        TopicStatusRequest request = new TopicStatusRequest(ProgressStatus.COMPLETED);
-
-        ResponseEntity<Void> response =
-                courseTrackingController.updateTopicStatus(topicId, request, mockUserDetails);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(trackingService).updateTopicStatus(userId, topicId, ProgressStatus.COMPLETED);
-    }
-
-    @Test
-    void completeLesson_ShouldReturn200() {
-        UUID lessonId = UUID.randomUUID();
-        LessonCompletionRequest request = new LessonCompletionRequest(100);
-
-        ResponseEntity<Void> response =
-                courseTrackingController.completeLesson(lessonId, request, mockUserDetails);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(trackingService).completeLesson(userId, lessonId, 100);
+        verify(trackingService).enrollUserInCourse(mockUser, courseVersionId);
     }
 
     @Test
@@ -87,6 +57,6 @@ class CourseTrackingControllerTest {
                 courseTrackingController.recordAttempt(lessonBlockId, request, mockUserDetails);
 
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
-        verify(trackingService).recordExerciseAttempt(userId, lessonBlockId, true);
+        verify(trackingService).recordExerciseAttempt(mockUser, lessonBlockId, true);
     }
 }

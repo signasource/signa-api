@@ -1,3 +1,5 @@
 package com.signasource.signa_api.learning.dto;
 
-public record ExerciseAttemptRequest(Boolean isCorrect) {}
+import jakarta.validation.constraints.NotNull;
+
+public record ExerciseAttemptRequest(@NotNull Boolean isCorrect) {}

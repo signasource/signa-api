@@ -12,4 +12,6 @@ public interface ExerciseAttemptRepository extends JpaRepository<ExerciseAttempt
     List<ExerciseAttempt> findByUserIdAndLessonBlockId(UUID userId, UUID lessonBlockId);
 
     long countByUserIdAndLessonBlockId(UUID userId, UUID lessonBlockId);
+
+    boolean existsByUserIdAndLessonBlockIdAndIsCorrectTrue(UUID userId, UUID lessonBlockId);
 }

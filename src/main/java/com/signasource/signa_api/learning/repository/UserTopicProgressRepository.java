@@ -13,4 +13,6 @@ public interface UserTopicProgressRepository extends JpaRepository<UserTopicProg
     List<UserTopicProgress> findByUserId(UUID userId);
 
     Optional<UserTopicProgress> findByUserIdAndTopicId(UUID userId, UUID topicId);
+
+    List<UserTopicProgress> findByUserIdAndTopicCourseVersionId(UUID userId, UUID courseVersionId);
 }

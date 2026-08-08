@@ -13,7 +13,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
-import java.time.LocalDateTime;
+import jakarta.persistence.UniqueConstraint;
+import java.time.Instant;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -21,7 +23,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "user_topic_progress")
+@Table(
+        name = "user_topic_progress",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "topic_id"}))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -30,8 +34,8 @@ import lombok.Setter;
 public class UserTopicProgress {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
@@ -45,9 +49,9 @@ public class UserTopicProgress {
     @Column(nullable = false, length = 50)
     private ProgressStatus status;
 
-    @Column private LocalDateTime startedAt;
+    @Column private Instant startedAt;
 
-    @Column private LocalDateTime completedAt;
+    @Column private Instant completedAt;
 
     @PrePersist
     protected void onCreate() {

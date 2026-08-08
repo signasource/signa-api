@@ -1,18 +1,18 @@
 package com.signasource.signa_api.learning.event;
 
-import java.util.UUID;
+import com.signasource.signa_api.users.entity.User;
 import lombok.Getter;
 import org.springframework.context.ApplicationEvent;
 
 @Getter
 public class XpEarnedEvent extends ApplicationEvent {
 
-    private final UUID userId;
+    private final User user;
     private final Integer xpAmount;
 
-    public XpEarnedEvent(Object source, UUID userId, Integer xpAmount) {
+    public XpEarnedEvent(Object source, User user, Integer xpAmount) {
         super(source);
-        this.userId = userId;
+        this.user = user;
         this.xpAmount = xpAmount;
     }
 }

@@ -64,7 +64,8 @@ public class UserStats {
     private int streakShields = 0;
 
     @Column(nullable = false)
-    private double xpMultiplier;
+    @Builder.Default
+    private double xpMultiplier = 1.0;
 
     @Column private Instant xpMultiplierExpiresAt;
 

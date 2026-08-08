@@ -13,7 +13,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
-import java.time.LocalDateTime;
+import jakarta.persistence.UniqueConstraint;
+import java.time.Instant;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -21,7 +23,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "user_lesson_progress")
+@Table(
+        name = "user_lesson_progress",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "lesson_id"}))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -30,8 +34,8 @@ import lombok.Setter;
 public class UserLessonProgress {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
@@ -45,7 +49,7 @@ public class UserLessonProgress {
     @Column(nullable = false, length = 50)
     private ProgressStatus status;
 
-    private LocalDateTime completedAt;
+    private Instant completedAt;
 
     @Column(nullable = false)
     private Integer xpEarned;

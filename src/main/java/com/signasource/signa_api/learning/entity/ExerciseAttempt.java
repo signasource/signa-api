@@ -11,7 +11,8 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -28,8 +29,8 @@ import lombok.Setter;
 public class ExerciseAttempt {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
@@ -43,10 +44,10 @@ public class ExerciseAttempt {
     private Boolean isCorrect;
 
     @Column(nullable = false, updatable = false)
-    private LocalDateTime attemptedAt;
+    private Instant attemptedAt;
 
     @PrePersist
     protected void onCreate() {
-        this.attemptedAt = LocalDateTime.now();
+        this.attemptedAt = Instant.now();
     }
 }

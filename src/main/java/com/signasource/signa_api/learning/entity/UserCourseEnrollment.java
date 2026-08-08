@@ -13,7 +13,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
-import java.time.LocalDateTime;
+import jakarta.persistence.UniqueConstraint;
+import java.time.Instant;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -26,12 +28,14 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(name = "user_course_enrollments")
+@Table(
+        name = "user_course_enrollments",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "course_version_id"}))
 public class UserCourseEnrollment {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "course_version_id", nullable = false)
@@ -45,15 +49,14 @@ public class UserCourseEnrollment {
     @Column(nullable = false, length = 50)
     private EnrollmentStatus status;
 
-    @Column(name = "started_at", nullable = false, updatable = false)
-    private LocalDateTime startedAt;
+    @Column(nullable = false, updatable = false)
+    private Instant startedAt;
 
-    @Column(name = "completed_at")
-    private LocalDateTime completedAt;
+    @Column private Instant completedAt;
 
     @PrePersist
     protected void onCreate() {
-        this.startedAt = LocalDateTime.now();
+        this.startedAt = Instant.now();
 
         if (this.status == null) {
             this.status = EnrollmentStatus.ENROLLED;
