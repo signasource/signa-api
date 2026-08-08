@@ -7,7 +7,7 @@ import org.springframework.context.ApplicationEvent;
 @Getter
 public class XpEarnedEvent extends ApplicationEvent {
 
-    private final User user;
+    private final transient User user;
     private final Integer xpAmount;
 
     public XpEarnedEvent(Object source, User user, Integer xpAmount) {
