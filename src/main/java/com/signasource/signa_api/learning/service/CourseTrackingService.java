@@ -65,11 +65,11 @@ public class CourseTrackingService {
     }
 
     /**
-     * Records an attempt on an exercise block and cascades completion up the hierarchy: the
-     * block's XP is awarded once, on its first correct attempt; once every exercise block in a
-     * lesson has been answered correctly the lesson is completed; once every lesson in a topic is
-     * completed the topic is completed; once every topic in a course version is completed the
-     * enrollment is completed.
+     * Records an attempt on an exercise block and cascades completion up the hierarchy: the block's
+     * XP is awarded once, on its first correct attempt; once every exercise block in a lesson has
+     * been answered correctly the lesson is completed; once every lesson in a topic is completed
+     * the topic is completed; once every topic in a course version is completed the enrollment is
+     * completed.
      */
     @Transactional
     public ExerciseAttempt recordExerciseAttempt(User user, UUID lessonBlockId, boolean isCorrect) {
@@ -126,7 +126,11 @@ public class CourseTrackingService {
                 lessonProgressRepository
                         .findByUserIdAndLessonId(user.getId(), lesson.getId())
                         .orElseGet(
-                                () -> UserLessonProgress.builder().user(user).lesson(lesson).build());
+                                () ->
+                                        UserLessonProgress.builder()
+                                                .user(user)
+                                                .lesson(lesson)
+                                                .build());
 
         if (progress.getStatus() == ProgressStatus.COMPLETED) {
             return;
@@ -145,7 +149,8 @@ public class CourseTrackingService {
     private void checkTopicCompletion(User user, Topic topic) {
         List<Lesson> lessons = topic.getLessons();
         List<UUID> completedLessonIds =
-                lessonProgressRepository.findByUserIdAndLessonTopicId(user.getId(), topic.getId())
+                lessonProgressRepository
+                        .findByUserIdAndLessonTopicId(user.getId(), topic.getId())
                         .stream()
                         .filter(p -> p.getStatus() == ProgressStatus.COMPLETED)
                         .map(p -> p.getLesson().getId())
@@ -153,7 +158,8 @@ public class CourseTrackingService {
 
         boolean allCompleted =
                 !lessons.isEmpty()
-                        && lessons.stream().allMatch(lesson -> completedLessonIds.contains(lesson.getId()));
+                        && lessons.stream()
+                                .allMatch(lesson -> completedLessonIds.contains(lesson.getId()));
 
         if (!allCompleted) {
             return;
@@ -162,7 +168,8 @@ public class CourseTrackingService {
         UserTopicProgress topicProgress =
                 topicProgressRepository
                         .findByUserIdAndTopicId(user.getId(), topic.getId())
-                        .orElseGet(() -> UserTopicProgress.builder().user(user).topic(topic).build());
+                        .orElseGet(
+                                () -> UserTopicProgress.builder().user(user).topic(topic).build());
 
         if (topicProgress.getStatus() == ProgressStatus.COMPLETED) {
             return;
@@ -187,7 +194,8 @@ public class CourseTrackingService {
 
         boolean allCompleted =
                 !topics.isEmpty()
-                        && topics.stream().allMatch(topic -> completedTopicIds.contains(topic.getId()));
+                        && topics.stream()
+                                .allMatch(topic -> completedTopicIds.contains(topic.getId()));
 
         if (!allCompleted) {
             return;
