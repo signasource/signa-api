@@ -43,4 +43,13 @@ public class CourseTrackingController {
                 userDetails.getUser(), lessonBlockId, request.isCorrect());
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
+
+    @PostMapping("/blocks/{lessonBlockId}/view")
+    public ResponseEntity<Void> recordView(
+            @PathVariable UUID lessonBlockId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        trackingService.recordBlockView(userDetails.getUser(), lessonBlockId);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
 }

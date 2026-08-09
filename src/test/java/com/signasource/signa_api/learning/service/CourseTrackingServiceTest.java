@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -15,9 +16,9 @@ import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.entity.CourseVersion;
 import com.signasource.signa_api.learning.entity.EnrollmentStatus;
-import com.signasource.signa_api.learning.entity.ExerciseAttempt;
 import com.signasource.signa_api.learning.entity.Lesson;
 import com.signasource.signa_api.learning.entity.LessonBlock;
+import com.signasource.signa_api.learning.entity.LessonBlockAttempt;
 import com.signasource.signa_api.learning.entity.ProgressStatus;
 import com.signasource.signa_api.learning.entity.Topic;
 import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
@@ -25,7 +26,7 @@ import com.signasource.signa_api.learning.entity.UserLessonProgress;
 import com.signasource.signa_api.learning.entity.UserTopicProgress;
 import com.signasource.signa_api.learning.event.XpEarnedEvent;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
-import com.signasource.signa_api.learning.repository.ExerciseAttemptRepository;
+import com.signasource.signa_api.learning.repository.LessonBlockAttemptRepository;
 import com.signasource.signa_api.learning.repository.LessonBlockRepository;
 import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
 import com.signasource.signa_api.learning.repository.UserLessonProgressRepository;
@@ -49,7 +50,7 @@ class CourseTrackingServiceTest {
     @Mock private UserCourseEnrollmentRepository enrollmentRepository;
     @Mock private UserTopicProgressRepository topicProgressRepository;
     @Mock private UserLessonProgressRepository lessonProgressRepository;
-    @Mock private ExerciseAttemptRepository attemptRepository;
+    @Mock private LessonBlockAttemptRepository attemptRepository;
     @Mock private CourseVersionRepository courseVersionRepository;
     @Mock private LessonBlockRepository lessonBlockRepository;
     @Mock private ApplicationEventPublisher eventPublisher;
@@ -124,10 +125,10 @@ class CourseTrackingServiceTest {
     }
 
     @Test
-    void recordExerciseAttempt_ThrowsInvalidInput_WhenBlockIsNotExercise() {
+    void recordExerciseAttempt_ThrowsInvalidInput_WhenBlockIsInfo() {
         UUID blockId = UUID.randomUUID();
-        LessonBlock theoryBlock = LessonBlock.builder().id(blockId).type(BlockType.INFO).build();
-        when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.of(theoryBlock));
+        LessonBlock infoBlock = LessonBlock.builder().id(blockId).type(BlockType.INFO).build();
+        when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.of(infoBlock));
 
         assertThrows(
                 InvalidInputException.class,
@@ -136,7 +137,50 @@ class CourseTrackingServiceTest {
     }
 
     @Test
-    void recordExerciseAttempt_IncorrectAttempt_DoesNotAwardXp() {
+    void recordExerciseAttempt_IncorrectAttempt_DoesNotAwardXp_ButMarksLessonAndTopicInProgress() {
+        UUID blockId = UUID.randomUUID();
+        Topic topic = Topic.builder().id(UUID.randomUUID()).build();
+        Lesson lesson = Lesson.builder().id(UUID.randomUUID()).topic(topic).build();
+        LessonBlock block =
+                LessonBlock.builder()
+                        .id(blockId)
+                        .type(BlockType.SELECT_MEANING)
+                        .xpReward(50)
+                        .lesson(lesson)
+                        .build();
+
+        when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.of(block));
+        when(attemptRepository.save(any(LessonBlockAttempt.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(lessonProgressRepository.findByUserIdAndLessonId(userId, lesson.getId()))
+                .thenReturn(Optional.empty());
+        when(lessonProgressRepository.save(any(UserLessonProgress.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(topicProgressRepository.findByUserIdAndTopicId(userId, topic.getId()))
+                .thenReturn(Optional.empty());
+        when(topicProgressRepository.save(any(UserTopicProgress.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        LessonBlockAttempt result =
+                courseTrackingService.recordExerciseAttempt(mockUser, blockId, false);
+
+        assertFalse(result.getIsCorrect());
+        verify(eventPublisher, never()).publishEvent(any());
+
+        ArgumentCaptor<UserLessonProgress> lessonCaptor =
+                ArgumentCaptor.forClass(UserLessonProgress.class);
+        verify(lessonProgressRepository).save(lessonCaptor.capture());
+        assertEquals(ProgressStatus.IN_PROGRESS, lessonCaptor.getValue().getStatus());
+        assertNotNull(lessonCaptor.getValue().getStartedAt());
+
+        ArgumentCaptor<UserTopicProgress> topicCaptor =
+                ArgumentCaptor.forClass(UserTopicProgress.class);
+        verify(topicProgressRepository).save(topicCaptor.capture());
+        assertEquals(ProgressStatus.IN_PROGRESS, topicCaptor.getValue().getStatus());
+    }
+
+    @Test
+    void recordExerciseAttempt_DoesNotRegressCompletedLessonBackToInProgress() {
         UUID blockId = UUID.randomUUID();
         Lesson lesson = Lesson.builder().id(UUID.randomUUID()).build();
         LessonBlock block =
@@ -148,15 +192,22 @@ class CourseTrackingServiceTest {
                         .build();
 
         when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.of(block));
-        when(attemptRepository.save(any(ExerciseAttempt.class)))
+        when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, blockId))
+                .thenReturn(true);
+        when(attemptRepository.save(any(LessonBlockAttempt.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+        when(lessonProgressRepository.findByUserIdAndLessonId(userId, lesson.getId()))
+                .thenReturn(
+                        Optional.of(
+                                UserLessonProgress.builder()
+                                        .lesson(lesson)
+                                        .status(ProgressStatus.COMPLETED)
+                                        .build()));
 
-        ExerciseAttempt result =
-                courseTrackingService.recordExerciseAttempt(mockUser, blockId, false);
+        courseTrackingService.recordExerciseAttempt(mockUser, blockId, true);
 
-        assertFalse(result.getIsCorrect());
-        verify(eventPublisher, never()).publishEvent(any());
-        verify(lessonProgressRepository, never()).findByUserIdAndLessonId(any(), any());
+        verify(lessonProgressRepository, never()).save(any());
+        verify(topicProgressRepository, never()).findByUserIdAndTopicId(any(), any());
     }
 
     @Test
@@ -174,8 +225,15 @@ class CourseTrackingServiceTest {
         when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.of(block));
         when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, blockId))
                 .thenReturn(true);
-        when(attemptRepository.save(any(ExerciseAttempt.class)))
+        when(attemptRepository.save(any(LessonBlockAttempt.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+        when(lessonProgressRepository.findByUserIdAndLessonId(userId, lesson.getId()))
+                .thenReturn(
+                        Optional.of(
+                                UserLessonProgress.builder()
+                                        .lesson(lesson)
+                                        .status(ProgressStatus.IN_PROGRESS)
+                                        .build()));
 
         courseTrackingService.recordExerciseAttempt(mockUser, blockId, true);
 
@@ -206,10 +264,15 @@ class CourseTrackingServiceTest {
         when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.of(block));
         when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, blockId))
                 .thenReturn(false, true);
-        when(attemptRepository.save(any(ExerciseAttempt.class)))
+        when(attemptRepository.save(any(LessonBlockAttempt.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(lessonProgressRepository.findByUserIdAndLessonId(userId, lessonId))
-                .thenReturn(Optional.empty());
+                .thenReturn(
+                        Optional.of(
+                                UserLessonProgress.builder()
+                                        .lesson(lesson)
+                                        .status(ProgressStatus.IN_PROGRESS)
+                                        .build()));
         when(lessonProgressRepository.save(any(UserLessonProgress.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(lessonProgressRepository.findByUserIdAndLessonTopicId(userId, topicId))
@@ -258,10 +321,15 @@ class CourseTrackingServiceTest {
         when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.of(block));
         when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, blockId))
                 .thenReturn(false, true);
-        when(attemptRepository.save(any(ExerciseAttempt.class)))
+        when(attemptRepository.save(any(LessonBlockAttempt.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(lessonProgressRepository.findByUserIdAndLessonId(userId, lessonId))
-                .thenReturn(Optional.empty());
+                .thenReturn(
+                        Optional.of(
+                                UserLessonProgress.builder()
+                                        .lesson(lesson)
+                                        .status(ProgressStatus.IN_PROGRESS)
+                                        .build()));
         when(lessonProgressRepository.save(any(UserLessonProgress.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(lessonProgressRepository.findByUserIdAndLessonTopicId(userId, topicId))
@@ -323,12 +391,191 @@ class CourseTrackingServiceTest {
                 .thenReturn(false, true);
         when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, otherBlockId))
                 .thenReturn(false);
-        when(attemptRepository.save(any(ExerciseAttempt.class)))
+        when(attemptRepository.save(any(LessonBlockAttempt.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+        when(lessonProgressRepository.findByUserIdAndLessonId(userId, lesson.getId()))
+                .thenReturn(
+                        Optional.of(
+                                UserLessonProgress.builder()
+                                        .lesson(lesson)
+                                        .status(ProgressStatus.IN_PROGRESS)
+                                        .build()));
 
         courseTrackingService.recordExerciseAttempt(mockUser, blockId, true);
 
         verify(eventPublisher).publishEvent(any(XpEarnedEvent.class));
         verify(lessonProgressRepository, never()).save(any());
+    }
+
+    @Test
+    void recordBlockView_ThrowsNotFound_WhenBlockMissing() {
+        UUID blockId = UUID.randomUUID();
+        when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.empty());
+
+        assertThrows(
+                NotFoundException.class,
+                () -> courseTrackingService.recordBlockView(mockUser, blockId));
+        verify(attemptRepository, never()).save(any());
+    }
+
+    @Test
+    void recordBlockView_ThrowsInvalidInput_WhenBlockIsNotInfo() {
+        UUID blockId = UUID.randomUUID();
+        LessonBlock exerciseBlock =
+                LessonBlock.builder().id(blockId).type(BlockType.SELECT_MEANING).build();
+        when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.of(exerciseBlock));
+
+        assertThrows(
+                InvalidInputException.class,
+                () -> courseTrackingService.recordBlockView(mockUser, blockId));
+        verify(attemptRepository, never()).save(any());
+    }
+
+    @Test
+    void recordBlockView_FirstView_AwardsXpAndMarksLessonInProgress() {
+        UUID blockId = UUID.randomUUID();
+        Topic topic = Topic.builder().id(UUID.randomUUID()).build();
+        Lesson lesson = Lesson.builder().id(UUID.randomUUID()).topic(topic).build();
+        LessonBlock block =
+                LessonBlock.builder()
+                        .id(blockId)
+                        .type(BlockType.INFO)
+                        .xpReward(20)
+                        .lesson(lesson)
+                        .build();
+        lesson.setLessonBlocks(List.of(block));
+
+        when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.of(block));
+        when(attemptRepository.existsByUserIdAndLessonBlockId(userId, blockId))
+                .thenReturn(false, true);
+        when(attemptRepository.save(any(LessonBlockAttempt.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(lessonProgressRepository.findByUserIdAndLessonId(userId, lesson.getId()))
+                .thenReturn(Optional.empty());
+        when(lessonProgressRepository.save(any(UserLessonProgress.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(topicProgressRepository.findByUserIdAndTopicId(userId, topic.getId()))
+                .thenReturn(Optional.empty());
+        when(topicProgressRepository.save(any(UserTopicProgress.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        LessonBlockAttempt result = courseTrackingService.recordBlockView(mockUser, blockId);
+
+        assertNotNull(result);
+        verify(eventPublisher).publishEvent(any(XpEarnedEvent.class));
+
+        ArgumentCaptor<UserLessonProgress> progressCaptor =
+                ArgumentCaptor.forClass(UserLessonProgress.class);
+        verify(lessonProgressRepository, atLeastOnce()).save(progressCaptor.capture());
+        assertEquals(ProgressStatus.COMPLETED, progressCaptor.getValue().getStatus());
+        assertEquals(20, progressCaptor.getValue().getXpEarned());
+    }
+
+    @Test
+    void recordBlockView_FirstView_NoXpEvent_WhenBlockHasNoXpReward() {
+        UUID blockId = UUID.randomUUID();
+        Topic topic = Topic.builder().id(UUID.randomUUID()).build();
+        Lesson lesson = Lesson.builder().id(UUID.randomUUID()).topic(topic).build();
+        LessonBlock block =
+                LessonBlock.builder().id(blockId).type(BlockType.INFO).lesson(lesson).build();
+        lesson.setLessonBlocks(List.of(block));
+
+        when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.of(block));
+        when(attemptRepository.existsByUserIdAndLessonBlockId(userId, blockId))
+                .thenReturn(false, true);
+        when(attemptRepository.save(any(LessonBlockAttempt.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(lessonProgressRepository.findByUserIdAndLessonId(userId, lesson.getId()))
+                .thenReturn(Optional.empty());
+        when(lessonProgressRepository.save(any(UserLessonProgress.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(topicProgressRepository.findByUserIdAndTopicId(userId, topic.getId()))
+                .thenReturn(Optional.empty());
+        when(topicProgressRepository.save(any(UserTopicProgress.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        courseTrackingService.recordBlockView(mockUser, blockId);
+
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    void recordBlockView_RepeatedView_DoesNotAwardXpAgain() {
+        UUID blockId = UUID.randomUUID();
+        Lesson lesson = Lesson.builder().id(UUID.randomUUID()).build();
+        LessonBlock block =
+                LessonBlock.builder()
+                        .id(blockId)
+                        .type(BlockType.INFO)
+                        .xpReward(20)
+                        .lesson(lesson)
+                        .build();
+
+        when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.of(block));
+        when(attemptRepository.existsByUserIdAndLessonBlockId(userId, blockId)).thenReturn(true);
+        when(attemptRepository.save(any(LessonBlockAttempt.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(lessonProgressRepository.findByUserIdAndLessonId(userId, lesson.getId()))
+                .thenReturn(
+                        Optional.of(
+                                UserLessonProgress.builder()
+                                        .lesson(lesson)
+                                        .status(ProgressStatus.IN_PROGRESS)
+                                        .build()));
+
+        courseTrackingService.recordBlockView(mockUser, blockId);
+
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    void recordBlockView_CompletesLesson_WhenLastPendingBlockAmongMixedTypes() {
+        UUID infoBlockId = UUID.randomUUID();
+        UUID exerciseBlockId = UUID.randomUUID();
+        Topic topic = Topic.builder().id(UUID.randomUUID()).build();
+        Lesson lesson = Lesson.builder().id(UUID.randomUUID()).topic(topic).build();
+        LessonBlock infoBlock =
+                LessonBlock.builder()
+                        .id(infoBlockId)
+                        .type(BlockType.INFO)
+                        .xpReward(10)
+                        .lesson(lesson)
+                        .build();
+        LessonBlock exerciseBlock =
+                LessonBlock.builder()
+                        .id(exerciseBlockId)
+                        .type(BlockType.SELECT_MEANING)
+                        .xpReward(50)
+                        .lesson(lesson)
+                        .build();
+        lesson.setLessonBlocks(List.of(infoBlock, exerciseBlock));
+
+        when(lessonBlockRepository.findById(infoBlockId)).thenReturn(Optional.of(infoBlock));
+        when(attemptRepository.existsByUserIdAndLessonBlockId(userId, infoBlockId))
+                .thenReturn(false, true);
+        when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(
+                        userId, exerciseBlockId))
+                .thenReturn(true);
+        when(attemptRepository.save(any(LessonBlockAttempt.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(lessonProgressRepository.findByUserIdAndLessonId(userId, lesson.getId()))
+                .thenReturn(
+                        Optional.of(
+                                UserLessonProgress.builder()
+                                        .lesson(lesson)
+                                        .status(ProgressStatus.IN_PROGRESS)
+                                        .build()));
+        when(lessonProgressRepository.save(any(UserLessonProgress.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        courseTrackingService.recordBlockView(mockUser, infoBlockId);
+
+        verify(eventPublisher).publishEvent(any(XpEarnedEvent.class));
+
+        ArgumentCaptor<UserLessonProgress> progressCaptor =
+                ArgumentCaptor.forClass(UserLessonProgress.class);
+        verify(lessonProgressRepository).save(progressCaptor.capture());
+        assertEquals(ProgressStatus.COMPLETED, progressCaptor.getValue().getStatus());
+        assertEquals(60, progressCaptor.getValue().getXpEarned());
     }
 }

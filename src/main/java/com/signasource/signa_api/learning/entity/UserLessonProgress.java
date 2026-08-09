@@ -49,6 +49,8 @@ public class UserLessonProgress {
     @Column(nullable = false, length = 50)
     private ProgressStatus status;
 
+    private Instant startedAt;
+
     private Instant completedAt;
 
     @Column(nullable = false)

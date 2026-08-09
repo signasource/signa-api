@@ -20,13 +20,13 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "exercise_attempts")
+@Table(name = "lesson_block_attempts")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class ExerciseAttempt {
+public class LessonBlockAttempt {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -40,8 +40,8 @@ public class ExerciseAttempt {
     @JoinColumn(name = "lesson_block_id", nullable = false)
     private LessonBlock lessonBlock;
 
-    @Column(nullable = false)
-    private Boolean isCorrect;
+    /** True/false for evaluable blocks, null for INFO blocks (view-only, no correctness). */
+    @Column private Boolean isCorrect;
 
     @Column(nullable = false, updatable = false)
     private Instant attemptedAt;

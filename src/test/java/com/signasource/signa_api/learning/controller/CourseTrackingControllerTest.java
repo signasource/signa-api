@@ -59,4 +59,15 @@ class CourseTrackingControllerTest {
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         verify(trackingService).recordExerciseAttempt(mockUser, lessonBlockId, true);
     }
+
+    @Test
+    void recordView_ShouldReturn201() {
+        UUID lessonBlockId = UUID.randomUUID();
+
+        ResponseEntity<Void> response =
+                courseTrackingController.recordView(lessonBlockId, mockUserDetails);
+
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        verify(trackingService).recordBlockView(mockUser, lessonBlockId);
+    }
 }
