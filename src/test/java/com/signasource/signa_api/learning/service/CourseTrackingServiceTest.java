@@ -126,7 +126,7 @@ class CourseTrackingServiceTest {
     @Test
     void recordExerciseAttempt_ThrowsInvalidInput_WhenBlockIsNotExercise() {
         UUID blockId = UUID.randomUUID();
-        LessonBlock theoryBlock = LessonBlock.builder().id(blockId).type(BlockType.THEORY).build();
+        LessonBlock theoryBlock = LessonBlock.builder().id(blockId).type(BlockType.INFO).build();
         when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.of(theoryBlock));
 
         assertThrows(
@@ -142,7 +142,7 @@ class CourseTrackingServiceTest {
         LessonBlock block =
                 LessonBlock.builder()
                         .id(blockId)
-                        .type(BlockType.EXERCISE_ATTEMPT)
+                        .type(BlockType.SELECT_MEANING)
                         .xpReward(50)
                         .lesson(lesson)
                         .build();
@@ -166,7 +166,7 @@ class CourseTrackingServiceTest {
         LessonBlock block =
                 LessonBlock.builder()
                         .id(blockId)
-                        .type(BlockType.EXERCISE_ATTEMPT)
+                        .type(BlockType.SELECT_MEANING)
                         .xpReward(50)
                         .lesson(lesson)
                         .build();
@@ -197,7 +197,7 @@ class CourseTrackingServiceTest {
         LessonBlock block =
                 LessonBlock.builder()
                         .id(blockId)
-                        .type(BlockType.EXERCISE_ATTEMPT)
+                        .type(BlockType.SELECT_MEANING)
                         .xpReward(50)
                         .lesson(lesson)
                         .build();
@@ -249,7 +249,7 @@ class CourseTrackingServiceTest {
         LessonBlock block =
                 LessonBlock.builder()
                         .id(blockId)
-                        .type(BlockType.EXERCISE_ATTEMPT)
+                        .type(BlockType.SELECT_MEANING)
                         .xpReward(50)
                         .lesson(lesson)
                         .build();
@@ -305,14 +305,14 @@ class CourseTrackingServiceTest {
         LessonBlock block =
                 LessonBlock.builder()
                         .id(blockId)
-                        .type(BlockType.EXERCISE_ATTEMPT)
+                        .type(BlockType.SELECT_MEANING)
                         .xpReward(50)
                         .lesson(lesson)
                         .build();
         LessonBlock otherBlock =
                 LessonBlock.builder()
                         .id(otherBlockId)
-                        .type(BlockType.EXERCISE_ATTEMPT)
+                        .type(BlockType.SELECT_MEANING)
                         .xpReward(50)
                         .lesson(lesson)
                         .build();

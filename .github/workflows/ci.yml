@@ -26,6 +26,9 @@ jobs:
       - name: Check formatting
         run: ./gradlew spotlessCheck
 
+      - name: Validate course content
+        run: ./gradlew test --tests "com.signasource.signa_api.content.ContentValidationCheckTest"
+
       - name: Run tests with coverage
         run: ./gradlew test jacocoTestReport jacocoTestCoverageVerification
 

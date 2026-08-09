@@ -1,5 +1,7 @@
 package com.signasource.signa_api.auth.service;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.signasource.signa_api.auth.dto.AuthResponse;
 import com.signasource.signa_api.auth.dto.ChangePasswordRequest;
 import com.signasource.signa_api.auth.dto.ForgotPasswordRequest;
@@ -16,6 +18,7 @@ import com.signasource.signa_api.exceptions.InvalidCredentialsException;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.InvalidTokenException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
+import com.signasource.signa_api.users.entity.AuthProvider;
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.entity.UserSettings;
@@ -24,7 +27,11 @@ import com.signasource.signa_api.users.repository.UserSettingsRepository;
 import jakarta.transaction.Transactional;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -45,6 +52,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final TokenRepository tokenRepository;
     private final EmailService emailService;
+    private final GoogleIdTokenVerifier googleIdTokenVerifier;
 
     @Value("${auth.token-expirations.refresh}")
     private Long refreshTokenExpiration;
@@ -73,6 +81,7 @@ public class AuthService {
                         .passwordHash(passwordEncoder.encode(request.password()))
                         .role(Role.USER)
                         .enabled(false)
+                        .providers(new HashSet<>(Set.of(AuthProvider.LOCAL)))
                         .build();
 
         userRepository.save(user);
@@ -208,6 +217,68 @@ public class AuthService {
                 createToken(user, TokenType.REFRESH, Duration.ofMillis(refreshTokenExpiration));
 
         return new AuthResponse(accessToken, refreshToken.getToken());
+    }
+
+    @Transactional
+    public AuthResponse authenticateWithGoogle(String idTokenString) {
+        try {
+            GoogleIdToken idToken = googleIdTokenVerifier.verify(idTokenString);
+
+            if (idToken == null) {
+                throw new InvalidCredentialsException("Invalid Google token");
+            }
+
+            GoogleIdToken.Payload payload = idToken.getPayload();
+            String email = payload.getEmail();
+            String name = (String) payload.get("name");
+
+            Optional<User> userOptional = userRepository.findByEmail(email);
+            User user;
+
+            if (userOptional.isPresent()) {
+                user = userOptional.get();
+                boolean needsUpdate = false;
+
+                if (!user.isEnabled()) {
+                    user.setEnabled(true);
+                    needsUpdate = true;
+                }
+
+                if (!user.getProviders().contains(AuthProvider.GOOGLE)) {
+                    user.getProviders().add(AuthProvider.GOOGLE);
+                    needsUpdate = true;
+                }
+
+                if (needsUpdate) {
+                    user = userRepository.save(user);
+                }
+            } else {
+                String cleanName = name.toLowerCase().replaceAll("\\s+", "");
+                String generatedUsername = cleanName + ThreadLocalRandom.current().nextInt(10000);
+
+                user =
+                        User.builder()
+                                .email(email)
+                                .name(name)
+                                .username(generatedUsername)
+                                .passwordHash(null)
+                                .role(Role.USER)
+                                .enabled(true)
+                                .providers(new HashSet<>(Set.of(AuthProvider.GOOGLE)))
+                                .build();
+
+                user = userRepository.save(user);
+
+                userSettingsRepository.save(UserSettings.builder().user(user).build());
+            }
+
+            return generateTokens(user);
+        } catch (InvalidCredentialsException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new InvalidCredentialsException(
+                    "Error authenticating with Google: " + e.getMessage());
+        }
     }
 
     private Token getToken(String token, TokenType type) {

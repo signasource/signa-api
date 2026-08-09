@@ -1,0 +1,18 @@
+topic:
+  code: topic-1
+  name: First Topic
+  description: The first topic.
+
+lessons:
+  - code: lesson-1
+    name: First Lesson
+    description: The first lesson.
+    blocks:
+      - type: INFO
+        config:
+          text: Hello
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: hola
+          options: [hola, chau]

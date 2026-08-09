@@ -78,7 +78,7 @@ public class CourseTrackingService {
                         .findById(lessonBlockId)
                         .orElseThrow(() -> new NotFoundException("Lesson block not found"));
 
-        if (block.getType() != BlockType.EXERCISE_ATTEMPT) {
+        if (block.getType() == BlockType.INFO) {
             throw new InvalidInputException("This lesson block does not accept exercise attempts");
         }
 
@@ -106,7 +106,7 @@ public class CourseTrackingService {
     private void checkLessonCompletion(User user, Lesson lesson) {
         List<LessonBlock> exerciseBlocks =
                 lesson.getLessonBlocks().stream()
-                        .filter(b -> b.getType() == BlockType.EXERCISE_ATTEMPT)
+                        .filter(b -> b.getType() != BlockType.INFO)
                         .toList();
 
         boolean allCompleted =

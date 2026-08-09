@@ -32,7 +32,7 @@ class LessonControllerTest {
         // Arrange
         LessonBlockResponse blockResponse =
                 new LessonBlockResponse(
-                        UUID.randomUUID(), "VIDEO", 1, "{\"url\":\"video.mp4\"}", 20, false);
+                        UUID.randomUUID(), "INFO", 1, "{\"text\":\"Aprende la letra A\"}", 20);
 
         LessonDetailResponse mockDetail =
                 new LessonDetailResponse(
@@ -49,6 +49,6 @@ class LessonControllerTest {
         assertNotNull(response.getBody());
         assertEquals(lessonId, response.getBody().id());
         assertEquals(1, response.getBody().blocks().size());
-        assertEquals("VIDEO", response.getBody().blocks().get(0).type());
+        assertEquals("INFO", response.getBody().blocks().get(0).type());
     }
 }

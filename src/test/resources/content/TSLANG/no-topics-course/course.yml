@@ -1,0 +1,10 @@
+course:
+  code: no-topics-course
+  name: Course Without Topics
+  description: A course whose course.yml is missing the topics section.
+  free: true
+  cover: img.png
+
+version:
+  version: "1.0.0"
+  status: DRAFT
