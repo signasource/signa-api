@@ -148,15 +148,22 @@ sequenceDiagram
     participant API as API
     participant DB as Base de datos
 
-    C->>API: Solicitud de logros (opcional: filtrar por desbloqueados / activos)
+    C->>API: Consultar logros (opcional: filtrar por desbloqueados / activos)
     alt cuenta dada de baja
         API-->>C: No encontrado (404)
     else cuenta activa
         API->>DB: Traer catálogo de logros + los que el usuario desbloqueó
-        API->>API: Marcar cada logro como desbloqueado o no; aplicar filtros
+        API->>API: Marcar cada logro como desbloqueado o no y aplicar filtros
         API-->>C: Lista de logros con su estado
     end
-    Note over C,DB: El inventario (gemas, vidas, multiplicador de XP) sigue el mismo<br/>guard de cuenta activa y devuelve el estado del jugador.
+
+    C->>API: Consultar inventario
+    alt cuenta dada de baja
+        API-->>C: No encontrado (404)
+    else cuenta activa
+        API->>DB: Traer estado del jugador
+        API-->>C: Inventario (gemas, vidas, multiplicador de XP)
+    end
 ```
 
 ## Importación de contenido
