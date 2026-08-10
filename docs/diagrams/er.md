@@ -127,9 +127,6 @@ erDiagram
 
 ## Gamificación
 
-`USER_STATS` es el inventario/estado del jugador (gemas, escudos de racha, vidas, multiplicador de XP,
-rachas y XP). `ACHIEVEMENT` es el catálogo de logros; `USER_ACHIEVEMENT` registra los que un usuario
-desbloqueó (con `earnedAt`).
 
 ```mermaid
 erDiagram
@@ -147,28 +144,15 @@ erDiagram
     USER_STATS {
         uuid id PK
         uuid user_id FK "único"
-        int currentStreak
-        int longestStreak
-        long totalXp
-        int gems
-        int streakShields
-        double xpMultiplier
-        enum livesMode
-        int currentLives
     }
     ACHIEVEMENT {
         uuid id PK
-        string code UK
-        string title
         enum criteriaType
-        int criteriaValue
-        boolean active
     }
     USER_ACHIEVEMENT {
         uuid id PK
         uuid user_id FK
         uuid achievement_id FK
-        instant earnedAt
     }
     CHALLENGE {
         uuid id PK
