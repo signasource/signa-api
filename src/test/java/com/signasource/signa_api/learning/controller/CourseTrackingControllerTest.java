@@ -6,7 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
-import com.signasource.signa_api.learning.dto.ExerciseAttemptRequest;
+import com.signasource.signa_api.learning.dto.LessonBlockInteractionRequest;
 import com.signasource.signa_api.learning.service.CourseTrackingService;
 import com.signasource.signa_api.users.entity.User;
 import java.util.UUID;
@@ -49,25 +49,26 @@ class CourseTrackingControllerTest {
     }
 
     @Test
-    void recordAttempt_ShouldReturn201() {
+    void recordInteraction_ShouldReturn201_ForExerciseAttempt() {
         UUID lessonBlockId = UUID.randomUUID();
-        ExerciseAttemptRequest request = new ExerciseAttemptRequest(true);
+        LessonBlockInteractionRequest request = new LessonBlockInteractionRequest(true);
 
         ResponseEntity<Void> response =
-                courseTrackingController.recordAttempt(lessonBlockId, request, mockUserDetails);
+                courseTrackingController.recordInteraction(lessonBlockId, request, mockUserDetails);
 
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
-        verify(trackingService).recordExerciseAttempt(mockUser, lessonBlockId, true);
+        verify(trackingService).recordBlockInteraction(mockUser, lessonBlockId, true);
     }
 
     @Test
-    void recordView_ShouldReturn201() {
+    void recordInteraction_ShouldReturn201_ForInfoBlockView() {
         UUID lessonBlockId = UUID.randomUUID();
+        LessonBlockInteractionRequest request = new LessonBlockInteractionRequest(null);
 
         ResponseEntity<Void> response =
-                courseTrackingController.recordView(lessonBlockId, mockUserDetails);
+                courseTrackingController.recordInteraction(lessonBlockId, request, mockUserDetails);
 
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
-        verify(trackingService).recordBlockView(mockUser, lessonBlockId);
+        verify(trackingService).recordBlockInteraction(mockUser, lessonBlockId, null);
     }
 }

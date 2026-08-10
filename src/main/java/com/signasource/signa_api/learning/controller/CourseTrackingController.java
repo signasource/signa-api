@@ -1,7 +1,7 @@
 package com.signasource.signa_api.learning.controller;
 
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
-import com.signasource.signa_api.learning.dto.ExerciseAttemptRequest;
+import com.signasource.signa_api.learning.dto.LessonBlockInteractionRequest;
 import com.signasource.signa_api.learning.service.CourseTrackingService;
 import jakarta.validation.Valid;
 import java.util.UUID;
@@ -33,23 +33,14 @@ public class CourseTrackingController {
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
-    @PostMapping("/blocks/{lessonBlockId}/attempts")
-    public ResponseEntity<Void> recordAttempt(
+    @PostMapping("/blocks/{lessonBlockId}/interactions")
+    public ResponseEntity<Void> recordInteraction(
             @PathVariable UUID lessonBlockId,
-            @Valid @RequestBody ExerciseAttemptRequest request,
+            @Valid @RequestBody LessonBlockInteractionRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
-        trackingService.recordExerciseAttempt(
+        trackingService.recordBlockInteraction(
                 userDetails.getUser(), lessonBlockId, request.isCorrect());
-        return ResponseEntity.status(HttpStatus.CREATED).build();
-    }
-
-    @PostMapping("/blocks/{lessonBlockId}/view")
-    public ResponseEntity<Void> recordView(
-            @PathVariable UUID lessonBlockId,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-
-        trackingService.recordBlockView(userDetails.getUser(), lessonBlockId);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 }

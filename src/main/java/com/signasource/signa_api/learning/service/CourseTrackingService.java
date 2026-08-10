@@ -65,28 +65,37 @@ public class CourseTrackingService {
     }
 
     /**
-     * Records an attempt on an evaluable block and cascades completion up the hierarchy: the
-     * block's XP is awarded once, on its first correct attempt; once every block in a lesson has
-     * been resolved by the user the lesson is completed; once every lesson in a topic is completed
-     * the topic is completed; once every topic in a course version is completed the enrollment is
+     * Records a user's interaction with a lesson block — an exercise attempt (isCorrect set) or an
+     * INFO block view (isCorrect null) — and cascades completion up the hierarchy: the block's XP
+     * is awarded once, on its first correct attempt/view; once every block in a lesson has been
+     * resolved by the user the lesson is completed; once every lesson in a topic is completed the
+     * topic is completed; once every topic in a course version is completed the enrollment is
      * completed.
      */
     @Transactional
-    public LessonBlockAttempt recordExerciseAttempt(
-            User user, UUID lessonBlockId, boolean isCorrect) {
+    public LessonBlockAttempt recordBlockInteraction(
+            User user, UUID lessonBlockId, Boolean isCorrect) {
         LessonBlock block =
                 lessonBlockRepository
                         .findById(lessonBlockId)
                         .orElseThrow(() -> new NotFoundException("Lesson block not found"));
 
-        if (block.getType() == BlockType.INFO) {
-            throw new InvalidInputException("This lesson block does not accept exercise attempts");
+        boolean isInfo = block.getType() == BlockType.INFO;
+        if (isInfo && isCorrect != null) {
+            throw new InvalidInputException("INFO blocks do not accept a correctness value");
+        }
+        if (!isInfo && isCorrect == null) {
+            throw new InvalidInputException("This lesson block requires a correctness value");
         }
 
-        boolean isFirstCorrectAttempt =
-                isCorrect
-                        && !attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(
-                                user.getId(), lessonBlockId);
+        boolean isNewMilestone =
+                isInfo
+                        ? !attemptRepository.existsByUserIdAndLessonBlockId(
+                                user.getId(), lessonBlockId)
+                        : isCorrect
+                                && !attemptRepository
+                                        .existsByUserIdAndLessonBlockIdAndIsCorrectTrue(
+                                                user.getId(), lessonBlockId);
 
         LessonBlockAttempt attempt =
                 attemptRepository.save(
@@ -98,41 +107,8 @@ public class CourseTrackingService {
 
         markInProgress(user, block.getLesson());
 
-        if (isFirstCorrectAttempt) {
-            eventPublisher.publishEvent(new XpEarnedEvent(this, user, block.getXpReward()));
-            checkLessonCompletion(user, block.getLesson());
-        }
-
-        return attempt;
-    }
-
-    /**
-     * Records that the user viewed an INFO (non-evaluable) block. Unlike exercise attempts, a view
-     * has no correctness — the first view of a block is what counts towards lesson completion and,
-     * if the block has an XP reward, awards it once.
-     */
-    @Transactional
-    public LessonBlockAttempt recordBlockView(User user, UUID lessonBlockId) {
-        LessonBlock block =
-                lessonBlockRepository
-                        .findById(lessonBlockId)
-                        .orElseThrow(() -> new NotFoundException("Lesson block not found"));
-
-        if (block.getType() != BlockType.INFO) {
-            throw new InvalidInputException("This lesson block does not accept views");
-        }
-
-        boolean isFirstView =
-                !attemptRepository.existsByUserIdAndLessonBlockId(user.getId(), lessonBlockId);
-
-        LessonBlockAttempt attempt =
-                attemptRepository.save(
-                        LessonBlockAttempt.builder().user(user).lessonBlock(block).build());
-
-        markInProgress(user, block.getLesson());
-
-        if (isFirstView) {
-            if (block.getXpReward() != null) {
+        if (isNewMilestone) {
+            if (!isInfo || block.getXpReward() != null) {
                 eventPublisher.publishEvent(new XpEarnedEvent(this, user, block.getXpReward()));
             }
             checkLessonCompletion(user, block.getLesson());

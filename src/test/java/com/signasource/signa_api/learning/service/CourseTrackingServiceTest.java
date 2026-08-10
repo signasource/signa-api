@@ -114,30 +114,43 @@ class CourseTrackingServiceTest {
     }
 
     @Test
-    void recordExerciseAttempt_ThrowsNotFound_WhenBlockMissing() {
+    void recordBlockInteraction_ThrowsNotFound_WhenBlockMissing() {
         UUID blockId = UUID.randomUUID();
         when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.empty());
 
         assertThrows(
                 NotFoundException.class,
-                () -> courseTrackingService.recordExerciseAttempt(mockUser, blockId, true));
+                () -> courseTrackingService.recordBlockInteraction(mockUser, blockId, true));
         verify(attemptRepository, never()).save(any());
     }
 
     @Test
-    void recordExerciseAttempt_ThrowsInvalidInput_WhenBlockIsInfo() {
+    void recordBlockInteraction_ThrowsInvalidInput_WhenInfoBlockHasCorrectnessValue() {
         UUID blockId = UUID.randomUUID();
         LessonBlock infoBlock = LessonBlock.builder().id(blockId).type(BlockType.INFO).build();
         when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.of(infoBlock));
 
         assertThrows(
                 InvalidInputException.class,
-                () -> courseTrackingService.recordExerciseAttempt(mockUser, blockId, true));
+                () -> courseTrackingService.recordBlockInteraction(mockUser, blockId, true));
         verify(attemptRepository, never()).save(any());
     }
 
     @Test
-    void recordExerciseAttempt_IncorrectAttempt_DoesNotAwardXp_ButMarksLessonAndTopicInProgress() {
+    void recordBlockInteraction_ThrowsInvalidInput_WhenEvaluableBlockHasNoCorrectnessValue() {
+        UUID blockId = UUID.randomUUID();
+        LessonBlock exerciseBlock =
+                LessonBlock.builder().id(blockId).type(BlockType.SELECT_MEANING).build();
+        when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.of(exerciseBlock));
+
+        assertThrows(
+                InvalidInputException.class,
+                () -> courseTrackingService.recordBlockInteraction(mockUser, blockId, null));
+        verify(attemptRepository, never()).save(any());
+    }
+
+    @Test
+    void recordBlockInteraction_IncorrectAttempt_DoesNotAwardXp_ButMarksLessonAndTopicInProgress() {
         UUID blockId = UUID.randomUUID();
         Topic topic = Topic.builder().id(UUID.randomUUID()).build();
         Lesson lesson = Lesson.builder().id(UUID.randomUUID()).topic(topic).build();
@@ -162,7 +175,7 @@ class CourseTrackingServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         LessonBlockAttempt result =
-                courseTrackingService.recordExerciseAttempt(mockUser, blockId, false);
+                courseTrackingService.recordBlockInteraction(mockUser, blockId, false);
 
         assertFalse(result.getIsCorrect());
         verify(eventPublisher, never()).publishEvent(any());
@@ -180,7 +193,7 @@ class CourseTrackingServiceTest {
     }
 
     @Test
-    void recordExerciseAttempt_DoesNotRegressCompletedLessonBackToInProgress() {
+    void recordBlockInteraction_DoesNotRegressCompletedLessonBackToInProgress() {
         UUID blockId = UUID.randomUUID();
         Lesson lesson = Lesson.builder().id(UUID.randomUUID()).build();
         LessonBlock block =
@@ -204,14 +217,14 @@ class CourseTrackingServiceTest {
                                         .status(ProgressStatus.COMPLETED)
                                         .build()));
 
-        courseTrackingService.recordExerciseAttempt(mockUser, blockId, true);
+        courseTrackingService.recordBlockInteraction(mockUser, blockId, true);
 
         verify(lessonProgressRepository, never()).save(any());
         verify(topicProgressRepository, never()).findByUserIdAndTopicId(any(), any());
     }
 
     @Test
-    void recordExerciseAttempt_RepeatedCorrectAttempt_DoesNotAwardXpAgain() {
+    void recordBlockInteraction_RepeatedCorrectAttempt_DoesNotAwardXpAgain() {
         UUID blockId = UUID.randomUUID();
         Lesson lesson = Lesson.builder().id(UUID.randomUUID()).build();
         LessonBlock block =
@@ -235,13 +248,13 @@ class CourseTrackingServiceTest {
                                         .status(ProgressStatus.IN_PROGRESS)
                                         .build()));
 
-        courseTrackingService.recordExerciseAttempt(mockUser, blockId, true);
+        courseTrackingService.recordBlockInteraction(mockUser, blockId, true);
 
         verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test
-    void recordExerciseAttempt_FirstCorrectAttempt_CompletesLessonOnly_WhenTopicHasOtherLessons() {
+    void recordBlockInteraction_FirstCorrectAttempt_CompletesLessonOnly_WhenTopicHasOtherLessons() {
         UUID blockId = UUID.randomUUID();
         UUID lessonId = UUID.randomUUID();
         UUID topicId = UUID.randomUUID();
@@ -283,7 +296,7 @@ class CourseTrackingServiceTest {
                                         .status(ProgressStatus.COMPLETED)
                                         .build()));
 
-        courseTrackingService.recordExerciseAttempt(mockUser, blockId, true);
+        courseTrackingService.recordBlockInteraction(mockUser, blockId, true);
 
         verify(eventPublisher).publishEvent(any(XpEarnedEvent.class));
 
@@ -297,7 +310,7 @@ class CourseTrackingServiceTest {
     }
 
     @Test
-    void recordExerciseAttempt_CascadesUpToCourseCompletion_WhenSingleLessonAndTopic() {
+    void recordBlockInteraction_CascadesUpToCourseCompletion_WhenSingleLessonAndTopic() {
         UUID blockId = UUID.randomUUID();
         UUID lessonId = UUID.randomUUID();
         UUID topicId = UUID.randomUUID();
@@ -356,7 +369,7 @@ class CourseTrackingServiceTest {
         when(enrollmentRepository.findByUserIdAndCourseVersionId(userId, courseVersionId))
                 .thenReturn(Optional.of(enrollment));
 
-        courseTrackingService.recordExerciseAttempt(mockUser, blockId, true);
+        courseTrackingService.recordBlockInteraction(mockUser, blockId, true);
 
         verify(lessonProgressRepository).save(any(UserLessonProgress.class));
         verify(topicProgressRepository).save(any(UserTopicProgress.class));
@@ -366,7 +379,7 @@ class CourseTrackingServiceTest {
     }
 
     @Test
-    void recordExerciseAttempt_DoesNotCompleteLesson_WhenOtherBlocksPending() {
+    void recordBlockInteraction_DoesNotCompleteLesson_WhenOtherBlocksPending() {
         UUID blockId = UUID.randomUUID();
         UUID otherBlockId = UUID.randomUUID();
         Lesson lesson = Lesson.builder().id(UUID.randomUUID()).build();
@@ -401,38 +414,14 @@ class CourseTrackingServiceTest {
                                         .status(ProgressStatus.IN_PROGRESS)
                                         .build()));
 
-        courseTrackingService.recordExerciseAttempt(mockUser, blockId, true);
+        courseTrackingService.recordBlockInteraction(mockUser, blockId, true);
 
         verify(eventPublisher).publishEvent(any(XpEarnedEvent.class));
         verify(lessonProgressRepository, never()).save(any());
     }
 
     @Test
-    void recordBlockView_ThrowsNotFound_WhenBlockMissing() {
-        UUID blockId = UUID.randomUUID();
-        when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.empty());
-
-        assertThrows(
-                NotFoundException.class,
-                () -> courseTrackingService.recordBlockView(mockUser, blockId));
-        verify(attemptRepository, never()).save(any());
-    }
-
-    @Test
-    void recordBlockView_ThrowsInvalidInput_WhenBlockIsNotInfo() {
-        UUID blockId = UUID.randomUUID();
-        LessonBlock exerciseBlock =
-                LessonBlock.builder().id(blockId).type(BlockType.SELECT_MEANING).build();
-        when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.of(exerciseBlock));
-
-        assertThrows(
-                InvalidInputException.class,
-                () -> courseTrackingService.recordBlockView(mockUser, blockId));
-        verify(attemptRepository, never()).save(any());
-    }
-
-    @Test
-    void recordBlockView_FirstView_AwardsXpAndMarksLessonInProgress() {
+    void recordBlockInteraction_FirstView_AwardsXpAndMarksLessonInProgress() {
         UUID blockId = UUID.randomUUID();
         Topic topic = Topic.builder().id(UUID.randomUUID()).build();
         Lesson lesson = Lesson.builder().id(UUID.randomUUID()).topic(topic).build();
@@ -459,7 +448,8 @@ class CourseTrackingServiceTest {
         when(topicProgressRepository.save(any(UserTopicProgress.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        LessonBlockAttempt result = courseTrackingService.recordBlockView(mockUser, blockId);
+        LessonBlockAttempt result =
+                courseTrackingService.recordBlockInteraction(mockUser, blockId, null);
 
         assertNotNull(result);
         verify(eventPublisher).publishEvent(any(XpEarnedEvent.class));
@@ -472,7 +462,7 @@ class CourseTrackingServiceTest {
     }
 
     @Test
-    void recordBlockView_FirstView_NoXpEvent_WhenBlockHasNoXpReward() {
+    void recordBlockInteraction_FirstView_NoXpEvent_WhenBlockHasNoXpReward() {
         UUID blockId = UUID.randomUUID();
         Topic topic = Topic.builder().id(UUID.randomUUID()).build();
         Lesson lesson = Lesson.builder().id(UUID.randomUUID()).topic(topic).build();
@@ -494,13 +484,13 @@ class CourseTrackingServiceTest {
         when(topicProgressRepository.save(any(UserTopicProgress.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        courseTrackingService.recordBlockView(mockUser, blockId);
+        courseTrackingService.recordBlockInteraction(mockUser, blockId, null);
 
         verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test
-    void recordBlockView_RepeatedView_DoesNotAwardXpAgain() {
+    void recordBlockInteraction_RepeatedView_DoesNotAwardXpAgain() {
         UUID blockId = UUID.randomUUID();
         Lesson lesson = Lesson.builder().id(UUID.randomUUID()).build();
         LessonBlock block =
@@ -523,13 +513,13 @@ class CourseTrackingServiceTest {
                                         .status(ProgressStatus.IN_PROGRESS)
                                         .build()));
 
-        courseTrackingService.recordBlockView(mockUser, blockId);
+        courseTrackingService.recordBlockInteraction(mockUser, blockId, null);
 
         verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test
-    void recordBlockView_CompletesLesson_WhenLastPendingBlockAmongMixedTypes() {
+    void recordBlockInteraction_CompletesLesson_WhenLastPendingBlockAmongMixedTypes() {
         UUID infoBlockId = UUID.randomUUID();
         UUID exerciseBlockId = UUID.randomUUID();
         Topic topic = Topic.builder().id(UUID.randomUUID()).build();
@@ -568,7 +558,7 @@ class CourseTrackingServiceTest {
         when(lessonProgressRepository.save(any(UserLessonProgress.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        courseTrackingService.recordBlockView(mockUser, infoBlockId);
+        courseTrackingService.recordBlockInteraction(mockUser, infoBlockId, null);
 
         verify(eventPublisher).publishEvent(any(XpEarnedEvent.class));
 
