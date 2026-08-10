@@ -1,0 +1,14 @@
+course:
+  code: happy-course
+  name: Test Course
+  description: A course for testing.
+  free: true
+  cover: cover.png
+
+version:
+  version: "1.0.0"
+  status: DRAFT
+
+topics:
+  - topic-01.yml
+  - topic-02.yml

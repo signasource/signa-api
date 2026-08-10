@@ -1,13 +1,13 @@
 spring:
   application:
     name: signa-api-test
-  
+
   datasource:
     url: jdbc:h2:mem:testdb
     username: sa
     password:
     driver-class-name: org.h2.Driver
-  
+
   jpa:
     hibernate:
       ddl-auto: create-drop
@@ -27,10 +27,18 @@ server:
   port: 8080
 
 app:
-  security:
-    enabled: true
+    security:
+        enabled: true
+
+auth:
+    google:
+        client-id: "test-dummy-client-id"
 
 jwt:
   secret: test-secret-key-with-sufficient-length-for-hmac-256-algorithm-12345
   access-token-expiration: 15000
   refresh-token-expiration: 604800000
+
+firebase:
+  enabled: false
+  global-topic: test-global

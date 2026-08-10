@@ -1,0 +1,104 @@
+package com.signasource.signa_api.learning.service;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+import com.signasource.signa_api.exceptions.NotFoundException;
+import com.signasource.signa_api.learning.dto.LessonBlockResponse;
+import com.signasource.signa_api.learning.dto.LessonDetailResponse;
+import com.signasource.signa_api.learning.entity.BlockType;
+import com.signasource.signa_api.learning.entity.Lesson;
+import com.signasource.signa_api.learning.entity.LessonBlock;
+import com.signasource.signa_api.learning.repository.LessonRepository;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+@ExtendWith(MockitoExtension.class)
+class LessonServiceTest {
+
+    @Mock private LessonRepository lessonRepository;
+
+    @InjectMocks private LessonService lessonService;
+
+    private UUID lessonId;
+    private Lesson lesson;
+    private LessonBlock theoryBlock;
+    private LessonBlock exerciseBlock;
+
+    @BeforeEach
+    void setUp() {
+        lessonId = UUID.randomUUID();
+
+        lesson =
+                Lesson.builder()
+                        .id(lessonId)
+                        .code("LSA-L01")
+                        .name("Introducción al Alfabeto")
+                        .description("Aprende las primeras letras")
+                        .order(1)
+                        .build();
+
+        theoryBlock =
+                LessonBlock.builder()
+                        .id(UUID.randomUUID())
+                        .type(BlockType.INFO)
+                        .order(1)
+                        .config("{\"text\": \"El alfabeto dactilológico...\"}")
+                        .xpReward(10)
+                        .lesson(lesson)
+                        .build();
+
+        exerciseBlock =
+                LessonBlock.builder()
+                        .id(UUID.randomUUID())
+                        .type(BlockType.SELECT_MEANING)
+                        .order(2)
+                        .config("{\"expected_sign\": \"A\"}")
+                        .xpReward(50)
+                        .lesson(lesson)
+                        .build();
+    }
+
+    @Test
+    void shouldReturnLessonDetailWithOrderedBlocks() {
+        lesson.setLessonBlocks(List.of(theoryBlock, exerciseBlock));
+
+        when(lessonRepository.findById(lessonId)).thenReturn(Optional.of(lesson));
+
+        LessonDetailResponse response = lessonService.getLessonContent(lessonId);
+
+        assertNotNull(response);
+        assertEquals(lessonId, response.id());
+        assertEquals("Introducción al Alfabeto", response.name());
+        assertEquals(2, response.blocks().size());
+
+        LessonBlockResponse firstBlock = response.blocks().get(0);
+        assertEquals("INFO", firstBlock.type());
+        assertEquals(1, firstBlock.order());
+        assertEquals(10, firstBlock.xpReward());
+
+        LessonBlockResponse secondBlock = response.blocks().get(1);
+        assertEquals("SELECT_MEANING", secondBlock.type());
+
+        verify(lessonRepository).findById(lessonId);
+    }
+
+    @Test
+    void shouldThrowNotFoundWhenLessonDoesNotExist() {
+        when(lessonRepository.findById(lessonId)).thenReturn(Optional.empty());
+
+        NotFoundException exception =
+                assertThrows(
+                        NotFoundException.class, () -> lessonService.getLessonContent(lessonId));
+
+        assertTrue(exception.getMessage().contains("Lesson not found"));
+        verify(lessonRepository).findById(lessonId);
+    }
+}

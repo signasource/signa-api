@@ -1,17 +1,7 @@
 package com.signasource.signa_api.auth.service;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.UUID;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.signasource.signa_api.auth.dto.AuthResponse;
 import com.signasource.signa_api.auth.dto.ChangePasswordRequest;
 import com.signasource.signa_api.auth.dto.ForgotPasswordRequest;
@@ -28,184 +18,297 @@ import com.signasource.signa_api.exceptions.InvalidCredentialsException;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.InvalidTokenException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
+import com.signasource.signa_api.users.entity.AuthProvider;
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
+import com.signasource.signa_api.users.entity.UserSettings;
 import com.signasource.signa_api.users.repository.UserRepository;
-
+import com.signasource.signa_api.users.repository.UserSettingsRepository;
 import jakarta.transaction.Transactional;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.HashSet;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
-	private final UserRepository userRepository;
-	private final PasswordEncoder passwordEncoder;
-	private final AuthenticationManager authenticationManager;
-	private final JwtService jwtService;
-	private final TokenRepository tokenRepository;
-	private final EmailService emailService;
+    private final UserRepository userRepository;
+    private final UserSettingsRepository userSettingsRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final AuthenticationManager authenticationManager;
+    private final JwtService jwtService;
+    private final TokenRepository tokenRepository;
+    private final EmailService emailService;
+    private final GoogleIdTokenVerifier googleIdTokenVerifier;
 
-	@Value("${auth.token-expirations.refresh}")
-	private Long refreshTokenExpiration;
+    @Value("${auth.token-expirations.refresh}")
+    private Long refreshTokenExpiration;
 
-	@Value("${auth.token-expirations.password-reset}")
-	private Long passwordResetTokenExpiration;
+    @Value("${auth.token-expirations.password-reset}")
+    private Long passwordResetTokenExpiration;
 
-	@Value("${auth.token-expirations.email-verification}")
-	private Long emailVerificationTokenExpiration;
+    @Value("${auth.token-expirations.email-verification}")
+    private Long emailVerificationTokenExpiration;
 
-	@Transactional
-	public void register(RegisterRequest request) {
-		if (userRepository.existsByEmail(request.email())) {
-			throw new ResourceAlreadyInUseException("Email already in use");
-		}
+    @Transactional
+    public void register(RegisterRequest request) {
+        if (userRepository.existsByEmail(request.email())) {
+            throw new ResourceAlreadyInUseException("Email already in use");
+        }
 
-		User user = User.builder().email(request.email()).name(request.name())
-				.passwordHash(passwordEncoder.encode(request.password())).role(Role.USER).enabled(false).build();
+        if (userRepository.existsByUsername(request.username())) {
+            throw new ResourceAlreadyInUseException("Username already in use");
+        }
 
-		userRepository.save(user);
+        User user =
+                User.builder()
+                        .email(request.email())
+                        .username(request.username())
+                        .name(request.name())
+                        .passwordHash(passwordEncoder.encode(request.password()))
+                        .role(Role.USER)
+                        .enabled(false)
+                        .providers(new HashSet<>(Set.of(AuthProvider.LOCAL)))
+                        .build();
 
-		Token token = createToken(user, TokenType.EMAIL_VERIFICATION,
-				Duration.ofMillis(emailVerificationTokenExpiration));
+        userRepository.save(user);
 
-		emailService.sendVerificationEmail(user.getEmail(), token.getToken());
-	}
+        userSettingsRepository.save(UserSettings.builder().user(user).build());
 
-	public AuthResponse login(LoginRequest request) {
-		Authentication authentication = authenticationManager
-				.authenticate(new UsernamePasswordAuthenticationToken(request.email(), request.password()));
+        Token token =
+                createToken(
+                        user,
+                        TokenType.EMAIL_VERIFICATION,
+                        Duration.ofMillis(emailVerificationTokenExpiration));
 
-		CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-		User user = userDetails.getUser();
+        emailService.sendVerificationEmail(user.getEmail(), token.getToken());
+    }
 
-		if (!user.isEnabled()) {
-			throw new InvalidCredentialsException("Account not verified");
-		}
+    public AuthResponse login(LoginRequest request) {
+        Authentication authentication =
+                authenticationManager.authenticate(
+                        new UsernamePasswordAuthenticationToken(
+                                request.identifier(), request.password()));
 
-		return generateTokens(user);
-	}
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+        User user = userDetails.getUser();
 
-	public AuthResponse refreshToken(RefreshTokenRequest request) {
-		Token refreshToken = getToken(request.refreshToken(), TokenType.REFRESH);
-		validateExpiration(refreshToken);
-		tokenRepository.delete(refreshToken);
-		return generateTokens(refreshToken.getUser());
-	}
+        if (!user.isEnabled()) {
+            throw new InvalidCredentialsException("Account not verified");
+        }
 
-	@Transactional
-	public void verifyAccount(String token) {
-		Token verificationToken = getToken(token, TokenType.EMAIL_VERIFICATION);
-		validateExpiration(verificationToken);
-		tokenRepository.delete(verificationToken);
+        return generateTokens(user);
+    }
 
-		User user = verificationToken.getUser();
-		user.setEnabled(true);
+    public AuthResponse refreshToken(RefreshTokenRequest request) {
+        Token refreshToken = getToken(request.refreshToken(), TokenType.REFRESH);
+        validateExpiration(refreshToken);
+        tokenRepository.delete(refreshToken);
+        return generateTokens(refreshToken.getUser());
+    }
 
-		userRepository.save(user);
-	}
+    @Transactional
+    public void verifyAccount(String token) {
+        Token verificationToken = getToken(token, TokenType.EMAIL_VERIFICATION);
+        validateExpiration(verificationToken);
+        tokenRepository.delete(verificationToken);
 
-	@Transactional
-	public AuthResponse changePassword(ChangePasswordRequest request) {
-		User user = getAuthenticatedUser();
+        User user = verificationToken.getUser();
+        user.setEnabled(true);
 
-		if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
-			throw new InvalidInputException("Current password is incorrect");
-		}
+        userRepository.save(user);
+    }
 
-		if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
-			throw new InvalidInputException("New password must be different from current password");
-		}
+    @Transactional
+    public AuthResponse changePassword(ChangePasswordRequest request) {
+        User user = getAuthenticatedUser();
 
-		user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
-		userRepository.save(user);
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+            throw new InvalidInputException("Current password is incorrect");
+        }
 
-		tokenRepository.deleteByUserAndType(user, TokenType.REFRESH);
+        if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
+            throw new InvalidInputException("New password must be different from current password");
+        }
 
-		return generateTokens(user);
-	}
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        userRepository.save(user);
 
-	@Transactional
-	public void forgotPassword(ForgotPasswordRequest request) {
-		User user = userRepository.findByEmail(request.email()).orElse(null);
+        tokenRepository.deleteByUserAndType(user, TokenType.REFRESH);
 
-		if (user == null) {
-			return;
-		}
+        return generateTokens(user);
+    }
 
-		tokenRepository.deleteByUserAndType(user, TokenType.PASSWORD_RESET);
+    @Transactional
+    public void forgotPassword(ForgotPasswordRequest request) {
+        User user = userRepository.findByEmail(request.email()).orElse(null);
 
-		Token token = createToken(user, TokenType.PASSWORD_RESET, Duration.ofMillis(passwordResetTokenExpiration));
-		emailService.sendPasswordResetEmail(user.getEmail(), token.getToken());
-	}
+        if (user == null) {
+            return;
+        }
 
-	@Transactional
-	public void resetPassword(ResetPasswordRequest request, String token) {
-		Token resetToken = getToken(token, TokenType.PASSWORD_RESET);
-		validateExpiration(resetToken);
+        tokenRepository.deleteByUserAndType(user, TokenType.PASSWORD_RESET);
 
-		User user = resetToken.getUser();
-		if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
-			throw new InvalidInputException("New password must be different from current password");
-		}
+        Token token =
+                createToken(
+                        user,
+                        TokenType.PASSWORD_RESET,
+                        Duration.ofMillis(passwordResetTokenExpiration));
+        emailService.sendPasswordResetEmail(user.getEmail(), token.getToken());
+    }
 
-		user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
-		userRepository.save(user);
-		tokenRepository.delete(resetToken);
-		tokenRepository.deleteByUserAndType(user, TokenType.REFRESH);
-	}
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request, String token) {
+        Token resetToken = getToken(token, TokenType.PASSWORD_RESET);
+        validateExpiration(resetToken);
 
-	@Transactional
-	public void resendVerificationEmail(ResendVerificationEmailRequest request) {
-		User user = userRepository.findByEmail(request.email()).orElse(null);
+        User user = resetToken.getUser();
+        if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
+            throw new InvalidInputException("New password must be different from current password");
+        }
 
-		if (user == null) {
-			return;
-		}
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        userRepository.save(user);
+        tokenRepository.delete(resetToken);
+        tokenRepository.deleteByUserAndType(user, TokenType.REFRESH);
+    }
 
-		if (user.isEnabled()) {
-			return;
-		}
+    @Transactional
+    public void resendVerificationEmail(ResendVerificationEmailRequest request) {
+        User user = userRepository.findByEmail(request.email()).orElse(null);
 
-		tokenRepository.deleteByUserAndType(user, TokenType.EMAIL_VERIFICATION);
+        if (user == null) {
+            return;
+        }
 
-		Token token = createToken(user, TokenType.EMAIL_VERIFICATION,
-				Duration.ofMillis(emailVerificationTokenExpiration));
+        if (user.isEnabled()) {
+            return;
+        }
 
-		emailService.sendVerificationEmail(user.getEmail(), token.getToken());
+        tokenRepository.deleteByUserAndType(user, TokenType.EMAIL_VERIFICATION);
 
-	}
+        Token token =
+                createToken(
+                        user,
+                        TokenType.EMAIL_VERIFICATION,
+                        Duration.ofMillis(emailVerificationTokenExpiration));
 
-	private AuthResponse generateTokens(User user) {
-		CustomUserDetails userDetails = new CustomUserDetails(user);
+        emailService.sendVerificationEmail(user.getEmail(), token.getToken());
+    }
 
-		String accessToken = jwtService.generateToken(userDetails);
-		Token refreshToken = createToken(user, TokenType.REFRESH, Duration.ofMillis(refreshTokenExpiration));
+    private AuthResponse generateTokens(User user) {
+        CustomUserDetails userDetails = new CustomUserDetails(user);
 
-		return new AuthResponse(accessToken, refreshToken.getToken());
-	}
+        String accessToken = jwtService.generateToken(userDetails);
+        Token refreshToken =
+                createToken(user, TokenType.REFRESH, Duration.ofMillis(refreshTokenExpiration));
 
-	private Token getToken(String token, TokenType type) {
-		return tokenRepository.findByTokenAndType(token, type).orElseThrow(() -> new InvalidTokenException());
-	}
+        return new AuthResponse(accessToken, refreshToken.getToken());
+    }
 
-	private void validateExpiration(Token token) {
-		if (token.getExpiryDate().isBefore(Instant.now())) {
-			tokenRepository.delete(token);
-			throw new InvalidTokenException();
-		}
-	}
+    @Transactional
+    public AuthResponse authenticateWithGoogle(String idTokenString) {
+        try {
+            GoogleIdToken idToken = googleIdTokenVerifier.verify(idTokenString);
 
-	private User getAuthenticatedUser() {
-		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-		CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-		return userDetails.getUser();
-	}
+            if (idToken == null) {
+                throw new InvalidCredentialsException("Invalid Google token");
+            }
 
-	private Token createToken(User user, TokenType type, Duration duration) {
-		Token token = Token.builder().token(UUID.randomUUID().toString()).user(user).type(type)
-				.expiryDate(Instant.now().plus(duration)).build();
+            GoogleIdToken.Payload payload = idToken.getPayload();
+            String email = payload.getEmail();
+            String name = (String) payload.get("name");
 
-		return tokenRepository.save(token);
-	}
+            Optional<User> userOptional = userRepository.findByEmail(email);
+            User user;
+
+            if (userOptional.isPresent()) {
+                user = userOptional.get();
+                boolean needsUpdate = false;
+
+                if (!user.isEnabled()) {
+                    user.setEnabled(true);
+                    needsUpdate = true;
+                }
+
+                if (!user.getProviders().contains(AuthProvider.GOOGLE)) {
+                    user.getProviders().add(AuthProvider.GOOGLE);
+                    needsUpdate = true;
+                }
+
+                if (needsUpdate) {
+                    user = userRepository.save(user);
+                }
+            } else {
+                String cleanName = name.toLowerCase().replaceAll("\\s+", "");
+                String generatedUsername = cleanName + ThreadLocalRandom.current().nextInt(10000);
+
+                user =
+                        User.builder()
+                                .email(email)
+                                .name(name)
+                                .username(generatedUsername)
+                                .passwordHash(null)
+                                .role(Role.USER)
+                                .enabled(true)
+                                .providers(new HashSet<>(Set.of(AuthProvider.GOOGLE)))
+                                .build();
+
+                user = userRepository.save(user);
+
+                userSettingsRepository.save(UserSettings.builder().user(user).build());
+            }
+
+            return generateTokens(user);
+        } catch (InvalidCredentialsException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new InvalidCredentialsException(
+                    "Error authenticating with Google: " + e.getMessage());
+        }
+    }
+
+    private Token getToken(String token, TokenType type) {
+        return tokenRepository
+                .findByTokenAndType(token, type)
+                .orElseThrow(() -> new InvalidTokenException());
+    }
+
+    private void validateExpiration(Token token) {
+        if (token.getExpiryDate().isBefore(Instant.now())) {
+            tokenRepository.delete(token);
+            throw new InvalidTokenException();
+        }
+    }
+
+    private User getAuthenticatedUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+        return userDetails.getUser();
+    }
+
+    private Token createToken(User user, TokenType type, Duration duration) {
+        Token token =
+                Token.builder()
+                        .token(UUID.randomUUID().toString())
+                        .user(user)
+                        .type(type)
+                        .expiryDate(Instant.now().plus(duration))
+                        .build();
+
+        return tokenRepository.save(token);
+    }
 }
