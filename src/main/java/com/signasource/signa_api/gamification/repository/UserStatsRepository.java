@@ -5,7 +5,12 @@ import com.signasource.signa_api.users.entity.User;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
 
+@Repository
 public interface UserStatsRepository extends JpaRepository<UserStats, UUID> {
+
+    Optional<UserStats> findByUserId(UUID userId);
+
     Optional<UserStats> findByUser(User user);
 }
