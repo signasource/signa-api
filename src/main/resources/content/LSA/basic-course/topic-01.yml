@@ -245,233 +245,233 @@ lessons:
             - domingo
           keep_order: false
           
-- code: leccion-5
-  name: Meses del año
-  description: Aprende y practica las señas correspondientes a los meses del año.
+  - code: leccion-5
+    name: Meses del año
+    description: Aprende y practica las señas correspondientes a los meses del año.
 
-  blocks:
+    blocks:
 
-  - type: SELECT_MEANING
-    xp: 5
-    config:
-      sign: enero
-      options:
-        - enero
-        - marzo
-        - junio
-        - diciembre
+    - type: SELECT_MEANING
+      xp: 5
+      config:
+        sign: enero
+        options:
+          - enero
+          - marzo
+          - junio
+          - diciembre
 
-  - type: SELECT_SIGN
-    xp: 5
-    config:
-      word: febrero
-      options:
-        - enero
-        - febrero
-        - abril
-        - agosto
+    - type: SELECT_SIGN
+      xp: 5
+      config:
+        word: febrero
+        options:
+          - enero
+          - febrero
+          - abril
+          - agosto
 
-  - type: SELECT_MEANING
-    xp: 5
-    config:
-      sign: mayo
-      options:
-        - febrero
-        - mayo
-        - julio
-        - noviembre
+    - type: SELECT_MEANING
+      xp: 5
+      config:
+        sign: mayo
+        options:
+          - febrero
+          - mayo
+          - julio
+          - noviembre
 
-  - type: CONTEXT_RESPONSE
-    xp: 5
-    config:
-      question: "¿Qué mes viene después de marzo?"
-      answer: abril
-      options:
-        - febrero
-        - marzo
-        - abril
-        - mayo
+    - type: CONTEXT_RESPONSE
+      xp: 5
+      config:
+        question: "¿Qué mes viene después de marzo?"
+        answer: abril
+        options:
+          - febrero
+          - marzo
+          - abril
+          - mayo
 
-  - type: SELECT_SIGN
-    xp: 5
-    config:
-      word: julio
-      options:
-        - junio
-        - julio
-        - agosto
-        - septiembre
+    - type: SELECT_SIGN
+      xp: 5
+      config:
+        word: julio
+        options:
+          - junio
+          - julio
+          - agosto
+          - septiembre
 
-  - type: SELECT_MEANING
-    xp: 5
-    config:
-      sign: septiembre
-      options:
-        - agosto
-        - septiembre
-        - octubre
-        - noviembre
+    - type: SELECT_MEANING
+      xp: 5
+      config:
+        sign: septiembre
+        options:
+          - agosto
+          - septiembre
+          - octubre
+          - noviembre
 
-  - type: CONTEXT_RESPONSE
-    xp: 5
-    config:
-      question: "¿Qué mes viene antes de diciembre?"
-      answer: noviembre
-      options:
-        - septiembre
-        - octubre
-        - noviembre
-        - enero
+    - type: CONTEXT_RESPONSE
+      xp: 5
+      config:
+        question: "¿Qué mes viene antes de diciembre?"
+        answer: noviembre
+        options:
+          - septiembre
+          - octubre
+          - noviembre
+          - enero
 
-  - type: SELECT_SIGN
-    xp: 5
-    config:
-      word: octubre
-      options:
-        - agosto
-        - septiembre
-        - octubre
-        - diciembre
+    - type: SELECT_SIGN
+      xp: 5
+      config:
+        word: octubre
+        options:
+          - agosto
+          - septiembre
+          - octubre
+          - diciembre
 
-  - type: MATCH
-    xp: 10
-    config:
-      concepts:
-        - enero
-        - febrero
-        - marzo
-        - abril
-        - mayo
-        - junio
-        - julio
-        - agosto
-        - septiembre
-        - octubre
-        - noviembre
-        - diciembre
+    - type: MATCH
+      xp: 10
+      config:
+        concepts:
+          - enero
+          - febrero
+          - marzo
+          - abril
+          - mayo
+          - junio
+          - julio
+          - agosto
+          - septiembre
+          - octubre
+          - noviembre
+          - diciembre
 
-  - type: VISUAL_RECOGNITION
-    xp: 15
-    config:
-      sign_sequence:
-        - enero
-        - abril
-        - julio
-        - octubre
-      options:
-        - enero
-        - febrero
-        - abril
-        - mayo
-        - julio
-        - agosto
-        - octubre
-        - diciembre
-      keep_order: false
+    - type: VISUAL_RECOGNITION
+      xp: 15
+      config:
+        sign_sequence:
+          - enero
+          - abril
+          - julio
+          - octubre
+        options:
+          - enero
+          - febrero
+          - abril
+          - mayo
+          - julio
+          - agosto
+          - octubre
+          - diciembre
+        keep_order: false
 
 
-- code: leccion-6
-  name: Amigos y familia
-  description: Aprende las señas de personas cercanas y relaciones familiares.
+  - code: leccion-6
+    name: Amigos y familia
+    description: Aprende las señas de personas cercanas y relaciones familiares.
 
-  blocks:
+    blocks:
 
-  - type: SELECT_MEANING
-    xp: 5
-    config:
-      sign: madre
-      options:
-        - madre
-        - padre
-        - hermano
-        - amigo
+    - type: SELECT_MEANING
+      xp: 5
+      config:
+        sign: madre
+        options:
+          - madre
+          - padre
+          - hermano
+          - amigo
 
-  - type: SELECT_SIGN
-    xp: 5
-    config:
-      word: padre
-      options:
-        - madre
-        - padre
-        - abuelo
-        - amigo
+    - type: SELECT_SIGN
+      xp: 5
+      config:
+        word: padre
+        options:
+          - madre
+          - padre
+          - abuelo
+          - amigo
 
-  - type: SELECT_MEANING
-    xp: 5
-    config:
-      sign: amigo
-      options:
-        - hermano
-        - amigo
-        - abuelo
-        - madre
+    - type: SELECT_MEANING
+      xp: 5
+      config:
+        sign: amigo
+        options:
+          - hermano
+          - amigo
+          - abuelo
+          - madre
 
-  - type: CONTEXT_RESPONSE
-    xp: 5
-    config:
-      question: "¿Cómo llamarías a la persona que es el padre de tu madre?"
-      answer: abuelo
-      options:
-        - hermano
-        - padre
-        - abuelo
-        - amigo
+    - type: CONTEXT_RESPONSE
+      xp: 5
+      config:
+        question: "¿Cómo llamarías a la persona que es el padre de tu madre?"
+        answer: abuelo
+        options:
+          - hermano
+          - padre
+          - abuelo
+          - amigo
 
-  - type: SELECT_SIGN
-    xp: 5
-    config:
-      word: hermano
-      options:
-        - padre
-        - amigo
-        - hermano
-        - abuelo
+    - type: SELECT_SIGN
+      xp: 5
+      config:
+        word: hermano
+        options:
+          - padre
+          - amigo
+          - hermano
+          - abuelo
 
-  - type: SELECT_MEANING
-    xp: 5
-    config:
-      sign: abuelo
-      options:
-        - abuelo
-        - hermano
-        - padre
-        - amigo
+    - type: SELECT_MEANING
+      xp: 5
+      config:
+        sign: abuelo
+        options:
+          - abuelo
+          - hermano
+          - padre
+          - amigo
 
-  - type: CONTEXT_RESPONSE
-    xp: 5
-    config:
-      question: "¿Quién puede ser una persona con la que compartís una amistad?"
-      answer: amigo
-      options:
-        - padre
-        - abuelo
-        - hermano
-        - amigo
+    - type: CONTEXT_RESPONSE
+      xp: 5
+      config:
+        question: "¿Quién puede ser una persona con la que compartís una amistad?"
+        answer: amigo
+        options:
+          - padre
+          - abuelo
+          - hermano
+          - amigo
 
-  - type: MATCH
-    xp: 10
-    config:
-      concepts:
-        - madre
-        - padre
-        - amigo
-        - abuelo
-        - hermano
+    - type: MATCH
+      xp: 10
+      config:
+        concepts:
+          - madre
+          - padre
+          - amigo
+          - abuelo
+          - hermano
 
-  - type: VISUAL_RECOGNITION
-    xp: 15
-    config:
-      sign_sequence:
-        - madre
-        - amigo
-        - abuelo
-        - hermano
-      options:
-        - madre
-        - padre
-        - amigo
-        - abuelo
-        - hermano
-      keep_order: false
+    - type: VISUAL_RECOGNITION
+      xp: 15
+      config:
+        sign_sequence:
+          - madre
+          - amigo
+          - abuelo
+          - hermano
+        options:
+          - madre
+          - padre
+          - amigo
+          - abuelo
+          - hermano
+        keep_order: false
 
       
