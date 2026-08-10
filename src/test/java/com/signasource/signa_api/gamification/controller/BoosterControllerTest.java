@@ -54,12 +54,13 @@ class BoosterControllerTest {
     @Test
     void shouldActivateBooster() {
         UserInventoryResponse inventory =
-                new UserInventoryResponse(70, 1, LivesMode.LIMITED, 4, null, 1.0, null, false);
+                new UserInventoryResponse(
+                        70, 1, LivesMode.LIMITED, 4, null, null, false, 1.0, null, false);
         BoosterActivationResponse expected =
                 new BoosterActivationResponse(
                         purchaseId,
-                        "streak_shield",
-                        ShopItemType.STREAK_SHIELD,
+                        "xp_boost",
+                        ShopItemType.XP_MULTIPLIER,
                         PurchaseStatus.ACTIVATED,
                         Instant.now(),
                         inventory);

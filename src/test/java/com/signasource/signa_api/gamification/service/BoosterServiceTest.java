@@ -86,14 +86,15 @@ class BoosterServiceTest {
     }
 
     @Test
-    void activate_whenStreakShield_incrementsShieldCount() {
+    void activate_whenUnlimitedLives_setsExpiryAndEffectiveMode() {
         ShopItem item =
                 ShopItem.builder()
                         .id(UUID.randomUUID())
-                        .code("streak_shield")
-                        .itemType(ShopItemType.STREAK_SHIELD)
-                        .priceGems(20)
+                        .code("unlimited_lives_15m")
+                        .itemType(ShopItemType.UNLIMITED_LIVES)
+                        .priceGems(25)
                         .quantity(1)
+                        .durationMinutes(15)
                         .build();
         Purchase purchase = pendingPurchase(item);
         when(purchaseRepository.findByIdAndUser(purchaseId, user))
@@ -102,73 +103,14 @@ class BoosterServiceTest {
 
         BoosterActivationResponse response = boosterService.activate(user, purchaseId);
 
-        assertEquals(1, stats.getStreakShields());
+        assertTrue(stats.getUnlimitedLivesExpiresAt().isAfter(Instant.now()));
+        assertTrue(stats.hasActiveUnlimitedLives());
+        assertEquals(LivesMode.INFINITE, stats.getEffectiveLivesMode());
         assertEquals(PurchaseStatus.ACTIVATED, purchase.getStatus());
         assertNotNull(purchase.getActivatedAt());
         assertEquals(PurchaseStatus.ACTIVATED, response.status());
         verify(userStatsRepository).save(stats);
         verify(purchaseRepository).save(purchase);
-    }
-
-    @Test
-    void activate_whenGems_addsGemsToBalance() {
-        ShopItem item =
-                ShopItem.builder()
-                        .id(UUID.randomUUID())
-                        .code("gems_pack")
-                        .itemType(ShopItemType.GEMS)
-                        .priceGems(0)
-                        .quantity(100)
-                        .build();
-        Purchase purchase = pendingPurchase(item);
-        when(purchaseRepository.findByIdAndUser(purchaseId, user))
-                .thenReturn(Optional.of(purchase));
-        when(userStatsRepository.findByUser(user)).thenReturn(Optional.of(stats));
-
-        boosterService.activate(user, purchaseId);
-
-        assertEquals(150, stats.getGems());
-    }
-
-    @Test
-    void activate_whenLifeAndLimitedMode_addsLifeCappedAtMax() {
-        stats.setCurrentLives(4);
-        ShopItem item =
-                ShopItem.builder()
-                        .id(UUID.randomUUID())
-                        .code("extra_life")
-                        .itemType(ShopItemType.LIFE)
-                        .priceGems(10)
-                        .quantity(5)
-                        .build();
-        Purchase purchase = pendingPurchase(item);
-        when(purchaseRepository.findByIdAndUser(purchaseId, user))
-                .thenReturn(Optional.of(purchase));
-        when(userStatsRepository.findByUser(user)).thenReturn(Optional.of(stats));
-
-        boosterService.activate(user, purchaseId);
-
-        assertEquals(5, stats.getCurrentLives());
-    }
-
-    @Test
-    void activate_whenLifeAndInfiniteMode_throwsInvalidInput() {
-        stats.setLivesMode(LivesMode.INFINITE);
-        ShopItem item =
-                ShopItem.builder()
-                        .id(UUID.randomUUID())
-                        .code("extra_life")
-                        .itemType(ShopItemType.LIFE)
-                        .priceGems(10)
-                        .quantity(1)
-                        .build();
-        Purchase purchase = pendingPurchase(item);
-        when(purchaseRepository.findByIdAndUser(purchaseId, user))
-                .thenReturn(Optional.of(purchase));
-        when(userStatsRepository.findByUser(user)).thenReturn(Optional.of(stats));
-
-        assertThrows(InvalidInputException.class, () -> boosterService.activate(user, purchaseId));
-        verify(purchaseRepository, never()).save(any());
     }
 
     @Test
@@ -196,7 +138,7 @@ class BoosterServiceTest {
     }
 
     @Test
-    void activate_whenPurchaseAlreadyActivated_throwsResourceAlreadyInUse() {
+    void activate_whenBoosterTypeNotSupported_throwsInvalidInput() {
         ShopItem item =
                 ShopItem.builder()
                         .id(UUID.randomUUID())
@@ -204,6 +146,27 @@ class BoosterServiceTest {
                         .itemType(ShopItemType.STREAK_SHIELD)
                         .priceGems(20)
                         .quantity(1)
+                        .build();
+        Purchase purchase = pendingPurchase(item);
+        when(purchaseRepository.findByIdAndUser(purchaseId, user))
+                .thenReturn(Optional.of(purchase));
+        when(userStatsRepository.findByUser(user)).thenReturn(Optional.of(stats));
+
+        assertThrows(InvalidInputException.class, () -> boosterService.activate(user, purchaseId));
+        verify(purchaseRepository, never()).save(any());
+    }
+
+    @Test
+    void activate_whenPurchaseAlreadyActivated_throwsResourceAlreadyInUse() {
+        ShopItem item =
+                ShopItem.builder()
+                        .id(UUID.randomUUID())
+                        .code("xp_boost")
+                        .itemType(ShopItemType.XP_MULTIPLIER)
+                        .priceGems(30)
+                        .quantity(1)
+                        .durationMinutes(30)
+                        .multiplierValue(2.0)
                         .build();
         Purchase purchase = pendingPurchase(item);
         purchase.setStatus(PurchaseStatus.ACTIVATED);
@@ -229,10 +192,12 @@ class BoosterServiceTest {
         ShopItem item =
                 ShopItem.builder()
                         .id(UUID.randomUUID())
-                        .code("streak_shield")
-                        .itemType(ShopItemType.STREAK_SHIELD)
-                        .priceGems(20)
+                        .code("xp_boost")
+                        .itemType(ShopItemType.XP_MULTIPLIER)
+                        .priceGems(30)
                         .quantity(1)
+                        .durationMinutes(30)
+                        .multiplierValue(2.0)
                         .build();
         Purchase purchase = pendingPurchase(item);
         when(purchaseRepository.findByIdAndUser(purchaseId, user))

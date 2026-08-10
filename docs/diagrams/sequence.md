@@ -161,6 +161,10 @@ sequenceDiagram
 
 ## Activación de un potenciador
 
+Sólo se activan manualmente los potenciadores temporales (vidas ilimitadas y multiplicador de XP):
+el escudo de racha y la regeneración de vidas se aplican en otros flujos (cuando la racha está por
+romperse, cuando se gasta una vida), no a través de este endpoint.
+
 ```mermaid
 sequenceDiagram
     autonumber
@@ -173,16 +177,14 @@ sequenceDiagram
         API-->>C: No encontrado (404)
     else compra ya activada
         API-->>C: Conflicto (409)
-    else compra pendiente
+    else tipo de potenciador no soportado (p. ej. escudo de racha)
+        API-->>C: Solicitud inválida (400)
+    else compra pendiente de vidas ilimitadas o multiplicador de XP
         API->>DB: Traer inventario del jugador (USER_STATS)
-        API->>API: Aplicar el efecto del ítem según su tipo<br/>(escudo de racha, vida, multiplicador de XP o gemas)
-        alt vida sin cupo (modo de vidas infinito)
-            API-->>C: Solicitud inválida (400)
-        else efecto aplicado
-            API->>DB: Guardar inventario actualizado
-            API->>DB: Marcar la compra como activada
-            API-->>C: Estado del potenciador + inventario actualizado
-        end
+        API->>API: Fijar el vencimiento del efecto (ahora + duración del ítem)
+        API->>DB: Guardar inventario actualizado
+        API->>DB: Marcar la compra como activada
+        API-->>C: Estado del potenciador + inventario actualizado
     end
 ```
 

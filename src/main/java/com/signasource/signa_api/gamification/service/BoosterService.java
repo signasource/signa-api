@@ -4,7 +4,6 @@ import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.gamification.dto.BoosterActivationResponse;
-import com.signasource.signa_api.gamification.entity.LivesMode;
 import com.signasource.signa_api.gamification.entity.Purchase;
 import com.signasource.signa_api.gamification.entity.PurchaseStatus;
 import com.signasource.signa_api.gamification.entity.ShopItem;
@@ -57,19 +56,17 @@ public class BoosterService {
 
     private void applyEffect(UserStats stats, ShopItem item) {
         switch (item.getItemType()) {
-            case STREAK_SHIELD ->
-                    stats.setStreakShields(stats.getStreakShields() + item.getQuantity());
-            case GEMS -> stats.setGems(stats.getGems() + item.getQuantity());
-            case LIFE -> applyLife(stats, item);
+            case UNLIMITED_LIVES -> applyUnlimitedLives(stats, item);
             case XP_MULTIPLIER -> applyXpMultiplier(stats, item);
+            default ->
+                    throw new InvalidInputException(
+                            "Booster type " + item.getItemType() + " cannot be activated");
         }
     }
 
-    private void applyLife(UserStats stats, ShopItem item) {
-        if (stats.getLivesMode() != LivesMode.LIMITED) {
-            throw new InvalidInputException("Life boosters can only be used in limited lives mode");
-        }
-        stats.addLives(item.getQuantity());
+    private void applyUnlimitedLives(UserStats stats, ShopItem item) {
+        stats.setUnlimitedLivesExpiresAt(
+                Instant.now().plus(Duration.ofMinutes(item.getDurationMinutes())));
     }
 
     private void applyXpMultiplier(UserStats stats, ShopItem item) {

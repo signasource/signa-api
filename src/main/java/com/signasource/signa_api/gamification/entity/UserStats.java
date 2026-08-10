@@ -78,6 +78,8 @@ public class UserStats {
 
     @Column private Instant nextLifeAt;
 
+    @Column private Instant unlimitedLivesExpiresAt;
+
     @Column(nullable = false)
     private Instant updatedAt;
 
@@ -92,12 +94,17 @@ public class UserStats {
         return getEffectiveXpMultiplier() > 1.0;
     }
 
-    public boolean isLivesRegenerating() {
-        return livesMode == LivesMode.LIMITED && currentLives != null && currentLives < MAX_LIVES;
+    public boolean hasActiveUnlimitedLives() {
+        return unlimitedLivesExpiresAt != null && unlimitedLivesExpiresAt.isAfter(Instant.now());
     }
 
-    public void addLives(int amount) {
-        int current = currentLives == null ? 0 : currentLives;
-        currentLives = Math.min(MAX_LIVES, current + amount);
+    public LivesMode getEffectiveLivesMode() {
+        return hasActiveUnlimitedLives() ? LivesMode.INFINITE : livesMode;
+    }
+
+    public boolean isLivesRegenerating() {
+        return getEffectiveLivesMode() == LivesMode.LIMITED
+                && currentLives != null
+                && currentLives < MAX_LIVES;
     }
 }

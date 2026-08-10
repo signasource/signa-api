@@ -155,6 +155,7 @@ erDiagram
         double xpMultiplier
         enum livesMode
         int currentLives
+        instant unlimitedLivesExpiresAt
     }
     ACHIEVEMENT {
         uuid id PK
