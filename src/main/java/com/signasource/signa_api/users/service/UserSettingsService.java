@@ -1,6 +1,8 @@
 package com.signasource.signa_api.users.service;
 
 import com.signasource.signa_api.exceptions.NotFoundException;
+import com.signasource.signa_api.users.dto.DailyGoalResponse;
+import com.signasource.signa_api.users.dto.UpdateDailyGoalRequest;
 import com.signasource.signa_api.users.dto.UpdateUserSettingsRequest;
 import com.signasource.signa_api.users.dto.UserSettingsResponse;
 import com.signasource.signa_api.users.entity.User;
@@ -28,6 +30,21 @@ public class UserSettingsService {
         userSettingsRepository.save(settings);
 
         return UserSettingsResponse.from(settings);
+    }
+
+    @Transactional(readOnly = true)
+    public DailyGoalResponse getDailyGoal(User user) {
+        return DailyGoalResponse.from(getSettingsEntity(user));
+    }
+
+    @Transactional
+    public DailyGoalResponse updateDailyGoal(User user, UpdateDailyGoalRequest request) {
+        UserSettings settings = getSettingsEntity(user);
+
+        settings.setDailyGoalMinutes(request.dailyGoalMinutes());
+        userSettingsRepository.save(settings);
+
+        return DailyGoalResponse.from(settings);
     }
 
     private UserSettings getSettingsEntity(User user) {

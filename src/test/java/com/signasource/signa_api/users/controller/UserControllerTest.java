@@ -14,7 +14,9 @@ import com.signasource.signa_api.auth.dto.ChangePasswordRequest;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.service.AuthService;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
+import com.signasource.signa_api.users.dto.DailyGoalResponse;
 import com.signasource.signa_api.users.dto.PublicUserProfileResponse;
+import com.signasource.signa_api.users.dto.UpdateDailyGoalRequest;
 import com.signasource.signa_api.users.dto.UpdateUserSettingsRequest;
 import com.signasource.signa_api.users.dto.UpdateUsernameRequest;
 import com.signasource.signa_api.users.dto.UserProfileResponse;
@@ -124,6 +126,32 @@ class UserControllerTest {
                 userController.updateSettings(userDetails, request);
 
         verify(userSettingsService).updateSettings(user, request);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(expected, response.getBody());
+    }
+
+    @Test
+    void shouldReturnDailyGoal() {
+        DailyGoalResponse expected = new DailyGoalResponse(DAILY_GOAL_MINUTES);
+        when(userSettingsService.getDailyGoal(user)).thenReturn(expected);
+
+        ResponseEntity<DailyGoalResponse> response = userController.getDailyGoal(userDetails);
+
+        verify(userSettingsService).getDailyGoal(user);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(expected, response.getBody());
+    }
+
+    @Test
+    void shouldReturnUpdatedDailyGoal() {
+        UpdateDailyGoalRequest request = new UpdateDailyGoalRequest(DAILY_GOAL_MINUTES);
+        DailyGoalResponse expected = new DailyGoalResponse(DAILY_GOAL_MINUTES);
+        when(userSettingsService.updateDailyGoal(user, request)).thenReturn(expected);
+
+        ResponseEntity<DailyGoalResponse> response =
+                userController.updateDailyGoal(userDetails, request);
+
+        verify(userSettingsService).updateDailyGoal(user, request);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(expected, response.getBody());
     }

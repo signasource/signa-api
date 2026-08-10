@@ -4,7 +4,9 @@ import com.signasource.signa_api.auth.dto.AuthResponse;
 import com.signasource.signa_api.auth.dto.ChangePasswordRequest;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.service.AuthService;
+import com.signasource.signa_api.users.dto.DailyGoalResponse;
 import com.signasource.signa_api.users.dto.PublicUserProfileResponse;
+import com.signasource.signa_api.users.dto.UpdateDailyGoalRequest;
 import com.signasource.signa_api.users.dto.UpdateUserSettingsRequest;
 import com.signasource.signa_api.users.dto.UpdateUsernameRequest;
 import com.signasource.signa_api.users.dto.UserProfileResponse;
@@ -60,6 +62,20 @@ public class UserController {
             @Valid @RequestBody UpdateUserSettingsRequest request) {
         return ResponseEntity.ok(
                 userSettingsService.updateSettings(userDetails.getUser(), request));
+    }
+
+    @GetMapping("/daily-goal")
+    public ResponseEntity<DailyGoalResponse> getDailyGoal(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(userSettingsService.getDailyGoal(userDetails.getUser()));
+    }
+
+    @PutMapping("/daily-goal")
+    public ResponseEntity<DailyGoalResponse> updateDailyGoal(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody UpdateDailyGoalRequest request) {
+        return ResponseEntity.ok(
+                userSettingsService.updateDailyGoal(userDetails.getUser(), request));
     }
 
     @GetMapping("/username-availability")
