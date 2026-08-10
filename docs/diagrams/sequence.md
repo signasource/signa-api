@@ -159,6 +159,33 @@ sequenceDiagram
     Note over C,DB: El inventario (gemas, vidas, multiplicador de XP) sigue el mismo<br/>guard de cuenta activa y devuelve el estado del jugador.
 ```
 
+## Activación de un potenciador
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant API as API
+    participant DB as Base de datos
+
+    C->>API: Activar compra (id de la compra)
+    alt cuenta dada de baja o compra inexistente/ajena
+        API-->>C: No encontrado (404)
+    else compra ya activada
+        API-->>C: Conflicto (409)
+    else compra pendiente
+        API->>DB: Traer inventario del jugador (USER_STATS)
+        API->>API: Aplicar el efecto del ítem según su tipo<br/>(escudo de racha, vida, multiplicador de XP o gemas)
+        alt vida sin cupo (modo de vidas infinito)
+            API-->>C: Solicitud inválida (400)
+        else efecto aplicado
+            API->>DB: Guardar inventario actualizado
+            API->>DB: Marcar la compra como activada
+            API-->>C: Estado del potenciador + inventario actualizado
+        end
+    end
+```
+
 ## Importación de contenido
 
 ```mermaid

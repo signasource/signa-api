@@ -95,4 +95,9 @@ public class UserStats {
     public boolean isLivesRegenerating() {
         return livesMode == LivesMode.LIMITED && currentLives != null && currentLives < MAX_LIVES;
     }
+
+    public void addLives(int amount) {
+        int current = currentLives == null ? 0 : currentLives;
+        currentLives = Math.min(MAX_LIVES, current + amount);
+    }
 }

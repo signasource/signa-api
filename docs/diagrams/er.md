@@ -189,6 +189,8 @@ erDiagram
         uuid id PK
         uuid user_id FK
         uuid shop_item_id FK
+        enum status
+        instant activatedAt
     }
     GIFT {
         uuid id PK
