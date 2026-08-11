@@ -28,7 +28,7 @@ import lombok.ToString;
 @Builder
 public class UserStats {
 
-    private static final int MAX_LIVES = 5;
+    public static final int MAX_LIVES = 5;
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -78,6 +78,8 @@ public class UserStats {
 
     @Column private Instant nextLifeAt;
 
+    @Column private Instant unlimitedLivesExpiresAt;
+
     @Column(nullable = false)
     private Instant updatedAt;
 
@@ -94,5 +96,22 @@ public class UserStats {
 
     public boolean isLivesRegenerating() {
         return livesMode == LivesMode.LIMITED && currentLives != null && currentLives < MAX_LIVES;
+    }
+
+    /**
+     * A null expiry means the infinite-lives mode was granted without a time limit (e.g. a
+     * permanent grant), so it never lapses on its own.
+     */
+    public boolean hasActiveUnlimitedLives() {
+        if (livesMode != LivesMode.INFINITE) {
+            return false;
+        }
+        return unlimitedLivesExpiresAt == null || unlimitedLivesExpiresAt.isAfter(Instant.now());
+    }
+
+    public LivesMode getEffectiveLivesMode() {
+        return hasActiveUnlimitedLives() || livesMode != LivesMode.INFINITE
+                ? livesMode
+                : LivesMode.LIMITED;
     }
 }

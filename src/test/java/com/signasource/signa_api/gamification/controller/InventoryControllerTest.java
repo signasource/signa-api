@@ -48,7 +48,8 @@ class InventoryControllerTest {
     @Test
     void shouldReturnMyInventory() {
         UserInventoryResponse expected =
-                new UserInventoryResponse(100, 1, LivesMode.LIMITED, 4, null, 1.0, null, false);
+                new UserInventoryResponse(
+                        100, 1, LivesMode.LIMITED, 4, null, 1.0, null, false, null, false);
         when(inventoryService.getInventory(user)).thenReturn(expected);
 
         ResponseEntity<UserInventoryResponse> response =

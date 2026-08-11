@@ -159,6 +159,69 @@ sequenceDiagram
     Note over C,DB: El inventario (gemas, vidas, multiplicador de XP) sigue el mismo<br/>guard de cuenta activa y devuelve el estado del jugador.
 ```
 
+## Tienda: compra para uno mismo o como regalo
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant API as API
+    participant DB as Base de datos
+
+    C->>API: Comprar ítem de la tienda (para sí mismo o para un amigo)
+    API->>DB: Traer el ítem del catálogo (debe estar activo)
+    alt ítem inexistente o inactivo
+        API-->>C: Solicitud inválida (400) o no encontrado (404)
+    else ítem disponible
+        API->>DB: Verificar gemas suficientes del comprador
+        alt gemas insuficientes
+            API-->>C: Solicitud inválida (400)
+        else alcanza
+            API->>DB: Debitar gemas y registrar la compra
+            alt compra para uno mismo
+                API->>API: Aplicar el efecto (gemas, vida, escudo, multiplicador de XP o vidas ilimitadas)
+                Note over API: Si es un cofre sorpresa, se resuelve<br/>a una recompensa concreta al azar antes de aplicarla
+                API->>DB: Actualizar el inventario del comprador
+                API-->>C: Compra confirmada + efecto aplicado + inventario actualizado
+            else regalo a un amigo
+                API->>DB: Verificar amistad aceptada entre comprador y destinatario
+                alt no son amigos
+                    API-->>C: Solicitud inválida (400)
+                else son amigos
+                    API->>DB: Crear el regalo (pendiente, con vencimiento)
+                    API-->>C: Regalo enviado
+                end
+            end
+        end
+    end
+```
+
+## Tienda: reclamar un regalo
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente (destinatario)
+    participant API as API
+    participant DB as Base de datos
+
+    C->>API: Reclamar regalo recibido
+    API->>DB: Buscar el regalo (debe pertenecer al destinatario)
+    alt no encontrado
+        API-->>C: No encontrado (404)
+    else ya reclamado
+        API-->>C: Conflicto (409)
+    else vencido
+        API->>DB: Marcar como expirado
+        API-->>C: Solicitud inválida (400)
+    else pendiente y vigente
+        API->>API: Aplicar el efecto del ítem regalado (resolviendo el cofre sorpresa si corresponde)
+        API->>DB: Actualizar el inventario del destinatario
+        API->>DB: Marcar el regalo como reclamado
+        API-->>C: Efecto aplicado + inventario actualizado
+    end
+```
+
 ## Importación de contenido
 
 ```mermaid

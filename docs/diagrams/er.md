@@ -129,7 +129,10 @@ erDiagram
 
 `USER_STATS` es el inventario/estado del jugador (gemas, escudos de racha, vidas, multiplicador de XP,
 rachas y XP). `ACHIEVEMENT` es el catálogo de logros; `USER_ACHIEVEMENT` registra los que un usuario
-desbloqueó (con `earnedAt`).
+desbloqueó (con `earnedAt`). `SHOP_ITEM` es el catálogo de la tienda (multiplicadores de XP, vidas
+ilimitadas por tiempo, recargas de vida, escudos de racha y el cofre sorpresa); `PURCHASE` es el
+historial de compras (para uno mismo o al comprar un regalo) y `GIFT` el regalo enviado a un amigo,
+pendiente de reclamar.
 
 ```mermaid
 erDiagram
@@ -153,8 +156,10 @@ erDiagram
         int gems
         int streakShields
         double xpMultiplier
+        instant xpMultiplierExpiresAt
         enum livesMode
         int currentLives
+        instant unlimitedLivesExpiresAt
     }
     ACHIEVEMENT {
         uuid id PK
@@ -183,19 +188,32 @@ erDiagram
     }
     SHOP_ITEM {
         uuid id PK
-        enum type
+        string code UK
+        string title
+        enum itemType
+        int priceGems
+        int quantity
+        int durationMinutes
+        double multiplierValue
+        boolean active
     }
     PURCHASE {
         uuid id PK
         uuid user_id FK
         uuid shop_item_id FK
+        int gemsSpent
+        instant purchasedAt
     }
     GIFT {
         uuid id PK
         uuid sender_id FK
         uuid recipient_id FK
         uuid shop_item_id FK
+        string message
         enum status
+        instant sentAt
+        instant claimedAt
+        instant expiresAt
     }
 ```
 
