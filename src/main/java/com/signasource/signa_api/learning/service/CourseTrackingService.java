@@ -3,6 +3,8 @@ package com.signasource.signa_api.learning.service;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
+import com.signasource.signa_api.learning.dto.CourseProgressResponse;
+import com.signasource.signa_api.learning.dto.TopicProgressResponse;
 import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.entity.CourseVersion;
 import com.signasource.signa_api.learning.entity.EnrollmentStatus;
@@ -18,13 +20,20 @@ import com.signasource.signa_api.learning.event.XpEarnedEvent;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.learning.repository.LessonBlockAttemptRepository;
 import com.signasource.signa_api.learning.repository.LessonBlockRepository;
+import com.signasource.signa_api.learning.repository.TopicRepository;
 import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
 import com.signasource.signa_api.learning.repository.UserLessonProgressRepository;
 import com.signasource.signa_api.learning.repository.UserTopicProgressRepository;
+import com.signasource.signa_api.learning.repository.projection.TopicCompletedCountView;
+import com.signasource.signa_api.learning.repository.projection.TopicLessonTotalView;
 import com.signasource.signa_api.users.entity.User;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -41,8 +50,14 @@ public class CourseTrackingService {
 
     private final CourseVersionRepository courseVersionRepository;
     private final LessonBlockRepository lessonBlockRepository;
+    private final TopicRepository topicRepository;
 
     private final ApplicationEventPublisher eventPublisher;
+
+    // Signs are only referenced as free-form keys inside lesson-block config, not linked to the
+    // signs table, so distinct "signs learned" is not computable yet. Reported as 0 until a proper
+    // sign↔block relationship exists.
+    private static final int SIGNS_LEARNED_PLACEHOLDER = 0;
 
     @Transactional
     public UserCourseEnrollment enrollUserInCourse(User user, UUID courseVersionId) {
@@ -62,6 +77,91 @@ public class CourseTrackingService {
         enrollment.setStatus(EnrollmentStatus.ENROLLED);
 
         return enrollmentRepository.save(enrollment);
+    }
+
+    /**
+     * Builds the progress overview for every course the user is enrolled in. Runs in four aggregate
+     * queries (enrollments, per-topic lesson totals, per-topic completed counts, and the
+     * in-progress topic of each course) regardless of how many courses/topics/lessons exist; the
+     * course lesson totals and percentages are derived from the per-topic counts and the whole
+     * thing is assembled with small in-memory maps. Each course exposes only its current
+     * in-progress topic.
+     */
+    @Transactional(readOnly = true)
+    public List<CourseProgressResponse> getUserCourseProgress(User user) {
+        List<UserCourseEnrollment> enrollments =
+                enrollmentRepository.findWithCourseByUserId(user.getId());
+        if (enrollments.isEmpty()) {
+            return List.of();
+        }
+
+        List<UUID> versionIds =
+                enrollments.stream().map(e -> e.getCourseVersion().getId()).toList();
+
+        Map<UUID, Long> completedByTopic =
+                lessonProgressRepository
+                        .findCompletedLessonCountsByTopic(user.getId(), versionIds)
+                        .stream()
+                        .collect(
+                                Collectors.toMap(
+                                        TopicCompletedCountView::getTopicId,
+                                        TopicCompletedCountView::getCompletedLessons));
+
+        Map<UUID, long[]> lessonCountsByVersion = new HashMap<>();
+        Map<UUID, Long> totalByTopic = new HashMap<>();
+        for (TopicLessonTotalView topic : topicRepository.findTopicLessonTotals(versionIds)) {
+            long completed = completedByTopic.getOrDefault(topic.getTopicId(), 0L);
+            long[] counts =
+                    lessonCountsByVersion.computeIfAbsent(
+                            topic.getCourseVersionId(), k -> new long[2]);
+            counts[0] += topic.getTotalLessons();
+            counts[1] += completed;
+            totalByTopic.put(topic.getTopicId(), topic.getTotalLessons());
+        }
+
+        // Topics arrive ordered by topic order, so putIfAbsent keeps the earliest in-progress one.
+        Map<UUID, Topic> inProgressTopicByVersion = new HashMap<>();
+        for (UserTopicProgress progress :
+                topicProgressRepository.findInProgressTopics(user.getId(), versionIds)) {
+            Topic topic = progress.getTopic();
+            inProgressTopicByVersion.putIfAbsent(topic.getCourseVersion().getId(), topic);
+        }
+
+        List<CourseProgressResponse> result = new ArrayList<>(enrollments.size());
+        for (UserCourseEnrollment enrollment : enrollments) {
+            UUID versionId = enrollment.getCourseVersion().getId();
+            long[] counts = lessonCountsByVersion.getOrDefault(versionId, new long[2]);
+            TopicProgressResponse currentTopic =
+                    currentTopic(
+                            inProgressTopicByVersion.get(versionId),
+                            totalByTopic,
+                            completedByTopic);
+            result.add(
+                    new CourseProgressResponse(
+                            enrollment.getCourseVersion().getCourse().getName(),
+                            enrollment.getStatus(),
+                            (int) counts[0],
+                            (int) counts[1],
+                            percentage(counts[1], counts[0]),
+                            SIGNS_LEARNED_PLACEHOLDER,
+                            currentTopic));
+        }
+        return result;
+    }
+
+    private static TopicProgressResponse currentTopic(
+            Topic topic, Map<UUID, Long> totalByTopic, Map<UUID, Long> completedByTopic) {
+        if (topic == null) {
+            return null;
+        }
+        long total = totalByTopic.getOrDefault(topic.getId(), 0L);
+        long completed = completedByTopic.getOrDefault(topic.getId(), 0L);
+        return new TopicProgressResponse(
+                topic.getName(), (int) total, (int) completed, percentage(completed, total));
+    }
+
+    private static int percentage(long completed, long total) {
+        return total == 0 ? 0 : (int) Math.round(completed * 100.0 / total);
     }
 
     /**
