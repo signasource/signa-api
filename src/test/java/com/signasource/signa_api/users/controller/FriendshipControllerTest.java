@@ -61,4 +61,26 @@ class FriendshipControllerTest {
         assertEquals(HttpStatus.OK, response.getStatusCode());
         verify(friendshipService).acceptFriendRequest(otherUserId, currentUser);
     }
+
+    @Test
+    void rejectFriendRequest_ReturnsOk() {
+        doNothing().when(friendshipService).rejectFriendRequest(otherUserId, currentUser);
+
+        ResponseEntity<Void> response =
+                friendshipController.rejectFriendRequest(mockUserDetails, otherUserId);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(friendshipService).rejectFriendRequest(otherUserId, currentUser);
+    }
+
+    @Test
+    void blockUser_ReturnsOk() {
+        doNothing().when(friendshipService).blockUser(currentUser, otherUserId);
+
+        ResponseEntity<Void> response =
+                friendshipController.blockUser(mockUserDetails, otherUserId);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(friendshipService).blockUser(currentUser, otherUserId);
+    }
 }

@@ -79,4 +79,63 @@ public class FriendshipService {
         friendship.setStatus(FriendshipStatus.ACCEPTED);
         friendshipRepository.save(friendship);
     }
+
+    @Transactional
+    public void rejectFriendRequest(UUID requesterId, User addressee) {
+        User requester =
+                userRepository
+                        .findById(requesterId)
+                        .orElseThrow(() -> new NotFoundException("Origin user not found."));
+
+        Friendship friendship =
+                friendshipRepository
+                        .findByRequesterAndAddressee(requester, addressee)
+                        .orElseThrow(() -> new NotFoundException("Request not found."));
+
+        if (friendship.getStatus() != FriendshipStatus.PENDING) {
+            throw new InvalidInputException("Only pending requests can be rejected.");
+        }
+
+        friendship.setStatus(FriendshipStatus.REJECTED);
+        friendshipRepository.save(friendship);
+    }
+
+    @Transactional
+    public void blockUser(User blocker, UUID blockedId) {
+        if (blocker.getId().equals(blockedId)) {
+            throw new InvalidInputException("You can't block yourself");
+        }
+
+        User blocked =
+                userRepository
+                        .findById(blockedId)
+                        .orElseThrow(() -> new NotFoundException("User to block not found"));
+
+        Optional<Friendship> existingRelation =
+                friendshipRepository.findFriendshipBetween(blocker, blocked);
+
+        if (existingRelation.isPresent()) {
+            Friendship friendship = existingRelation.get();
+
+            if (friendship.getStatus() == FriendshipStatus.BLOCKED
+                    && friendship.getRequester().equals(blocker)) {
+                throw new ResourceAlreadyInUseException("This user is already blocked.");
+            }
+
+            friendship.setRequester(blocker);
+            friendship.setAddressee(blocked);
+            friendship.setStatus(FriendshipStatus.BLOCKED);
+            friendshipRepository.save(friendship);
+            return;
+        }
+
+        Friendship newFriendship =
+                Friendship.builder()
+                        .requester(blocker)
+                        .addressee(blocked)
+                        .status(FriendshipStatus.BLOCKED)
+                        .build();
+
+        friendshipRepository.save(newFriendship);
+    }
 }

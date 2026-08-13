@@ -37,4 +37,21 @@ public class FriendshipController {
         friendshipService.acceptFriendRequest(requesterId, currentUser.getUser());
         return ResponseEntity.ok().build();
     }
+
+    @PatchMapping("/reject/{requesterId}")
+    public ResponseEntity<Void> rejectFriendRequest(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @PathVariable UUID requesterId) {
+
+        friendshipService.rejectFriendRequest(requesterId, currentUser.getUser());
+        return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("/block/{userId}")
+    public ResponseEntity<Void> blockUser(
+            @AuthenticationPrincipal CustomUserDetails currentUser, @PathVariable UUID userId) {
+
+        friendshipService.blockUser(currentUser.getUser(), userId);
+        return ResponseEntity.ok().build();
+    }
 }
