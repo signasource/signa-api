@@ -39,7 +39,8 @@ public class AuthController {
     @PostMapping("/google")
     public ResponseEntity<AuthResponse> authenticateWithGoogle(
             @Valid @RequestBody GoogleAuthRequest request) {
-        return ResponseEntity.ok(authService.authenticateWithGoogle(request.idToken()));
+        return ResponseEntity.ok(
+                authService.authenticateWithGoogle(request.idToken(), request.dailyGoalMinutes()));
     }
 
     @PostMapping("/login")
