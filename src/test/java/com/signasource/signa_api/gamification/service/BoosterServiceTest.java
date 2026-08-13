@@ -11,7 +11,6 @@ import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
-import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.gamification.dto.BoosterActivationResponse;
 import com.signasource.signa_api.gamification.entity.LivesMode;
 import com.signasource.signa_api.gamification.entity.Purchase;
@@ -44,7 +43,6 @@ class BoosterServiceTest {
 
     private User user;
     private UserStats stats;
-    private UUID purchaseId;
 
     @BeforeEach
     void setUp() {
@@ -70,13 +68,11 @@ class BoosterServiceTest {
                         .xpMultiplier(1.0)
                         .updatedAt(Instant.now())
                         .build();
-
-        purchaseId = UUID.randomUUID();
     }
 
     private Purchase pendingPurchase(ShopItem shopItem) {
         return Purchase.builder()
-                .id(purchaseId)
+                .id(UUID.randomUUID())
                 .user(user)
                 .shopItem(shopItem)
                 .gemsSpent(shopItem.getPriceGems())
@@ -97,11 +93,13 @@ class BoosterServiceTest {
                         .durationMinutes(15)
                         .build();
         Purchase purchase = pendingPurchase(item);
-        when(purchaseRepository.findByIdAndUser(purchaseId, user))
+        when(purchaseRepository.findFirstByUserAndShopItem_ItemTypeAndStatusOrderByPurchasedAtAsc(
+                        user, ShopItemType.UNLIMITED_LIVES, PurchaseStatus.PENDING))
                 .thenReturn(Optional.of(purchase));
         when(userStatsRepository.findByUser(user)).thenReturn(Optional.of(stats));
 
-        BoosterActivationResponse response = boosterService.activate(user, purchaseId);
+        BoosterActivationResponse response =
+                boosterService.activate(user, ShopItemType.UNLIMITED_LIVES);
 
         assertTrue(stats.getUnlimitedLivesExpiresAt().isAfter(Instant.now()));
         assertTrue(stats.hasActiveUnlimitedLives());
@@ -126,11 +124,12 @@ class BoosterServiceTest {
                         .multiplierValue(2.0)
                         .build();
         Purchase purchase = pendingPurchase(item);
-        when(purchaseRepository.findByIdAndUser(purchaseId, user))
+        when(purchaseRepository.findFirstByUserAndShopItem_ItemTypeAndStatusOrderByPurchasedAtAsc(
+                        user, ShopItemType.XP_MULTIPLIER, PurchaseStatus.PENDING))
                 .thenReturn(Optional.of(purchase));
         when(userStatsRepository.findByUser(user)).thenReturn(Optional.of(stats));
 
-        boosterService.activate(user, purchaseId);
+        boosterService.activate(user, ShopItemType.XP_MULTIPLIER);
 
         assertEquals(2.0, stats.getXpMultiplier());
         assertTrue(stats.getXpMultiplierExpiresAt().isAfter(Instant.now()));
@@ -139,52 +138,24 @@ class BoosterServiceTest {
 
     @Test
     void activate_whenBoosterTypeNotSupported_throwsInvalidInput() {
-        ShopItem item =
-                ShopItem.builder()
-                        .id(UUID.randomUUID())
-                        .code("streak_shield")
-                        .itemType(ShopItemType.STREAK_SHIELD)
-                        .priceGems(20)
-                        .quantity(1)
-                        .build();
-        Purchase purchase = pendingPurchase(item);
-        when(purchaseRepository.findByIdAndUser(purchaseId, user))
-                .thenReturn(Optional.of(purchase));
-        when(userStatsRepository.findByUser(user)).thenReturn(Optional.of(stats));
-
-        assertThrows(InvalidInputException.class, () -> boosterService.activate(user, purchaseId));
+        assertThrows(
+                InvalidInputException.class,
+                () -> boosterService.activate(user, ShopItemType.STREAK_SHIELD));
+        verify(purchaseRepository, never())
+                .findFirstByUserAndShopItem_ItemTypeAndStatusOrderByPurchasedAtAsc(
+                        any(), any(), any());
         verify(purchaseRepository, never()).save(any());
     }
 
     @Test
-    void activate_whenPurchaseAlreadyActivated_throwsResourceAlreadyInUse() {
-        ShopItem item =
-                ShopItem.builder()
-                        .id(UUID.randomUUID())
-                        .code("xp_boost")
-                        .itemType(ShopItemType.XP_MULTIPLIER)
-                        .priceGems(30)
-                        .quantity(1)
-                        .durationMinutes(30)
-                        .multiplierValue(2.0)
-                        .build();
-        Purchase purchase = pendingPurchase(item);
-        purchase.setStatus(PurchaseStatus.ACTIVATED);
-        purchase.setActivatedAt(Instant.now());
-        when(purchaseRepository.findByIdAndUser(purchaseId, user))
-                .thenReturn(Optional.of(purchase));
+    void activate_whenNoPendingPurchaseOfType_throwsNotFound() {
+        when(purchaseRepository.findFirstByUserAndShopItem_ItemTypeAndStatusOrderByPurchasedAtAsc(
+                        user, ShopItemType.XP_MULTIPLIER, PurchaseStatus.PENDING))
+                .thenReturn(Optional.empty());
 
         assertThrows(
-                ResourceAlreadyInUseException.class,
-                () -> boosterService.activate(user, purchaseId));
-        verify(userStatsRepository, never()).findByUser(any());
-    }
-
-    @Test
-    void activate_whenPurchaseNotFound_throwsNotFound() {
-        when(purchaseRepository.findByIdAndUser(purchaseId, user)).thenReturn(Optional.empty());
-
-        assertThrows(NotFoundException.class, () -> boosterService.activate(user, purchaseId));
+                NotFoundException.class,
+                () -> boosterService.activate(user, ShopItemType.XP_MULTIPLIER));
     }
 
     @Test
@@ -200,17 +171,22 @@ class BoosterServiceTest {
                         .multiplierValue(2.0)
                         .build();
         Purchase purchase = pendingPurchase(item);
-        when(purchaseRepository.findByIdAndUser(purchaseId, user))
+        when(purchaseRepository.findFirstByUserAndShopItem_ItemTypeAndStatusOrderByPurchasedAtAsc(
+                        user, ShopItemType.XP_MULTIPLIER, PurchaseStatus.PENDING))
                 .thenReturn(Optional.of(purchase));
         when(userStatsRepository.findByUser(user)).thenReturn(Optional.empty());
 
-        assertThrows(NotFoundException.class, () -> boosterService.activate(user, purchaseId));
+        assertThrows(
+                NotFoundException.class,
+                () -> boosterService.activate(user, ShopItemType.XP_MULTIPLIER));
     }
 
     @Test
     void activate_whenUserDisabled_throwsNotFound() {
         user.setEnabled(false);
 
-        assertThrows(NotFoundException.class, () -> boosterService.activate(user, purchaseId));
+        assertThrows(
+                NotFoundException.class,
+                () -> boosterService.activate(user, ShopItemType.XP_MULTIPLIER));
     }
 }

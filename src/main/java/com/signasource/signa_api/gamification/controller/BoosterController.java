@@ -2,8 +2,8 @@ package com.signasource.signa_api.gamification.controller;
 
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.gamification.dto.BoosterActivationResponse;
+import com.signasource.signa_api.gamification.entity.ShopItemType;
 import com.signasource.signa_api.gamification.service.BoosterService;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -19,9 +19,10 @@ public class BoosterController {
 
     private final BoosterService boosterService;
 
-    @PostMapping("/{purchaseId}/activate")
+    @PostMapping("/{itemType}/activate")
     public ResponseEntity<BoosterActivationResponse> activate(
-            @PathVariable UUID purchaseId, @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ResponseEntity.ok(boosterService.activate(userDetails.getUser(), purchaseId));
+            @PathVariable ShopItemType itemType,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(boosterService.activate(userDetails.getUser(), itemType));
     }
 }

@@ -33,7 +33,6 @@ class BoosterControllerTest {
 
     private User user;
     private CustomUserDetails userDetails;
-    private UUID purchaseId;
 
     @BeforeEach
     void setUp() {
@@ -48,7 +47,6 @@ class BoosterControllerTest {
                         .enabled(true)
                         .build();
         userDetails = new CustomUserDetails(user);
-        purchaseId = UUID.randomUUID();
     }
 
     @Test
@@ -58,18 +56,18 @@ class BoosterControllerTest {
                         70, 1, LivesMode.LIMITED, 4, null, null, false, 1.0, null, false);
         BoosterActivationResponse expected =
                 new BoosterActivationResponse(
-                        purchaseId,
+                        UUID.randomUUID(),
                         "xp_boost",
                         ShopItemType.XP_MULTIPLIER,
                         PurchaseStatus.ACTIVATED,
                         Instant.now(),
                         inventory);
-        when(boosterService.activate(user, purchaseId)).thenReturn(expected);
+        when(boosterService.activate(user, ShopItemType.XP_MULTIPLIER)).thenReturn(expected);
 
         ResponseEntity<BoosterActivationResponse> response =
-                boosterController.activate(purchaseId, userDetails);
+                boosterController.activate(ShopItemType.XP_MULTIPLIER, userDetails);
 
-        verify(boosterService).activate(user, purchaseId);
+        verify(boosterService).activate(user, ShopItemType.XP_MULTIPLIER);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(expected, response.getBody());
     }
