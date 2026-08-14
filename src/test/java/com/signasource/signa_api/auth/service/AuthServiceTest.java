@@ -111,7 +111,7 @@ class AuthServiceTest {
 
     @Test
     void shouldRegisterUserSuccessfully() {
-        RegisterRequest request = new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME, 20);
+        RegisterRequest request = new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME);
         when(userRepository.existsByEmail(EMAIL)).thenReturn(false);
         when(userRepository.existsByUsername(USERNAME)).thenReturn(false);
         when(passwordEncoder.encode(PASSWORD)).thenReturn("hashed_password");
@@ -123,18 +123,14 @@ class AuthServiceTest {
         verify(userRepository).existsByEmail(EMAIL);
         verify(passwordEncoder).encode(PASSWORD);
         verify(userRepository).save(any(User.class));
-
-        ArgumentCaptor<UserSettings> settingsCaptor = ArgumentCaptor.forClass(UserSettings.class);
-        verify(userSettingsRepository).save(settingsCaptor.capture());
-        assertEquals(20, settingsCaptor.getValue().getDailyGoalMinutes());
-
+        verify(userSettingsRepository).save(any(UserSettings.class));
         verify(tokenRepository).save(any());
         verify(emailService).sendVerificationEmail(eq(EMAIL), any(String.class));
     }
 
     @Test
     void shouldThrowWhenEmailAlreadyExists() {
-        RegisterRequest request = new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME, 15);
+        RegisterRequest request = new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME);
         when(userRepository.existsByEmail(EMAIL)).thenReturn(true);
 
         assertThrows(ResourceAlreadyInUseException.class, () -> authService.register(request));
@@ -146,7 +142,7 @@ class AuthServiceTest {
 
     @Test
     void shouldThrowWhenUsernameAlreadyExists() {
-        RegisterRequest request = new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME, 15);
+        RegisterRequest request = new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME);
         when(userRepository.existsByEmail(EMAIL)).thenReturn(false);
         when(userRepository.existsByUsername(USERNAME)).thenReturn(true);
 
@@ -179,7 +175,7 @@ class AuthServiceTest {
 
     @Test
     void shouldCaptureEncodedPasswordOnRegister() {
-        RegisterRequest request = new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME, 15);
+        RegisterRequest request = new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME);
         when(userRepository.existsByEmail(EMAIL)).thenReturn(false);
         when(userRepository.existsByUsername(USERNAME)).thenReturn(false);
         when(passwordEncoder.encode(PASSWORD)).thenReturn("hashed_password");
@@ -492,7 +488,7 @@ class AuthServiceTest {
         when(tokenRepository.save(any(Token.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        AuthResponse response = authService.authenticateWithGoogle(VALID_TOKEN_STRING, 10);
+        AuthResponse response = authService.authenticateWithGoogle(VALID_TOKEN_STRING);
 
         assertNotNull(response);
         assertEquals(ACCESS_TOKEN, response.accessToken());
@@ -507,33 +503,6 @@ class AuthServiceTest {
         assertTrue(savedUser.getProviders().contains(AuthProvider.GOOGLE));
         assertNull(savedUser.getPasswordHash());
         assertTrue(savedUser.isEnabled());
-
-        ArgumentCaptor<UserSettings> settingsCaptor = ArgumentCaptor.forClass(UserSettings.class);
-        verify(userSettingsRepository).save(settingsCaptor.capture());
-        assertEquals(10, settingsCaptor.getValue().getDailyGoalMinutes());
-    }
-
-    @Test
-    void shouldUseDefaultDailyGoalWhenGoogleRequestOmitsIt() throws Exception {
-        GoogleIdToken.Payload payload = new GoogleIdToken.Payload();
-        payload.setEmail(EMAIL);
-        payload.set("name", NAME);
-
-        when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);
-        when(mockedGoogleToken.getPayload()).thenReturn(payload);
-        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
-        when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
-
-        when(userRepository.save(any(User.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-        when(tokenRepository.save(any(Token.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-
-        authService.authenticateWithGoogle(VALID_TOKEN_STRING, null);
-
-        ArgumentCaptor<UserSettings> settingsCaptor = ArgumentCaptor.forClass(UserSettings.class);
-        verify(userSettingsRepository).save(settingsCaptor.capture());
-        assertEquals(15, settingsCaptor.getValue().getDailyGoalMinutes());
     }
 
     @Test
@@ -559,7 +528,7 @@ class AuthServiceTest {
         when(tokenRepository.save(any(Token.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        AuthResponse response = authService.authenticateWithGoogle(VALID_TOKEN_STRING, null);
+        AuthResponse response = authService.authenticateWithGoogle(VALID_TOKEN_STRING);
 
         assertNotNull(response);
         assertEquals(ACCESS_TOKEN, response.accessToken());
@@ -594,7 +563,7 @@ class AuthServiceTest {
         when(tokenRepository.save(any(Token.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        AuthResponse response = authService.authenticateWithGoogle(VALID_TOKEN_STRING, null);
+        AuthResponse response = authService.authenticateWithGoogle(VALID_TOKEN_STRING);
 
         assertNotNull(response);
         assertEquals(ACCESS_TOKEN, response.accessToken());
@@ -611,7 +580,7 @@ class AuthServiceTest {
         InvalidCredentialsException exception =
                 assertThrows(
                         InvalidCredentialsException.class,
-                        () -> authService.authenticateWithGoogle(VALID_TOKEN_STRING, null));
+                        () -> authService.authenticateWithGoogle(VALID_TOKEN_STRING));
 
         assertTrue(exception.getMessage().contains("Error authenticating with Google"));
         verifyNoInteractions(userRepository);
@@ -625,7 +594,7 @@ class AuthServiceTest {
         InvalidCredentialsException exception =
                 assertThrows(
                         InvalidCredentialsException.class,
-                        () -> authService.authenticateWithGoogle(invalidToken, null));
+                        () -> authService.authenticateWithGoogle(invalidToken));
 
         assertTrue(exception.getMessage().contains("Invalid Google token"));
 

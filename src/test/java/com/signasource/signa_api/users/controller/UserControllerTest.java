@@ -131,6 +131,20 @@ class UserControllerTest {
     }
 
     @Test
+    void shouldSetDailyGoalAndReturn201() {
+        UpdateDailyGoalRequest request = new UpdateDailyGoalRequest(DAILY_GOAL_MINUTES);
+        DailyGoalResponse expected = new DailyGoalResponse(DAILY_GOAL_MINUTES);
+        when(userSettingsService.setDailyGoal(user, request)).thenReturn(expected);
+
+        ResponseEntity<DailyGoalResponse> response =
+                userController.setDailyGoal(userDetails, request);
+
+        verify(userSettingsService).setDailyGoal(user, request);
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertEquals(expected, response.getBody());
+    }
+
+    @Test
     void shouldReturnDailyGoal() {
         DailyGoalResponse expected = new DailyGoalResponse(DAILY_GOAL_MINUTES);
         when(userSettingsService.getDailyGoal(user)).thenReturn(expected);

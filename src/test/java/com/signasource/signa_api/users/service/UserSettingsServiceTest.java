@@ -206,6 +206,31 @@ class UserSettingsServiceTest {
     }
 
     @Test
+    void shouldSetDailyGoal() {
+        UpdateDailyGoalRequest request = new UpdateDailyGoalRequest(UPDATED_DAILY_GOAL_MINUTES);
+        when(userSettingsRepository.findByUserId(USER_ID)).thenReturn(Optional.of(settings));
+
+        DailyGoalResponse response = userSettingsService.setDailyGoal(user, request);
+
+        assertEquals(UPDATED_DAILY_GOAL_MINUTES, response.dailyGoalMinutes());
+        verify(userSettingsRepository).save(settings);
+    }
+
+    @Test
+    void shouldThrowNotFoundWhenSettingDailyGoalForNonExistentSettings() {
+        UpdateDailyGoalRequest request = new UpdateDailyGoalRequest(UPDATED_DAILY_GOAL_MINUTES);
+        when(userSettingsRepository.findByUserId(USER_ID)).thenReturn(Optional.empty());
+
+        NotFoundException exception =
+                assertThrows(
+                        NotFoundException.class,
+                        () -> userSettingsService.setDailyGoal(user, request));
+
+        assertTrue(exception.getMessage().contains(USER_ID.toString()));
+        verify(userSettingsRepository, never()).save(settings);
+    }
+
+    @Test
     void shouldReturnDailyGoalForUser() {
         when(userSettingsRepository.findByUserId(USER_ID)).thenReturn(Optional.of(settings));
 

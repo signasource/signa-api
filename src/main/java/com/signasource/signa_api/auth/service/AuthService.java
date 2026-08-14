@@ -86,11 +86,7 @@ public class AuthService {
 
         userRepository.save(user);
 
-        userSettingsRepository.save(
-                UserSettings.builder()
-                        .user(user)
-                        .dailyGoalMinutes(request.dailyGoalMinutes())
-                        .build());
+        userSettingsRepository.save(UserSettings.builder().user(user).build());
 
         Token token =
                 createToken(
@@ -224,7 +220,7 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse authenticateWithGoogle(String idTokenString, Integer dailyGoalMinutes) {
+    public AuthResponse authenticateWithGoogle(String idTokenString) {
         try {
             GoogleIdToken idToken = googleIdTokenVerifier.verify(idTokenString);
 
@@ -273,12 +269,7 @@ public class AuthService {
 
                 user = userRepository.save(user);
 
-                UserSettings.UserSettingsBuilder settingsBuilder =
-                        UserSettings.builder().user(user);
-                if (dailyGoalMinutes != null) {
-                    settingsBuilder.dailyGoalMinutes(dailyGoalMinutes);
-                }
-                userSettingsRepository.save(settingsBuilder.build());
+                userSettingsRepository.save(UserSettings.builder().user(user).build());
             }
 
             return generateTokens(user);
