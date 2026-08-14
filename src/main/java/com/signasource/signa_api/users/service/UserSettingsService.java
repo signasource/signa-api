@@ -32,6 +32,16 @@ public class UserSettingsService {
         return UserSettingsResponse.from(settings);
     }
 
+    @Transactional
+    public DailyGoalResponse setDailyGoal(User user, UpdateDailyGoalRequest request) {
+        UserSettings settings = getSettingsEntity(user);
+
+        settings.setDailyGoalMinutes(request.dailyGoalMinutes());
+        userSettingsRepository.save(settings);
+
+        return DailyGoalResponse.from(settings);
+    }
+
     @Transactional(readOnly = true)
     public DailyGoalResponse getDailyGoal(User user) {
         return DailyGoalResponse.from(getSettingsEntity(user));

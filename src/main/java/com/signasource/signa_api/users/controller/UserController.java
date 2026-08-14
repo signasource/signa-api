@@ -27,6 +27,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -64,13 +65,21 @@ public class UserController {
                 userSettingsService.updateSettings(userDetails.getUser(), request));
     }
 
+    @PostMapping("/daily-goal")
+    public ResponseEntity<DailyGoalResponse> setDailyGoal(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody UpdateDailyGoalRequest request) {
+        return ResponseEntity.status(201)
+                .body(userSettingsService.setDailyGoal(userDetails.getUser(), request));
+    }
+
     @GetMapping("/daily-goal")
     public ResponseEntity<DailyGoalResponse> getDailyGoal(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(userSettingsService.getDailyGoal(userDetails.getUser()));
     }
 
-    @PutMapping("/daily-goal")
+    @PatchMapping("/daily-goal")
     public ResponseEntity<DailyGoalResponse> updateDailyGoal(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Valid @RequestBody UpdateDailyGoalRequest request) {
