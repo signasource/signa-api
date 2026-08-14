@@ -17,6 +17,7 @@ import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
 
@@ -38,6 +39,7 @@ public class UserLearnedSign {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private User user;
 
     @Column(nullable = false, length = 100)
@@ -46,6 +48,7 @@ public class UserLearnedSign {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "course_version_id", nullable = false)
     @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private CourseVersion courseVersion;
 
     @Column(nullable = false)

@@ -6,16 +6,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.signasource.signa_api.learning.entity.LessonBlock;
 import java.util.List;
 import java.util.stream.StreamSupport;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class BlockSignExtractor {
 
     private final ObjectMapper objectMapper;
-
-    public BlockSignExtractor(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
-    }
 
     public List<String> extract(LessonBlock block) {
         return switch (block.getType()) {

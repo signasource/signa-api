@@ -17,7 +17,10 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 @Service
 @RequiredArgsConstructor
@@ -53,14 +56,15 @@ public class UserStatsEventListener {
         userStatsRepository.save(stats);
     }
 
-    @EventListener
-    @Transactional
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handleSignsLearnedEvent(SignsLearnedEvent event) {
         User user = event.getUser();
         UUID courseVersionId = event.getCourseVersion().getId();
 
         List<String> newInCourse =
                 event.getSigns().stream()
+                        .distinct()
                         .filter(
                                 sign ->
                                         !userLearnedSignRepository

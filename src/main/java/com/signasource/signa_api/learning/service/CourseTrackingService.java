@@ -80,7 +80,7 @@ public class CourseTrackingService {
             User user, UUID lessonBlockId, Boolean isCorrect) {
         LessonBlock block =
                 lessonBlockRepository
-                        .findById(lessonBlockId)
+                        .findWithCourseVersionById(lessonBlockId)
                         .orElseThrow(() -> new NotFoundException("Lesson block not found"));
 
         boolean isInfo = block.getType() == BlockType.INFO;
