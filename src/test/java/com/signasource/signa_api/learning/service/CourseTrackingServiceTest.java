@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -24,6 +25,7 @@ import com.signasource.signa_api.learning.entity.Topic;
 import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import com.signasource.signa_api.learning.entity.UserLessonProgress;
 import com.signasource.signa_api.learning.entity.UserTopicProgress;
+import com.signasource.signa_api.learning.event.SignsLearnedEvent;
 import com.signasource.signa_api.learning.event.XpEarnedEvent;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.learning.repository.LessonBlockAttemptRepository;
@@ -31,6 +33,7 @@ import com.signasource.signa_api.learning.repository.LessonBlockRepository;
 import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
 import com.signasource.signa_api.learning.repository.UserLessonProgressRepository;
 import com.signasource.signa_api.learning.repository.UserTopicProgressRepository;
+import com.signasource.signa_api.learning.util.BlockSignExtractor;
 import com.signasource.signa_api.users.entity.User;
 import java.util.List;
 import java.util.Optional;
@@ -54,6 +57,7 @@ class CourseTrackingServiceTest {
     @Mock private CourseVersionRepository courseVersionRepository;
     @Mock private LessonBlockRepository lessonBlockRepository;
     @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private BlockSignExtractor blockSignExtractor;
 
     @InjectMocks private CourseTrackingService courseTrackingService;
 
@@ -274,6 +278,7 @@ class CourseTrackingServiceTest {
                         .build();
         lesson.setLessonBlocks(List.of(block));
 
+        when(blockSignExtractor.extract(block)).thenReturn(List.of());
         when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.of(block));
         when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, blockId))
                 .thenReturn(false, true);
@@ -331,6 +336,7 @@ class CourseTrackingServiceTest {
                         .build();
         lesson.setLessonBlocks(List.of(block));
 
+        when(blockSignExtractor.extract(block)).thenReturn(List.of());
         when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.of(block));
         when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, blockId))
                 .thenReturn(false, true);
@@ -399,6 +405,7 @@ class CourseTrackingServiceTest {
                         .build();
         lesson.setLessonBlocks(List.of(block, otherBlock));
 
+        when(blockSignExtractor.extract(block)).thenReturn(List.of());
         when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.of(block));
         when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, blockId))
                 .thenReturn(false, true);
@@ -567,5 +574,73 @@ class CourseTrackingServiceTest {
         verify(lessonProgressRepository).save(progressCaptor.capture());
         assertEquals(ProgressStatus.COMPLETED, progressCaptor.getValue().getStatus());
         assertEquals(60, progressCaptor.getValue().getXpEarned());
+    }
+
+    @Test
+    void shouldPublishSignsLearnedEvent_WhenFirstCorrectAttemptExtractsSigns() {
+        UUID blockId = UUID.randomUUID();
+        Topic topic = Topic.builder().id(UUID.randomUUID()).build();
+        Lesson lesson = Lesson.builder().id(UUID.randomUUID()).topic(topic).build();
+        LessonBlock block =
+                LessonBlock.builder()
+                        .id(blockId)
+                        .type(BlockType.SELECT_MEANING)
+                        .xpReward(10)
+                        .lesson(lesson)
+                        .build();
+        lesson.setLessonBlocks(List.of(block));
+
+        when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.of(block));
+        when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, blockId))
+                .thenReturn(false, true);
+        when(attemptRepository.save(any(LessonBlockAttempt.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(lessonProgressRepository.findByUserIdAndLessonId(userId, lesson.getId()))
+                .thenReturn(
+                        Optional.of(
+                                UserLessonProgress.builder()
+                                        .lesson(lesson)
+                                        .status(ProgressStatus.IN_PROGRESS)
+                                        .build()));
+        when(blockSignExtractor.extract(block)).thenReturn(List.of("hola"));
+
+        courseTrackingService.recordBlockInteraction(mockUser, blockId, true);
+
+        verify(eventPublisher, times(1)).publishEvent(any(XpEarnedEvent.class));
+        verify(eventPublisher, times(1)).publishEvent(any(SignsLearnedEvent.class));
+    }
+
+    @Test
+    void shouldNotPublishSignsLearnedEvent_WhenBlockExtractsNoSigns() {
+        UUID blockId = UUID.randomUUID();
+        Topic topic = Topic.builder().id(UUID.randomUUID()).build();
+        Lesson lesson = Lesson.builder().id(UUID.randomUUID()).topic(topic).build();
+        LessonBlock block =
+                LessonBlock.builder()
+                        .id(blockId)
+                        .type(BlockType.SELECT_MEANING)
+                        .xpReward(10)
+                        .lesson(lesson)
+                        .build();
+        lesson.setLessonBlocks(List.of(block));
+
+        when(lessonBlockRepository.findById(blockId)).thenReturn(Optional.of(block));
+        when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, blockId))
+                .thenReturn(false, true);
+        when(attemptRepository.save(any(LessonBlockAttempt.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(lessonProgressRepository.findByUserIdAndLessonId(userId, lesson.getId()))
+                .thenReturn(
+                        Optional.of(
+                                UserLessonProgress.builder()
+                                        .lesson(lesson)
+                                        .status(ProgressStatus.IN_PROGRESS)
+                                        .build()));
+        when(blockSignExtractor.extract(block)).thenReturn(List.of());
+
+        courseTrackingService.recordBlockInteraction(mockUser, blockId, true);
+
+        verify(eventPublisher, times(1)).publishEvent(any(XpEarnedEvent.class));
+        verify(eventPublisher, times(0)).publishEvent(any(SignsLearnedEvent.class));
     }
 }

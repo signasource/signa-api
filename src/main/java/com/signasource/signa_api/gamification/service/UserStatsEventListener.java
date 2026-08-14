@@ -1,13 +1,19 @@
 package com.signasource.signa_api.gamification.service;
 
+import com.signasource.signa_api.gamification.entity.UserLearnedSign;
 import com.signasource.signa_api.gamification.entity.UserStats;
+import com.signasource.signa_api.gamification.repository.UserLearnedSignRepository;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
+import com.signasource.signa_api.learning.event.SignsLearnedEvent;
 import com.signasource.signa_api.learning.event.XpEarnedEvent;
+import com.signasource.signa_api.users.entity.User;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.temporal.TemporalAdjusters;
+import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
@@ -18,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserStatsEventListener {
 
     private final UserStatsRepository userStatsRepository;
+    private final UserLearnedSignRepository userLearnedSignRepository;
 
     @EventListener
     @Transactional
@@ -43,6 +50,59 @@ public class UserStatsEventListener {
         stats.setWeeklyXp(stats.getWeeklyXp() + xpToAdd);
         stats.setUpdatedAt(Instant.now());
 
+        userStatsRepository.save(stats);
+    }
+
+    @EventListener
+    @Transactional
+    public void handleSignsLearnedEvent(SignsLearnedEvent event) {
+        User user = event.getUser();
+        UUID courseVersionId = event.getCourseVersion().getId();
+
+        // Signs not yet recorded for this specific course
+        List<String> newInCourse =
+                event.getSigns().stream()
+                        .filter(
+                                sign ->
+                                        !userLearnedSignRepository
+                                                .existsByUserIdAndSignAndCourseVersionId(
+                                                        user.getId(), sign, courseVersionId))
+                        .toList();
+
+        if (newInCourse.isEmpty()) {
+            return;
+        }
+
+        // Among those, signs that are globally new (not learned in any course yet)
+        List<String> newGlobally =
+                newInCourse.stream()
+                        .filter(
+                                sign ->
+                                        !userLearnedSignRepository.existsByUserIdAndSign(
+                                                user.getId(), sign))
+                        .toList();
+
+        Instant now = Instant.now();
+        newInCourse.forEach(
+                sign ->
+                        userLearnedSignRepository.save(
+                                UserLearnedSign.builder()
+                                        .user(user)
+                                        .sign(sign)
+                                        .courseVersion(event.getCourseVersion())
+                                        .learnedAt(now)
+                                        .build()));
+
+        if (newGlobally.isEmpty()) {
+            return;
+        }
+
+        UserStats stats =
+                userStatsRepository
+                        .findByUserId(user.getId())
+                        .orElseGet(() -> UserStats.builder().user(user).build());
+        stats.setLearnedSignsCount(stats.getLearnedSignsCount() + newGlobally.size());
+        stats.setUpdatedAt(now);
         userStatsRepository.save(stats);
     }
 

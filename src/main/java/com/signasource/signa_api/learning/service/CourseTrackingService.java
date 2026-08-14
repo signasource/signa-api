@@ -14,6 +14,7 @@ import com.signasource.signa_api.learning.entity.Topic;
 import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import com.signasource.signa_api.learning.entity.UserLessonProgress;
 import com.signasource.signa_api.learning.entity.UserTopicProgress;
+import com.signasource.signa_api.learning.event.SignsLearnedEvent;
 import com.signasource.signa_api.learning.event.XpEarnedEvent;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.learning.repository.LessonBlockAttemptRepository;
@@ -21,6 +22,7 @@ import com.signasource.signa_api.learning.repository.LessonBlockRepository;
 import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
 import com.signasource.signa_api.learning.repository.UserLessonProgressRepository;
 import com.signasource.signa_api.learning.repository.UserTopicProgressRepository;
+import com.signasource.signa_api.learning.util.BlockSignExtractor;
 import com.signasource.signa_api.users.entity.User;
 import java.time.Instant;
 import java.util.List;
@@ -43,6 +45,7 @@ public class CourseTrackingService {
     private final LessonBlockRepository lessonBlockRepository;
 
     private final ApplicationEventPublisher eventPublisher;
+    private final BlockSignExtractor blockSignExtractor;
 
     @Transactional
     public UserCourseEnrollment enrollUserInCourse(User user, UUID courseVersionId) {
@@ -110,6 +113,14 @@ public class CourseTrackingService {
         if (isNewMilestone) {
             if (!isInfo || block.getXpReward() != null) {
                 eventPublisher.publishEvent(new XpEarnedEvent(this, user, block.getXpReward()));
+            }
+            if (!isInfo) {
+                List<String> signs = blockSignExtractor.extract(block);
+                if (!signs.isEmpty()) {
+                    CourseVersion courseVersion = block.getLesson().getTopic().getCourseVersion();
+                    eventPublisher.publishEvent(
+                            new SignsLearnedEvent(this, user, signs, courseVersion));
+                }
             }
             checkLessonCompletion(user, block.getLesson());
         }
