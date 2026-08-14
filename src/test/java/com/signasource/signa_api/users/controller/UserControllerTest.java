@@ -14,6 +14,8 @@ import com.signasource.signa_api.auth.dto.ChangePasswordRequest;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.service.AuthService;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
+import com.signasource.signa_api.gamification.dto.DailyXpResponse;
+import com.signasource.signa_api.gamification.service.UserStatsService;
 import com.signasource.signa_api.users.dto.DailyGoalResponse;
 import com.signasource.signa_api.users.dto.PublicUserProfileResponse;
 import com.signasource.signa_api.users.dto.UpdateDailyGoalRequest;
@@ -29,7 +31,9 @@ import com.signasource.signa_api.users.entity.Theme;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.service.UserService;
 import com.signasource.signa_api.users.service.UserSettingsService;
+import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -60,6 +64,7 @@ class UserControllerTest {
     @Mock private AuthService authService;
     @Mock private UserSettingsService userSettingsService;
     @Mock private UserService userService;
+    @Mock private UserStatsService userStatsService;
 
     @InjectMocks private UserController userController;
 
@@ -282,5 +287,22 @@ class UserControllerTest {
 
         verify(userService).deleteAccount(user);
         assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+    }
+
+    @Test
+    void shouldReturnWeeklyXpBreakdown() {
+        List<DailyXpResponse> expected =
+                List.of(
+                        new DailyXpResponse(LocalDate.of(2026, 8, 10), 100),
+                        new DailyXpResponse(LocalDate.of(2026, 8, 11), 0),
+                        new DailyXpResponse(LocalDate.of(2026, 8, 12), 50));
+        when(userStatsService.getWeeklyXpBreakdown(user)).thenReturn(expected);
+
+        ResponseEntity<List<DailyXpResponse>> response =
+                userController.getWeeklyXpBreakdown(userDetails);
+
+        verify(userStatsService).getWeeklyXpBreakdown(user);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(expected, response.getBody());
     }
 }

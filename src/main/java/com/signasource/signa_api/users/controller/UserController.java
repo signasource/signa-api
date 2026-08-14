@@ -4,6 +4,8 @@ import com.signasource.signa_api.auth.dto.AuthResponse;
 import com.signasource.signa_api.auth.dto.ChangePasswordRequest;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.service.AuthService;
+import com.signasource.signa_api.gamification.dto.DailyXpResponse;
+import com.signasource.signa_api.gamification.service.UserStatsService;
 import com.signasource.signa_api.users.dto.DailyGoalResponse;
 import com.signasource.signa_api.users.dto.PublicUserProfileResponse;
 import com.signasource.signa_api.users.dto.UpdateDailyGoalRequest;
@@ -19,6 +21,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -43,6 +46,7 @@ public class UserController {
     private final AuthService authService;
     private final UserSettingsService userSettingsService;
     private final UserService userService;
+    private final UserStatsService userStatsService;
 
     @PutMapping("/password")
     public ResponseEntity<AuthResponse> changePassword(
@@ -119,5 +123,11 @@ public class UserController {
     public ResponseEntity<Void> deleteMe(@AuthenticationPrincipal CustomUserDetails userDetails) {
         userService.deleteAccount(userDetails.getUser());
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/me/weekly-xp")
+    public ResponseEntity<List<DailyXpResponse>> getWeeklyXpBreakdown(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(userStatsService.getWeeklyXpBreakdown(userDetails.getUser()));
     }
 }

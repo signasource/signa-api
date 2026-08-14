@@ -2,15 +2,19 @@ package com.signasource.signa_api.gamification.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.signasource.signa_api.gamification.entity.UserDailyXp;
 import com.signasource.signa_api.gamification.entity.UserStats;
+import com.signasource.signa_api.gamification.repository.UserDailyXpRepository;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
 import com.signasource.signa_api.learning.event.XpEarnedEvent;
 import com.signasource.signa_api.users.entity.User;
 import java.time.DayOfWeek;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.temporal.TemporalAdjusters;
@@ -28,6 +32,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class UserStatsEventListenerTest {
 
     @Mock private UserStatsRepository userStatsRepository;
+    @Mock private UserDailyXpRepository userDailyXpRepository;
 
     @InjectMocks private UserStatsEventListener userStatsEventListener;
 
@@ -54,6 +59,10 @@ class UserStatsEventListenerTest {
         when(userStatsRepository.findByUserId(userId)).thenReturn(Optional.empty());
         when(userStatsRepository.save(any(UserStats.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+        when(userDailyXpRepository.findByUserAndXpDate(eq(mockUser), any(LocalDate.class)))
+                .thenReturn(Optional.empty());
+        when(userDailyXpRepository.save(any(UserDailyXp.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         userStatsEventListener.handleXpEarnedEvent(new XpEarnedEvent(this, mockUser, 50));
 
@@ -77,6 +86,10 @@ class UserStatsEventListenerTest {
         when(userStatsRepository.findByUserId(userId)).thenReturn(Optional.of(stats));
         when(userStatsRepository.save(any(UserStats.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+        when(userDailyXpRepository.findByUserAndXpDate(eq(mockUser), any(LocalDate.class)))
+                .thenReturn(Optional.empty());
+        when(userDailyXpRepository.save(any(UserDailyXp.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         userStatsEventListener.handleXpEarnedEvent(new XpEarnedEvent(this, mockUser, 20));
 
@@ -96,10 +109,56 @@ class UserStatsEventListenerTest {
         when(userStatsRepository.findByUserId(userId)).thenReturn(Optional.of(stats));
         when(userStatsRepository.save(any(UserStats.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+        when(userDailyXpRepository.findByUserAndXpDate(eq(mockUser), any(LocalDate.class)))
+                .thenReturn(Optional.empty());
+        when(userDailyXpRepository.save(any(UserDailyXp.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         userStatsEventListener.handleXpEarnedEvent(new XpEarnedEvent(this, mockUser, 10));
 
         assertEquals(210L, stats.getTotalXp());
         assertEquals(10, stats.getWeeklyXp());
+    }
+
+    @Test
+    void handleXpEarnedEvent_CreatesDailyXp_WhenNoRecordExistsForToday() {
+        when(userStatsRepository.findByUserId(userId)).thenReturn(Optional.empty());
+        when(userStatsRepository.save(any(UserStats.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(userDailyXpRepository.findByUserAndXpDate(eq(mockUser), any(LocalDate.class)))
+                .thenReturn(Optional.empty());
+        when(userDailyXpRepository.save(any(UserDailyXp.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        userStatsEventListener.handleXpEarnedEvent(new XpEarnedEvent(this, mockUser, 75));
+
+        ArgumentCaptor<UserDailyXp> captor = ArgumentCaptor.forClass(UserDailyXp.class);
+        verify(userDailyXpRepository).save(captor.capture());
+        UserDailyXp saved = captor.getValue();
+        assertEquals(75, saved.getXpEarned());
+        assertEquals(LocalDate.now(ZoneOffset.UTC), saved.getXpDate());
+        assertEquals(mockUser, saved.getUser());
+    }
+
+    @Test
+    void handleXpEarnedEvent_AccumulatesDailyXp_WhenRecordAlreadyExistsForToday() {
+        when(userStatsRepository.findByUserId(userId)).thenReturn(Optional.empty());
+        when(userStatsRepository.save(any(UserStats.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        UserDailyXp existing =
+                UserDailyXp.builder()
+                        .user(mockUser)
+                        .xpDate(LocalDate.now(ZoneOffset.UTC))
+                        .xpEarned(40)
+                        .build();
+        when(userDailyXpRepository.findByUserAndXpDate(eq(mockUser), any(LocalDate.class)))
+                .thenReturn(Optional.of(existing));
+        when(userDailyXpRepository.save(any(UserDailyXp.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        userStatsEventListener.handleXpEarnedEvent(new XpEarnedEvent(this, mockUser, 30));
+
+        assertEquals(70, existing.getXpEarned());
     }
 }
