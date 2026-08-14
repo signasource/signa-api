@@ -8,6 +8,7 @@ import java.util.UUID;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface UserTopicProgressRepository extends JpaRepository<UserTopicProgress, UUID> {
 
@@ -17,12 +18,13 @@ public interface UserTopicProgressRepository extends JpaRepository<UserTopicProg
 
     List<UserTopicProgress> findByUserIdAndTopicCourseVersionId(UUID userId, UUID courseVersionId);
 
-    @EntityGraph(attributePaths = {"topic"})
+    @EntityGraph(attributePaths = {"topic", "topic.courseVersion"})
     @Query(
             "SELECT tp FROM UserTopicProgress tp "
                     + "WHERE tp.user.id = :userId "
                     + "AND tp.status = com.signasource.signa_api.learning.entity.ProgressStatus.IN_PROGRESS "
                     + "AND tp.topic.courseVersion.id IN :versionIds "
                     + "ORDER BY tp.topic.courseVersion.id, tp.topic.order")
-    List<UserTopicProgress> findInProgressTopics(UUID userId, Collection<UUID> versionIds);
+    List<UserTopicProgress> findInProgressTopics(
+            @Param("userId") UUID userId, @Param("versionIds") Collection<UUID> versionIds);
 }

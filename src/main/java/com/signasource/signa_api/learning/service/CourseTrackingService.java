@@ -54,7 +54,7 @@ public class CourseTrackingService {
 
     private final ApplicationEventPublisher eventPublisher;
 
-    private static final int SIGNS_LEARNED_PLACEHOLDER = 0;
+    private static final int SIGNS_LEARNED = 0;
 
     @Transactional
     public UserCourseEnrollment enrollUserInCourse(User user, UUID courseVersionId) {
@@ -131,7 +131,7 @@ public class CourseTrackingService {
                             (int) counts[0],
                             (int) counts[1],
                             percentage(counts[1], counts[0]),
-                            SIGNS_LEARNED_PLACEHOLDER,
+                            SIGNS_LEARNED,
                             currentTopic));
         }
         return result;

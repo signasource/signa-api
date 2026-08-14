@@ -8,6 +8,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface UserLessonProgressRepository extends JpaRepository<UserLessonProgress, UUID> {
 
@@ -25,5 +26,5 @@ public interface UserLessonProgressRepository extends JpaRepository<UserLessonPr
                     + "AND l.topic.courseVersion.id IN :versionIds "
                     + "GROUP BY l.topic.id")
     List<TopicCompletedCountView> findCompletedLessonCountsByTopic(
-            UUID userId, Collection<UUID> versionIds);
+            @Param("userId") UUID userId, @Param("versionIds") Collection<UUID> versionIds);
 }
