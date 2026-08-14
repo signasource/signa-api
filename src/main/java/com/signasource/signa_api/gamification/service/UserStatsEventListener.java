@@ -59,7 +59,6 @@ public class UserStatsEventListener {
         User user = event.getUser();
         UUID courseVersionId = event.getCourseVersion().getId();
 
-        // Signs not yet recorded for this specific course
         List<String> newInCourse =
                 event.getSigns().stream()
                         .filter(
@@ -73,7 +72,6 @@ public class UserStatsEventListener {
             return;
         }
 
-        // Among those, signs that are globally new (not learned in any course yet)
         List<String> newGlobally =
                 newInCourse.stream()
                         .filter(

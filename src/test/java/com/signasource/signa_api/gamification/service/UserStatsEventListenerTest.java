@@ -134,7 +134,6 @@ class UserStatsEventListenerTest {
                         .learnedSignsCount(1)
                         .updatedAt(Instant.now())
                         .build();
-        // "hola" not yet in this course but already learned globally
         when(userLearnedSignRepository.existsByUserIdAndSignAndCourseVersionId(
                         userId, "hola", courseVersionId))
                 .thenReturn(false);
@@ -167,11 +166,9 @@ class UserStatsEventListenerTest {
                         .learnedSignsCount(0)
                         .updatedAt(Instant.now())
                         .build();
-        // "hola" already in this course → skipped
         when(userLearnedSignRepository.existsByUserIdAndSignAndCourseVersionId(
                         userId, "hola", courseVersionId))
                 .thenReturn(true);
-        // "chau" new to course and globally
         when(userLearnedSignRepository.existsByUserIdAndSignAndCourseVersionId(
                         userId, "chau", courseVersionId))
                 .thenReturn(false);
