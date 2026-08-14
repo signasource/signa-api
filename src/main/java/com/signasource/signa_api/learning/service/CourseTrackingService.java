@@ -54,9 +54,6 @@ public class CourseTrackingService {
 
     private final ApplicationEventPublisher eventPublisher;
 
-    // Signs are only referenced as free-form keys inside lesson-block config, not linked to the
-    // signs table, so distinct "signs learned" is not computable yet. Reported as 0 until a proper
-    // sign↔block relationship exists.
     private static final int SIGNS_LEARNED_PLACEHOLDER = 0;
 
     @Transactional
@@ -79,14 +76,6 @@ public class CourseTrackingService {
         return enrollmentRepository.save(enrollment);
     }
 
-    /**
-     * Builds the progress overview for every course the user is enrolled in. Runs in four aggregate
-     * queries (enrollments, per-topic lesson totals, per-topic completed counts, and the
-     * in-progress topic of each course) regardless of how many courses/topics/lessons exist; the
-     * course lesson totals and percentages are derived from the per-topic counts and the whole
-     * thing is assembled with small in-memory maps. Each course exposes only its current
-     * in-progress topic.
-     */
     @Transactional(readOnly = true)
     public List<CourseProgressResponse> getUserCourseProgress(User user) {
         List<UserCourseEnrollment> enrollments =
@@ -119,7 +108,6 @@ public class CourseTrackingService {
             totalByTopic.put(topic.getTopicId(), topic.getTotalLessons());
         }
 
-        // Topics arrive ordered by topic order, so putIfAbsent keeps the earliest in-progress one.
         Map<UUID, Topic> inProgressTopicByVersion = new HashMap<>();
         for (UserTopicProgress progress :
                 topicProgressRepository.findInProgressTopics(user.getId(), versionIds)) {

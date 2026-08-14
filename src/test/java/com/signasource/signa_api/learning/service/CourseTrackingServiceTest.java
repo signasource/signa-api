@@ -621,7 +621,6 @@ class CourseTrackingServiceTest {
                                 .status(EnrollmentStatus.DROPPED)
                                 .build());
 
-        // Numbers is the current in-progress topic; the completed Greetings topic is not reported.
         Topic numbers =
                 Topic.builder()
                         .id(numbersTopic)
