@@ -4,7 +4,9 @@ import com.signasource.signa_api.auth.dto.AuthResponse;
 import com.signasource.signa_api.auth.dto.ChangePasswordRequest;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.service.AuthService;
+import com.signasource.signa_api.users.dto.DailyGoalResponse;
 import com.signasource.signa_api.users.dto.PublicUserProfileResponse;
+import com.signasource.signa_api.users.dto.UpdateDailyGoalRequest;
 import com.signasource.signa_api.users.dto.UpdateUserSettingsRequest;
 import com.signasource.signa_api.users.dto.UpdateUsernameRequest;
 import com.signasource.signa_api.users.dto.UserProfileResponse;
@@ -25,6 +27,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -60,6 +63,28 @@ public class UserController {
             @Valid @RequestBody UpdateUserSettingsRequest request) {
         return ResponseEntity.ok(
                 userSettingsService.updateSettings(userDetails.getUser(), request));
+    }
+
+    @PostMapping("/daily-goal")
+    public ResponseEntity<DailyGoalResponse> setDailyGoal(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody UpdateDailyGoalRequest request) {
+        return ResponseEntity.status(201)
+                .body(userSettingsService.setDailyGoal(userDetails.getUser(), request));
+    }
+
+    @GetMapping("/daily-goal")
+    public ResponseEntity<DailyGoalResponse> getDailyGoal(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(userSettingsService.getDailyGoal(userDetails.getUser()));
+    }
+
+    @PatchMapping("/daily-goal")
+    public ResponseEntity<DailyGoalResponse> updateDailyGoal(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody UpdateDailyGoalRequest request) {
+        return ResponseEntity.ok(
+                userSettingsService.updateDailyGoal(userDetails.getUser(), request));
     }
 
     @GetMapping("/username-availability")
