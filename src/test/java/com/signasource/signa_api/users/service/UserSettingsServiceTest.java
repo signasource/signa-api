@@ -175,7 +175,8 @@ class UserSettingsServiceTest {
     @Test
     void shouldKeepAllFieldsWhenNoFieldIsProvided() {
         UpdateUserSettingsRequest request =
-                new UpdateUserSettingsRequest(null, null, null, null, null, null, null, null, null, null);
+                new UpdateUserSettingsRequest(
+                        null, null, null, null, null, null, null, null, null, null);
         when(userSettingsRepository.findByUserId(USER_ID)).thenReturn(Optional.of(settings));
 
         UserSettingsResponse response = userSettingsService.updateSettings(user, request);
