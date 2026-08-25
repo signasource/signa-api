@@ -12,7 +12,8 @@ public record UserInventoryResponse(
         Instant nextLifeAt,
         double effectiveXpMultiplier,
         Instant xpMultiplierExpiresAt,
-        boolean xpMultiplierActive) {
+        boolean xpMultiplierActive,
+        int learnedSignsCount) {
 
     public static UserInventoryResponse from(UserStats stats) {
         return new UserInventoryResponse(
@@ -23,6 +24,7 @@ public record UserInventoryResponse(
                 stats.getNextLifeAt(),
                 stats.getEffectiveXpMultiplier(),
                 stats.getXpMultiplierExpiresAt(),
-                stats.hasActiveXpMultiplier());
+                stats.hasActiveXpMultiplier(),
+                stats.getLearnedSignsCount());
     }
 }

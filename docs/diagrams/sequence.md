@@ -18,10 +18,12 @@ sequenceDiagram
     alt ya existe
         API-->>C: Conflicto (409)
     else disponible
-        API->>DB: Crear cuenta (sin verificar, contraseña cifrada)
+        API->>DB: Crear cuenta (activa, correo sin verificar, contraseña cifrada)
         API->>DB: Generar token de verificación
         API->>Mail: Enviar correo de verificación
-        API-->>C: Registro exitoso
+        API->>API: Emitir token de acceso
+        API->>DB: Generar token de renovación
+        API-->>C: Registro exitoso + tokens (sesión iniciada; verificar correo es opcional)
     end
 ```
 
@@ -36,7 +38,7 @@ sequenceDiagram
 
     C->>API: Credenciales
     API->>DB: Verificar credenciales
-    alt inválidas o cuenta no verificada
+    alt inválidas o cuenta dada de baja
         API-->>C: No autorizado (401)
     else válidas
         API->>API: Emitir token de acceso
@@ -163,6 +165,28 @@ sequenceDiagram
     else cuenta activa
         API->>DB: Traer estado del jugador
         API-->>C: Inventario (gemas, vidas, multiplicador de XP)
+    end
+```
+
+## Consulta de progreso de cursos
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant API as API
+    participant DB as Base de datos
+
+    C->>API: Consultar mi progreso
+    API->>DB: Traer inscripciones del usuario (curso y estado)
+    alt sin inscripciones
+        API-->>C: Lista vacía
+    else con inscripciones
+        API->>DB: Total de lecciones por tema
+        API->>DB: Lecciones completadas por tema
+        API->>DB: Tema en progreso de cada curso
+        API->>API: Calcular porcentajes del curso y del tema en progreso
+        API-->>C: Progreso por curso (lecciones, porcentaje y tema en progreso)
     end
 ```
 

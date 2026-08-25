@@ -82,6 +82,7 @@ class UserControllerTest {
                         .passwordHash("hashed_password")
                         .role(Role.USER)
                         .enabled(true)
+                        .verified(true)
                         .build();
         userDetails = new CustomUserDetails(user);
     }
@@ -249,6 +250,7 @@ class UserControllerTest {
         assertEquals(user.getName(), body.name());
         assertEquals(Role.USER, body.role());
         assertEquals(true, body.enabled());
+        assertEquals(true, body.verified());
     }
 
     @Test

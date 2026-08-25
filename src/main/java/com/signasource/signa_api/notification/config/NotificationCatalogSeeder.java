@@ -69,7 +69,7 @@ public class NotificationCatalogSeeder implements CommandLineRunner {
                                 "Tenemos novedades para vos."));
 
         for (NotificationTemplate t : defaults) {
-            if (!templateRepository.existsByCodeAndDefaultTitle(t.getCode(), t.getDefaultTitle())) {
+            if (!templateRepository.existsByCode(t.getCode())) {
                 templateRepository.save(t);
             }
         }

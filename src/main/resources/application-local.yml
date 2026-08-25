@@ -4,6 +4,4 @@ spring:
       ddl-auto: update
 
 app:
-  security:
-    enabled: false
   base-url: http://localhost:8080

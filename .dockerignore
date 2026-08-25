@@ -1,4 +1,8 @@
-build
+.git
 .gradle
-.idea
-.vscode
+build/
+.env
+secrets/
+.gitignore
+.dockerignore
+*.md

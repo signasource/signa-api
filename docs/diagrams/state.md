@@ -6,14 +6,16 @@ Ciclo de vida de las entidades que tienen estados relevantes.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> NoVerificada : registro
-    NoVerificada --> Verificada : verifica el correo
-    NoVerificada --> NoVerificada : reenvío de verificación
-    NoVerificada --> Verificada : inicio de sesión externo (auto-habilita)
+    [*] --> SinVerificar : registro (cuenta activa, correo sin verificar)
+    [*] --> Verificada : inicio de sesión externo (Google verifica el correo)
+    SinVerificar --> Verificada : verifica el correo / reenvío + verificación
+    SinVerificar --> [*] : baja de la cuenta
     Verificada --> [*] : baja de la cuenta
-    note right of NoVerificada
-        No puede iniciar sesión con credenciales
-        hasta verificar el correo.
+    note right of SinVerificar
+        La cuenta nace activa (enabled=true) y puede
+        iniciar sesión de inmediato; 'verified=false'
+        solo indica que el correo no se verificó aún.
+        La baja pone enabled=false y bloquea el login.
     end note
 ```
 

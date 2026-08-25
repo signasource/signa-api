@@ -2,14 +2,21 @@ package com.signasource.signa_api.gamification.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.gamification.entity.UserDailyXp;
+import com.signasource.signa_api.gamification.entity.UserLearnedSign;
 import com.signasource.signa_api.gamification.entity.UserStats;
 import com.signasource.signa_api.gamification.repository.UserDailyXpRepository;
+import com.signasource.signa_api.gamification.repository.UserLearnedSignRepository;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
+import com.signasource.signa_api.learning.entity.CourseVersion;
+import com.signasource.signa_api.learning.event.SignsLearnedEvent;
 import com.signasource.signa_api.learning.event.XpEarnedEvent;
 import com.signasource.signa_api.users.entity.User;
 import java.time.DayOfWeek;
@@ -18,6 +25,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.temporal.TemporalAdjusters;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,17 +41,27 @@ class UserStatsEventListenerTest {
 
     @Mock private UserStatsRepository userStatsRepository;
     @Mock private UserDailyXpRepository userDailyXpRepository;
+    @Mock private UserLearnedSignRepository userLearnedSignRepository;
 
     @InjectMocks private UserStatsEventListener userStatsEventListener;
 
     private UUID userId;
+    private UUID courseVersionId;
     private User mockUser;
+    private CourseVersion mockCourseVersion;
 
     @BeforeEach
     void setUp() {
         userId = UUID.randomUUID();
+        courseVersionId = UUID.randomUUID();
         mockUser = new User();
         mockUser.setId(userId);
+        mockCourseVersion = new CourseVersion();
+        mockCourseVersion.setId(courseVersionId);
+    }
+
+    private SignsLearnedEvent signsEvent(List<String> signs) {
+        return new SignsLearnedEvent(this, mockUser, signs, mockCourseVersion);
     }
 
     private static Instant startOfCurrentWeek() {
@@ -95,6 +113,86 @@ class UserStatsEventListenerTest {
 
         assertEquals(120L, stats.getTotalXp());
         assertEquals(50, stats.getWeeklyXp());
+    }
+
+    @Test
+    void shouldSaveRowsAndIncrementCount_WhenSignsAreNewToCourseAndGlobally() {
+        UserStats stats =
+                UserStats.builder()
+                        .user(mockUser)
+                        .learnedSignsCount(2)
+                        .updatedAt(Instant.now())
+                        .build();
+        when(userLearnedSignRepository.existsByUserIdAndSignAndCourseVersionId(
+                        eq(userId), anyString(), eq(courseVersionId)))
+                .thenReturn(false);
+        when(userLearnedSignRepository.existsByUserIdAndSign(eq(userId), anyString()))
+                .thenReturn(false);
+        when(userStatsRepository.findByUserId(userId)).thenReturn(Optional.of(stats));
+        when(userStatsRepository.save(any(UserStats.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        userStatsEventListener.handleSignsLearnedEvent(signsEvent(List.of("hola", "gracias")));
+
+        verify(userLearnedSignRepository, times(2)).save(any(UserLearnedSign.class));
+        assertEquals(4, stats.getLearnedSignsCount());
+    }
+
+    @Test
+    void shouldSaveRowButNotIncrementCount_WhenSignIsNewToCourseButAlreadyGlobal() {
+        UserStats stats =
+                UserStats.builder()
+                        .user(mockUser)
+                        .learnedSignsCount(1)
+                        .updatedAt(Instant.now())
+                        .build();
+        when(userLearnedSignRepository.existsByUserIdAndSignAndCourseVersionId(
+                        userId, "hola", courseVersionId))
+                .thenReturn(false);
+        when(userLearnedSignRepository.existsByUserIdAndSign(userId, "hola")).thenReturn(true);
+
+        userStatsEventListener.handleSignsLearnedEvent(signsEvent(List.of("hola")));
+
+        verify(userLearnedSignRepository, times(1)).save(any(UserLearnedSign.class));
+        verify(userStatsRepository, never()).save(any(UserStats.class));
+        assertEquals(1, stats.getLearnedSignsCount());
+    }
+
+    @Test
+    void shouldDoNothingWhenAllSignsAlreadyInThisCourse() {
+        when(userLearnedSignRepository.existsByUserIdAndSignAndCourseVersionId(
+                        eq(userId), anyString(), eq(courseVersionId)))
+                .thenReturn(true);
+
+        userStatsEventListener.handleSignsLearnedEvent(signsEvent(List.of("hola")));
+
+        verify(userLearnedSignRepository, never()).save(any(UserLearnedSign.class));
+        verify(userStatsRepository, never()).save(any(UserStats.class));
+    }
+
+    @Test
+    void shouldHandleMixedSigns_SomeNewToCourseOthersNot() {
+        UserStats stats =
+                UserStats.builder()
+                        .user(mockUser)
+                        .learnedSignsCount(0)
+                        .updatedAt(Instant.now())
+                        .build();
+        when(userLearnedSignRepository.existsByUserIdAndSignAndCourseVersionId(
+                        userId, "hola", courseVersionId))
+                .thenReturn(true);
+        when(userLearnedSignRepository.existsByUserIdAndSignAndCourseVersionId(
+                        userId, "chau", courseVersionId))
+                .thenReturn(false);
+        when(userLearnedSignRepository.existsByUserIdAndSign(userId, "chau")).thenReturn(false);
+        when(userStatsRepository.findByUserId(userId)).thenReturn(Optional.of(stats));
+        when(userStatsRepository.save(any(UserStats.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        userStatsEventListener.handleSignsLearnedEvent(signsEvent(List.of("hola", "chau")));
+
+        verify(userLearnedSignRepository, times(1)).save(any(UserLearnedSign.class));
+        assertEquals(1, stats.getLearnedSignsCount());
     }
 
     @Test

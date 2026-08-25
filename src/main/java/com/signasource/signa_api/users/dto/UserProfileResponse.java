@@ -5,7 +5,13 @@ import com.signasource.signa_api.users.entity.User;
 import java.util.UUID;
 
 public record UserProfileResponse(
-        UUID id, String email, String username, String name, Role role, boolean enabled) {
+        UUID id,
+        String email,
+        String username,
+        String name,
+        Role role,
+        boolean enabled,
+        boolean verified) {
     public static UserProfileResponse from(User user) {
         return new UserProfileResponse(
                 user.getId(),
@@ -13,6 +19,7 @@ public record UserProfileResponse(
                 user.getUsername(),
                 user.getName(),
                 user.getRole(),
-                user.isEnabled());
+                user.isEnabled(),
+                user.isVerified());
     }
 }
