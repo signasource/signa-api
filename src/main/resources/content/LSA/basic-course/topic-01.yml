@@ -1,40 +1,471 @@
 topic:
   code: unidad-1
-  name: Cortesía
-  description: Saludos básicos
+  name: "Unidad 1: Conceptos básicos"
+  description: Aprende las señas fundamentales para comenzar a comunicarte en LSA.
 
 lessons:
-  - code: cortesia
-    name: Cortesía
-    description: Aprende las expresiones básicas de cortesía.
+  - code: leccion-2
+    name: Formulas de Cortesía
+    description: Aprende las señas de las fórmulas de cortesía más utilizadas.
 
     blocks:
-      - type: INFO
-        config:
-          text: "En esta lección aprenderás las expresiones básicas de cortesía en LSA."
-
       - type: SELECT_MEANING
-        xp: 10
+        xp: 5
         config:
           sign: hola
           options:
             - hola
+            - chau
             - gracias
-            - por_favor
+            - perdón
 
       - type: SELECT_SIGN
-        xp: 10
+        xp: 5
         config:
-          word: por_favor
+          word: chau
           options:
             - hola
-            - perdon
-            - por_favor
+            - chau
+            - por favor
+            - gracias
+
+      - type: VISUAL_RECOGNITION
+        xp: 15
+        config:
+          sign_sequence:
+            - hola
+            - gracias
+            - chau
+            - por favor
+          options:
+            - hola
+            - chau
+            - gracias
+            - por favor
+            - perdón
+          keep_order: false
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: por favor
+          options:
+            - por favor
+            - gracias
+            - hola
+            - perdón
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: gracias
+          options:
+            - chau
+            - perdón
+            - gracias
+            - hola
 
       - type: MATCH
-        xp: 15
+        xp: 10
         config:
           concepts:
             - hola
             - chau
+            - por favor
             - gracias
+            - perdón
+
+      # cambiar la pregunta
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Qué dirías si alguien te ayuda?"
+          answer: gracias
+          options:
+            - hola
+            - gracias
+            - perdón
+            - chau
+
+  - code: leccion-3
+    name: Pronombres personales
+    description: Practica las señas de los pronombres personales.
+
+    blocks:
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: yo
+          options:
+            - yo
+            - vos
+            - él
+            - nosotros
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: vos
+          options:
+            - yo
+            - vos
+            - ella
+            - nosotros
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: él
+          options:
+            - él
+            - ella
+            - vos
+            - nosotros
+
+      - type: MATCH
+        xp: 10
+        config:
+          concepts:
+            - yo
+            - vos
+            - él
+            - ella
+            - nosotros
+
+      - type: VISUAL_RECOGNITION
+        xp: 15
+        config:
+          sign_sequence:
+            - yo
+            - vos
+            - ella
+            - nosotros
+          options:
+            - yo
+            - él
+            - ella
+            - nosotros
+            - vos
+          keep_order: false
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Quién tiene un sombrero?"
+          answer: ella
+          options:
+            - yo
+            - vos
+            - ella
+            - nosotros
+
+  - code: leccion-4
+    name: Días de la semana
+    description: Practica las señas de los días de la semana.
+
+    blocks:
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: lunes
+          options:
+            - lunes
+            - martes
+            - viernes
+            - domingo
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: miércoles
+          options:
+            - miércoles
+            - jueves
+            - sábado
+            - lunes
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Qué día sigue después del viernes?"
+          answer: sábado
+          options:
+            - jueves
+            - viernes
+            - sábado
+            - domingo
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: jueves
+          options:
+            - jueves
+            - martes
+            - domingo
+            - sábado
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: viernes
+          options:
+            - martes
+            - viernes
+            - lunes
+            - domingo
+
+      - type: MATCH
+        xp: 10
+        config:
+          concepts:
+            - lunes
+            - martes
+            - miércoles
+            - jueves
+            - viernes
+            - sábado
+            - domingo
+
+      - type: VISUAL_RECOGNITION
+        xp: 15
+        config:
+          sign_sequence:
+            - lunes
+            - miércoles
+            - viernes
+            - domingo
+          options:
+            - lunes
+            - martes
+            - miércoles
+            - jueves
+            - viernes
+            - sábado
+            - domingo
+          keep_order: false
+          
+  - code: leccion-5
+    name: Meses del año
+    description: Aprende y practica las señas correspondientes a los meses del año.
+
+    blocks:
+
+    - type: SELECT_MEANING
+      xp: 5
+      config:
+        sign: enero
+        options:
+          - enero
+          - marzo
+          - junio
+          - diciembre
+
+    - type: SELECT_SIGN
+      xp: 5
+      config:
+        word: febrero
+        options:
+          - enero
+          - febrero
+          - abril
+          - agosto
+
+    - type: SELECT_MEANING
+      xp: 5
+      config:
+        sign: mayo
+        options:
+          - febrero
+          - mayo
+          - julio
+          - noviembre
+
+    - type: CONTEXT_RESPONSE
+      xp: 5
+      config:
+        question: "¿Qué mes viene después de marzo?"
+        answer: abril
+        options:
+          - febrero
+          - marzo
+          - abril
+          - mayo
+
+    - type: SELECT_SIGN
+      xp: 5
+      config:
+        word: julio
+        options:
+          - junio
+          - julio
+          - agosto
+          - septiembre
+
+    - type: SELECT_MEANING
+      xp: 5
+      config:
+        sign: septiembre
+        options:
+          - agosto
+          - septiembre
+          - octubre
+          - noviembre
+
+    - type: CONTEXT_RESPONSE
+      xp: 5
+      config:
+        question: "¿Qué mes está antes de diciembre?"
+        answer: noviembre
+        options:
+          - septiembre
+          - octubre
+          - noviembre
+          - enero
+
+    - type: SELECT_SIGN
+      xp: 5
+      config:
+        word: octubre
+        options:
+          - agosto
+          - septiembre
+          - octubre
+          - diciembre
+
+    - type: MATCH
+      xp: 10
+      config:
+        concepts:
+          - enero
+          - marzo
+          - mayo
+          - julio
+          - septiembre
+          - noviembre
+
+    - type: VISUAL_RECOGNITION
+      xp: 15
+      config:
+        sign_sequence:
+          - enero
+          - abril
+          - julio
+          - octubre
+        options:
+          - enero
+          - febrero
+          - abril
+          - mayo
+          - julio
+          - agosto
+          - octubre
+          - diciembre
+        keep_order: false
+
+
+  - code: leccion-6
+    name: Amigos y familia
+    description: Aprende las señas de personas cercanas y relaciones familiares.
+
+    blocks:
+
+    - type: SELECT_MEANING
+      xp: 5
+      config:
+        sign: madre
+        options:
+          - madre
+          - padre
+          - hermano
+          - amigo
+
+    - type: SELECT_SIGN
+      xp: 5
+      config:
+        word: padre
+        options:
+          - madre
+          - padre
+          - abuelo
+          - amigo
+
+    - type: SELECT_MEANING
+      xp: 5
+      config:
+        sign: amigo
+        options:
+          - hermano
+          - amigo
+          - abuelo
+          - madre
+
+    - type: CONTEXT_RESPONSE
+      xp: 5
+      config:
+        question: "¿Cómo llamarías a la persona que es el padre de tu madre?"
+        answer: abuelo
+        options:
+          - hermano
+          - padre
+          - abuelo
+          - amigo
+
+    - type: SELECT_SIGN
+      xp: 5
+      config:
+        word: hermano
+        options:
+          - padre
+          - amigo
+          - hermano
+          - abuelo
+
+    - type: SELECT_MEANING
+      xp: 5
+      config:
+        sign: abuelo
+        options:
+          - abuelo
+          - hermano
+          - padre
+          - amigo
+
+    - type: CONTEXT_RESPONSE
+      xp: 5
+      config:
+        question: "¿Quién puede ser una persona con la que compartís una amistad?"
+        answer: amigo
+        options:
+          - padre
+          - abuelo
+          - hermano
+          - amigo
+
+    - type: MATCH
+      xp: 10
+      config:
+        concepts:
+          - madre
+          - padre
+          - amigo
+          - abuelo
+          - hermano
+
+    - type: VISUAL_RECOGNITION
+      xp: 15
+      config:
+        sign_sequence:
+          - madre
+          - amigo
+          - abuelo
+          - hermano
+        options:
+          - madre
+          - padre
+          - amigo
+          - abuelo
+          - hermano
+        keep_order: false
+
+      
