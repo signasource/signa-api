@@ -20,6 +20,7 @@ import static org.mockito.Mockito.when;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
+import com.signasource.signa_api.gamification.repository.UserLearnedSignRepository;
 import com.signasource.signa_api.learning.dto.CourseProgressResponse;
 import com.signasource.signa_api.learning.dto.TopicProgressResponse;
 import com.signasource.signa_api.learning.entity.BlockType;
@@ -71,6 +72,7 @@ class CourseTrackingServiceTest {
     @Mock private TopicRepository topicRepository;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private BlockSignExtractor blockSignExtractor;
+    @Mock private UserLearnedSignRepository userLearnedSignRepository;
 
     @InjectMocks private CourseTrackingService courseTrackingService;
 

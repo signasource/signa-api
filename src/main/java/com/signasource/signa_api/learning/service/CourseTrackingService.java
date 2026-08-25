@@ -3,6 +3,7 @@ package com.signasource.signa_api.learning.service;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
+import com.signasource.signa_api.gamification.repository.UserLearnedSignRepository;
 import com.signasource.signa_api.learning.dto.CourseProgressResponse;
 import com.signasource.signa_api.learning.dto.TopicProgressResponse;
 import com.signasource.signa_api.learning.entity.BlockType;
@@ -56,8 +57,7 @@ public class CourseTrackingService {
 
     private final ApplicationEventPublisher eventPublisher;
     private final BlockSignExtractor blockSignExtractor;
-
-    private static final int SIGNS_LEARNED = 0;
+    private final UserLearnedSignRepository userLearnedSignRepository;
 
     @Transactional
     public UserCourseEnrollment enrollUserInCourse(User user, UUID courseVersionId) {
@@ -127,6 +127,9 @@ public class CourseTrackingService {
                             inProgressTopicByVersion.get(versionId),
                             totalByTopic,
                             completedByTopic);
+            long signsLearned =
+                    userLearnedSignRepository.countByUserIdAndCourseVersionId(
+                            user.getId(), versionId);
             result.add(
                     new CourseProgressResponse(
                             enrollment.getCourseVersion().getCourse().getName(),
@@ -134,7 +137,7 @@ public class CourseTrackingService {
                             (int) counts[0],
                             (int) counts[1],
                             percentage(counts[1], counts[0]),
-                            SIGNS_LEARNED,
+                            (int) signsLearned,
                             currentTopic));
         }
         return result;
