@@ -54,6 +54,7 @@ class UserSettingsServiceTest {
     private static final int UPDATED_DAILY_GOAL_MINUTES = 45;
     private static final boolean UPDATED_DAILY_NOTIFICATION_ENABLED = true;
     private static final LocalTime UPDATED_DAILY_NOTIFICATION_TIME = LocalTime.of(8, 30);
+    private static final String UPDATED_PROFILE_HEADER_COLOR = "#7857FF";
 
     @Mock private UserSettingsRepository userSettingsRepository;
 
@@ -123,7 +124,8 @@ class UserSettingsServiceTest {
                         UPDATED_ACCOUNT_VISIBILITY,
                         UPDATED_DAILY_GOAL_MINUTES,
                         UPDATED_DAILY_NOTIFICATION_ENABLED,
-                        UPDATED_DAILY_NOTIFICATION_TIME);
+                        UPDATED_DAILY_NOTIFICATION_TIME,
+                        UPDATED_PROFILE_HEADER_COLOR);
         when(userSettingsRepository.findByUserId(USER_ID)).thenReturn(Optional.of(settings));
 
         UserSettingsResponse response = userSettingsService.updateSettings(user, request);
@@ -152,6 +154,7 @@ class UserSettingsServiceTest {
                         null,
                         UPDATED_DAILY_GOAL_MINUTES,
                         null,
+                        null,
                         null);
         when(userSettingsRepository.findByUserId(USER_ID)).thenReturn(Optional.of(settings));
 
@@ -172,7 +175,8 @@ class UserSettingsServiceTest {
     @Test
     void shouldKeepAllFieldsWhenNoFieldIsProvided() {
         UpdateUserSettingsRequest request =
-                new UpdateUserSettingsRequest(null, null, null, null, null, null, null, null, null);
+                new UpdateUserSettingsRequest(
+                        null, null, null, null, null, null, null, null, null, null);
         when(userSettingsRepository.findByUserId(USER_ID)).thenReturn(Optional.of(settings));
 
         UserSettingsResponse response = userSettingsService.updateSettings(user, request);
@@ -193,7 +197,7 @@ class UserSettingsServiceTest {
     void shouldThrowNotFoundWhenUpdatingSettingsThatDoNotExist() {
         UpdateUserSettingsRequest request =
                 new UpdateUserSettingsRequest(
-                        UPDATED_TIMEZONE, null, null, null, null, null, null, null, null);
+                        UPDATED_TIMEZONE, null, null, null, null, null, null, null, null, null);
         when(userSettingsRepository.findByUserId(USER_ID)).thenReturn(Optional.empty());
 
         NotFoundException exception =

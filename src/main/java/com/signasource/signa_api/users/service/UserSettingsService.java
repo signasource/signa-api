@@ -94,5 +94,8 @@ public class UserSettingsService {
         if (request.dailyNotificationTime() != null) {
             settings.setDailyNotificationTime(request.dailyNotificationTime());
         }
+        if (request.profileHeaderColor() != null) {
+            settings.setProfileHeaderColor(request.profileHeaderColor());
+        }
     }
 }
