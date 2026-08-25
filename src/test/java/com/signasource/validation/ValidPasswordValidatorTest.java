@@ -19,8 +19,14 @@ public class ValidPasswordValidatorTest {
     }
 
     @Test
-    void shouldAcceptValidPassword() {
-        assertTrue(validator.isValid("Password123!", null));
+    void shouldAcceptPasswordWithAtLeast8Characters() {
+        assertTrue(validator.isValid("password", null));
+    }
+
+    @Test
+    void shouldAcceptSimplePasswordWithoutComplexityRules() {
+        // Sin mayúsculas, dígitos ni símbolos: la única regla es la longitud.
+        assertTrue(validator.isValid("abcdefgh", null));
     }
 
     @Test
@@ -30,32 +36,12 @@ public class ValidPasswordValidatorTest {
 
     @Test
     void shouldRejectPasswordShorterThan8Characters() {
-        assertFalse(validator.isValid("Ab1!", null));
-    }
-
-    @Test
-    void shouldRejectPasswordWithoutUppercaseLetter() {
-        assertFalse(validator.isValid("password123!", null));
-    }
-
-    @Test
-    void shouldRejectPasswordWithoutLowercaseLetter() {
-        assertFalse(validator.isValid("PASSWORD123!", null));
-    }
-
-    @Test
-    void shouldRejectPasswordWithoutNumber() {
-        assertFalse(validator.isValid("Password!", null));
-    }
-
-    @Test
-    void shouldRejectPasswordWithoutSpecialCharacter() {
-        assertFalse(validator.isValid("Password123", null));
+        assertFalse(validator.isValid("abc123!", null));
     }
 
     @Test
     void shouldRejectPasswordLongerThan72Characters() {
-        String password = "Password123!" + "a".repeat(61);
+        String password = "a".repeat(73);
 
         assertFalse(validator.isValid(password, null));
     }
