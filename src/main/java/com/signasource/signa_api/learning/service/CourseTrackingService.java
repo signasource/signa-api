@@ -16,6 +16,7 @@ import com.signasource.signa_api.learning.entity.Topic;
 import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import com.signasource.signa_api.learning.entity.UserLessonProgress;
 import com.signasource.signa_api.learning.entity.UserTopicProgress;
+import com.signasource.signa_api.learning.event.SignsLearnedEvent;
 import com.signasource.signa_api.learning.event.XpEarnedEvent;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.learning.repository.LessonBlockAttemptRepository;
@@ -26,6 +27,7 @@ import com.signasource.signa_api.learning.repository.UserLessonProgressRepositor
 import com.signasource.signa_api.learning.repository.UserTopicProgressRepository;
 import com.signasource.signa_api.learning.repository.projection.TopicCompletedCountView;
 import com.signasource.signa_api.learning.repository.projection.TopicLessonTotalView;
+import com.signasource.signa_api.learning.util.BlockSignExtractor;
 import com.signasource.signa_api.users.entity.User;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -53,6 +55,7 @@ public class CourseTrackingService {
     private final TopicRepository topicRepository;
 
     private final ApplicationEventPublisher eventPublisher;
+    private final BlockSignExtractor blockSignExtractor;
 
     private static final int SIGNS_LEARNED = 0;
 
@@ -165,7 +168,7 @@ public class CourseTrackingService {
             User user, UUID lessonBlockId, Boolean isCorrect) {
         LessonBlock block =
                 lessonBlockRepository
-                        .findById(lessonBlockId)
+                        .findWithCourseVersionById(lessonBlockId)
                         .orElseThrow(() -> new NotFoundException("Lesson block not found"));
 
         boolean isInfo = block.getType() == BlockType.INFO;
@@ -198,6 +201,14 @@ public class CourseTrackingService {
         if (isNewMilestone) {
             if (!isInfo || block.getXpReward() != null) {
                 eventPublisher.publishEvent(new XpEarnedEvent(this, user, block.getXpReward()));
+            }
+            if (!isInfo) {
+                List<String> signs = blockSignExtractor.extract(block);
+                if (!signs.isEmpty()) {
+                    CourseVersion courseVersion = block.getLesson().getTopic().getCourseVersion();
+                    eventPublisher.publishEvent(
+                            new SignsLearnedEvent(this, user, signs, courseVersion));
+                }
             }
             checkLessonCompletion(user, block.getLesson());
         }

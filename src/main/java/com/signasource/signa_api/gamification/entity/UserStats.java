@@ -79,6 +79,10 @@ public class UserStats {
     @Column private Instant nextLifeAt;
 
     @Column(nullable = false)
+    @Builder.Default
+    private int learnedSignsCount = 0;
+
+    @Column(nullable = false)
     private Instant updatedAt;
 
     public double getEffectiveXpMultiplier() {
