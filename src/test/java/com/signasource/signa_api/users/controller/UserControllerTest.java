@@ -124,7 +124,8 @@ class UserControllerTest {
                         ACCOUNT_VISIBILITY,
                         DAILY_GOAL_MINUTES,
                         true,
-                        DAILY_NOTIFICATION_TIME);
+                        DAILY_NOTIFICATION_TIME,
+                        null);
         UserSettingsResponse expected = buildSettingsResponse();
         when(userSettingsService.updateSettings(user, request)).thenReturn(expected);
 
@@ -234,7 +235,8 @@ class UserControllerTest {
                 ACCOUNT_VISIBILITY,
                 DAILY_GOAL_MINUTES,
                 true,
-                DAILY_NOTIFICATION_TIME);
+                DAILY_NOTIFICATION_TIME,
+                "#FFFFFF");
     }
 
     @Test
