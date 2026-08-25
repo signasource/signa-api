@@ -4,6 +4,7 @@ import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -16,4 +17,7 @@ public interface UserCourseEnrollmentRepository extends JpaRepository<UserCourse
             UUID userId, UUID courseVersionId);
 
     boolean existsByUserIdAndCourseVersionId(UUID userId, UUID courseVersionId);
+
+    @EntityGraph(attributePaths = {"courseVersion", "courseVersion.course"})
+    List<UserCourseEnrollment> findWithCourseByUserId(UUID userId);
 }

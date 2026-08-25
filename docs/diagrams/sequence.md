@@ -168,6 +168,28 @@ sequenceDiagram
     end
 ```
 
+## Consulta de progreso de cursos
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant API as API
+    participant DB as Base de datos
+
+    C->>API: Consultar mi progreso
+    API->>DB: Traer inscripciones del usuario (curso y estado)
+    alt sin inscripciones
+        API-->>C: Lista vacía
+    else con inscripciones
+        API->>DB: Total de lecciones por tema
+        API->>DB: Lecciones completadas por tema
+        API->>DB: Tema en progreso de cada curso
+        API->>API: Calcular porcentajes del curso y del tema en progreso
+        API-->>C: Progreso por curso (lecciones, porcentaje y tema en progreso)
+    end
+```
+
 ## Importación de contenido
 
 ```mermaid
