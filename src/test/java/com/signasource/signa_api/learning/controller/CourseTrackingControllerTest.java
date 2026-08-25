@@ -1,14 +1,17 @@
 package com.signasource.signa_api.learning.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
+import com.signasource.signa_api.learning.dto.CourseProgressResponse;
 import com.signasource.signa_api.learning.dto.LessonBlockInteractionRequest;
 import com.signasource.signa_api.learning.service.CourseTrackingService;
 import com.signasource.signa_api.users.entity.User;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,6 +38,20 @@ class CourseTrackingControllerTest {
 
         mockUserDetails = mock(CustomUserDetails.class);
         when(mockUserDetails.getUser()).thenReturn(mockUser);
+    }
+
+    @Test
+    void getMyProgress_ShouldReturn200WithProgress() {
+        List<CourseProgressResponse> progress =
+                List.of(new CourseProgressResponse("Basic LSA", null, 6, 2, 33, 0, null));
+        when(trackingService.getUserCourseProgress(mockUser)).thenReturn(progress);
+
+        ResponseEntity<List<CourseProgressResponse>> response =
+                courseTrackingController.getMyProgress(mockUserDetails);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertSame(progress, response.getBody());
+        verify(trackingService).getUserCourseProgress(mockUser);
     }
 
     @Test

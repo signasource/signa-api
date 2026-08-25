@@ -3,18 +3,27 @@ package com.signasource.signa_api.learning.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
+import com.signasource.signa_api.learning.dto.CourseProgressResponse;
+import com.signasource.signa_api.learning.dto.TopicProgressResponse;
 import com.signasource.signa_api.learning.entity.BlockType;
+import com.signasource.signa_api.learning.entity.Course;
 import com.signasource.signa_api.learning.entity.CourseVersion;
 import com.signasource.signa_api.learning.entity.EnrollmentStatus;
 import com.signasource.signa_api.learning.entity.Lesson;
@@ -30,9 +39,12 @@ import com.signasource.signa_api.learning.event.XpEarnedEvent;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.learning.repository.LessonBlockAttemptRepository;
 import com.signasource.signa_api.learning.repository.LessonBlockRepository;
+import com.signasource.signa_api.learning.repository.TopicRepository;
 import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
 import com.signasource.signa_api.learning.repository.UserLessonProgressRepository;
 import com.signasource.signa_api.learning.repository.UserTopicProgressRepository;
+import com.signasource.signa_api.learning.repository.projection.TopicCompletedCountView;
+import com.signasource.signa_api.learning.repository.projection.TopicLessonTotalView;
 import com.signasource.signa_api.learning.util.BlockSignExtractor;
 import com.signasource.signa_api.users.entity.User;
 import java.util.List;
@@ -56,6 +68,7 @@ class CourseTrackingServiceTest {
     @Mock private LessonBlockAttemptRepository attemptRepository;
     @Mock private CourseVersionRepository courseVersionRepository;
     @Mock private LessonBlockRepository lessonBlockRepository;
+    @Mock private TopicRepository topicRepository;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private BlockSignExtractor blockSignExtractor;
 
@@ -656,5 +669,115 @@ class CourseTrackingServiceTest {
 
         verify(eventPublisher, times(1)).publishEvent(any(XpEarnedEvent.class));
         verify(eventPublisher, times(0)).publishEvent(any(SignsLearnedEvent.class));
+    }
+
+    @Test
+    void getUserCourseProgress_ReturnsEmptyList_WhenUserHasNoEnrollments() {
+        when(enrollmentRepository.findWithCourseByUserId(userId)).thenReturn(List.of());
+
+        List<CourseProgressResponse> result = courseTrackingService.getUserCourseProgress(mockUser);
+
+        assertTrue(result.isEmpty());
+        verifyNoInteractions(topicRepository);
+    }
+
+    @Test
+    void getUserCourseProgress_AggregatesLessonCountsAndReportsOnlyTheInProgressTopic() {
+        UUID versionWithTopics = UUID.randomUUID();
+        UUID versionWithoutTopics = UUID.randomUUID();
+        UUID greetingsTopic = UUID.randomUUID();
+        UUID numbersTopic = UUID.randomUUID();
+        UUID emptyTopic = UUID.randomUUID();
+
+        CourseVersion courseVersion =
+                CourseVersion.builder()
+                        .id(versionWithTopics)
+                        .course(Course.builder().name("Basic LSA").build())
+                        .build();
+        CourseVersion emptyCourseVersion =
+                CourseVersion.builder()
+                        .id(versionWithoutTopics)
+                        .course(Course.builder().name("Empty course").build())
+                        .build();
+        List<UserCourseEnrollment> enrollments =
+                List.of(
+                        UserCourseEnrollment.builder()
+                                .courseVersion(courseVersion)
+                                .status(EnrollmentStatus.ENROLLED)
+                                .build(),
+                        UserCourseEnrollment.builder()
+                                .courseVersion(emptyCourseVersion)
+                                .status(EnrollmentStatus.DROPPED)
+                                .build());
+
+        Topic numbers =
+                Topic.builder()
+                        .id(numbersTopic)
+                        .name("Numbers")
+                        .courseVersion(courseVersion)
+                        .build();
+        List<UserTopicProgress> inProgressTopics =
+                List.of(
+                        UserTopicProgress.builder()
+                                .topic(numbers)
+                                .status(ProgressStatus.IN_PROGRESS)
+                                .build());
+
+        List<TopicCompletedCountView> completedCounts =
+                List.of(completedView(greetingsTopic, 4L), completedView(numbersTopic, 1L));
+        List<TopicLessonTotalView> topicTotals =
+                List.of(
+                        topicTotalView(versionWithTopics, greetingsTopic, 4L),
+                        topicTotalView(versionWithTopics, numbersTopic, 2L),
+                        topicTotalView(versionWithTopics, emptyTopic, 0L));
+
+        when(enrollmentRepository.findWithCourseByUserId(userId)).thenReturn(enrollments);
+        when(lessonProgressRepository.findCompletedLessonCountsByTopic(eq(userId), anyCollection()))
+                .thenReturn(completedCounts);
+        when(topicRepository.findTopicLessonTotals(anyCollection())).thenReturn(topicTotals);
+        when(topicProgressRepository.findInProgressTopics(eq(userId), anyCollection()))
+                .thenReturn(inProgressTopics);
+
+        List<CourseProgressResponse> result = courseTrackingService.getUserCourseProgress(mockUser);
+
+        assertEquals(2, result.size());
+
+        CourseProgressResponse course = result.get(0);
+        assertEquals("Basic LSA", course.courseName());
+        assertEquals(EnrollmentStatus.ENROLLED, course.status());
+        assertEquals(6, course.totalLessons());
+        assertEquals(5, course.completedLessons());
+        assertEquals(83, course.progressPercentage());
+        assertEquals(0, course.signsLearned());
+
+        TopicProgressResponse currentTopic = course.currentTopic();
+        assertNotNull(currentTopic);
+        assertEquals("Numbers", currentTopic.title());
+        assertEquals(2, currentTopic.totalLessons());
+        assertEquals(1, currentTopic.completedLessons());
+        assertEquals(50, currentTopic.progressPercentage());
+
+        CourseProgressResponse courseWithoutTopics = result.get(1);
+        assertEquals(EnrollmentStatus.DROPPED, courseWithoutTopics.status());
+        assertEquals(0, courseWithoutTopics.totalLessons());
+        assertEquals(0, courseWithoutTopics.completedLessons());
+        assertEquals(0, courseWithoutTopics.progressPercentage());
+        assertNull(courseWithoutTopics.currentTopic());
+    }
+
+    private static TopicLessonTotalView topicTotalView(
+            UUID courseVersionId, UUID topicId, long totalLessons) {
+        TopicLessonTotalView view = mock(TopicLessonTotalView.class);
+        when(view.getCourseVersionId()).thenReturn(courseVersionId);
+        when(view.getTopicId()).thenReturn(topicId);
+        when(view.getTotalLessons()).thenReturn(totalLessons);
+        return view;
+    }
+
+    private static TopicCompletedCountView completedView(UUID topicId, long completedLessons) {
+        TopicCompletedCountView view = mock(TopicCompletedCountView.class);
+        when(view.getTopicId()).thenReturn(topicId);
+        when(view.getCompletedLessons()).thenReturn(completedLessons);
+        return view;
     }
 }
