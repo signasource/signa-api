@@ -78,5 +78,5 @@ public class UserSettings {
 
     @Column(nullable = false, length = 7)
     @Builder.Default
-    private String profileHeaderColor = "#FFFFFF";
+    private String profileHeaderColor = "#7857FF";
 }
