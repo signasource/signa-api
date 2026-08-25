@@ -56,7 +56,7 @@ la frontera HTTP; se mapean a/desde DTOs mediante factories estáticas (`Dto.fro
 
 | Módulo | Responsabilidad |
 |---|---|
-| `auth` | Registro, login, JWT, refresh, verificación de email, reset de password, Google OAuth2 |
+| `auth` | Registro (auto-login + verificación de email por flag `verified`), login, JWT, refresh, reset de password, Google OAuth2 |
 | `users` | Perfil, settings, amistades (`Friendship`), username |
 | `learning` | Cursos, versiones, temas, lecciones, bloques, señas y reportes de señas |
 | `content` | Pipeline de importación de contenido YAML (load → validate → persist), idempotente |
@@ -163,6 +163,10 @@ Resumen de alta prioridad; el detalle y los ejemplos están en los bloques sigui
 - **N+1:** si vas a necesitar relaciones, traelas en una sola query con
   `@EntityGraph(attributePaths = {...})` en el método del repositorio (ver `CourseVersionRepository`,
   `LessonRepository`), en vez de encadenar varias consultas.
+- **`enabled` vs `verified`:** `enabled` marca **solo** si la cuenta está activa; la baja de cuenta
+  (`deleteAccount`) pone `enabled = false` y Spring (`DaoAuthenticationProvider`) bloquea su login.
+  El estado del correo va en `verified` (registro nace `enabled=true, verified=false`; `verifyAccount`
+  lo pone `true`). Una cuenta sin verificar **sí** puede iniciar sesión.
 - **Soft-delete de cuenta** (`enabled = false`): al dar de baja hay que limpiar los tokens del usuario
   (`TokenRepository`) y sus device tokens (`DeviceTokenRepository`); y **toda lectura de perfil debe
   filtrar `enabled = true`** (más la visibilidad pública/amigos) para no exponer cuentas dadas de baja.
