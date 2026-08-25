@@ -5,6 +5,7 @@ import com.signasource.signa_api.users.entity.FontSize;
 import com.signasource.signa_api.users.entity.Theme;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.LocalTime;
 
@@ -17,4 +18,5 @@ public record UpdateUserSettingsRequest(
         AccountVisibility accountVisibility,
         @Min(1) @Max(1440) Integer dailyGoalMinutes,
         Boolean dailyNotificationEnabled,
-        LocalTime dailyNotificationTime) {}
+        LocalTime dailyNotificationTime,
+        @Pattern(regexp = "^#[0-9A-Fa-f]{6}$") String profileHeaderColor) {}

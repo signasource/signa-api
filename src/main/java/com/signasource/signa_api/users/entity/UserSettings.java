@@ -75,4 +75,8 @@ public class UserSettings {
     @Column(nullable = false)
     @Builder.Default
     private LocalTime dailyNotificationTime = LocalTime.of(20, 0);
+
+    @Column(nullable = false, length = 7)
+    @Builder.Default
+    private String profileHeaderColor = "#FFFFFF";
 }

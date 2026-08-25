@@ -15,7 +15,8 @@ public record UserSettingsResponse(
         AccountVisibility accountVisibility,
         int dailyGoalMinutes,
         boolean dailyNotificationEnabled,
-        LocalTime dailyNotificationTime) {
+        LocalTime dailyNotificationTime,
+        String profileHeaderColor) {
     public static UserSettingsResponse from(UserSettings settings) {
         return new UserSettingsResponse(
                 settings.getTimezone(),
@@ -26,6 +27,7 @@ public record UserSettingsResponse(
                 settings.getAccountVisibility(),
                 settings.getDailyGoalMinutes(),
                 settings.isDailyNotificationEnabled(),
-                settings.getDailyNotificationTime());
+                settings.getDailyNotificationTime(),
+                settings.getProfileHeaderColor());
     }
 }
