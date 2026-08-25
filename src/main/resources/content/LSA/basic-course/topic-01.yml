@@ -228,7 +228,7 @@ lessons:
             - domingo
 
       - type: VISUAL_RECOGNITION
-        xp: 5
+        xp: 15
         config:
           sign_sequence:
             - lunes
@@ -315,7 +315,7 @@ lessons:
     - type: CONTEXT_RESPONSE
       xp: 5
       config:
-        question: "¿Qué mes viene antes de diciembre?"
+        question: "¿Qué mes está antes de diciembre?"
         answer: noviembre
         options:
           - septiembre
@@ -338,17 +338,11 @@ lessons:
       config:
         concepts:
           - enero
-          - febrero
           - marzo
-          - abril
           - mayo
-          - junio
           - julio
-          - agosto
           - septiembre
-          - octubre
           - noviembre
-          - diciembre
 
     - type: VISUAL_RECOGNITION
       xp: 15
