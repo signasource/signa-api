@@ -26,7 +26,7 @@ public class NotificationTemplate {
     private Long id;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private NotificationCode code;
 
     @Column(nullable = false)
