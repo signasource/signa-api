@@ -9,7 +9,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
 
   mail:
     host: smtp.gmail.com
@@ -25,12 +25,22 @@ spring:
       mail.smtp.writetimeout: 5000
 
 server:
-  port: 8080
+  port: ${PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+  health:
+    mail:
+      enabled: false
 
 app:
-    security:
-        enabled: true
-    base-url:
+  base-url:
 
 auth:
     google:
@@ -46,3 +56,4 @@ auth:
 firebase:
   enabled: true
   global-topic: global
+  credentials-json: ${FIREBASE_CREDENTIALS_JSON:}

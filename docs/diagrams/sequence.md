@@ -18,10 +18,12 @@ sequenceDiagram
     alt ya existe
         API-->>C: Conflicto (409)
     else disponible
-        API->>DB: Crear cuenta (sin verificar, contraseña cifrada)
+        API->>DB: Crear cuenta (activa, correo sin verificar, contraseña cifrada)
         API->>DB: Generar token de verificación
         API->>Mail: Enviar correo de verificación
-        API-->>C: Registro exitoso
+        API->>API: Emitir token de acceso
+        API->>DB: Generar token de renovación
+        API-->>C: Registro exitoso + tokens (sesión iniciada; verificar correo es opcional)
     end
 ```
 
@@ -36,7 +38,7 @@ sequenceDiagram
 
     C->>API: Credenciales
     API->>DB: Verificar credenciales
-    alt inválidas o cuenta no verificada
+    alt inválidas o cuenta dada de baja
         API-->>C: No autorizado (401)
     else válidas
         API->>API: Emitir token de acceso

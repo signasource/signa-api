@@ -8,6 +8,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.exceptions.NotFoundException;
+import com.signasource.signa_api.users.dto.DailyGoalResponse;
+import com.signasource.signa_api.users.dto.UpdateDailyGoalRequest;
 import com.signasource.signa_api.users.dto.UpdateUserSettingsRequest;
 import com.signasource.signa_api.users.dto.UserSettingsResponse;
 import com.signasource.signa_api.users.entity.AccountVisibility;
@@ -198,6 +200,76 @@ class UserSettingsServiceTest {
                 assertThrows(
                         NotFoundException.class,
                         () -> userSettingsService.updateSettings(user, request));
+
+        assertTrue(exception.getMessage().contains(USER_ID.toString()));
+        verify(userSettingsRepository, never()).save(settings);
+    }
+
+    @Test
+    void shouldSetDailyGoal() {
+        UpdateDailyGoalRequest request = new UpdateDailyGoalRequest(UPDATED_DAILY_GOAL_MINUTES);
+        when(userSettingsRepository.findByUserId(USER_ID)).thenReturn(Optional.of(settings));
+
+        DailyGoalResponse response = userSettingsService.setDailyGoal(user, request);
+
+        assertEquals(UPDATED_DAILY_GOAL_MINUTES, response.dailyGoalMinutes());
+        verify(userSettingsRepository).save(settings);
+    }
+
+    @Test
+    void shouldThrowNotFoundWhenSettingDailyGoalForNonExistentSettings() {
+        UpdateDailyGoalRequest request = new UpdateDailyGoalRequest(UPDATED_DAILY_GOAL_MINUTES);
+        when(userSettingsRepository.findByUserId(USER_ID)).thenReturn(Optional.empty());
+
+        NotFoundException exception =
+                assertThrows(
+                        NotFoundException.class,
+                        () -> userSettingsService.setDailyGoal(user, request));
+
+        assertTrue(exception.getMessage().contains(USER_ID.toString()));
+        verify(userSettingsRepository, never()).save(settings);
+    }
+
+    @Test
+    void shouldReturnDailyGoalForUser() {
+        when(userSettingsRepository.findByUserId(USER_ID)).thenReturn(Optional.of(settings));
+
+        DailyGoalResponse response = userSettingsService.getDailyGoal(user);
+
+        assertEquals(INITIAL_DAILY_GOAL_MINUTES, response.dailyGoalMinutes());
+        verify(userSettingsRepository, never()).save(settings);
+    }
+
+    @Test
+    void shouldThrowNotFoundWhenGettingDailyGoalThatDoesNotExist() {
+        when(userSettingsRepository.findByUserId(USER_ID)).thenReturn(Optional.empty());
+
+        NotFoundException exception =
+                assertThrows(NotFoundException.class, () -> userSettingsService.getDailyGoal(user));
+
+        assertTrue(exception.getMessage().contains(USER_ID.toString()));
+    }
+
+    @Test
+    void shouldUpdateDailyGoal() {
+        UpdateDailyGoalRequest request = new UpdateDailyGoalRequest(UPDATED_DAILY_GOAL_MINUTES);
+        when(userSettingsRepository.findByUserId(USER_ID)).thenReturn(Optional.of(settings));
+
+        DailyGoalResponse response = userSettingsService.updateDailyGoal(user, request);
+
+        assertEquals(UPDATED_DAILY_GOAL_MINUTES, response.dailyGoalMinutes());
+        verify(userSettingsRepository).save(settings);
+    }
+
+    @Test
+    void shouldThrowNotFoundWhenUpdatingDailyGoalThatDoesNotExist() {
+        UpdateDailyGoalRequest request = new UpdateDailyGoalRequest(UPDATED_DAILY_GOAL_MINUTES);
+        when(userSettingsRepository.findByUserId(USER_ID)).thenReturn(Optional.empty());
+
+        NotFoundException exception =
+                assertThrows(
+                        NotFoundException.class,
+                        () -> userSettingsService.updateDailyGoal(user, request));
 
         assertTrue(exception.getMessage().contains(USER_ID.toString()));
         verify(userSettingsRepository, never()).save(settings);

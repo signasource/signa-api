@@ -20,8 +20,10 @@ erDiagram
         string username UK
         string passwordHash
         string name
+        string lastName
         enum role
         boolean enabled
+        boolean verified
         enum accountVisibility
     }
     USER_SETTINGS {
