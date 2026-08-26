@@ -67,6 +67,26 @@ stateDiagram-v2
     Expirado --> [*]
 ```
 
+## Ítem comprado o regalado
+
+```mermaid
+stateDiagram-v2
+    [*] --> Pendiente : se compra o se regala
+    Pendiente --> EnInventario : se reclama
+    EnInventario --> Activado : se activa
+    Activado --> [*]
+    note right of Pendiente
+        Es un regalo aún sin reclamar por el
+        destinatario. Hoy toda compra nace
+        pendiente; provisoriamente el cliente
+        encadena reclamo + activación cuando la
+        recompensa ya está pagada (p. ej. un cofre).
+    end note
+    note right of EnInventario
+        El ítem ya es del usuario y puede activarse.
+    end note
+```
+
 ## Resultado de la incorporación de contenido
 
 ```mermaid

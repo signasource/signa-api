@@ -159,11 +159,16 @@ sequenceDiagram
     Note over C,DB: El inventario (gemas, vidas, multiplicador de XP) sigue el mismo<br/>guard de cuenta activa y devuelve el estado del jugador.
 ```
 
-## Activación de un potenciador
+## Reclamo y activación de un potenciador
 
-Sólo se activan manualmente los potenciadores temporales (vidas ilimitadas y multiplicador de XP):
-el escudo de racha y la regeneración de vidas se aplican en otros flujos (cuando la racha está por
-romperse, cuando se gasta una vida), no a través de este endpoint.
+Toda compra nace **pendiente** (regalo sin reclamar). El cliente primero la reclama (queda **en
+inventario**, propiedad del usuario) y luego la activa; hoy ambos pasos se piden por
+`item_type` (no por id de compra), tomando siempre la compra más antigua pendiente/en inventario de
+ese tipo (FIFO). Cuando la recompensa ya está pagada (p. ej. un cofre sorpresa) el cliente encadena
+las dos llamadas una detrás de la otra. Sólo se activan manualmente los potenciadores temporales
+(vidas ilimitadas y multiplicador de XP): el escudo de racha y la regeneración de vidas se aplican en
+otros flujos (cuando la racha está por romperse, cuando se gasta una vida), no a través de este
+endpoint — pero sí pueden reclamarse.
 
 ```mermaid
 sequenceDiagram
@@ -172,14 +177,20 @@ sequenceDiagram
     participant API as API
     participant DB as Base de datos
 
-    C->>API: Activar compra (id de la compra)
-    alt cuenta dada de baja o compra inexistente/ajena
+    C->>API: Reclamar compra (item_type)
+    alt cuenta dada de baja o sin compra pendiente de ese tipo
         API-->>C: No encontrado (404)
-    else compra ya activada
-        API-->>C: Conflicto (409)
+    else compra pendiente encontrada
+        API->>DB: Marcar la compra más antigua como "en inventario"
+        API-->>C: Compra en inventario + estado del jugador
+    end
+
+    C->>API: Activar potenciador (item_type)
+    alt cuenta dada de baja o sin compra en inventario de ese tipo
+        API-->>C: No encontrado (404)
     else tipo de potenciador no soportado (p. ej. escudo de racha)
         API-->>C: Solicitud inválida (400)
-    else compra pendiente de vidas ilimitadas o multiplicador de XP
+    else compra en inventario de vidas ilimitadas o multiplicador de XP
         API->>DB: Traer inventario del jugador (USER_STATS)
         API->>API: Fijar el vencimiento del efecto (ahora + duración del ítem)
         API->>DB: Guardar inventario actualizado

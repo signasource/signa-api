@@ -2,7 +2,7 @@ package com.signasource.signa_api.gamification.service;
 
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
-import com.signasource.signa_api.gamification.dto.BoosterActivationResponse;
+import com.signasource.signa_api.gamification.dto.PurchaseResponse;
 import com.signasource.signa_api.gamification.entity.Purchase;
 import com.signasource.signa_api.gamification.entity.PurchaseStatus;
 import com.signasource.signa_api.gamification.entity.ShopItem;
@@ -25,14 +25,14 @@ public class BoosterService {
     private final UserStatsRepository userStatsRepository;
 
     @Transactional
-    public BoosterActivationResponse activate(User user, ShopItemType itemType) {
+    public PurchaseResponse activate(User user, ShopItemType itemType) {
         ensureEnabled(user);
         ensureActivatable(itemType);
 
         Purchase purchase =
                 purchaseRepository
                         .findFirstByUserAndShopItem_ItemTypeAndStatusOrderByPurchasedAtAsc(
-                                user, itemType, PurchaseStatus.PENDING)
+                                user, itemType, PurchaseStatus.STORED)
                         .orElseThrow(
                                 () ->
                                         new NotFoundException(
@@ -53,7 +53,7 @@ public class BoosterService {
         purchase.setActivatedAt(Instant.now());
         purchaseRepository.save(purchase);
 
-        return BoosterActivationResponse.from(purchase, stats);
+        return PurchaseResponse.from(purchase, stats);
     }
 
     private void applyEffect(UserStats stats, ShopItem item) {

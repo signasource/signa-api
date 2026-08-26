@@ -10,10 +10,9 @@ import com.signasource.signa_api.gamification.dto.UserInventoryResponse;
 import com.signasource.signa_api.gamification.entity.LivesMode;
 import com.signasource.signa_api.gamification.entity.PurchaseStatus;
 import com.signasource.signa_api.gamification.entity.ShopItemType;
-import com.signasource.signa_api.gamification.service.BoosterService;
+import com.signasource.signa_api.gamification.service.PurchaseService;
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
-import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,11 +24,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 @ExtendWith(MockitoExtension.class)
-class BoosterControllerTest {
+class PurchaseControllerTest {
 
-    @Mock private BoosterService boosterService;
+    @Mock private PurchaseService purchaseService;
 
-    @InjectMocks private BoosterController boosterController;
+    @InjectMocks private PurchaseController purchaseController;
 
     private User user;
     private CustomUserDetails userDetails;
@@ -50,7 +49,7 @@ class BoosterControllerTest {
     }
 
     @Test
-    void shouldActivateBooster() {
+    void shouldClaimPurchase() {
         UserInventoryResponse inventory =
                 new UserInventoryResponse(
                         70, 1, LivesMode.LIMITED, 4, null, null, false, 1.0, null, false);
@@ -59,15 +58,15 @@ class BoosterControllerTest {
                         UUID.randomUUID(),
                         "xp_boost",
                         ShopItemType.XP_MULTIPLIER,
-                        PurchaseStatus.ACTIVATED,
-                        Instant.now(),
+                        PurchaseStatus.STORED,
+                        null,
                         inventory);
-        when(boosterService.activate(user, ShopItemType.XP_MULTIPLIER)).thenReturn(expected);
+        when(purchaseService.claim(user, ShopItemType.XP_MULTIPLIER)).thenReturn(expected);
 
         ResponseEntity<PurchaseResponse> response =
-                boosterController.activate(ShopItemType.XP_MULTIPLIER, userDetails);
+                purchaseController.claim(ShopItemType.XP_MULTIPLIER, userDetails);
 
-        verify(boosterService).activate(user, ShopItemType.XP_MULTIPLIER);
+        verify(purchaseService).claim(user, ShopItemType.XP_MULTIPLIER);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(expected, response.getBody());
     }

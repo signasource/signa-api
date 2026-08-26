@@ -7,7 +7,7 @@ import com.signasource.signa_api.gamification.entity.UserStats;
 import java.time.Instant;
 import java.util.UUID;
 
-public record BoosterActivationResponse(
+public record PurchaseResponse(
         UUID purchaseId,
         String itemCode,
         ShopItemType itemType,
@@ -15,8 +15,8 @@ public record BoosterActivationResponse(
         Instant activatedAt,
         UserInventoryResponse inventory) {
 
-    public static BoosterActivationResponse from(Purchase purchase, UserStats stats) {
-        return new BoosterActivationResponse(
+    public static PurchaseResponse from(Purchase purchase, UserStats stats) {
+        return new PurchaseResponse(
                 purchase.getId(),
                 purchase.getShopItem().getCode(),
                 purchase.getShopItem().getItemType(),
