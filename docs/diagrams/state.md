@@ -33,6 +33,29 @@ stateDiagram-v2
     end note
 ```
 
+## Inscripción a un curso
+
+```mermaid
+stateDiagram-v2
+    [*] --> Inscripto : inscribirse
+    Inscripto --> Completado : completar el curso
+    Inscripto --> Abandonado : abandonar
+    Completado --> [*]
+    Abandonado --> [*]
+```
+
+## Progreso de tema y de lección
+
+Mismo ciclo para el avance de un tema y de una lección.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Bloqueado : inicial
+    Bloqueado --> EnProgreso : se empieza
+    EnProgreso --> Completado : se termina
+    Completado --> [*]
+```
+
 ## Solicitud de amistad
 
 ```mermaid

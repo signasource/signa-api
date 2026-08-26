@@ -190,6 +190,71 @@ sequenceDiagram
     end
 ```
 
+## Inscripción a un curso
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant API as API
+    participant DB as Base de datos
+
+    C->>API: Inscribirme a una versión de curso
+    API->>DB: ¿Ya inscripto en esta versión?
+    alt ya inscripto
+        API-->>C: Conflicto (409)
+    else no inscripto
+        API->>DB: Buscar la versión del curso
+        alt no existe
+            API-->>C: No encontrado (404)
+        else existe
+            API->>DB: Crear inscripción (estado inscripto)
+            API-->>C: Inscripción creada (201)
+        end
+    end
+```
+
+## Interacción con un bloque de lección
+
+Registra el intento del usuario y propaga la finalización hacia arriba en la jerarquía
+(lección → tema → curso). El XP y demás recompensas de gamificación se disparan por eventos, fuera
+del camino principal. El progreso de lección y tema se crea de forma diferida en la primera
+interacción.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant API as API
+    participant DB as Base de datos
+    participant Gam as Gamificación (eventos)
+
+    C->>API: Interacción con un bloque (correcto/incorrecto, o vista de bloque informativo)
+    API->>DB: Buscar el bloque
+    alt no existe
+        API-->>C: No encontrado (404)
+    else existe
+        alt correctitud incompatible con el tipo de bloque
+            API-->>C: Entrada inválida (400)
+        else válida
+            API->>DB: Registrar el intento
+            API->>DB: Marcar lección y tema en progreso (si estaban bloqueados)
+            alt primer hito (primer acierto / primera vista)
+                API-)Gam: XP ganado
+                API-)Gam: Señas aprendidas (bloques de ejercicio)
+                API->>DB: ¿Todos los bloques de la lección resueltos?
+                opt lección completa
+                    API->>DB: Completar lección (con XP acumulado)
+                    opt todos los temas... completos
+                        API->>DB: Completar tema y, si corresponde, la inscripción
+                    end
+                end
+            end
+            API-->>C: Intento registrado (201)
+        end
+    end
+```
+
 ## Importación de contenido
 
 ```mermaid
