@@ -12,6 +12,7 @@ import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -44,10 +45,14 @@ public class FriendshipService {
                 friendship.setStatus(FriendshipStatus.PENDING);
                 friendshipRepository.save(friendship);
                 return;
-            } else {
-                throw new ResourceAlreadyInUseException(
-                        "The relationship or request already exists.");
             }
+
+            if (friendship.getStatus() == FriendshipStatus.BLOCKED) {
+                throw new ResourceAlreadyInUseException(
+                        "Cannot send a friend request to this user.");
+            }
+
+            throw new ResourceAlreadyInUseException("The relationship or request already exists.");
         }
 
         Friendship newFriendship =
@@ -100,7 +105,7 @@ public class FriendshipService {
         friendshipRepository.save(friendship);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.SERIALIZABLE)
     public void blockUser(User blocker, UUID blockedId) {
         if (blocker.getId().equals(blockedId)) {
             throw new InvalidInputException("You can't block yourself");
@@ -117,8 +122,7 @@ public class FriendshipService {
         if (existingRelation.isPresent()) {
             Friendship friendship = existingRelation.get();
 
-            if (friendship.getStatus() == FriendshipStatus.BLOCKED
-                    && friendship.getRequester().equals(blocker)) {
+            if (friendship.getStatus() == FriendshipStatus.BLOCKED) {
                 throw new ResourceAlreadyInUseException("This user is already blocked.");
             }
 
