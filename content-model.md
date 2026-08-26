@@ -79,7 +79,12 @@ Muestra información al usuario. No corresponde a un ejercicio.
 type: INFO
 
 config:
+  title: string
   text: string
+  myths:
+    - title: string
+      myth: string
+      reality: string
 ```
 
 ### Configuración
