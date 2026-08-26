@@ -75,7 +75,17 @@ class PurchaseControllerTest {
                         new AppliedEffectResponse(
                                 ShopItemType.STREAK_SHIELD, null, null, 1, null, null),
                         new UserInventoryResponse(
-                                60, 1, LivesMode.LIMITED, 5, null, 1.0, null, false, null, false, 0));
+                                60,
+                                1,
+                                LivesMode.LIMITED,
+                                5,
+                                null,
+                                1.0,
+                                null,
+                                false,
+                                null,
+                                false,
+                                0));
         when(purchaseService.purchaseForSelf(user, shopItemId)).thenReturn(expected);
 
         ResponseEntity<PurchaseResponse> response =
