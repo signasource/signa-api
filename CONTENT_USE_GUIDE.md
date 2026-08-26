@@ -133,17 +133,24 @@ Hay **6 tipos de bloque**:
 
 ### `INFO` — pantalla de información
 
-Muestra un texto. No es un ejercicio.
+Muestra contenido informativo. No es un ejercicio. Todos los campos del `config` son opcionales.
 
 ```yaml
 - type: INFO
   config:
-    text: "En esta lección aprenderás las expresiones básicas de cortesía en LSA."
+    title: "Mitos sobre la LSA"
+    text: "Existen algunas ideas erróneas sobre la Lengua de Señas Argentina."
+    myths:
+      - title: "La seña es universal"
+        myth: "Todas las personas sordas del mundo se entienden con las mismas señas."
+        reality: "Cada país tiene su propia lengua de señas con vocabulario y gramática distintos."
 ```
 
 | Campo | Regla |
 |---|---|
-| `text` | Obligatorio, no puede estar vacío. |
+| `title` | Opcional. Título de la pantalla. |
+| `text` | Opcional. Texto principal. |
+| `myths` | Opcional. Lista de mitos; cada entrada tiene `title`, `myth` y `reality`. |
 
 ### `SELECT_MEANING` — elegir el significado de una seña
 

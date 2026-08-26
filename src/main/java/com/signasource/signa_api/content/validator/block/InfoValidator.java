@@ -32,9 +32,5 @@ public class InfoValidator implements BlockValidator {
             errors.add(new ValidationError(ctx.location(), "invalid config for INFO block"));
             return;
         }
-        InfoConfig config = parsed.get();
-        if (config.text() == null || config.text().isBlank()) {
-            errors.add(new ValidationError(ctx.location(), "text is required"));
-        }
     }
 }

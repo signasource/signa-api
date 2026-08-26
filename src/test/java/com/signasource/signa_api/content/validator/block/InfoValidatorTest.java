@@ -1,6 +1,7 @@
 package com.signasource.signa_api.content.validator.block;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -28,38 +29,52 @@ class InfoValidatorTest {
     }
 
     @Test
-    void shouldPassForValidInfoBlock() {
+    void shouldPassWithTextOnly() {
         List<ValidationError> errors = new ArrayList<>();
         validator.validate(block(infoConfig("Hello world")), ctx, errors);
-        assertThat(errors).isEmpty();
+        assertTrue(errors.isEmpty());
     }
 
     @Test
-    void shouldFailWhenTextIsNull() {
+    void shouldPassWithTitleOnly() {
+        List<ValidationError> errors = new ArrayList<>();
+        ObjectNode config = JsonNodeFactory.instance.objectNode();
+        config.put("title", "Introduction");
+        validator.validate(block(config), ctx, errors);
+        assertTrue(errors.isEmpty());
+    }
+
+    @Test
+    void shouldPassWithAllFields() {
+        List<ValidationError> errors = new ArrayList<>();
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode config = JsonNodeFactory.instance.objectNode();
+        config.put("title", "Myths");
+        config.put("text", "Some text");
+        ObjectNode myth = JsonNodeFactory.instance.objectNode();
+        myth.put("title", "Myth title");
+        myth.put("myth", "Myth statement");
+        myth.put("reality", "Reality statement");
+        config.set("myths", mapper.createArrayNode().add(myth));
+        validator.validate(block(config), ctx, errors);
+        assertTrue(errors.isEmpty());
+    }
+
+    @Test
+    void shouldPassWithEmptyConfig() {
         List<ValidationError> errors = new ArrayList<>();
         validator.validate(block(JsonNodeFactory.instance.objectNode()), ctx, errors);
-        assertThat(errors)
-                .extracting(ValidationError::render)
-                .contains("Topic topic-1 > Lesson lesson-1 > Block #1: text is required");
-    }
-
-    @Test
-    void shouldFailWhenTextIsBlank() {
-        List<ValidationError> errors = new ArrayList<>();
-        validator.validate(block(infoConfig("   ")), ctx, errors);
-        assertThat(errors)
-                .extracting(ValidationError::render)
-                .contains("Topic topic-1 > Lesson lesson-1 > Block #1: text is required");
+        assertTrue(errors.isEmpty());
     }
 
     @Test
     void shouldFailWhenConfigIsInvalidJson() {
         List<ValidationError> errors = new ArrayList<>();
         validator.validate(block(JsonNodeFactory.instance.arrayNode()), ctx, errors);
-        assertThat(errors)
-                .extracting(ValidationError::render)
-                .contains(
-                        "Topic topic-1 > Lesson lesson-1 > Block #1: invalid config for INFO block");
+        assertEquals(1, errors.size());
+        assertEquals(
+                "Topic topic-1 > Lesson lesson-1 > Block #1: invalid config for INFO block",
+                errors.get(0).render());
     }
 
     private LessonBlockDto block(JsonNode config) {
