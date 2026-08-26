@@ -162,7 +162,7 @@ class GiftControllerTest {
                         new AppliedEffectResponse(
                                 ShopItemType.STREAK_SHIELD, null, null, 1, null, null),
                         new UserInventoryResponse(
-                                10, 1, LivesMode.LIMITED, 5, null, 1.0, null, false, null, false));
+                                10, 1, LivesMode.LIMITED, 5, null, 1.0, null, false, null, false, 0));
         when(giftService.claimGift(user, giftId)).thenReturn(expected);
 
         ResponseEntity<GiftClaimResponse> response = giftController.claimGift(giftId, userDetails);

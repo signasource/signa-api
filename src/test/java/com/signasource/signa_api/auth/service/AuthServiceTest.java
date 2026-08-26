@@ -1,6 +1,7 @@
 package com.signasource.signa_api.auth.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -64,6 +65,7 @@ class AuthServiceTest {
     private static final String USERNAME = "testuser";
     private static final String PASSWORD = "password123";
     private static final String NAME = "Test User";
+    private static final String LAST_NAME = "Tester";
     private static final Long EXPIRATION = 3600000L;
     private static final String ACCESS_TOKEN = "access-token-123";
     private static final String REFRESH_TOKEN = "refresh-token-123";
@@ -111,26 +113,29 @@ class AuthServiceTest {
 
     @Test
     void shouldRegisterUserSuccessfully() {
-        RegisterRequest request = new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME);
+        RegisterRequest request = new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME, LAST_NAME);
         when(userRepository.existsByEmail(EMAIL)).thenReturn(false);
         when(userRepository.existsByUsername(USERNAME)).thenReturn(false);
         when(passwordEncoder.encode(PASSWORD)).thenReturn("hashed_password");
+        when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
         when(tokenRepository.save(any(Token.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        authService.register(request);
+        AuthResponse response = authService.register(request);
 
+        assertEquals(ACCESS_TOKEN, response.accessToken());
+        assertNotNull(response.refreshToken());
         verify(userRepository).existsByEmail(EMAIL);
         verify(passwordEncoder).encode(PASSWORD);
         verify(userRepository).save(any(User.class));
         verify(userSettingsRepository).save(any(UserSettings.class));
-        verify(tokenRepository).save(any());
+        verify(jwtService).generateToken(any(CustomUserDetails.class));
         verify(emailService).sendVerificationEmail(eq(EMAIL), any(String.class));
     }
 
     @Test
     void shouldThrowWhenEmailAlreadyExists() {
-        RegisterRequest request = new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME);
+        RegisterRequest request = new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME, LAST_NAME);
         when(userRepository.existsByEmail(EMAIL)).thenReturn(true);
 
         assertThrows(ResourceAlreadyInUseException.class, () -> authService.register(request));
@@ -142,7 +147,7 @@ class AuthServiceTest {
 
     @Test
     void shouldThrowWhenUsernameAlreadyExists() {
-        RegisterRequest request = new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME);
+        RegisterRequest request = new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME, LAST_NAME);
         when(userRepository.existsByEmail(EMAIL)).thenReturn(false);
         when(userRepository.existsByUsername(USERNAME)).thenReturn(true);
 
@@ -175,10 +180,11 @@ class AuthServiceTest {
 
     @Test
     void shouldCaptureEncodedPasswordOnRegister() {
-        RegisterRequest request = new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME);
+        RegisterRequest request = new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME, LAST_NAME);
         when(userRepository.existsByEmail(EMAIL)).thenReturn(false);
         when(userRepository.existsByUsername(USERNAME)).thenReturn(false);
         when(passwordEncoder.encode(PASSWORD)).thenReturn("hashed_password");
+        when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
         when(tokenRepository.save(any(Token.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -187,6 +193,10 @@ class AuthServiceTest {
         ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).save(captor.capture());
         assertEquals("hashed_password", captor.getValue().getPasswordHash());
+        assertEquals(NAME, captor.getValue().getName());
+        assertEquals(LAST_NAME, captor.getValue().getLastName());
+        assertTrue(captor.getValue().isEnabled());
+        assertFalse(captor.getValue().isVerified());
     }
 
     @Test
@@ -236,46 +246,49 @@ class AuthServiceTest {
     }
 
     @Test
-    void shouldFailLoginWhenAccountIsNotVerified() {
-        User disabledUser =
+    void shouldLoginWhenAccountNotVerified() {
+        User unverifiedUser =
                 User.builder()
                         .email(EMAIL)
                         .name(NAME)
                         .passwordHash("hashed_password")
                         .role(Role.USER)
-                        .enabled(false)
+                        .enabled(true)
+                        .verified(false)
                         .build();
-        CustomUserDetails disabledUserDetails = new CustomUserDetails(disabledUser);
+        CustomUserDetails unverifiedUserDetails = new CustomUserDetails(unverifiedUser);
         Authentication auth =
                 new UsernamePasswordAuthenticationToken(
-                        disabledUserDetails, null, disabledUserDetails.getAuthorities());
+                        unverifiedUserDetails, null, unverifiedUserDetails.getAuthorities());
         when(authenticationManager.authenticate(any())).thenReturn(auth);
+        when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
+        Token refresh = createRefreshToken(REFRESH_TOKEN, Instant.now().plusSeconds(3600));
+        when(tokenRepository.save(any())).thenReturn(refresh);
 
-        assertThrows(
-                InvalidCredentialsException.class,
-                () -> authService.login(new LoginRequest(EMAIL, PASSWORD)));
-        verify(authenticationManager).authenticate(any());
-        verifyNoInteractions(jwtService);
-        verify(tokenRepository, never()).save(any());
+        AuthResponse response = authService.login(new LoginRequest(EMAIL, PASSWORD));
+
+        assertEquals(ACCESS_TOKEN, response.accessToken());
+        assertEquals(REFRESH_TOKEN, response.refreshToken());
     }
 
     @Test
     void shouldVerifyAccountSuccessfully() {
         String token = "verification-token";
 
-        User disabledUser =
+        User unverifiedUser =
                 User.builder()
                         .email(EMAIL)
                         .name(NAME)
                         .passwordHash("hashed_password")
                         .role(Role.USER)
-                        .enabled(false)
+                        .enabled(true)
+                        .verified(false)
                         .build();
 
         var verificationToken =
                 Token.builder()
                         .token(token)
-                        .user(disabledUser)
+                        .user(unverifiedUser)
                         .expiryDate(Instant.now().plusSeconds(3600))
                         .build();
 
@@ -284,10 +297,10 @@ class AuthServiceTest {
 
         authService.verifyAccount(token);
 
-        assertTrue(disabledUser.isEnabled());
+        assertTrue(unverifiedUser.isVerified());
 
         verify(tokenRepository).findByTokenAndType(token, TokenType.EMAIL_VERIFICATION);
-        verify(userRepository).save(disabledUser);
+        verify(userRepository).save(unverifiedUser);
         verify(tokenRepository).delete(verificationToken);
     }
 
@@ -445,7 +458,7 @@ class AuthServiceTest {
     @Test
     void shouldResendVerificationEmail() {
         ResendVerificationEmailRequest request = new ResendVerificationEmailRequest(EMAIL);
-        testUser.setEnabled(false);
+        testUser.setVerified(false);
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(testUser));
         when(tokenRepository.save(any(Token.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -461,7 +474,7 @@ class AuthServiceTest {
     @Test
     void shouldDoNothingWhenUserAlreadyVerified() {
         ResendVerificationEmailRequest request = new ResendVerificationEmailRequest(EMAIL);
-        testUser.setEnabled(true);
+        testUser.setVerified(true);
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(testUser));
 
         authService.resendVerificationEmail(request);
@@ -503,6 +516,7 @@ class AuthServiceTest {
         assertTrue(savedUser.getProviders().contains(AuthProvider.GOOGLE));
         assertNull(savedUser.getPasswordHash());
         assertTrue(savedUser.isEnabled());
+        assertTrue(savedUser.isVerified());
     }
 
     @Test
@@ -515,7 +529,8 @@ class AuthServiceTest {
                         .id(UUID.randomUUID())
                         .email(EMAIL)
                         .providers(new HashSet<>(Set.of(AuthProvider.LOCAL)))
-                        .enabled(false)
+                        .enabled(true)
+                        .verified(false)
                         .build();
 
         when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);
@@ -537,7 +552,7 @@ class AuthServiceTest {
         verify(userRepository).save(userCaptor.capture());
 
         User savedUser = userCaptor.getValue();
-        assertTrue(savedUser.isEnabled());
+        assertTrue(savedUser.isVerified());
         assertTrue(savedUser.getProviders().contains(AuthProvider.GOOGLE));
 
         verify(tokenRepository).save(any(Token.class));
@@ -554,6 +569,7 @@ class AuthServiceTest {
                         .email(EMAIL)
                         .providers(new HashSet<>(Set.of(AuthProvider.GOOGLE)))
                         .enabled(true)
+                        .verified(true)
                         .build();
 
         when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);

@@ -33,18 +33,22 @@ class AuthControllerTest {
     @InjectMocks private AuthController authController;
 
     private RegisterRequest registerRequest =
-            new RegisterRequest("test@example.com", "testuser", "password123", "Test User");
+            new RegisterRequest(
+                    "test@example.com", "testuser", "password123", "Test User", "Tester");
     private LoginRequest loginRequest = new LoginRequest("test@example.com", "password123");
     private GoogleAuthRequest googleAuthRequest = new GoogleAuthRequest("valid.google.id.token");
 
     @Test
     void testRegister() {
-        doNothing().when(authService).register(any(RegisterRequest.class));
+        AuthResponse authResponse = new AuthResponse("test-jwt-token", "test-refresh-token");
+        when(authService.register(any(RegisterRequest.class))).thenReturn(authResponse);
 
-        ResponseEntity<Void> response = authController.register(registerRequest);
+        ResponseEntity<AuthResponse> response = authController.register(registerRequest);
 
         verify(authService).register(any(RegisterRequest.class));
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertEquals(authResponse.accessToken(), response.getBody().accessToken());
+        assertEquals(authResponse.refreshToken(), response.getBody().refreshToken());
     }
 
     @Test

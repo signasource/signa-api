@@ -14,7 +14,11 @@ import com.signasource.signa_api.auth.dto.ChangePasswordRequest;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.service.AuthService;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
+import com.signasource.signa_api.gamification.dto.DailyXpResponse;
+import com.signasource.signa_api.gamification.service.UserStatsService;
+import com.signasource.signa_api.users.dto.DailyGoalResponse;
 import com.signasource.signa_api.users.dto.PublicUserProfileResponse;
+import com.signasource.signa_api.users.dto.UpdateDailyGoalRequest;
 import com.signasource.signa_api.users.dto.UpdateUserSettingsRequest;
 import com.signasource.signa_api.users.dto.UpdateUsernameRequest;
 import com.signasource.signa_api.users.dto.UserProfileResponse;
@@ -27,7 +31,9 @@ import com.signasource.signa_api.users.entity.Theme;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.service.UserService;
 import com.signasource.signa_api.users.service.UserSettingsService;
+import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,6 +64,7 @@ class UserControllerTest {
     @Mock private AuthService authService;
     @Mock private UserSettingsService userSettingsService;
     @Mock private UserService userService;
+    @Mock private UserStatsService userStatsService;
 
     @InjectMocks private UserController userController;
 
@@ -75,6 +82,7 @@ class UserControllerTest {
                         .passwordHash("hashed_password")
                         .role(Role.USER)
                         .enabled(true)
+                        .verified(true)
                         .build();
         userDetails = new CustomUserDetails(user);
     }
@@ -116,7 +124,8 @@ class UserControllerTest {
                         ACCOUNT_VISIBILITY,
                         DAILY_GOAL_MINUTES,
                         true,
-                        DAILY_NOTIFICATION_TIME);
+                        DAILY_NOTIFICATION_TIME,
+                        null);
         UserSettingsResponse expected = buildSettingsResponse();
         when(userSettingsService.updateSettings(user, request)).thenReturn(expected);
 
@@ -124,6 +133,46 @@ class UserControllerTest {
                 userController.updateSettings(userDetails, request);
 
         verify(userSettingsService).updateSettings(user, request);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(expected, response.getBody());
+    }
+
+    @Test
+    void shouldSetDailyGoalAndReturn201() {
+        UpdateDailyGoalRequest request = new UpdateDailyGoalRequest(DAILY_GOAL_MINUTES);
+        DailyGoalResponse expected = new DailyGoalResponse(DAILY_GOAL_MINUTES);
+        when(userSettingsService.setDailyGoal(user, request)).thenReturn(expected);
+
+        ResponseEntity<DailyGoalResponse> response =
+                userController.setDailyGoal(userDetails, request);
+
+        verify(userSettingsService).setDailyGoal(user, request);
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertEquals(expected, response.getBody());
+    }
+
+    @Test
+    void shouldReturnDailyGoal() {
+        DailyGoalResponse expected = new DailyGoalResponse(DAILY_GOAL_MINUTES);
+        when(userSettingsService.getDailyGoal(user)).thenReturn(expected);
+
+        ResponseEntity<DailyGoalResponse> response = userController.getDailyGoal(userDetails);
+
+        verify(userSettingsService).getDailyGoal(user);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(expected, response.getBody());
+    }
+
+    @Test
+    void shouldReturnUpdatedDailyGoal() {
+        UpdateDailyGoalRequest request = new UpdateDailyGoalRequest(DAILY_GOAL_MINUTES);
+        DailyGoalResponse expected = new DailyGoalResponse(DAILY_GOAL_MINUTES);
+        when(userSettingsService.updateDailyGoal(user, request)).thenReturn(expected);
+
+        ResponseEntity<DailyGoalResponse> response =
+                userController.updateDailyGoal(userDetails, request);
+
+        verify(userSettingsService).updateDailyGoal(user, request);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(expected, response.getBody());
     }
@@ -186,7 +235,8 @@ class UserControllerTest {
                 ACCOUNT_VISIBILITY,
                 DAILY_GOAL_MINUTES,
                 true,
-                DAILY_NOTIFICATION_TIME);
+                DAILY_NOTIFICATION_TIME,
+                "#FFFFFF");
     }
 
     @Test
@@ -202,6 +252,7 @@ class UserControllerTest {
         assertEquals(user.getName(), body.name());
         assertEquals(Role.USER, body.role());
         assertEquals(true, body.enabled());
+        assertEquals(true, body.verified());
     }
 
     @Test
@@ -240,5 +291,22 @@ class UserControllerTest {
 
         verify(userService).deleteAccount(user);
         assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+    }
+
+    @Test
+    void shouldReturnWeeklyXpBreakdown() {
+        List<DailyXpResponse> expected =
+                List.of(
+                        new DailyXpResponse(LocalDate.of(2026, 8, 10), 100),
+                        new DailyXpResponse(LocalDate.of(2026, 8, 11), 0),
+                        new DailyXpResponse(LocalDate.of(2026, 8, 12), 50));
+        when(userStatsService.getWeeklyXpBreakdown(user)).thenReturn(expected);
+
+        ResponseEntity<List<DailyXpResponse>> response =
+                userController.getWeeklyXpBreakdown(userDetails);
+
+        verify(userStatsService).getWeeklyXpBreakdown(user);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(expected, response.getBody());
     }
 }

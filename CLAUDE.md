@@ -56,11 +56,11 @@ la frontera HTTP; se mapean a/desde DTOs mediante factories estáticas (`Dto.fro
 
 | Módulo | Responsabilidad |
 |---|---|
-| `auth` | Registro, login, JWT, refresh, verificación de email, reset de password, Google OAuth2 |
-| `users` | Perfil, settings, amistades (`Friendship`), username |
-| `learning` | Cursos, versiones, temas, lecciones, bloques, señas y reportes de señas |
+| `auth` | Registro (auto-login + verificación de email por flag `verified`), login, JWT, refresh, reset de password, Google OAuth2 |
+| `users` | Perfil, settings, amistades (`Friendship`: request/accept/reject/block), username, daily goal, color de header |
+| `learning` | Cursos, versiones, temas, lecciones, bloques, señas y reportes de señas; seguimiento de progreso (inscripciones, progreso de tema/lección, intentos de bloque) |
 | `content` | Pipeline de importación de contenido YAML (load → validate → persist), idempotente |
-| `gamification` | Stats de usuario, logros, desafíos, tienda, compras, regalos |
+| `gamification` | Stats de usuario, logros, desafíos, tienda, compras, regalos; XP diario/semanal, señas aprendidas y mecánica de vidas/racha |
 | `notification` | Tokens de dispositivo, plantillas, historial y envío push vía Firebase (FCM) |
 | `config` | Seguridad, rate limiting, Jackson, Google, MVC |
 | `exceptions` | Excepciones de dominio + `@RestControllerAdvice` global |
@@ -163,6 +163,10 @@ Resumen de alta prioridad; el detalle y los ejemplos están en los bloques sigui
 - **N+1:** si vas a necesitar relaciones, traelas en una sola query con
   `@EntityGraph(attributePaths = {...})` en el método del repositorio (ver `CourseVersionRepository`,
   `LessonRepository`), en vez de encadenar varias consultas.
+- **`enabled` vs `verified`:** `enabled` marca **solo** si la cuenta está activa; la baja de cuenta
+  (`deleteAccount`) pone `enabled = false` y Spring (`DaoAuthenticationProvider`) bloquea su login.
+  El estado del correo va en `verified` (registro nace `enabled=true, verified=false`; `verifyAccount`
+  lo pone `true`). Una cuenta sin verificar **sí** puede iniciar sesión.
 - **Soft-delete de cuenta** (`enabled = false`): al dar de baja hay que limpiar los tokens del usuario
   (`TokenRepository`) y sus device tokens (`DeviceTokenRepository`); y **toda lectura de perfil debe
   filtrar `enabled = true`** (más la visibilidad pública/amigos) para no exponer cuentas dadas de baja.
@@ -177,7 +181,8 @@ Resumen de alta prioridad; el detalle y los ejemplos están en los bloques sigui
 - **Passwords** hasheadas con **BCrypt** (`PasswordEncoder`). Nunca almacenar ni loguear
   passwords en claro; el campo persistido es `passwordHash`.
 - **Autorización por rol:** `POST /signs` requiere rol `ADMIN`. Regla en `SecurityConfig`.
-- **Rutas públicas:** `/auth/**`, `/users/username-availability`. El resto requiere autenticación.
+- **Rutas públicas:** `/auth/**`, `/users/username-availability`, `/actuator/health`, `/actuator/info`.
+  El resto requiere autenticación.
 - **Perfil `local`** desactiva la seguridad (`app.security.enabled=false`, cadena que permite todo)
   para desarrollo. **Nunca** activar ese comportamiento en prod.
 - **Rate limiting** con Bucket4j (`RateLimitInterceptor`) en endpoints sensibles a abuso.

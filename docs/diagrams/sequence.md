@@ -18,10 +18,12 @@ sequenceDiagram
     alt ya existe
         API-->>C: Conflicto (409)
     else disponible
-        API->>DB: Crear cuenta (sin verificar, contraseña cifrada)
+        API->>DB: Crear cuenta (activa, correo sin verificar, contraseña cifrada)
         API->>DB: Generar token de verificación
         API->>Mail: Enviar correo de verificación
-        API-->>C: Registro exitoso
+        API->>API: Emitir token de acceso
+        API->>DB: Generar token de renovación
+        API-->>C: Registro exitoso + tokens (sesión iniciada; verificar correo es opcional)
     end
 ```
 
@@ -36,7 +38,7 @@ sequenceDiagram
 
     C->>API: Credenciales
     API->>DB: Verificar credenciales
-    alt inválidas o cuenta no verificada
+    alt inválidas o cuenta dada de baja
         API-->>C: No autorizado (401)
     else válidas
         API->>API: Emitir token de acceso
@@ -148,15 +150,109 @@ sequenceDiagram
     participant API as API
     participant DB as Base de datos
 
-    C->>API: Solicitud de logros (opcional: filtrar por desbloqueados / activos)
+    C->>API: Consultar logros (opcional: filtrar por desbloqueados / activos)
     alt cuenta dada de baja
         API-->>C: No encontrado (404)
     else cuenta activa
         API->>DB: Traer catálogo de logros + los que el usuario desbloqueó
-        API->>API: Marcar cada logro como desbloqueado o no; aplicar filtros
+        API->>API: Marcar cada logro como desbloqueado o no y aplicar filtros
         API-->>C: Lista de logros con su estado
     end
-    Note over C,DB: El inventario (gemas, vidas, multiplicador de XP) sigue el mismo<br/>guard de cuenta activa y devuelve el estado del jugador.
+
+    C->>API: Consultar inventario
+    alt cuenta dada de baja
+        API-->>C: No encontrado (404)
+    else cuenta activa
+        API->>DB: Traer estado del jugador
+        API-->>C: Inventario (gemas, vidas, multiplicador de XP)
+    end
+```
+
+## Consulta de progreso de cursos
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant API as API
+    participant DB as Base de datos
+
+    C->>API: Consultar mi progreso
+    API->>DB: Traer inscripciones del usuario (curso y estado)
+    alt sin inscripciones
+        API-->>C: Lista vacía
+    else con inscripciones
+        API->>DB: Total de lecciones por tema
+        API->>DB: Lecciones completadas por tema
+        API->>DB: Tema en progreso de cada curso
+        API->>API: Calcular porcentajes del curso y del tema en progreso
+        API-->>C: Progreso por curso (lecciones, porcentaje y tema en progreso)
+    end
+```
+
+## Inscripción a un curso
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant API as API
+    participant DB as Base de datos
+
+    C->>API: Inscribirme a una versión de curso
+    API->>DB: ¿Ya inscripto en esta versión?
+    alt ya inscripto
+        API-->>C: Conflicto (409)
+    else no inscripto
+        API->>DB: Buscar la versión del curso
+        alt no existe
+            API-->>C: No encontrado (404)
+        else existe
+            API->>DB: Crear inscripción (estado inscripto)
+            API-->>C: Inscripción creada (201)
+        end
+    end
+```
+
+## Interacción con un bloque de lección
+
+Registra el intento del usuario y propaga la finalización hacia arriba en la jerarquía
+(lección → tema → curso). El XP y demás recompensas de gamificación se disparan por eventos, fuera
+del camino principal. El progreso de lección y tema se crea de forma diferida en la primera
+interacción.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant API as API
+    participant DB as Base de datos
+    participant Gam as Gamificación (eventos)
+
+    C->>API: Interacción con un bloque (correcto/incorrecto, o vista de bloque informativo)
+    API->>DB: Buscar el bloque
+    alt no existe
+        API-->>C: No encontrado (404)
+    else existe
+        alt correctitud incompatible con el tipo de bloque
+            API-->>C: Entrada inválida (400)
+        else válida
+            API->>DB: Registrar el intento
+            API->>DB: Marcar lección y tema en progreso (si estaban bloqueados)
+            alt primer hito (primer acierto / primera vista)
+                API-)Gam: XP ganado
+                API-)Gam: Señas aprendidas (bloques de ejercicio)
+                API->>DB: ¿Todos los bloques de la lección resueltos?
+                opt lección completa
+                    API->>DB: Completar lección (con XP acumulado)
+                    opt todos los temas... completos
+                        API->>DB: Completar tema y, si corresponde, la inscripción
+                    end
+                end
+            end
+            API-->>C: Intento registrado (201)
+        end
+    end
 ```
 
 ## Tienda: compra para uno mismo o como regalo

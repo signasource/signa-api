@@ -102,6 +102,22 @@ class FriendshipServiceTest {
     }
 
     @Test
+    void sendFriendRequest_ThrowsResourceAlreadyInUseException_WhenRelationIsBlocked() {
+        Friendship blockedFriendship = new Friendship();
+        blockedFriendship.setStatus(FriendshipStatus.BLOCKED);
+
+        when(userRepository.findById(addresseeId)).thenReturn(Optional.of(addressee));
+        when(friendshipRepository.findFriendshipBetween(requester, addressee))
+                .thenReturn(Optional.of(blockedFriendship));
+
+        assertThrows(
+                ResourceAlreadyInUseException.class,
+                () -> friendshipService.sendFriendRequest(requester, addresseeId));
+
+        verify(friendshipRepository, never()).save(any(Friendship.class));
+    }
+
+    @Test
     void sendFriendRequest_UpdatesExistingRecord_WhenStatusIsRejected() {
         Friendship rejectedFriendship = new Friendship();
         rejectedFriendship.setRequester(addressee);
@@ -176,5 +192,169 @@ class FriendshipServiceTest {
                 () -> friendshipService.acceptFriendRequest(requesterId, addressee));
 
         verify(friendshipRepository, never()).save(any(Friendship.class));
+    }
+
+    @Test
+    void rejectFriendRequest_Success() {
+        Friendship pendingFriendship = new Friendship();
+        pendingFriendship.setRequester(requester);
+        pendingFriendship.setAddressee(addressee);
+        pendingFriendship.setStatus(FriendshipStatus.PENDING);
+
+        when(userRepository.findById(requesterId)).thenReturn(Optional.of(requester));
+        when(friendshipRepository.findByRequesterAndAddressee(requester, addressee))
+                .thenReturn(Optional.of(pendingFriendship));
+
+        friendshipService.rejectFriendRequest(requesterId, addressee);
+
+        verify(friendshipRepository, times(1)).save(pendingFriendship);
+        assertEquals(FriendshipStatus.REJECTED, pendingFriendship.getStatus());
+    }
+
+    @Test
+    void rejectFriendRequest_ThrowsNotFoundException_WhenRequesterNotFound() {
+        when(userRepository.findById(requesterId)).thenReturn(Optional.empty());
+
+        assertThrows(
+                NotFoundException.class,
+                () -> friendshipService.rejectFriendRequest(requesterId, addressee));
+    }
+
+    @Test
+    void rejectFriendRequest_ThrowsNotFoundException_WhenFriendshipNotFound() {
+        when(userRepository.findById(requesterId)).thenReturn(Optional.of(requester));
+        when(friendshipRepository.findByRequesterAndAddressee(requester, addressee))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                NotFoundException.class,
+                () -> friendshipService.rejectFriendRequest(requesterId, addressee));
+    }
+
+    @Test
+    void rejectFriendRequest_ThrowsInvalidInputException_WhenStatusIsNotPending() {
+        Friendship nonPendingFriendship = new Friendship();
+        nonPendingFriendship.setRequester(requester);
+        nonPendingFriendship.setAddressee(addressee);
+        nonPendingFriendship.setStatus(FriendshipStatus.ACCEPTED);
+
+        when(userRepository.findById(requesterId)).thenReturn(Optional.of(requester));
+        when(friendshipRepository.findByRequesterAndAddressee(requester, addressee))
+                .thenReturn(Optional.of(nonPendingFriendship));
+
+        assertThrows(
+                InvalidInputException.class,
+                () -> friendshipService.rejectFriendRequest(requesterId, addressee));
+
+        verify(friendshipRepository, never()).save(any(Friendship.class));
+    }
+
+    @Test
+    void rejectFriendRequest_ThrowsInvalidInputException_WhenStatusIsBlocked() {
+        Friendship blockedFriendship = new Friendship();
+        blockedFriendship.setRequester(requester);
+        blockedFriendship.setAddressee(addressee);
+        blockedFriendship.setStatus(FriendshipStatus.BLOCKED);
+
+        when(userRepository.findById(requesterId)).thenReturn(Optional.of(requester));
+        when(friendshipRepository.findByRequesterAndAddressee(requester, addressee))
+                .thenReturn(Optional.of(blockedFriendship));
+
+        assertThrows(
+                InvalidInputException.class,
+                () -> friendshipService.rejectFriendRequest(requesterId, addressee));
+
+        verify(friendshipRepository, never()).save(any(Friendship.class));
+    }
+
+    @Test
+    void blockUser_CreatesNewBlockedFriendship_WhenNoRelationExists() {
+        when(userRepository.findById(addresseeId)).thenReturn(Optional.of(addressee));
+        when(friendshipRepository.findFriendshipBetween(requester, addressee))
+                .thenReturn(Optional.empty());
+
+        friendshipService.blockUser(requester, addresseeId);
+
+        ArgumentCaptor<Friendship> friendshipCaptor = ArgumentCaptor.forClass(Friendship.class);
+        verify(friendshipRepository, times(1)).save(friendshipCaptor.capture());
+
+        Friendship savedFriendship = friendshipCaptor.getValue();
+        assertEquals(requester, savedFriendship.getRequester());
+        assertEquals(addressee, savedFriendship.getAddressee());
+        assertEquals(FriendshipStatus.BLOCKED, savedFriendship.getStatus());
+    }
+
+    @Test
+    void blockUser_UpdatesExistingRelation_RegardlessOfPriorStatus() {
+        Friendship acceptedFriendship = new Friendship();
+        acceptedFriendship.setRequester(addressee);
+        acceptedFriendship.setAddressee(requester);
+        acceptedFriendship.setStatus(FriendshipStatus.ACCEPTED);
+
+        when(userRepository.findById(addresseeId)).thenReturn(Optional.of(addressee));
+        when(friendshipRepository.findFriendshipBetween(requester, addressee))
+                .thenReturn(Optional.of(acceptedFriendship));
+
+        friendshipService.blockUser(requester, addresseeId);
+
+        ArgumentCaptor<Friendship> friendshipCaptor = ArgumentCaptor.forClass(Friendship.class);
+        verify(friendshipRepository, times(1)).save(friendshipCaptor.capture());
+
+        Friendship savedFriendship = friendshipCaptor.getValue();
+        assertEquals(requester, savedFriendship.getRequester());
+        assertEquals(addressee, savedFriendship.getAddressee());
+        assertEquals(FriendshipStatus.BLOCKED, savedFriendship.getStatus());
+    }
+
+    @Test
+    void blockUser_ThrowsResourceAlreadyInUseException_WhenAlreadyBlockedByCaller() {
+        Friendship blockedFriendship = new Friendship();
+        blockedFriendship.setRequester(requester);
+        blockedFriendship.setAddressee(addressee);
+        blockedFriendship.setStatus(FriendshipStatus.BLOCKED);
+
+        when(userRepository.findById(addresseeId)).thenReturn(Optional.of(addressee));
+        when(friendshipRepository.findFriendshipBetween(requester, addressee))
+                .thenReturn(Optional.of(blockedFriendship));
+
+        assertThrows(
+                ResourceAlreadyInUseException.class,
+                () -> friendshipService.blockUser(requester, addresseeId));
+
+        verify(friendshipRepository, never()).save(any(Friendship.class));
+    }
+
+    @Test
+    void blockUser_ThrowsResourceAlreadyInUseException_WhenAlreadyBlockedByOtherParty() {
+        Friendship blockedFriendship = new Friendship();
+        blockedFriendship.setRequester(addressee);
+        blockedFriendship.setAddressee(requester);
+        blockedFriendship.setStatus(FriendshipStatus.BLOCKED);
+
+        when(userRepository.findById(addresseeId)).thenReturn(Optional.of(addressee));
+        when(friendshipRepository.findFriendshipBetween(requester, addressee))
+                .thenReturn(Optional.of(blockedFriendship));
+
+        assertThrows(
+                ResourceAlreadyInUseException.class,
+                () -> friendshipService.blockUser(requester, addresseeId));
+
+        verify(friendshipRepository, never()).save(any(Friendship.class));
+    }
+
+    @Test
+    void blockUser_ThrowsInvalidInputException_WhenSameUser() {
+        assertThrows(
+                InvalidInputException.class,
+                () -> friendshipService.blockUser(requester, requesterId));
+        verifyNoInteractions(userRepository, friendshipRepository);
+    }
+
+    @Test
+    void blockUser_ThrowsNotFoundException_WhenBlockedUserNotFound() {
+        when(userRepository.findById(addresseeId)).thenReturn(Optional.empty());
+
+        assertThrows(
+                NotFoundException.class, () -> friendshipService.blockUser(requester, addresseeId));
     }
 }

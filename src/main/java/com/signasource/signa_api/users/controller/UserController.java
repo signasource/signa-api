@@ -4,7 +4,11 @@ import com.signasource.signa_api.auth.dto.AuthResponse;
 import com.signasource.signa_api.auth.dto.ChangePasswordRequest;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.service.AuthService;
+import com.signasource.signa_api.gamification.dto.DailyXpResponse;
+import com.signasource.signa_api.gamification.service.UserStatsService;
+import com.signasource.signa_api.users.dto.DailyGoalResponse;
 import com.signasource.signa_api.users.dto.PublicUserProfileResponse;
+import com.signasource.signa_api.users.dto.UpdateDailyGoalRequest;
 import com.signasource.signa_api.users.dto.UpdateUserSettingsRequest;
 import com.signasource.signa_api.users.dto.UpdateUsernameRequest;
 import com.signasource.signa_api.users.dto.UserProfileResponse;
@@ -17,6 +21,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -25,6 +30,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -40,6 +46,7 @@ public class UserController {
     private final AuthService authService;
     private final UserSettingsService userSettingsService;
     private final UserService userService;
+    private final UserStatsService userStatsService;
 
     @PutMapping("/password")
     public ResponseEntity<AuthResponse> changePassword(
@@ -60,6 +67,28 @@ public class UserController {
             @Valid @RequestBody UpdateUserSettingsRequest request) {
         return ResponseEntity.ok(
                 userSettingsService.updateSettings(userDetails.getUser(), request));
+    }
+
+    @PostMapping("/daily-goal")
+    public ResponseEntity<DailyGoalResponse> setDailyGoal(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody UpdateDailyGoalRequest request) {
+        return ResponseEntity.status(201)
+                .body(userSettingsService.setDailyGoal(userDetails.getUser(), request));
+    }
+
+    @GetMapping("/daily-goal")
+    public ResponseEntity<DailyGoalResponse> getDailyGoal(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(userSettingsService.getDailyGoal(userDetails.getUser()));
+    }
+
+    @PatchMapping("/daily-goal")
+    public ResponseEntity<DailyGoalResponse> updateDailyGoal(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody UpdateDailyGoalRequest request) {
+        return ResponseEntity.ok(
+                userSettingsService.updateDailyGoal(userDetails.getUser(), request));
     }
 
     @GetMapping("/username-availability")
@@ -94,5 +123,11 @@ public class UserController {
     public ResponseEntity<Void> deleteMe(@AuthenticationPrincipal CustomUserDetails userDetails) {
         userService.deleteAccount(userDetails.getUser());
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/me/weekly-xp")
+    public ResponseEntity<List<DailyXpResponse>> getWeeklyXpBreakdown(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(userStatsService.getWeeklyXpBreakdown(userDetails.getUser()));
     }
 }

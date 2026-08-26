@@ -81,6 +81,10 @@ public class UserStats {
     @Column private Instant unlimitedLivesExpiresAt;
 
     @Column(nullable = false)
+    @Builder.Default
+    private int learnedSignsCount = 0;
+
+    @Column(nullable = false)
     private Instant updatedAt;
 
     public double getEffectiveXpMultiplier() {

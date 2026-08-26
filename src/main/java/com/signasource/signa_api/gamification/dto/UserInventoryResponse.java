@@ -14,7 +14,8 @@ public record UserInventoryResponse(
         Instant xpMultiplierExpiresAt,
         boolean xpMultiplierActive,
         Instant unlimitedLivesExpiresAt,
-        boolean unlimitedLivesActive) {
+        boolean unlimitedLivesActive,
+        int learnedSignsCount) {
 
     public static UserInventoryResponse from(UserStats stats) {
         return new UserInventoryResponse(
@@ -27,6 +28,7 @@ public record UserInventoryResponse(
                 stats.getXpMultiplierExpiresAt(),
                 stats.hasActiveXpMultiplier(),
                 stats.getUnlimitedLivesExpiresAt(),
-                stats.hasActiveUnlimitedLives());
+                stats.hasActiveUnlimitedLives(),
+                stats.getLearnedSignsCount());
     }
 }
