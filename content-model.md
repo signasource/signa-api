@@ -79,14 +79,31 @@ Muestra información al usuario. No corresponde a un ejercicio.
 type: INFO
 
 config:
+  title: string
   text: string
+  myths:
+    - title: string
+      myth: string
+      reality: string
 ```
 
 ### Configuración
 
+Todos los campos son opcionales. Al menos uno debería estar presente para que el bloque tenga contenido útil.
+
 | Campo | Obligatorio | Descripción |
 |--------|-------------|-------------|
-| `text` | Sí | Texto que se mostrará al usuario. |
+| `title` | No | Título de la pantalla de información. |
+| `text` | No | Texto principal que se mostrará al usuario. |
+| `myths` | No | Lista de mitos con su refutación (ver tabla de `myths`). |
+
+#### `myths[]`
+
+| Campo | Descripción |
+|--------|-------------|
+| `title` | Título del mito. |
+| `myth` | Enunciado del mito. |
+| `reality` | Realidad que lo refuta. |
 
 ---
 

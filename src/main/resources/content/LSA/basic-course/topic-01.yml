@@ -4,6 +4,69 @@ topic:
   description: Aprende las señas fundamentales para comenzar a comunicarte en LSA.
 
 lessons:
+  - code: "leccion_0"
+    name: "Introducción a la LSA"
+    description: "Conocé qué es la Lengua de Señas Argentina, cómo funciona y algunos conceptos erróneos frecuentes."
+
+    blocks:
+      - type: INFO
+        config:
+          title: "¿Qué es la Lengua de Señas Argentina?"
+          text: |
+            La Lengua de Señas Argentina (LSA) es la lengua natural de gran parte de la comunidad sorda argentina.
+
+            Se expresa a través de las manos, el rostro y el cuerpo, y tiene reglas gramaticales propias, diferentes de las del español.
+
+            La LSA es una lengua completa, con su propio vocabulario y estructura. Por eso, no debe entenderse como una traducción del español realizada mediante señas.
+
+            *Adaptado de la Ley N.º 27.710, arts. 1 y 2.*
+
+      - type: INFO
+        config:
+          title: "La gramática de la LSA"
+          text: |
+            La LSA tiene una gramática propia, diferente de la del español.
+
+            Esto significa que las señas se organizan siguiendo reglas específicas de la lengua. Por eso, una oración en LSA no necesariamente sigue el mismo orden de palabras que una oración en español.
+
+            Aprender LSA no consiste simplemente en reemplazar cada palabra del español por una seña: implica aprender una lengua con sus propias reglas y formas de expresión.
+
+            *Adaptado de la Ley N.º 27.710, art. 2.*
+
+      - type: INFO
+        config:
+          title: "Mitos y conceptos erróneos"
+          text: |
+            Existen algunas ideas frecuentes sobre las lenguas de señas que no son correctas. Conocerlas ayuda a comprender mejor qué es la LSA.
+          myths:
+            - title: "La lengua de señas es universal"
+              myth: "Todas las personas sordas del mundo utilizan la misma lengua de señas."
+              reality: "Cada país, e incluso algunas regiones, puede tener su propia lengua de señas. En Argentina se utiliza la Lengua de Señas Argentina (LSA), que posee su propio vocabulario y gramática."
+
+            - title: "La lengua de señas consiste en deletrear palabras"
+              myth: "Para comunicarse en lengua de señas hay que deletrear cada palabra utilizando el alfabeto manual."
+              reality: "La LSA no es un alfabeto manual. La mayoría de las palabras e ideas se expresan mediante señas propias. El alfabeto dactilológico se utiliza principalmente para nombres propios, siglas o palabras que no tienen una seña establecida."
+
+            - title: "Solo las personas sordas pueden aprender LSA"
+              myth: "La Lengua de Señas Argentina solo puede ser aprendida por personas sordas."
+              reality: "Cualquier persona puede aprender LSA. Aprender LSA favorece una comunicación más inclusiva y facilita el encuentro y la comunicación entre personas sordas y oyentes."
+
+      - type: INFO
+        config:
+          title: "Para seguir aprendiendo"
+          text: |
+            Lengua de Señas Argentina – Guía de Derecho Fácil
+
+            Una explicación sencilla de la Ley N.º 27.710, sus alcances y los derechos relacionados con la LSA.
+
+            https://www.argentina.gob.ar/node/374065
+
+            Confederación Argentina de Sordos (CAS)
+
+            Organización representativa de la comunidad sorda argentina, con información sobre la LSA, actividades y recursos.
+
+            https://cas.org.ar
+            
   - code: leccion-2
     name: Formulas de Cortesía
     description: Aprende las señas de las fórmulas de cortesía más utilizadas.
