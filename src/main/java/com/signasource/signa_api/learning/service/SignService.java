@@ -1,7 +1,10 @@
 package com.signasource.signa_api.learning.service;
 
+import com.signasource.signa_api.config.R2Properties;
 import com.signasource.signa_api.exceptions.NotFoundException;
+import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.learning.dto.CreateSignRequest;
+import com.signasource.signa_api.learning.dto.SignAnimationResponse;
 import com.signasource.signa_api.learning.dto.SignSummaryResponse;
 import com.signasource.signa_api.learning.entity.Sign;
 import com.signasource.signa_api.learning.entity.SignLanguage;
@@ -20,6 +23,8 @@ public class SignService {
 
     private final SignRepository signRepository;
     private final SignLanguageRepository signLanguageRepository;
+    private final SignAnimationService signAnimationService;
+    private final R2Properties r2Properties;
 
     @Transactional(readOnly = true)
     public Page<SignSummaryResponse> getSignsCatalog(
@@ -39,6 +44,10 @@ public class SignService {
 
     @Transactional
     public SignSummaryResponse createSign(CreateSignRequest request) {
+        if (signRepository.existsByMeaning(request.meaning())) {
+            throw new ResourceAlreadyInUseException("Sign meaning already in use");
+        }
+
         SignLanguage signLanguage =
                 signLanguageRepository
                         .findById(request.signLanguageId())
@@ -47,7 +56,6 @@ public class SignService {
         Sign sign =
                 Sign.builder()
                         .meaning(request.meaning())
-                        .description(request.description())
                         .handedness(request.handedness())
                         .animationUrl(request.animationUrl())
                         .signLanguage(signLanguage)
@@ -55,5 +63,22 @@ public class SignService {
 
         Sign savedSign = signRepository.save(sign);
         return SignSummaryResponse.from(savedSign);
+    }
+
+    @Transactional(readOnly = true)
+    public SignAnimationResponse getSignAnimation(String meaning) {
+        Sign sign =
+                signRepository
+                        .findByMeaning(meaning)
+                        .orElseThrow(() -> new NotFoundException("Sign not found"));
+
+        String objectKey = sign.getAnimationUrl();
+        if (objectKey == null || objectKey.isBlank()) {
+            throw new NotFoundException("Sign has no animation");
+        }
+
+        String url = signAnimationService.presignedGetUrl(objectKey);
+        return new SignAnimationResponse(
+                sign.getId(), url, r2Properties.presignExpiryMinutes() * 60L);
     }
 }

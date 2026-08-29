@@ -58,7 +58,7 @@ la frontera HTTP; se mapean a/desde DTOs mediante factories estáticas (`Dto.fro
 |---|---|
 | `auth` | Registro (auto-login + verificación de email por flag `verified`), login, JWT, refresh, reset de password, Google OAuth2 |
 | `users` | Perfil, settings, amistades (`Friendship`: request/accept/reject/block), username, daily goal, color de header |
-| `learning` | Cursos, versiones, temas, lecciones, bloques, señas y reportes de señas; seguimiento de progreso (inscripciones, progreso de tema/lección, intentos de bloque) |
+| `learning` | Cursos, versiones, temas, lecciones, bloques, señas y reportes de señas; seguimiento de progreso (inscripciones, progreso de tema/lección, intentos de bloque); animación de seña vía presigned URL de R2 (`GET /signs/{meaning}/animation`; `meaning` es único) |
 | `content` | Pipeline de importación de contenido YAML (load → validate → persist), idempotente |
 | `gamification` | Stats de usuario, logros, desafíos, tienda, compras, regalos; XP diario/semanal, señas aprendidas y mecánica de vidas/racha |
 | `notification` | Tokens de dispositivo, plantillas, historial y envío push vía Firebase (FCM) |
@@ -189,7 +189,13 @@ Resumen de alta prioridad; el detalle y los ejemplos están en los bloques sigui
 - **Enumeración de usuarios:** `forgotPassword` / `resendVerificationEmail` responden igual exista
   o no el email (no filtrar existencia de cuentas). Mantener este comportamiento.
 - **Secretos** por variables de entorno (`.env`, ver `.env.example`): `JWT_SECRET`,
-  `GOOGLE_CLIENT_ID`, credenciales de DB y mail, service account de Firebase. Nunca commitear secretos.
+  `GOOGLE_CLIENT_ID`, credenciales de DB y mail, service account de Firebase, credenciales de
+  Cloudflare R2 (`R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY`). Nunca commitear secretos.
+- **R2 (animaciones):** las credenciales viven **sólo** en el backend; el cliente nunca las recibe.
+  `Sign.animationUrl` guarda el *object key* (p. ej. `lsa/test.glb`), y `GET /signs/{meaning}/animation`
+  (la seña se direcciona por su `meaning`, que es único) devuelve una **presigned URL** de descarga con
+  expiración corta (`r2.presign-expiry-minutes`, 15 min por defecto). No hacer público el bucket ni
+  exponer el key como URL directa.
 - Tokens de un solo uso (reset/verificación/refresh) se borran tras usarse; el refresh se rota.
 
 Detalle: `config/SecurityConfig.java`, `config/WebConfig.java` y `JwtAuthFilter`.

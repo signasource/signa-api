@@ -38,6 +38,10 @@ dependencies {
 
     implementation 'com.google.api-client:google-api-client:2.9.0'
 
+    // AWS SDK v2 (S3-compatible; used to sign Cloudflare R2 object URLs)
+    implementation platform('software.amazon.awssdk:bom:2.31.6')
+    implementation 'software.amazon.awssdk:s3'
+
     // JJWT Dependencies
     implementation 'io.jsonwebtoken:jjwt-api:0.12.5'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.5'
