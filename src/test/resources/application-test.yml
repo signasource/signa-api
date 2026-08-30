@@ -41,5 +41,4 @@ firebase:
 
 app:
   content:
-    # Integration tests import content explicitly; don't auto-import on context startup.
     import-on-startup: false

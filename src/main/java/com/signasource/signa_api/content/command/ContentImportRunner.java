@@ -11,13 +11,6 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
-/**
- * Validates and imports all bundled YAML content on startup, which also upserts the sign catalog.
- * The pipeline is idempotent, so running it on every boot is safe: unchanged courses resolve to
- * UNCHANGED and existing signs are skipped. Disable with {@code
- * app.content.import-on-startup=false} (set in the test profile, where integration tests import
- * explicitly).
- */
 @Component
 @Order(2)
 public class ContentImportRunner implements ApplicationRunner {
