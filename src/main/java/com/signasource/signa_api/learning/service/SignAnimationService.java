@@ -18,11 +18,6 @@ public class SignAnimationService {
     private final S3Presigner r2Presigner;
     private final R2Properties r2Properties;
 
-    /**
-     * Builds a presigned GET URL for the given R2 object key. The object is not checked for
-     * existence (that would cost an extra R2 round-trip); a missing key surfaces as a 404 when the
-     * client downloads it.
-     */
     public String presignedGetUrl(String objectKey) {
         try {
             GetObjectRequest getObjectRequest =

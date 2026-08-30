@@ -119,7 +119,6 @@ class RealContentImportTest {
                                     .isEqualTo("lsa/" + sign.getMeaning() + ".glb");
                         });
         assertThat(signs).extracting(Sign::getMeaning).contains("hola", "gracias", "por favor");
-        // Every created sign is associated to the LSA sign language.
         assertThat(signRepository.findBySignLanguageId(lsaId, Pageable.unpaged()).getContent())
                 .hasSize(signs.size());
     }

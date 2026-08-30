@@ -58,9 +58,6 @@ firebase:
   global-topic: global
   credentials-json: ${FIREBASE_CREDENTIALS_JSON:}
 
-# Cloudflare R2 (S3-compatible object storage for sign animations).
-# Defaults are empty so the app boots without R2 configured; the S3Presigner
-# only fails when an animation URL is actually requested.
 r2:
   endpoint: ${R2_ENDPOINT:}
   access-key-id: ${R2_ACCESS_KEY_ID:}
