@@ -330,11 +330,15 @@ docker compose up --build
 
 ### c) Gradle
 
-En caso de tener configurado el entorno localmente, podés importar **todo** el contenido con:
+En caso de tener configurado el entorno localmente, al levantar la app se **valida e importa TODO**
+el contenido automáticamente en cada arranque (es idempotente):
 
 ```bash
-./gradlew bootRun --args='--import-content'
+./gradlew bootRun
 ```
+
+> Si necesitás desactivar el import en algún entorno, seteá `CONTENT_IMPORT_ON_STARTUP=false`
+> (equivale a `app.content.import-on-startup=false`).
 
 ### Reimportar es seguro: solo se actualiza lo que cambió
 
