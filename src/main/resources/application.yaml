@@ -42,8 +42,6 @@ management:
 app:
   base-url:
   content:
-    # Validate + import all bundled YAML content on startup (idempotent). Disable in envs that
-    # manage content out of band; the test profile sets this false.
     import-on-startup: ${CONTENT_IMPORT_ON_STARTUP:true}
 
 auth:
