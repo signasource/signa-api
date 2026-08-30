@@ -192,7 +192,7 @@ Resumen de alta prioridad; el detalle y los ejemplos están en los bloques sigui
   `GOOGLE_CLIENT_ID`, credenciales de DB y mail, service account de Firebase, credenciales de
   Cloudflare R2 (`R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY`). Nunca commitear secretos.
 - **R2 (animaciones):** las credenciales viven **sólo** en el backend; el cliente nunca las recibe.
-  `Sign.animationUrl` guarda el *object key* (p. ej. `lsa/test.glb`), y `GET /signs/{meaning}/animation`
+  `Sign.animationUrl` guarda el *object key* (p. ej. `lsa/hola.glb`), y `GET /signs/{meaning}/animation`
   (la seña se direcciona por su `meaning`, que es único) devuelve una **presigned URL** de descarga con
   expiración corta (`r2.presign-expiry-minutes`, 15 min por defecto). No hacer público el bucket ni
   exponer el key como URL directa.
