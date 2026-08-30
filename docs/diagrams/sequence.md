@@ -306,5 +306,13 @@ sequenceDiagram
                 P->>DB: Crear o actualizar
             end
         end
+        Note over P,DB: Catálogo de señas (independiente del resultado por curso)
+        loop por cada seña que un bloque renderiza como animación
+            alt ya existe en el catálogo
+                P-->>P: Se conserva sin cambios
+            else nueva
+                P->>DB: Crear la seña (apunta a su archivo de animación)
+            end
+        end
     end
 ```

@@ -20,12 +20,17 @@ public class ContentImportService {
     private final ContentLoader loader;
     private final ContentValidator validator;
     private final ContentPersister persister;
+    private final SignCatalogImporter signCatalogImporter;
 
     public ContentImportService(
-            ContentLoader loader, ContentValidator validator, ContentPersister persister) {
+            ContentLoader loader,
+            ContentValidator validator,
+            ContentPersister persister,
+            SignCatalogImporter signCatalogImporter) {
         this.loader = loader;
         this.validator = validator;
         this.persister = persister;
+        this.signCatalogImporter = signCatalogImporter;
     }
 
     @Transactional
@@ -46,6 +51,9 @@ public class ContentImportService {
                     new ContentImportOutcome(
                             course.signLanguageCode(), course.course().course().code(), result));
         }
+
+        signCatalogImporter.importSigns(loaded);
+
         return outcomes;
     }
 }
