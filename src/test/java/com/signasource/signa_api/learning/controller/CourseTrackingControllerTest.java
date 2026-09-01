@@ -8,7 +8,9 @@ import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.learning.dto.CourseProgressResponse;
+import com.signasource.signa_api.learning.dto.CourseRoadmapResponse;
 import com.signasource.signa_api.learning.dto.LessonBlockInteractionRequest;
+import com.signasource.signa_api.learning.service.CourseRoadmapService;
 import com.signasource.signa_api.learning.service.CourseTrackingService;
 import com.signasource.signa_api.users.entity.User;
 import java.util.List;
@@ -26,6 +28,8 @@ import org.springframework.http.ResponseEntity;
 class CourseTrackingControllerTest {
 
     @Mock private CourseTrackingService trackingService;
+
+    @Mock private CourseRoadmapService roadmapService;
 
     @InjectMocks private CourseTrackingController courseTrackingController;
 
@@ -52,6 +56,21 @@ class CourseTrackingControllerTest {
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertSame(progress, response.getBody());
         verify(trackingService).getUserCourseProgress(mockUser);
+    }
+
+    @Test
+    void getCourseRoadmap_ShouldReturn200WithRoadmap() {
+        UUID courseId = UUID.randomUUID();
+        CourseRoadmapResponse roadmap =
+                new CourseRoadmapResponse(courseId, "LSA Básico", "v1.0", List.of());
+        when(roadmapService.getCourseRoadmap(mockUser, courseId)).thenReturn(roadmap);
+
+        ResponseEntity<CourseRoadmapResponse> response =
+                courseTrackingController.getCourseRoadmap(courseId, mockUserDetails);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertSame(roadmap, response.getBody());
+        verify(roadmapService).getCourseRoadmap(mockUser, courseId);
     }
 
     @Test
