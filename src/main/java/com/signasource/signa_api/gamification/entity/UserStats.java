@@ -99,4 +99,21 @@ public class UserStats {
     public boolean isLivesRegenerating() {
         return livesMode == LivesMode.LIMITED && currentLives != null && currentLives < MAX_LIVES;
     }
+
+    /**
+     * Deducts one life for a wrong answer. No-op when lives are unlimited or already at zero.
+     *
+     * @return true if a life was actually deducted
+     */
+    public boolean loseLife() {
+        if (livesMode != LivesMode.LIMITED) {
+            return false;
+        }
+        int lives = currentLives == null ? MAX_LIVES : currentLives;
+        if (lives <= 0) {
+            return false;
+        }
+        currentLives = lives - 1;
+        return true;
+    }
 }

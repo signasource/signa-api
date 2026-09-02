@@ -17,6 +17,7 @@ import com.signasource.signa_api.learning.entity.Topic;
 import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import com.signasource.signa_api.learning.entity.UserLessonProgress;
 import com.signasource.signa_api.learning.entity.UserTopicProgress;
+import com.signasource.signa_api.learning.event.LifeLostEvent;
 import com.signasource.signa_api.learning.event.SignsLearnedEvent;
 import com.signasource.signa_api.learning.event.XpEarnedEvent;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
@@ -164,7 +165,8 @@ public class CourseTrackingService {
      * is awarded once, on its first correct attempt/view; once every block in a lesson has been
      * resolved by the user the lesson is completed; once every lesson in a topic is completed the
      * topic is completed; once every topic in a course version is completed the enrollment is
-     * completed.
+     * completed. A wrong answer on an exercise block costs the user one life (only when their lives
+     * mode is LIMITED).
      */
     @Transactional
     public LessonBlockAttempt recordBlockInteraction(
@@ -200,6 +202,10 @@ public class CourseTrackingService {
                                 .build());
 
         markInProgress(user, block.getLesson());
+
+        if (!isInfo && !isCorrect) {
+            eventPublisher.publishEvent(new LifeLostEvent(this, user));
+        }
 
         if (isNewMilestone) {
             if (!isInfo || block.getXpReward() != null) {
