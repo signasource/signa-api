@@ -17,6 +17,7 @@ import com.signasource.signa_api.users.entity.FriendshipStatus;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.repository.FriendshipRepository;
 import com.signasource.signa_api.users.repository.UserRepository;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -356,5 +357,183 @@ class FriendshipServiceTest {
 
         assertThrows(
                 NotFoundException.class, () -> friendshipService.blockUser(requester, addresseeId));
+    }
+
+    @Test
+    void getFriends_ReturnsAcceptedFriendships() {
+        Friendship friendship1 = new Friendship();
+        friendship1.setStatus(FriendshipStatus.ACCEPTED);
+
+        Friendship friendship2 = new Friendship();
+        friendship2.setStatus(FriendshipStatus.ACCEPTED);
+
+        when(friendshipRepository.findAllFriendshipsByUserAndStatus(
+                        requester, FriendshipStatus.ACCEPTED))
+                .thenReturn(List.of(friendship1, friendship2));
+
+        List<Friendship> friends = friendshipService.getFriends(requester);
+
+        assertEquals(2, friends.size());
+        verify(friendshipRepository, times(1))
+                .findAllFriendshipsByUserAndStatus(requester, FriendshipStatus.ACCEPTED);
+    }
+
+    @Test
+    void getFriends_ReturnsEmptyList_WhenNoFriends() {
+        when(friendshipRepository.findAllFriendshipsByUserAndStatus(
+                        requester, FriendshipStatus.ACCEPTED))
+                .thenReturn(List.of());
+
+        List<Friendship> friends = friendshipService.getFriends(requester);
+
+        assertEquals(0, friends.size());
+    }
+
+    @Test
+    void getPendingRequests_ReturnsPendingRequests() {
+        Friendship request1 = new Friendship();
+        request1.setStatus(FriendshipStatus.PENDING);
+
+        Friendship request2 = new Friendship();
+        request2.setStatus(FriendshipStatus.PENDING);
+
+        when(friendshipRepository.findByAddresseeAndStatus(addressee, FriendshipStatus.PENDING))
+                .thenReturn(List.of(request1, request2));
+
+        List<Friendship> requests = friendshipService.getPendingRequests(addressee);
+
+        assertEquals(2, requests.size());
+        verify(friendshipRepository, times(1))
+                .findByAddresseeAndStatus(addressee, FriendshipStatus.PENDING);
+    }
+
+    @Test
+    void getPendingRequests_ReturnsEmptyList_WhenNoPendingRequests() {
+        when(friendshipRepository.findByAddresseeAndStatus(addressee, FriendshipStatus.PENDING))
+                .thenReturn(List.of());
+
+        List<Friendship> requests = friendshipService.getPendingRequests(addressee);
+
+        assertEquals(0, requests.size());
+    }
+
+    @Test
+    void removeFriend_Success() {
+        Friendship acceptedFriendship = new Friendship();
+        acceptedFriendship.setStatus(FriendshipStatus.ACCEPTED);
+
+        when(userRepository.findById(addresseeId)).thenReturn(Optional.of(addressee));
+        when(friendshipRepository.findFriendshipBetween(requester, addressee))
+                .thenReturn(Optional.of(acceptedFriendship));
+
+        friendshipService.removeFriend(requester, addresseeId);
+
+        verify(friendshipRepository, times(1)).delete(acceptedFriendship);
+    }
+
+    @Test
+    void removeFriend_ThrowsInvalidInputException_WhenSameUser() {
+        assertThrows(
+                InvalidInputException.class,
+                () -> friendshipService.removeFriend(requester, requesterId));
+        verifyNoInteractions(userRepository, friendshipRepository);
+    }
+
+    @Test
+    void removeFriend_ThrowsNotFoundException_WhenFriendNotFound() {
+        when(userRepository.findById(addresseeId)).thenReturn(Optional.empty());
+
+        assertThrows(
+                NotFoundException.class,
+                () -> friendshipService.removeFriend(requester, addresseeId));
+    }
+
+    @Test
+    void removeFriend_ThrowsNotFoundException_WhenFriendshipNotFound() {
+        when(userRepository.findById(addresseeId)).thenReturn(Optional.of(addressee));
+        when(friendshipRepository.findFriendshipBetween(requester, addressee))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                NotFoundException.class,
+                () -> friendshipService.removeFriend(requester, addresseeId));
+    }
+
+    @Test
+    void removeFriend_ThrowsInvalidInputException_WhenStatusIsNotAccepted() {
+        Friendship pendingFriendship = new Friendship();
+        pendingFriendship.setStatus(FriendshipStatus.PENDING);
+
+        when(userRepository.findById(addresseeId)).thenReturn(Optional.of(addressee));
+        when(friendshipRepository.findFriendshipBetween(requester, addressee))
+                .thenReturn(Optional.of(pendingFriendship));
+
+        assertThrows(
+                InvalidInputException.class,
+                () -> friendshipService.removeFriend(requester, addresseeId));
+
+        verify(friendshipRepository, never()).delete(any(Friendship.class));
+    }
+
+    @Test
+    void unblockUser_Success() {
+        Friendship blockedFriendship = new Friendship();
+        blockedFriendship.setRequester(requester);
+        blockedFriendship.setAddressee(addressee);
+        blockedFriendship.setStatus(FriendshipStatus.BLOCKED);
+
+        when(userRepository.findById(addresseeId)).thenReturn(Optional.of(addressee));
+        when(friendshipRepository.findByRequesterAndAddressee(requester, addressee))
+                .thenReturn(Optional.of(blockedFriendship));
+
+        friendshipService.unblockUser(requester, addresseeId);
+
+        verify(friendshipRepository, times(1)).delete(blockedFriendship);
+    }
+
+    @Test
+    void unblockUser_ThrowsInvalidInputException_WhenSameUser() {
+        assertThrows(
+                InvalidInputException.class,
+                () -> friendshipService.unblockUser(requester, requesterId));
+        verifyNoInteractions(userRepository, friendshipRepository);
+    }
+
+    @Test
+    void unblockUser_ThrowsNotFoundException_WhenUserNotFound() {
+        when(userRepository.findById(addresseeId)).thenReturn(Optional.empty());
+
+        assertThrows(
+                NotFoundException.class,
+                () -> friendshipService.unblockUser(requester, addresseeId));
+    }
+
+    @Test
+    void unblockUser_ThrowsNotFoundException_WhenBlockingNotFound() {
+        when(userRepository.findById(addresseeId)).thenReturn(Optional.of(addressee));
+        when(friendshipRepository.findByRequesterAndAddressee(requester, addressee))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                NotFoundException.class,
+                () -> friendshipService.unblockUser(requester, addresseeId));
+    }
+
+    @Test
+    void unblockUser_ThrowsInvalidInputException_WhenStatusIsNotBlocked() {
+        Friendship acceptedFriendship = new Friendship();
+        acceptedFriendship.setRequester(requester);
+        acceptedFriendship.setAddressee(addressee);
+        acceptedFriendship.setStatus(FriendshipStatus.ACCEPTED);
+
+        when(userRepository.findById(addresseeId)).thenReturn(Optional.of(addressee));
+        when(friendshipRepository.findByRequesterAndAddressee(requester, addressee))
+                .thenReturn(Optional.of(acceptedFriendship));
+
+        assertThrows(
+                InvalidInputException.class,
+                () -> friendshipService.unblockUser(requester, addresseeId));
+
+        verify(friendshipRepository, never()).delete(any(Friendship.class));
     }
 }

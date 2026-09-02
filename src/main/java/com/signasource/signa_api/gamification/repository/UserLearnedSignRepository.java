@@ -1,7 +1,10 @@
 package com.signasource.signa_api.gamification.repository;
 
 import com.signasource.signa_api.gamification.entity.UserLearnedSign;
+import com.signasource.signa_api.users.entity.User;
+import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -13,4 +16,6 @@ public interface UserLearnedSignRepository extends JpaRepository<UserLearnedSign
     boolean existsByUserIdAndSignAndCourseVersionId(UUID userId, String sign, UUID courseVersionId);
 
     long countByUserIdAndCourseVersionId(UUID userId, UUID courseVersionId);
+
+    List<UserLearnedSign> findByUserOrderByLearnedAtDesc(User user, Pageable pageable);
 }
