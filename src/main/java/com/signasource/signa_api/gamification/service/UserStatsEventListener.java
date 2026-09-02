@@ -6,6 +6,7 @@ import com.signasource.signa_api.gamification.entity.UserStats;
 import com.signasource.signa_api.gamification.repository.UserDailyXpRepository;
 import com.signasource.signa_api.gamification.repository.UserLearnedSignRepository;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
+import com.signasource.signa_api.learning.event.LifeLostEvent;
 import com.signasource.signa_api.learning.event.SignsLearnedEvent;
 import com.signasource.signa_api.learning.event.XpEarnedEvent;
 import com.signasource.signa_api.users.entity.User;
@@ -61,6 +62,22 @@ public class UserStatsEventListener {
         userStatsRepository.save(stats);
 
         upsertDailyXp(user, xpToAdd);
+    }
+
+    @EventListener
+    @Transactional
+    public void handleLifeLostEvent(LifeLostEvent event) {
+        User user = event.getUser();
+
+        UserStats stats =
+                userStatsRepository
+                        .findByUserId(user.getId())
+                        .orElseGet(() -> UserStats.builder().user(user).build());
+
+        if (stats.loseLife()) {
+            stats.setUpdatedAt(Instant.now());
+            userStatsRepository.save(stats);
+        }
     }
 
     private void upsertDailyXp(User user, int xpToAdd) {

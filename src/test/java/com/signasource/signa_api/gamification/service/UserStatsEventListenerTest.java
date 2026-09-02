@@ -9,6 +9,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.signasource.signa_api.gamification.entity.LivesMode;
 import com.signasource.signa_api.gamification.entity.UserDailyXp;
 import com.signasource.signa_api.gamification.entity.UserLearnedSign;
 import com.signasource.signa_api.gamification.entity.UserStats;
@@ -16,6 +17,7 @@ import com.signasource.signa_api.gamification.repository.UserDailyXpRepository;
 import com.signasource.signa_api.gamification.repository.UserLearnedSignRepository;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
 import com.signasource.signa_api.learning.entity.CourseVersion;
+import com.signasource.signa_api.learning.event.LifeLostEvent;
 import com.signasource.signa_api.learning.event.SignsLearnedEvent;
 import com.signasource.signa_api.learning.event.XpEarnedEvent;
 import com.signasource.signa_api.users.entity.User;
@@ -258,5 +260,67 @@ class UserStatsEventListenerTest {
         userStatsEventListener.handleXpEarnedEvent(new XpEarnedEvent(this, mockUser, 30));
 
         assertEquals(70, existing.getXpEarned());
+    }
+
+    @Test
+    void handleLifeLostEvent_DecrementsCurrentLives_WhenLivesModeIsLimited() {
+        UserStats stats =
+                UserStats.builder()
+                        .user(mockUser)
+                        .livesMode(LivesMode.LIMITED)
+                        .currentLives(3)
+                        .build();
+        when(userStatsRepository.findByUserId(userId)).thenReturn(Optional.of(stats));
+        when(userStatsRepository.save(any(UserStats.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        userStatsEventListener.handleLifeLostEvent(new LifeLostEvent(this, mockUser));
+
+        assertEquals(2, stats.getCurrentLives());
+        verify(userStatsRepository).save(stats);
+    }
+
+    @Test
+    void handleLifeLostEvent_DefaultsToMaxLives_WhenCurrentLivesNotSet() {
+        UserStats stats = UserStats.builder().user(mockUser).livesMode(LivesMode.LIMITED).build();
+        when(userStatsRepository.findByUserId(userId)).thenReturn(Optional.of(stats));
+        when(userStatsRepository.save(any(UserStats.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        userStatsEventListener.handleLifeLostEvent(new LifeLostEvent(this, mockUser));
+
+        assertEquals(4, stats.getCurrentLives());
+    }
+
+    @Test
+    void handleLifeLostEvent_DoesNothing_WhenLivesModeIsInfinite() {
+        UserStats stats =
+                UserStats.builder()
+                        .user(mockUser)
+                        .livesMode(LivesMode.INFINITE)
+                        .currentLives(3)
+                        .build();
+        when(userStatsRepository.findByUserId(userId)).thenReturn(Optional.of(stats));
+
+        userStatsEventListener.handleLifeLostEvent(new LifeLostEvent(this, mockUser));
+
+        assertEquals(3, stats.getCurrentLives());
+        verify(userStatsRepository, never()).save(any(UserStats.class));
+    }
+
+    @Test
+    void handleLifeLostEvent_DoesNothing_WhenAlreadyOutOfLives() {
+        UserStats stats =
+                UserStats.builder()
+                        .user(mockUser)
+                        .livesMode(LivesMode.LIMITED)
+                        .currentLives(0)
+                        .build();
+        when(userStatsRepository.findByUserId(userId)).thenReturn(Optional.of(stats));
+
+        userStatsEventListener.handleLifeLostEvent(new LifeLostEvent(this, mockUser));
+
+        assertEquals(0, stats.getCurrentLives());
+        verify(userStatsRepository, never()).save(any(UserStats.class));
     }
 }
