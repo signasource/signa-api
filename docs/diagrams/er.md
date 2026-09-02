@@ -59,7 +59,9 @@ erDiagram
 ## Señas
 
 Catálogo de señas por lengua y sus reportes. `SIGN_REPORT.user_id` referencia a `USER` (vista
-[Usuarios](#usuarios)).
+[Usuarios](#usuarios)). `SIGN.animationUrl` guarda el identificador del objeto de animación en el
+almacenamiento (no una URL pública): la URL de descarga se firma bajo demanda y expira a los pocos
+minutos (ver [Obtención de la animación de una seña](sequence.md#obtencion-de-la-animacion-de-una-sena)).
 
 ```mermaid
 erDiagram
@@ -74,8 +76,7 @@ erDiagram
     }
     SIGN {
         uuid id PK
-        string meaning
-        text description
+        string meaning UK
         enum handedness
         string animationUrl
         uuid sign_language_id FK
