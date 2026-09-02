@@ -61,7 +61,8 @@ class SignCatalogImporterTest {
 
     private LoadedCourse course(String langCode, LessonBlockDto... blocks) {
         LessonDto lesson = new LessonDto("l1", "Lesson", null, List.of(blocks));
-        TopicYaml topic = new TopicYaml(new TopicDto("t1", "Topic", null, null), List.of(lesson));
+        TopicYaml topic =
+                new TopicYaml(new TopicDto("t1", "Topic", null, null, null), List.of(lesson));
         CourseYaml yaml =
                 new CourseYaml(
                         new CourseMetadataDto("basic", "Basic", null, false, null),

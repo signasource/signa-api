@@ -92,6 +92,31 @@ stateDiagram-v2
     Expirado --> [*]
 ```
 
+## Ítem comprado o regalado
+
+```mermaid
+stateDiagram-v2
+    [*] --> Pendiente : se regala
+    [*] --> EnInventario : se compra un potenciador para uno mismo
+    [*] --> Activado : se compra para uno mismo (gemas, vida, escudo, cofre)
+    Pendiente --> EnInventario : el destinatario reclama el regalo
+    EnInventario --> Activado : se activa el potenciador
+    Activado --> [*]
+    note right of Pendiente
+        Es un regalo aún sin reclamar por el destinatario.
+        Sólo el flujo de regalos pasa por este estado.
+    end note
+    note right of EnInventario
+        El ítem ya es del usuario y está en su inventario.
+        Los potenciadores temporales (vidas ilimitadas y
+        multiplicador de XP) llegan acá para activarse luego;
+        el resto de los ítems se activa de inmediato al comprarse.
+    end note
+    note right of Activado
+        Ya se consumió: el efecto fue aplicado.
+    end note
+```
+
 ## Resultado de la incorporación de contenido
 
 ```mermaid

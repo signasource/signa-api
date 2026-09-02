@@ -13,18 +13,22 @@ public record UserInventoryResponse(
         double effectiveXpMultiplier,
         Instant xpMultiplierExpiresAt,
         boolean xpMultiplierActive,
+        Instant unlimitedLivesExpiresAt,
+        boolean unlimitedLivesActive,
         int learnedSignsCount) {
 
     public static UserInventoryResponse from(UserStats stats) {
         return new UserInventoryResponse(
                 stats.getGems(),
                 stats.getStreakShields(),
-                stats.getLivesMode(),
+                stats.getEffectiveLivesMode(),
                 stats.getCurrentLives(),
                 stats.getNextLifeAt(),
                 stats.getEffectiveXpMultiplier(),
                 stats.getXpMultiplierExpiresAt(),
                 stats.hasActiveXpMultiplier(),
+                stats.getUnlimitedLivesExpiresAt(),
+                stats.hasActiveUnlimitedLives(),
                 stats.getLearnedSignsCount());
     }
 }
