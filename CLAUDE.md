@@ -58,7 +58,7 @@ la frontera HTTP; se mapean a/desde DTOs mediante factories estáticas (`Dto.fro
 |---|---|
 | `auth` | Registro (auto-login + verificación de email por flag `verified`), login, JWT, refresh, reset de password, Google OAuth2 |
 | `users` | Perfil, settings, amistades (`Friendship`: request/accept/reject/block), username, daily goal, color de header |
-| `learning` | Cursos, versiones, temas, lecciones, bloques, señas y reportes de señas; seguimiento de progreso (inscripciones, progreso de tema/lección, intentos de bloque); animación de seña vía presigned URL de R2 (`GET /signs/{meaning}/animation`; `meaning` es único) |
+| `learning` | Cursos, versiones, temas, lecciones, bloques, señas y reportes de señas; seguimiento de progreso (inscripciones, progreso de tema/lección, intentos de bloque); animación de seña vía presigned URL de R2 (`GET /signs/{meaning}/animation`; `meaning` es único) y su variante batch (`POST /signs/animations`, usada por el lesson player para precargar todas las animaciones de una lección en un solo request) |
 | `content` | Pipeline de importación de contenido YAML (load → validate → persist), idempotente; además **upserta el catálogo de señas** a partir de los bloques: crea una `Sign` por cada _meaning_ que un bloque renderiza como animación, con `animationUrl = lsa/{meaning}.glb` y `handedness = ONE_HANDED` (`SignCatalogExtractor` + `SignCatalogImporter`) |
 | `gamification` | Stats de usuario, logros, desafíos, tienda, compras, regalos; XP diario/semanal, señas aprendidas y mecánica de vidas/racha |
 | `notification` | Tokens de dispositivo, plantillas, historial y envío push vía Firebase (FCM) |
