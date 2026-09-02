@@ -35,12 +35,6 @@ public class CourseRoadmapService {
     private final LessonBlockRepository lessonBlockRepository;
     private final UserLessonProgressRepository lessonProgressRepository;
 
-    /**
-     * Builds the personalized lesson roadmap for a course: its published version's topics, each
-     * with its ordered lessons and a per-user display state. A lesson is COMPLETED / IN_PROGRESS
-     * from its {@link ProgressStatus}; an untouched lesson is AVAILABLE when the previous lesson in
-     * the flattened sequence is completed (the unlock frontier) and LOCKED otherwise.
-     */
     @Transactional(readOnly = true)
     public CourseRoadmapResponse getCourseRoadmap(User user, UUID courseId) {
         CourseVersion version =
@@ -68,7 +62,7 @@ public class CourseRoadmapService {
                                         LessonProgressStatusView::getLessonId,
                                         LessonProgressStatusView::getStatus));
 
-        boolean previousCompleted = true; // the first lesson of the course is always available
+        boolean previousCompleted = true;
         List<RoadmapTopicResponse> topicResponses = new ArrayList<>(topics.size());
         for (Topic topic : topics) {
             List<Lesson> lessons = topic.getLessons();

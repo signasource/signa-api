@@ -124,19 +124,14 @@ class CourseRoadmapServiceTest {
         List<RoadmapLessonResponse> lessons = topicResponse.lessons();
         assertEquals(5, lessons.size());
 
-        // L1 completed, with its block aggregate.
         assertEquals(LessonRoadmapState.COMPLETED, lessons.get(0).state());
         assertEquals(4, lessons.get(0).blockCount());
         assertEquals(50, lessons.get(0).xpTotal());
-        // L2 untouched but previous completed -> the unlock frontier.
         assertEquals(LessonRoadmapState.AVAILABLE, lessons.get(1).state());
         assertEquals(0, lessons.get(1).blockCount());
         assertEquals(0, lessons.get(1).xpTotal());
-        // L3 untouched, previous not completed -> locked.
         assertEquals(LessonRoadmapState.LOCKED, lessons.get(2).state());
-        // L4 in progress regardless of the previous lesson.
         assertEquals(LessonRoadmapState.IN_PROGRESS, lessons.get(3).state());
-        // L5 completed.
         assertEquals(LessonRoadmapState.COMPLETED, lessons.get(4).state());
     }
 
@@ -157,7 +152,6 @@ class CourseRoadmapServiceTest {
 
         CourseRoadmapResponse response = courseRoadmapService.getCourseRoadmap(user, courseId);
 
-        // Topic A completed -> Topic B's first lesson unlocks; still-locked cascades to Topic C.
         assertEquals(
                 LessonRoadmapState.COMPLETED, response.topics().get(0).lessons().get(0).state());
         assertEquals(
