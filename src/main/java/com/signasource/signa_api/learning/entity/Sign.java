@@ -29,11 +29,8 @@ public class Sign {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false, length = 150)
+    @Column(nullable = false, length = 150, unique = true)
     private String meaning;
-
-    @Column(columnDefinition = "TEXT")
-    private String description;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

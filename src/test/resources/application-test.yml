@@ -38,3 +38,7 @@ auth:
 firebase:
   enabled: false
   global-topic: test-global
+
+app:
+  content:
+    import-on-startup: false

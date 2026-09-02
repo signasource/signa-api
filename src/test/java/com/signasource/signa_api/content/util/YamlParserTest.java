@@ -58,7 +58,8 @@ class YamlParserTest {
                 """
                 topic:
                   code: topic-1
-                  name: Topic One
+                  title: Topic One
+                  subtitle: The Subtitle
                   description: Desc.
                 lessons:
                   - code: lesson-1

@@ -190,6 +190,28 @@ sequenceDiagram
     end
 ```
 
+## Recorrido de un curso (roadmap)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant API as API
+    participant DB as Base de datos
+
+    C->>API: Pedir el recorrido de un curso
+    API->>DB: Buscar la versión publicada del curso
+    alt sin versión publicada
+        API-->>C: No encontrado (404)
+    else publicada
+        API->>DB: Temas con sus lecciones ordenadas
+        API->>DB: Cantidad de bloques y XP por lección
+        API->>DB: Estado de progreso del usuario por lección
+        API->>API: Resolver estado por lección (completada / en progreso / disponible / bloqueada)
+        API-->>C: Temas con lecciones y su estado
+    end
+```
+
 ## Inscripción a un curso
 
 ```mermaid
@@ -297,6 +319,36 @@ sequenceDiagram
     end
 ```
 
+## Obtención de la animación de una seña
+
+La API firma una URL de descarga temporal contra el almacenamiento de objetos usando sus
+credenciales privadas; el cliente nunca las recibe, sólo la URL, que expira a los pocos minutos. El
+archivo se descarga directamente desde el almacenamiento, sin pasar por la API.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant API as API
+    participant DB as Base de datos
+    participant OS as Almacenamiento de objetos
+
+    C->>API: Solicitar la animación de una seña
+    API->>DB: Buscar la seña
+    alt no existe
+        API-->>C: No encontrado (404)
+    else existe
+        alt sin animación asociada
+            API-->>C: No encontrado (404)
+        else con animación
+            API->>OS: Firmar una URL temporal de descarga
+            API-->>C: URL temporal (expira en minutos)
+            C->>OS: Descargar el archivo de animación
+            OS-->>C: Archivo de animación
+        end
+    end
+```
+
 ## Tienda: reclamar un regalo
 
 ```mermaid
@@ -383,6 +435,14 @@ sequenceDiagram
                 P-->>P: Sin cambios
             else nuevo o modificado
                 P->>DB: Crear o actualizar
+            end
+        end
+        Note over P,DB: Catálogo de señas (independiente del resultado por curso)
+        loop por cada seña que un bloque renderiza como animación
+            alt ya existe en el catálogo
+                P-->>P: Se conserva sin cambios
+            else nueva
+                P->>DB: Crear la seña (apunta a su archivo de animación)
             end
         end
     end

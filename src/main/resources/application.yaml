@@ -41,6 +41,8 @@ management:
 
 app:
   base-url:
+  content:
+    import-on-startup: ${CONTENT_IMPORT_ON_STARTUP:true}
 
 auth:
     google:
@@ -57,3 +59,10 @@ firebase:
   enabled: true
   global-topic: global
   credentials-json: ${FIREBASE_CREDENTIALS_JSON:}
+
+r2:
+  endpoint: ${R2_ENDPOINT:}
+  access-key-id: ${R2_ACCESS_KEY_ID:}
+  secret-access-key: ${R2_SECRET_ACCESS_KEY:}
+  bucket: ${R2_BUCKET_NAME:signa-animations}
+  presign-expiry-minutes: ${R2_PRESIGN_EXPIRY_MINUTES:15}
