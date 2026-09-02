@@ -36,7 +36,7 @@ public class BlockSignExtractor {
             case SELECT_SIGN -> singleText(config, "word");
             case CONTEXT_RESPONSE -> singleText(config, "answer");
             case MATCH -> arrayTexts(config, "concepts");
-            case VISUAL_RECOGNITION -> arrayTexts(config, "signSequence");
+            case VISUAL_RECOGNITION -> arrayTexts(config, "sign_sequence");
             case INFO -> List.of();
         };
     }

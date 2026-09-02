@@ -7,6 +7,7 @@ import com.signasource.signa_api.learning.dto.RoadmapLessonResponse;
 import com.signasource.signa_api.learning.dto.RoadmapTopicResponse;
 import com.signasource.signa_api.learning.entity.CourseVersion;
 import com.signasource.signa_api.learning.entity.Lesson;
+import com.signasource.signa_api.learning.entity.LessonBlock;
 import com.signasource.signa_api.learning.entity.ProgressStatus;
 import com.signasource.signa_api.learning.entity.Topic;
 import com.signasource.signa_api.learning.entity.VersionStatus;
@@ -16,6 +17,7 @@ import com.signasource.signa_api.learning.repository.TopicRepository;
 import com.signasource.signa_api.learning.repository.UserLessonProgressRepository;
 import com.signasource.signa_api.learning.repository.projection.LessonBlockAggregateView;
 import com.signasource.signa_api.learning.repository.projection.LessonProgressStatusView;
+import com.signasource.signa_api.learning.util.BlockSignExtractor;
 import com.signasource.signa_api.users.entity.User;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,6 +36,7 @@ public class CourseRoadmapService {
     private final TopicRepository topicRepository;
     private final LessonBlockRepository lessonBlockRepository;
     private final UserLessonProgressRepository lessonProgressRepository;
+    private final BlockSignExtractor blockSignExtractor;
 
     @Transactional(readOnly = true)
     public CourseRoadmapResponse getCourseRoadmap(User user, UUID courseId) {
@@ -55,6 +58,25 @@ public class CourseRoadmapService {
                                         LessonBlockAggregateView::getLessonId,
                                         v -> new long[] {v.getBlockCount(), v.getXpTotal()}));
 
+        Map<UUID, Integer> signsCountByLesson =
+                lessonBlockRepository.findByCourseVersionId(version.getId()).stream()
+                        .collect(
+                                Collectors.groupingBy(
+                                        b -> b.getLesson().getId(),
+                                        Collectors.collectingAndThen(
+                                                Collectors.toList(),
+                                                blocks ->
+                                                        (int)
+                                                                blocks.stream()
+                                                                        .flatMap(
+                                                                                b ->
+                                                                                        blockSignExtractor
+                                                                                                .extract(
+                                                                                                        b)
+                                                                                                .stream())
+                                                                        .distinct()
+                                                                        .count())));
+
         Map<UUID, ProgressStatus> statusByLesson =
                 lessonProgressRepository.findLessonStatuses(user.getId(), version.getId()).stream()
                         .collect(
@@ -69,12 +91,14 @@ public class CourseRoadmapService {
             List<RoadmapLessonResponse> lessonResponses = new ArrayList<>(lessons.size());
             for (Lesson lesson : lessons) {
                 long[] agg = blockAggByLesson.getOrDefault(lesson.getId(), EMPTY_AGG);
+                int signsCount = signsCountByLesson.getOrDefault(lesson.getId(), 0);
                 ProgressStatus status = statusByLesson.get(lesson.getId());
                 lessonResponses.add(
                         RoadmapLessonResponse.of(
                                 lesson,
                                 (int) agg[0],
                                 (int) agg[1],
+                                signsCount,
                                 resolveState(status, previousCompleted)));
                 previousCompleted = status == ProgressStatus.COMPLETED;
             }

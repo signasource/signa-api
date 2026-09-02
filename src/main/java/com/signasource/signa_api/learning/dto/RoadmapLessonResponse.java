@@ -11,10 +11,11 @@ public record RoadmapLessonResponse(
         int order,
         int blockCount,
         int xpTotal,
+        int signsCount,
         LessonRoadmapState state) {
 
     public static RoadmapLessonResponse of(
-            Lesson lesson, int blockCount, int xpTotal, LessonRoadmapState state) {
+            Lesson lesson, int blockCount, int xpTotal, int signsCount, LessonRoadmapState state) {
         return new RoadmapLessonResponse(
                 lesson.getId(),
                 lesson.getCode(),
@@ -23,6 +24,7 @@ public record RoadmapLessonResponse(
                 lesson.getOrder(),
                 blockCount,
                 xpTotal,
+                signsCount,
                 state);
     }
 }
