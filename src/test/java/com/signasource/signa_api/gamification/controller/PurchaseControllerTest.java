@@ -11,6 +11,7 @@ import com.signasource.signa_api.gamification.dto.PurchaseResponse;
 import com.signasource.signa_api.gamification.dto.ShopItemResponse;
 import com.signasource.signa_api.gamification.dto.UserInventoryResponse;
 import com.signasource.signa_api.gamification.entity.LivesMode;
+import com.signasource.signa_api.gamification.entity.PurchaseStatus;
 import com.signasource.signa_api.gamification.entity.ShopItemType;
 import com.signasource.signa_api.gamification.service.PurchaseService;
 import com.signasource.signa_api.users.entity.Role;
@@ -72,6 +73,8 @@ class PurchaseControllerTest {
                         item,
                         40,
                         Instant.now(),
+                        PurchaseStatus.ACTIVATED,
+                        Instant.now(),
                         new AppliedEffectResponse(
                                 ShopItemType.STREAK_SHIELD, null, null, 1, null, null),
                         new UserInventoryResponse(
@@ -93,6 +96,44 @@ class PurchaseControllerTest {
 
         verify(purchaseService).purchaseForSelf(user, shopItemId);
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertEquals(expected, response.getBody());
+    }
+
+    @Test
+    void shouldClaimPurchase() {
+        UUID shopItemId = UUID.randomUUID();
+        ShopItemResponse item =
+                new ShopItemResponse(
+                        shopItemId,
+                        "xp_boost",
+                        "XP Boost",
+                        "desc",
+                        ShopItemType.XP_MULTIPLIER,
+                        30,
+                        1,
+                        30,
+                        2.0,
+                        true);
+        UserInventoryResponse inventory =
+                new UserInventoryResponse(
+                        70, 1, LivesMode.LIMITED, 4, null, 1.0, null, false, null, false, 0);
+        PurchaseResponse expected =
+                new PurchaseResponse(
+                        UUID.randomUUID(),
+                        item,
+                        30,
+                        Instant.now(),
+                        PurchaseStatus.STORED,
+                        null,
+                        null,
+                        inventory);
+        when(purchaseService.claim(user, ShopItemType.XP_MULTIPLIER)).thenReturn(expected);
+
+        ResponseEntity<PurchaseResponse> response =
+                purchaseController.claim(ShopItemType.XP_MULTIPLIER, userDetails);
+
+        verify(purchaseService).claim(user, ShopItemType.XP_MULTIPLIER);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(expected, response.getBody());
     }
 }

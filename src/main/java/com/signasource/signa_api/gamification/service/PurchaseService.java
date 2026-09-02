@@ -8,6 +8,7 @@ import com.signasource.signa_api.gamification.dto.ShopItemResponse;
 import com.signasource.signa_api.gamification.dto.UserInventoryResponse;
 import com.signasource.signa_api.gamification.entity.LivesMode;
 import com.signasource.signa_api.gamification.entity.Purchase;
+import com.signasource.signa_api.gamification.entity.PurchaseStatus;
 import com.signasource.signa_api.gamification.entity.ShopItem;
 import com.signasource.signa_api.gamification.entity.ShopItemType;
 import com.signasource.signa_api.gamification.entity.UserStats;
@@ -44,6 +45,17 @@ public class PurchaseService {
         UserStats stats = getOrCreateStats(buyer);
         debitGems(stats, item.getPriceGems());
 
+        AppliedEffectResponse effect = null;
+        PurchaseStatus status = PurchaseStatus.STORED;
+        Instant activatedAt = null;
+        if (!requiresActivation(item.getItemType())) {
+            effect = applyItemEffect(stats, item);
+            status = PurchaseStatus.ACTIVATED;
+            activatedAt = Instant.now();
+        }
+        stats.setUpdatedAt(Instant.now());
+        userStatsRepository.save(stats);
+
         Purchase purchase =
                 purchaseRepository.save(
                         Purchase.builder()
@@ -51,19 +63,51 @@ public class PurchaseService {
                                 .shopItem(item)
                                 .gemsSpent(item.getPriceGems())
                                 .purchasedAt(Instant.now())
+                                .status(status)
+                                .activatedAt(activatedAt)
                                 .build());
-
-        AppliedEffectResponse effect = applyItemEffect(stats, item);
-        stats.setUpdatedAt(Instant.now());
-        userStatsRepository.save(stats);
 
         return new PurchaseResponse(
                 purchase.getId(),
                 ShopItemResponse.from(item),
                 purchase.getGemsSpent(),
                 purchase.getPurchasedAt(),
+                purchase.getStatus(),
+                purchase.getActivatedAt(),
                 effect,
                 UserInventoryResponse.from(stats));
+    }
+
+    @Transactional
+    public PurchaseResponse claim(User user, ShopItemType itemType) {
+        ensureEnabled(user);
+
+        Purchase purchase =
+                purchaseRepository
+                        .findFirstByUserAndShopItem_ItemTypeAndStatusOrderByPurchasedAtAsc(
+                                user, itemType, PurchaseStatus.PENDING)
+                        .orElseThrow(
+                                () ->
+                                        new NotFoundException(
+                                                "No pending " + itemType + " purchase to claim"));
+
+        UserStats stats =
+                userStatsRepository
+                        .findByUser(user)
+                        .orElseThrow(() -> new NotFoundException("User stats not found"));
+
+        purchase.setStatus(PurchaseStatus.STORED);
+        purchaseRepository.save(purchase);
+
+        return PurchaseResponse.from(purchase, stats);
+    }
+
+    /**
+     * Boosters (XP multiplier, unlimited lives) are stored in the inventory instead of applied
+     * immediately on purchase; the user activates them later via {@code BoosterService}.
+     */
+    private boolean requiresActivation(ShopItemType itemType) {
+        return itemType == ShopItemType.XP_MULTIPLIER || itemType == ShopItemType.UNLIMITED_LIVES;
     }
 
     AppliedEffectResponse applyItemEffect(UserStats stats, ShopItem item) {

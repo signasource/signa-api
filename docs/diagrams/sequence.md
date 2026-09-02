@@ -275,10 +275,15 @@ sequenceDiagram
         else alcanza
             API->>DB: Debitar gemas y registrar la compra
             alt compra para uno mismo
-                API->>API: Aplicar el efecto (gemas, vida, escudo, multiplicador de XP o vidas ilimitadas)
-                Note over API: Si es un cofre sorpresa, se resuelve<br/>a una recompensa concreta al azar antes de aplicarla
-                API->>DB: Actualizar el inventario del comprador
-                API-->>C: Compra confirmada + efecto aplicado + inventario actualizado
+                alt gemas, vida, escudo de racha o cofre sorpresa
+                    API->>API: Aplicar el efecto de inmediato
+                    Note over API: Si es un cofre sorpresa, se resuelve<br/>a una recompensa concreta al azar antes de aplicarla
+                    API->>DB: Marcar la compra como activada y actualizar el inventario
+                    API-->>C: Compra confirmada + efecto aplicado + inventario actualizado
+                else multiplicador de XP o vidas ilimitadas (potenciador)
+                    API->>DB: Guardar la compra en inventario (sin aplicar el efecto)
+                    API-->>C: Compra confirmada, en inventario + inventario sin cambios
+                end
             else regalo a un amigo
                 API->>DB: Verificar amistad aceptada entre comprador y destinatario
                 alt no son amigos
@@ -315,6 +320,47 @@ sequenceDiagram
         API->>DB: Actualizar el inventario del destinatario
         API->>DB: Marcar el regalo como reclamado
         API-->>C: Efecto aplicado + inventario actualizado
+    end
+```
+
+## Reclamo y activación de un potenciador
+
+Una compra de la tienda pasa por hasta tres estados: **pendiente** (regalo sin reclamar),
+**en inventario** (el ítem ya es del usuario) y **activada** (ya se consumió). Una compra para uno
+mismo de gemas, vida, escudo de racha o cofre sorpresa aplica el efecto al instante y nace ya
+**activada**; si es un potenciador temporal (vidas ilimitadas o multiplicador de XP) nace
+directamente **en inventario**, sin pasar por pendiente, a la espera de que el usuario la active. El
+regalo a un amigo es el único camino que nace **pendiente**: el destinatario lo reclama primero (pasa
+a **en inventario**) y luego, si es un potenciador, lo activa. Ambos pasos se piden por `item_type`
+(no por id de compra), tomando siempre la compra más antigua de ese tipo en el estado esperado
+(FIFO).
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant API as API
+    participant DB as Base de datos
+
+    C->>API: Reclamar compra (item_type)
+    alt cuenta dada de baja o sin compra pendiente de ese tipo
+        API-->>C: No encontrado (404)
+    else compra pendiente encontrada
+        API->>DB: Marcar la compra más antigua como "en inventario"
+        API-->>C: Compra en inventario + estado del jugador
+    end
+
+    C->>API: Activar potenciador (item_type)
+    alt cuenta dada de baja o sin compra en inventario de ese tipo
+        API-->>C: No encontrado (404)
+    else tipo de potenciador no soportado (p. ej. escudo de racha)
+        API-->>C: Solicitud inválida (400)
+    else compra en inventario de vidas ilimitadas o multiplicador de XP
+        API->>DB: Traer inventario del jugador (USER_STATS)
+        API->>API: Fijar el vencimiento del efecto (ahora + duración del ítem)
+        API->>DB: Guardar inventario actualizado
+        API->>DB: Marcar la compra como activada
+        API-->>C: Estado del potenciador + inventario actualizado
     end
 ```
 

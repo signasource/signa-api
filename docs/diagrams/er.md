@@ -315,6 +315,8 @@ erDiagram
         uuid shop_item_id FK
         int gemsSpent
         instant purchasedAt
+        enum status
+        instant activatedAt
     }
     GIFT {
         uuid id PK

@@ -3,6 +3,8 @@ package com.signasource.signa_api.gamification.entity;
 import com.signasource.signa_api.users.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -48,4 +50,11 @@ public class Purchase {
 
     @Column(nullable = false)
     private Instant purchasedAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private PurchaseStatus status = PurchaseStatus.PENDING;
+
+    @Column private Instant activatedAt;
 }
