@@ -10,6 +10,9 @@ import com.signasource.signa_api.learning.entity.Sign;
 import com.signasource.signa_api.learning.entity.SignLanguage;
 import com.signasource.signa_api.learning.repository.SignLanguageRepository;
 import com.signasource.signa_api.learning.repository.SignRepository;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -80,5 +83,25 @@ public class SignService {
         String url = signAnimationService.presignedGetUrl(objectKey);
         return new SignAnimationResponse(
                 sign.getId(), url, r2Properties.presignExpiryMinutes() * 60L);
+    }
+
+    /**
+     * Batched lookup used by the lesson player to preload every sign animation it needs in a single
+     * round trip. Meanings with no matching sign, or with no animation uploaded yet, are simply
+     * omitted from the result.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, String> getSignAnimations(List<String> meanings) {
+        Map<String, String> urlsByMeaning = new HashMap<>();
+
+        for (Sign sign : signRepository.findByMeaningIn(meanings)) {
+            String objectKey = sign.getAnimationUrl();
+            if (objectKey != null && !objectKey.isBlank()) {
+                urlsByMeaning.put(
+                        sign.getMeaning(), signAnimationService.presignedGetUrl(objectKey));
+            }
+        }
+
+        return urlsByMeaning;
     }
 }

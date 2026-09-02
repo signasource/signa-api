@@ -9,10 +9,12 @@ import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.learning.dto.CreateSignRequest;
 import com.signasource.signa_api.learning.dto.SignAnimationResponse;
+import com.signasource.signa_api.learning.dto.SignAnimationsRequest;
 import com.signasource.signa_api.learning.dto.SignSummaryResponse;
 import com.signasource.signa_api.learning.entity.Handedness;
 import com.signasource.signa_api.learning.service.SignService;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -82,5 +84,19 @@ class SignControllerTest {
         verify(signService).getSignAnimation("test");
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(animation, response.getBody());
+    }
+
+    @Test
+    void testGetSignAnimations() {
+        SignAnimationsRequest request = new SignAnimationsRequest(List.of("Hola", "Gracias"));
+        Map<String, String> urlsByMeaning = Map.of("Hola", "https://r2.example/hola");
+
+        when(signService.getSignAnimations(List.of("Hola", "Gracias"))).thenReturn(urlsByMeaning);
+
+        ResponseEntity<Map<String, String>> response = signController.getSignAnimations(request);
+
+        verify(signService).getSignAnimations(List.of("Hola", "Gracias"));
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(urlsByMeaning, response.getBody());
     }
 }

@@ -17,6 +17,7 @@ import com.signasource.signa_api.learning.entity.SignLanguage;
 import com.signasource.signa_api.learning.repository.SignLanguageRepository;
 import com.signasource.signa_api.learning.repository.SignRepository;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -198,5 +199,34 @@ class SignServiceTest {
         assertThrows(NotFoundException.class, () -> signService.getSignAnimation("Hola"));
 
         verifyNoInteractions(signAnimationService);
+    }
+
+    @Test
+    void shouldReturnAnimationUrlsByMeaningForBatchLookup() {
+        Sign withAnimation =
+                Sign.builder()
+                        .id(UUID.randomUUID())
+                        .meaning("Hola")
+                        .handedness(Handedness.ONE_HANDED)
+                        .animationUrl("lsa/hola.glb")
+                        .signLanguage(signLanguage)
+                        .build();
+        Sign withoutAnimation =
+                Sign.builder()
+                        .id(UUID.randomUUID())
+                        .meaning("Gracias")
+                        .handedness(Handedness.ONE_HANDED)
+                        .signLanguage(signLanguage)
+                        .build();
+        when(signRepository.findByMeaningIn(List.of("Hola", "Gracias")))
+                .thenReturn(List.of(withAnimation, withoutAnimation));
+        when(signAnimationService.presignedGetUrl("lsa/hola.glb"))
+                .thenReturn("https://r2.example/hola");
+
+        Map<String, String> response = signService.getSignAnimations(List.of("Hola", "Gracias"));
+
+        assertEquals(1, response.size());
+        assertEquals("https://r2.example/hola", response.get("Hola"));
+        verify(signAnimationService).presignedGetUrl("lsa/hola.glb");
     }
 }
