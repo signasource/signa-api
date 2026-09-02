@@ -20,24 +20,24 @@ class ContentImportRunnerTest {
     @Mock private ContentImportService importService;
 
     @Test
-    void shouldDoNothingWhenOptionAbsent() {
-        ContentImportRunner runner = new ContentImportRunner(importService);
+    void shouldNotImportWhenDisabled() {
+        ContentImportRunner runner = new ContentImportRunner(importService, false);
 
-        runner.run(new DefaultApplicationArguments("--server.port=0"));
+        runner.run(new DefaultApplicationArguments());
 
         verifyNoInteractions(importService);
     }
 
     @Test
-    void shouldImportAllWhenOptionPresent() {
+    void shouldImportAllOnStartupWhenEnabled() {
         when(importService.importAll())
                 .thenReturn(
                         List.of(
                                 new ContentImportOutcome(
                                         "LSA", "basic-course", ImportResult.CREATED)));
-        ContentImportRunner runner = new ContentImportRunner(importService);
+        ContentImportRunner runner = new ContentImportRunner(importService, true);
 
-        runner.run(new DefaultApplicationArguments("--import-content"));
+        runner.run(new DefaultApplicationArguments());
 
         verify(importService).importAll();
     }

@@ -2,6 +2,7 @@ package com.signasource.signa_api.content.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -28,9 +29,10 @@ class ContentImportServiceTest {
     @Mock private ContentLoader loader;
     @Mock private ContentValidator validator;
     @Mock private ContentPersister persister;
+    @Mock private SignCatalogImporter signCatalogImporter;
 
     private ContentImportService service() {
-        return new ContentImportService(loader, validator, persister);
+        return new ContentImportService(loader, validator, persister, signCatalogImporter);
     }
 
     private LoadedCourse loadedWithCode(String code) {
@@ -62,6 +64,7 @@ class ContentImportServiceTest {
                         new ContentImportOutcome("LSA", "course-b", ImportResult.UNCHANGED));
         verify(validator).validate(first);
         verify(validator).validate(second);
+        verify(signCatalogImporter).importSigns(List.of(first, second));
     }
 
     @Test
@@ -87,5 +90,6 @@ class ContentImportServiceTest {
 
         verify(persister, never()).importCourse(first);
         verify(persister, never()).importCourse(second);
+        verify(signCatalogImporter, never()).importSigns(anyList());
     }
 }

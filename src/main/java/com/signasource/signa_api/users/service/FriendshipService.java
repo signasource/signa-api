@@ -8,10 +8,12 @@ import com.signasource.signa_api.users.entity.FriendshipStatus;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.repository.FriendshipRepository;
 import com.signasource.signa_api.users.repository.UserRepository;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -44,10 +46,14 @@ public class FriendshipService {
                 friendship.setStatus(FriendshipStatus.PENDING);
                 friendshipRepository.save(friendship);
                 return;
-            } else {
-                throw new ResourceAlreadyInUseException(
-                        "The relationship or request already exists.");
             }
+
+            if (friendship.getStatus() == FriendshipStatus.BLOCKED) {
+                throw new ResourceAlreadyInUseException(
+                        "Cannot send a friend request to this user.");
+            }
+
+            throw new ResourceAlreadyInUseException("The relationship or request already exists.");
         }
 
         Friendship newFriendship =
@@ -78,5 +84,121 @@ public class FriendshipService {
 
         friendship.setStatus(FriendshipStatus.ACCEPTED);
         friendshipRepository.save(friendship);
+    }
+
+    @Transactional
+    public void rejectFriendRequest(UUID requesterId, User addressee) {
+        User requester =
+                userRepository
+                        .findById(requesterId)
+                        .orElseThrow(() -> new NotFoundException("Origin user not found."));
+
+        Friendship friendship =
+                friendshipRepository
+                        .findByRequesterAndAddressee(requester, addressee)
+                        .orElseThrow(() -> new NotFoundException("Request not found."));
+
+        if (friendship.getStatus() != FriendshipStatus.PENDING) {
+            throw new InvalidInputException("Only pending requests can be rejected.");
+        }
+
+        friendship.setStatus(FriendshipStatus.REJECTED);
+        friendshipRepository.save(friendship);
+    }
+
+    @Transactional(isolation = Isolation.SERIALIZABLE)
+    public void blockUser(User blocker, UUID blockedId) {
+        if (blocker.getId().equals(blockedId)) {
+            throw new InvalidInputException("You can't block yourself");
+        }
+
+        User blocked =
+                userRepository
+                        .findById(blockedId)
+                        .orElseThrow(() -> new NotFoundException("User to block not found"));
+
+        Optional<Friendship> existingRelation =
+                friendshipRepository.findFriendshipBetween(blocker, blocked);
+
+        if (existingRelation.isPresent()) {
+            Friendship friendship = existingRelation.get();
+
+            if (friendship.getStatus() == FriendshipStatus.BLOCKED) {
+                throw new ResourceAlreadyInUseException("This user is already blocked.");
+            }
+
+            friendship.setRequester(blocker);
+            friendship.setAddressee(blocked);
+            friendship.setStatus(FriendshipStatus.BLOCKED);
+            friendshipRepository.save(friendship);
+            return;
+        }
+
+        Friendship newFriendship =
+                Friendship.builder()
+                        .requester(blocker)
+                        .addressee(blocked)
+                        .status(FriendshipStatus.BLOCKED)
+                        .build();
+
+        friendshipRepository.save(newFriendship);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Friendship> getFriends(User user) {
+        return friendshipRepository.findAllFriendshipsByUserAndStatus(
+                user, FriendshipStatus.ACCEPTED);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Friendship> getPendingRequests(User user) {
+        return friendshipRepository.findByAddresseeAndStatus(user, FriendshipStatus.PENDING);
+    }
+
+    @Transactional
+    public void removeFriend(User user, UUID friendId) {
+        if (user.getId().equals(friendId)) {
+            throw new InvalidInputException("You can't remove yourself as a friend");
+        }
+
+        User friend =
+                userRepository
+                        .findById(friendId)
+                        .orElseThrow(() -> new NotFoundException("Friend not found"));
+
+        Friendship friendship =
+                friendshipRepository
+                        .findFriendshipBetween(user, friend)
+                        .orElseThrow(() -> new NotFoundException("Friendship not found"));
+
+        if (friendship.getStatus() != FriendshipStatus.ACCEPTED) {
+            throw new InvalidInputException("Only accepted friendships can be removed");
+        }
+
+        friendshipRepository.delete(friendship);
+    }
+
+    @Transactional
+    public void unblockUser(User user, UUID unblockedId) {
+        if (user.getId().equals(unblockedId)) {
+            throw new InvalidInputException("You can't unblock yourself");
+        }
+
+        User unblocked =
+                userRepository
+                        .findById(unblockedId)
+                        .orElseThrow(() -> new NotFoundException("User to unblock not found"));
+
+        Friendship friendship =
+                friendshipRepository
+                        .findByRequesterAndAddressee(user, unblocked)
+                        .orElseThrow(
+                                () -> new NotFoundException("This user is not blocked by you"));
+
+        if (friendship.getStatus() != FriendshipStatus.BLOCKED) {
+            throw new InvalidInputException("This user is not blocked");
+        }
+
+        friendshipRepository.delete(friendship);
     }
 }

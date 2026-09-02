@@ -1,6 +1,7 @@
 package com.signasource.signa_api.learning.controller;
 
 import com.signasource.signa_api.learning.dto.CreateSignRequest;
+import com.signasource.signa_api.learning.dto.SignAnimationResponse;
 import com.signasource.signa_api.learning.dto.SignSummaryResponse;
 import com.signasource.signa_api.learning.service.SignService;
 import jakarta.validation.Valid;
@@ -13,6 +14,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -40,5 +42,10 @@ public class SignController {
             @Valid @RequestBody CreateSignRequest request) {
         SignSummaryResponse response = signService.createSign(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping("/{meaning}/animation")
+    public ResponseEntity<SignAnimationResponse> getSignAnimation(@PathVariable String meaning) {
+        return ResponseEntity.ok(signService.getSignAnimation(meaning));
     }
 }

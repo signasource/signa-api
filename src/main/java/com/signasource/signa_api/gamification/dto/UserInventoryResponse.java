@@ -10,11 +10,12 @@ public record UserInventoryResponse(
         LivesMode livesMode,
         Integer currentLives,
         Instant nextLifeAt,
-        Instant unlimitedLivesExpiresAt,
-        boolean unlimitedLivesActive,
         double effectiveXpMultiplier,
         Instant xpMultiplierExpiresAt,
-        boolean xpMultiplierActive) {
+        boolean xpMultiplierActive,
+        Instant unlimitedLivesExpiresAt,
+        boolean unlimitedLivesActive,
+        int learnedSignsCount) {
 
     public static UserInventoryResponse from(UserStats stats) {
         return new UserInventoryResponse(
@@ -23,10 +24,11 @@ public record UserInventoryResponse(
                 stats.getEffectiveLivesMode(),
                 stats.getCurrentLives(),
                 stats.getNextLifeAt(),
-                stats.getUnlimitedLivesExpiresAt(),
-                stats.hasActiveUnlimitedLives(),
                 stats.getEffectiveXpMultiplier(),
                 stats.getXpMultiplierExpiresAt(),
-                stats.hasActiveXpMultiplier());
+                stats.hasActiveXpMultiplier(),
+                stats.getUnlimitedLivesExpiresAt(),
+                stats.hasActiveUnlimitedLives(),
+                stats.getLearnedSignsCount());
     }
 }

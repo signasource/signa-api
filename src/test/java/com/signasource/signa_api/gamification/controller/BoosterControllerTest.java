@@ -6,6 +6,7 @@ import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.gamification.dto.PurchaseResponse;
+import com.signasource.signa_api.gamification.dto.ShopItemResponse;
 import com.signasource.signa_api.gamification.dto.UserInventoryResponse;
 import com.signasource.signa_api.gamification.entity.LivesMode;
 import com.signasource.signa_api.gamification.entity.PurchaseStatus;
@@ -53,14 +54,28 @@ class BoosterControllerTest {
     void shouldActivateBooster() {
         UserInventoryResponse inventory =
                 new UserInventoryResponse(
-                        70, 1, LivesMode.LIMITED, 4, null, null, false, 1.0, null, false);
+                        70, 1, LivesMode.LIMITED, 4, null, 1.0, null, false, null, false, 0);
+        ShopItemResponse item =
+                new ShopItemResponse(
+                        UUID.randomUUID(),
+                        "xp_boost",
+                        "XP Boost",
+                        "desc",
+                        ShopItemType.XP_MULTIPLIER,
+                        30,
+                        1,
+                        30,
+                        2.0,
+                        true);
         PurchaseResponse expected =
                 new PurchaseResponse(
                         UUID.randomUUID(),
-                        "xp_boost",
-                        ShopItemType.XP_MULTIPLIER,
+                        item,
+                        30,
+                        Instant.now(),
                         PurchaseStatus.ACTIVATED,
                         Instant.now(),
+                        null,
                         inventory);
         when(boosterService.activate(user, ShopItemType.XP_MULTIPLIER)).thenReturn(expected);
 

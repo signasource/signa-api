@@ -127,7 +127,7 @@ class InventoryServiceTest {
                         .user(user)
                         .gems(0)
                         .streakShields(0)
-                        .livesMode(LivesMode.LIMITED)
+                        .livesMode(LivesMode.INFINITE)
                         .currentLives(2)
                         .unlimitedLivesExpiresAt(Instant.now().plus(10, ChronoUnit.MINUTES))
                         .xpMultiplier(1.0)

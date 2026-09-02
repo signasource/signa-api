@@ -4,5 +4,7 @@ public enum ShopItemType {
     STREAK_SHIELD,
     UNLIMITED_LIVES,
     XP_MULTIPLIER,
-    GEMS
+    MYSTERY_CHEST,
+    GEMS,
+    LIFE
 }

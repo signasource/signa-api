@@ -221,7 +221,8 @@ class ContentPersisterTest {
         LessonBlockDto badBlock =
                 new LessonBlockDto(null, null, JsonNodeFactory.instance.objectNode());
         LessonDto lesson = new LessonDto("l1", "Lesson", null, List.of(badBlock));
-        TopicYaml topic = new TopicYaml(new TopicDto("t1", "Topic", null, null), List.of(lesson));
+        TopicYaml topic =
+                new TopicYaml(new TopicDto("t1", "Topic", null, null, null), List.of(lesson));
         CourseYaml yaml =
                 new CourseYaml(
                         new CourseMetadataDto(null, "Rollback Course", null, false, null),

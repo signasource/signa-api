@@ -56,11 +56,11 @@ la frontera HTTP; se mapean a/desde DTOs mediante factories estáticas (`Dto.fro
 
 | Módulo | Responsabilidad |
 |---|---|
-| `auth` | Registro, login, JWT, refresh, verificación de email, reset de password, Google OAuth2 |
-| `users` | Perfil, settings, amistades (`Friendship`), username |
-| `learning` | Cursos, versiones, temas, lecciones, bloques, señas y reportes de señas |
-| `content` | Pipeline de importación de contenido YAML (load → validate → persist), idempotente |
-| `gamification` | Stats de usuario, logros, desafíos, tienda, compras, regalos |
+| `auth` | Registro (auto-login + verificación de email por flag `verified`), login, JWT, refresh, reset de password, Google OAuth2 |
+| `users` | Perfil, settings, amistades (`Friendship`: request/accept/reject/block), username, daily goal, color de header |
+| `learning` | Cursos, versiones, temas, lecciones, bloques, señas y reportes de señas; seguimiento de progreso (inscripciones, progreso de tema/lección, intentos de bloque); animación de seña vía presigned URL de R2 (`GET /signs/{meaning}/animation`; `meaning` es único) |
+| `content` | Pipeline de importación de contenido YAML (load → validate → persist), idempotente; además **upserta el catálogo de señas** a partir de los bloques: crea una `Sign` por cada _meaning_ que un bloque renderiza como animación, con `animationUrl = lsa/{meaning}.glb` y `handedness = ONE_HANDED` (`SignCatalogExtractor` + `SignCatalogImporter`) |
+| `gamification` | Stats de usuario, logros, desafíos, tienda, compras, regalos; XP diario/semanal, señas aprendidas y mecánica de vidas/racha |
 | `notification` | Tokens de dispositivo, plantillas, historial y envío push vía Firebase (FCM) |
 | `config` | Seguridad, rate limiting, Jackson, Google, MVC |
 | `exceptions` | Excepciones de dominio + `@RestControllerAdvice` global |
@@ -163,6 +163,10 @@ Resumen de alta prioridad; el detalle y los ejemplos están en los bloques sigui
 - **N+1:** si vas a necesitar relaciones, traelas en una sola query con
   `@EntityGraph(attributePaths = {...})` en el método del repositorio (ver `CourseVersionRepository`,
   `LessonRepository`), en vez de encadenar varias consultas.
+- **`enabled` vs `verified`:** `enabled` marca **solo** si la cuenta está activa; la baja de cuenta
+  (`deleteAccount`) pone `enabled = false` y Spring (`DaoAuthenticationProvider`) bloquea su login.
+  El estado del correo va en `verified` (registro nace `enabled=true, verified=false`; `verifyAccount`
+  lo pone `true`). Una cuenta sin verificar **sí** puede iniciar sesión.
 - **Soft-delete de cuenta** (`enabled = false`): al dar de baja hay que limpiar los tokens del usuario
   (`TokenRepository`) y sus device tokens (`DeviceTokenRepository`); y **toda lectura de perfil debe
   filtrar `enabled = true`** (más la visibilidad pública/amigos) para no exponer cuentas dadas de baja.
@@ -177,14 +181,21 @@ Resumen de alta prioridad; el detalle y los ejemplos están en los bloques sigui
 - **Passwords** hasheadas con **BCrypt** (`PasswordEncoder`). Nunca almacenar ni loguear
   passwords en claro; el campo persistido es `passwordHash`.
 - **Autorización por rol:** `POST /signs` requiere rol `ADMIN`. Regla en `SecurityConfig`.
-- **Rutas públicas:** `/auth/**`, `/users/username-availability`. El resto requiere autenticación.
+- **Rutas públicas:** `/auth/**`, `/users/username-availability`, `/actuator/health`, `/actuator/info`.
+  El resto requiere autenticación.
 - **Perfil `local`** desactiva la seguridad (`app.security.enabled=false`, cadena que permite todo)
   para desarrollo. **Nunca** activar ese comportamiento en prod.
 - **Rate limiting** con Bucket4j (`RateLimitInterceptor`) en endpoints sensibles a abuso.
 - **Enumeración de usuarios:** `forgotPassword` / `resendVerificationEmail` responden igual exista
   o no el email (no filtrar existencia de cuentas). Mantener este comportamiento.
 - **Secretos** por variables de entorno (`.env`, ver `.env.example`): `JWT_SECRET`,
-  `GOOGLE_CLIENT_ID`, credenciales de DB y mail, service account de Firebase. Nunca commitear secretos.
+  `GOOGLE_CLIENT_ID`, credenciales de DB y mail, service account de Firebase, credenciales de
+  Cloudflare R2 (`R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY`). Nunca commitear secretos.
+- **R2 (animaciones):** las credenciales viven **sólo** en el backend; el cliente nunca las recibe.
+  `Sign.animationUrl` guarda el *object key* (p. ej. `lsa/hola.glb`), y `GET /signs/{meaning}/animation`
+  (la seña se direcciona por su `meaning`, que es único) devuelve una **presigned URL** de descarga con
+  expiración corta (`r2.presign-expiry-minutes`, 15 min por defecto). No hacer público el bucket ni
+  exponer el key como URL directa.
 - Tokens de un solo uso (reset/verificación/refresh) se borran tras usarse; el refresh se rota.
 
 Detalle: `config/SecurityConfig.java`, `config/WebConfig.java` y `JwtAuthFilter`.

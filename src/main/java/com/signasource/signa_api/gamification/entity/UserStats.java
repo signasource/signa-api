@@ -28,7 +28,7 @@ import lombok.ToString;
 @Builder
 public class UserStats {
 
-    private static final int MAX_LIVES = 5;
+    public static final int MAX_LIVES = 5;
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -81,6 +81,10 @@ public class UserStats {
     @Column private Instant unlimitedLivesExpiresAt;
 
     @Column(nullable = false)
+    @Builder.Default
+    private int learnedSignsCount = 0;
+
+    @Column(nullable = false)
     private Instant updatedAt;
 
     public double getEffectiveXpMultiplier() {
@@ -94,17 +98,41 @@ public class UserStats {
         return getEffectiveXpMultiplier() > 1.0;
     }
 
+    public boolean isLivesRegenerating() {
+        return livesMode == LivesMode.LIMITED && currentLives != null && currentLives < MAX_LIVES;
+    }
+
+    /**
+     * A null expiry means the infinite-lives mode was granted without a time limit (e.g. a
+     * permanent grant), so it never lapses on its own.
+     */
     public boolean hasActiveUnlimitedLives() {
-        return unlimitedLivesExpiresAt != null && unlimitedLivesExpiresAt.isAfter(Instant.now());
+        if (livesMode != LivesMode.INFINITE) {
+            return false;
+        }
+        return unlimitedLivesExpiresAt == null || unlimitedLivesExpiresAt.isAfter(Instant.now());
     }
 
     public LivesMode getEffectiveLivesMode() {
-        return hasActiveUnlimitedLives() ? LivesMode.INFINITE : livesMode;
+        return hasActiveUnlimitedLives() || livesMode != LivesMode.INFINITE
+                ? livesMode
+                : LivesMode.LIMITED;
     }
 
-    public boolean isLivesRegenerating() {
-        return getEffectiveLivesMode() == LivesMode.LIMITED
-                && currentLives != null
-                && currentLives < MAX_LIVES;
+    /**
+     * Deducts one life for a wrong answer. No-op when lives are unlimited or already at zero.
+     *
+     * @return true if a life was actually deducted
+     */
+    public boolean loseLife() {
+        if (livesMode != LivesMode.LIMITED) {
+            return false;
+        }
+        int lives = currentLives == null ? MAX_LIVES : currentLives;
+        if (lives <= 0) {
+            return false;
+        }
+        currentLives = lives - 1;
+        return true;
     }
 }

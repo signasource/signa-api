@@ -37,11 +37,14 @@ public class User {
     @Column(nullable = false, unique = true)
     private String username;
 
-    @Column(name = "password_hash", nullable = false)
+    @Column(nullable = false)
     private String passwordHash;
 
     @Column(nullable = false)
     private String name;
+
+    @Column(nullable = false)
+    private String lastName;
 
     @Enumerated(EnumType.STRING)
     private Role role;
@@ -49,8 +52,11 @@ public class User {
     @Column(nullable = false)
     private boolean enabled;
 
+    @Column(nullable = false)
+    private boolean verified;
+
     @Enumerated(EnumType.STRING)
-    @Column(name = "account_visibility", nullable = false)
+    @Column(nullable = false)
     @Builder.Default
     private AccountVisibility accountVisibility = AccountVisibility.PUBLIC;
 

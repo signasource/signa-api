@@ -3,6 +3,7 @@ package com.signasource.signa_api.gamification.service;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.gamification.dto.PurchaseResponse;
+import com.signasource.signa_api.gamification.entity.LivesMode;
 import com.signasource.signa_api.gamification.entity.Purchase;
 import com.signasource.signa_api.gamification.entity.PurchaseStatus;
 import com.signasource.signa_api.gamification.entity.ShopItem;
@@ -67,6 +68,7 @@ public class BoosterService {
     }
 
     private void applyUnlimitedLives(UserStats stats, ShopItem item) {
+        stats.setLivesMode(LivesMode.INFINITE);
         stats.setUnlimitedLivesExpiresAt(
                 Instant.now().plus(Duration.ofMinutes(item.getDurationMinutes())));
     }
