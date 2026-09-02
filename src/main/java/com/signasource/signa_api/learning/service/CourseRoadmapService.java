@@ -7,7 +7,6 @@ import com.signasource.signa_api.learning.dto.RoadmapLessonResponse;
 import com.signasource.signa_api.learning.dto.RoadmapTopicResponse;
 import com.signasource.signa_api.learning.entity.CourseVersion;
 import com.signasource.signa_api.learning.entity.Lesson;
-import com.signasource.signa_api.learning.entity.LessonBlock;
 import com.signasource.signa_api.learning.entity.ProgressStatus;
 import com.signasource.signa_api.learning.entity.Topic;
 import com.signasource.signa_api.learning.entity.VersionStatus;
