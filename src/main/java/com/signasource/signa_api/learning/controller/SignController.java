@@ -52,9 +52,8 @@ public class SignController {
     }
 
     /**
-     * Batched counterpart of {@link #getSignAnimation}, used by the lesson
-     * player to fetch every animation URL a lesson needs in one request
-     * instead of one per sign.
+     * Batched counterpart of {@link #getSignAnimation}, used by the lesson player to fetch every
+     * animation URL a lesson needs in one request instead of one per sign.
      */
     @PostMapping("/animations")
     public ResponseEntity<Map<String, String>> getSignAnimations(

@@ -86,10 +86,9 @@ public class SignService {
     }
 
     /**
-     * Batched lookup used by the lesson player to preload every sign
-     * animation it needs in a single round trip. Meanings with no matching
-     * sign, or with no animation uploaded yet, are simply omitted from the
-     * result.
+     * Batched lookup used by the lesson player to preload every sign animation it needs in a single
+     * round trip. Meanings with no matching sign, or with no animation uploaded yet, are simply
+     * omitted from the result.
      */
     @Transactional(readOnly = true)
     public Map<String, String> getSignAnimations(List<String> meanings) {
@@ -98,7 +97,8 @@ public class SignService {
         for (Sign sign : signRepository.findByMeaningIn(meanings)) {
             String objectKey = sign.getAnimationUrl();
             if (objectKey != null && !objectKey.isBlank()) {
-                urlsByMeaning.put(sign.getMeaning(), signAnimationService.presignedGetUrl(objectKey));
+                urlsByMeaning.put(
+                        sign.getMeaning(), signAnimationService.presignedGetUrl(objectKey));
             }
         }
 
