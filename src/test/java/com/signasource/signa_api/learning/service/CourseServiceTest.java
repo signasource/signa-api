@@ -84,7 +84,8 @@ class CourseServiceTest {
                 Topic.builder()
                         .id(UUID.randomUUID())
                         .code("MOD-01")
-                        .name("Saludos")
+                        .title("Unidad 1")
+                        .subtitle("Saludos")
                         .description("Aprende a saludar")
                         .order(1)
                         .courseVersion(activeVersion)
@@ -127,7 +128,8 @@ class CourseServiceTest {
         assertEquals(course.getId(), response.id());
         assertEquals("v1.0", response.activeVersion());
         assertEquals(1, response.topics().size());
-        assertEquals(topic.getName(), response.topics().get(0).name());
+        assertEquals(topic.getTitle(), response.topics().get(0).title());
+        assertEquals(topic.getSubtitle(), response.topics().get(0).subtitle());
 
         verify(courseVersionRepository).findByCourseIdAndStatus(courseId, VersionStatus.PUBLISHED);
         verifyNoInteractions(courseRepository);

@@ -84,20 +84,25 @@ class ContentValidatorTest {
     @Test
     void shouldFailWhenTopicCodeIsBlank() {
         TopicYaml topic =
-                new TopicYaml(new TopicDto(null, "Name", null, null), List.of(validLesson("l1")));
+                new TopicYaml(
+                        new TopicDto(null, "Title", "Subtitle", null, null),
+                        List.of(validLesson("l1")));
         assertValidationFails(courseWith(List.of(topic)), "Topic (unknown): code is required");
     }
 
     @Test
-    void shouldFailWhenTopicNameIsBlank() {
+    void shouldFailWhenTopicTitleIsBlank() {
         TopicYaml topic =
-                new TopicYaml(new TopicDto("t1", null, null, null), List.of(validLesson("l1")));
-        assertValidationFails(courseWith(List.of(topic)), "Topic t1: name is required");
+                new TopicYaml(
+                        new TopicDto("t1", null, "Subtitle", null, null),
+                        List.of(validLesson("l1")));
+        assertValidationFails(courseWith(List.of(topic)), "Topic t1: title is required");
     }
 
     @Test
     void shouldFailWhenTopicHasNoLessons() {
-        TopicYaml topic = new TopicYaml(new TopicDto("t1", "Name", null, null), List.of());
+        TopicYaml topic =
+                new TopicYaml(new TopicDto("t1", "Title", "Subtitle", null, null), List.of());
         assertValidationFails(courseWith(List.of(topic)), "Topic t1: has no lessons");
     }
 
@@ -219,11 +224,13 @@ class ContentValidatorTest {
 
     private TopicYaml validTopic(String code) {
         return new TopicYaml(
-                new TopicDto(code, "Topic Name", null, null), List.of(validLesson("lesson-1")));
+                new TopicDto(code, "Topic Title", "Topic Subtitle", null, null),
+                List.of(validLesson("lesson-1")));
     }
 
     private TopicYaml topicWith(String code, List<LessonDto> lessons) {
-        return new TopicYaml(new TopicDto(code, "Topic Name", null, null), lessons);
+        return new TopicYaml(
+                new TopicDto(code, "Topic Title", "Topic Subtitle", null, null), lessons);
     }
 
     private LessonDto validLesson(String code) {

@@ -74,7 +74,7 @@ public class ContentValidator {
         String topicLocation = "Topic " + codeOrUnknown(topic.code());
 
         requireNotBlank(topic.code(), topicLocation, "code is required", errors);
-        requireNotBlank(topic.name(), topicLocation, "name is required", errors);
+        requireNotBlank(topic.title(), topicLocation, "title is required", errors);
 
         List<LessonDto> lessons = topicYaml.lessons();
         if (lessons == null || lessons.isEmpty()) {

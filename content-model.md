@@ -11,7 +11,8 @@ Cada archivo representa un único tema. Un tema contiene una o más lecciones, y
 ```yaml
 topic:
   code: string
-  name: string
+  title: string
+  subtitle: string
   description: string
 
 lessons:
@@ -33,7 +34,8 @@ lessons:
 | Campo | Obligatorio | Descripción |
 |--------|-------------|-------------|
 | `code` | Sí | Identificador único del tema. |
-| `name` | Sí | Nombre visible del tema. |
+| `title` | Sí | Título del tema (p. ej. `Unidad 1`). |
+| `subtitle` | No | Subtítulo del tema (p. ej. `Conceptos básicos`). |
 | `description` | No | Breve descripción del tema. |
 
 ---

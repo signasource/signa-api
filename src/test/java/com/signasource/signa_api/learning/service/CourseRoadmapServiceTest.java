@@ -91,7 +91,14 @@ class CourseRoadmapServiceTest {
         Lesson l3 = lesson("l3", "Números", 3);
         Lesson l4 = lesson("l4", "Colores", 4);
         Lesson l5 = lesson("l5", "Familia", 5);
-        Topic topic = topic("t1", "Básico", "Conceptos básicos", 1, List.of(l1, l2, l3, l4, l5));
+        Topic topic =
+                topic(
+                        "t1",
+                        "Unidad 1",
+                        "Básico",
+                        "Conceptos básicos",
+                        1,
+                        List.of(l1, l2, l3, l4, l5));
 
         stubVersionAndTopics(List.of(topic));
         when(lessonBlockRepository.aggregateByCourseVersionId(versionId))
@@ -112,7 +119,8 @@ class CourseRoadmapServiceTest {
         assertEquals(1, response.topics().size());
 
         RoadmapTopicResponse topicResponse = response.topics().get(0);
-        assertEquals("Básico", topicResponse.name());
+        assertEquals("Unidad 1", topicResponse.title());
+        assertEquals("Básico", topicResponse.subtitle());
         List<RoadmapLessonResponse> lessons = topicResponse.lessons();
         assertEquals(5, lessons.size());
 
@@ -137,9 +145,9 @@ class CourseRoadmapServiceTest {
         Lesson a = lesson("a", "A", 1);
         Lesson b = lesson("b", "B", 1);
         Lesson c = lesson("c", "C", 1);
-        Topic topicA = topic("tA", "Topic A", "first", 1, List.of(a));
-        Topic topicB = topic("tB", "Topic B", "second", 2, List.of(b));
-        Topic topicC = topic("tC", "Topic C", "third", 3, List.of(c));
+        Topic topicA = topic("tA", "Unidad 1", "Topic A", "first", 1, List.of(a));
+        Topic topicB = topic("tB", "Unidad 2", "Topic B", "second", 2, List.of(b));
+        Topic topicC = topic("tC", "Unidad 3", "Topic C", "third", 3, List.of(c));
 
         stubVersionAndTopics(List.of(topicA, topicB, topicC));
         when(lessonBlockRepository.aggregateByCourseVersionId(versionId)).thenReturn(List.of());
@@ -174,12 +182,18 @@ class CourseRoadmapServiceTest {
     }
 
     private static Topic topic(
-            String code, String name, String description, int order, List<Lesson> lessons) {
+            String code,
+            String title,
+            String subtitle,
+            String description,
+            int order,
+            List<Lesson> lessons) {
         Topic topic =
                 Topic.builder()
                         .id(UUID.randomUUID())
                         .code(code)
-                        .name(name)
+                        .title(title)
+                        .subtitle(subtitle)
                         .description(description)
                         .order(order)
                         .build();

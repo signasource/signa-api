@@ -1,6 +1,7 @@
 topic:
   code: topic-2
-  name: Second Topic
+  title: Second Topic
+  subtitle: The second subtitle
   description: The second topic.
 
 lessons:

@@ -38,7 +38,10 @@ public class Topic {
     private String code;
 
     @Column(nullable = false, length = 150)
-    private String name;
+    private String title;
+
+    @Column(length = 150)
+    private String subtitle;
 
     @Column(columnDefinition = "TEXT")
     private String description;

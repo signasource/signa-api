@@ -7,7 +7,8 @@ import java.util.UUID;
 public record RoadmapTopicResponse(
         UUID id,
         String code,
-        String name,
+        String title,
+        String subtitle,
         String description,
         int order,
         List<RoadmapLessonResponse> lessons) {
@@ -16,7 +17,8 @@ public record RoadmapTopicResponse(
         return new RoadmapTopicResponse(
                 topic.getId(),
                 topic.getCode(),
-                topic.getName(),
+                topic.getTitle(),
+                topic.getSubtitle(),
                 topic.getDescription(),
                 topic.getOrder(),
                 lessons);
