@@ -2,7 +2,9 @@ package com.signasource.signa_api.learning.controller;
 
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.learning.dto.CourseProgressResponse;
+import com.signasource.signa_api.learning.dto.CourseRoadmapResponse;
 import com.signasource.signa_api.learning.dto.LessonBlockInteractionRequest;
+import com.signasource.signa_api.learning.service.CourseRoadmapService;
 import com.signasource.signa_api.learning.service.CourseTrackingService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -26,12 +28,20 @@ import org.springframework.web.bind.annotation.RestController;
 public class CourseTrackingController {
 
     private final CourseTrackingService trackingService;
+    private final CourseRoadmapService roadmapService;
 
     @GetMapping("/progress")
     public ResponseEntity<List<CourseProgressResponse>> getMyProgress(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
         return ResponseEntity.ok(trackingService.getUserCourseProgress(userDetails.getUser()));
+    }
+
+    @GetMapping("/courses/{courseId}/roadmap")
+    public ResponseEntity<CourseRoadmapResponse> getCourseRoadmap(
+            @PathVariable UUID courseId, @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        return ResponseEntity.ok(roadmapService.getCourseRoadmap(userDetails.getUser(), courseId));
     }
 
     @PostMapping("/courses/{courseVersionId}/enroll")

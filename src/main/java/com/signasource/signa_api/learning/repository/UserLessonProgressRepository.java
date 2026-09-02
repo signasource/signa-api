@@ -1,6 +1,7 @@
 package com.signasource.signa_api.learning.repository;
 
 import com.signasource.signa_api.learning.entity.UserLessonProgress;
+import com.signasource.signa_api.learning.repository.projection.LessonProgressStatusView;
 import com.signasource.signa_api.learning.repository.projection.TopicCompletedCountView;
 import java.util.Collection;
 import java.util.List;
@@ -17,6 +18,14 @@ public interface UserLessonProgressRepository extends JpaRepository<UserLessonPr
     Optional<UserLessonProgress> findByUserIdAndLessonId(UUID userId, UUID lessonId);
 
     List<UserLessonProgress> findByUserIdAndLessonTopicId(UUID userId, UUID topicId);
+
+    @Query(
+            "SELECT p.lesson.id AS lessonId, p.status AS status "
+                    + "FROM UserLessonProgress p "
+                    + "WHERE p.user.id = :userId "
+                    + "AND p.lesson.topic.courseVersion.id = :versionId")
+    List<LessonProgressStatusView> findLessonStatuses(
+            @Param("userId") UUID userId, @Param("versionId") UUID versionId);
 
     @Query(
             "SELECT l.topic.id AS topicId, COUNT(p.id) AS completedLessons "

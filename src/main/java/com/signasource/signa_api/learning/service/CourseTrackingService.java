@@ -151,7 +151,14 @@ public class CourseTrackingService {
         long total = totalByTopic.getOrDefault(topic.getId(), 0L);
         long completed = completedByTopic.getOrDefault(topic.getId(), 0L);
         return new TopicProgressResponse(
-                topic.getName(), (int) total, (int) completed, percentage(completed, total));
+                topicTitle(topic), (int) total, (int) completed, percentage(completed, total));
+    }
+
+    private static String topicTitle(Topic topic) {
+        String subtitle = topic.getSubtitle();
+        return subtitle == null || subtitle.isBlank()
+                ? topic.getTitle()
+                : topic.getTitle() + ": " + subtitle;
     }
 
     private static int percentage(long completed, long total) {

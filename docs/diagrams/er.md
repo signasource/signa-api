@@ -124,7 +124,8 @@ erDiagram
     TOPIC {
         uuid id PK
         string code
-        string name
+        string title
+        string subtitle
         text description
         int order
         string coverUrl

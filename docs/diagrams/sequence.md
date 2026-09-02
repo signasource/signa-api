@@ -190,6 +190,28 @@ sequenceDiagram
     end
 ```
 
+## Recorrido de un curso (roadmap)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant API as API
+    participant DB as Base de datos
+
+    C->>API: Pedir el recorrido de un curso
+    API->>DB: Buscar la versión publicada del curso
+    alt sin versión publicada
+        API-->>C: No encontrado (404)
+    else publicada
+        API->>DB: Temas con sus lecciones ordenadas
+        API->>DB: Cantidad de bloques y XP por lección
+        API->>DB: Estado de progreso del usuario por lección
+        API->>API: Resolver estado por lección (completada / en progreso / disponible / bloqueada)
+        API-->>C: Temas con lecciones y su estado
+    end
+```
+
 ## Inscripción a un curso
 
 ```mermaid

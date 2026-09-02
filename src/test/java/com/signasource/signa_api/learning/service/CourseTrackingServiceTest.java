@@ -715,7 +715,7 @@ class CourseTrackingServiceTest {
         Topic numbers =
                 Topic.builder()
                         .id(numbersTopic)
-                        .name("Numbers")
+                        .title("Numbers")
                         .courseVersion(courseVersion)
                         .build();
         List<UserTopicProgress> inProgressTopics =

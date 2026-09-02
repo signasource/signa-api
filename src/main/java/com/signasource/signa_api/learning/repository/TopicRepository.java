@@ -16,6 +16,12 @@ public interface TopicRepository extends JpaRepository<Topic, UUID> {
     List<Topic> findByCourseVersionIdOrderByOrderAsc(UUID courseVersionId);
 
     @Query(
+            "SELECT DISTINCT t FROM Topic t LEFT JOIN FETCH t.lessons "
+                    + "WHERE t.courseVersion.id = :versionId "
+                    + "ORDER BY t.order ASC")
+    List<Topic> findRoadmapTopics(@Param("versionId") UUID versionId);
+
+    @Query(
             "SELECT t.courseVersion.id AS courseVersionId, t.id AS topicId, "
                     + "COUNT(l.id) AS totalLessons "
                     + "FROM Topic t LEFT JOIN t.lessons l "
