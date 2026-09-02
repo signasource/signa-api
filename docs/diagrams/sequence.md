@@ -416,6 +416,46 @@ sequenceDiagram
     end
 ```
 
+## Reclamo y activación de un potenciador
+
+Toda compra nace **pendiente** (regalo sin reclamar). El cliente primero la reclama (queda **en
+inventario**, propiedad del usuario) y luego la activa; hoy ambos pasos se piden por
+`item_type` (no por id de compra), tomando siempre la compra más antigua pendiente/en inventario de
+ese tipo (FIFO). Cuando la recompensa ya está pagada (p. ej. un cofre sorpresa) el cliente encadena
+las dos llamadas una detrás de la otra. Sólo se activan manualmente los potenciadores temporales
+(vidas ilimitadas y multiplicador de XP): el escudo de racha y la regeneración de vidas se aplican en
+otros flujos (cuando la racha está por romperse, cuando se gasta una vida), no a través de este
+endpoint — pero sí pueden reclamarse.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant API as API
+    participant DB as Base de datos
+
+    C->>API: Reclamar compra (item_type)
+    alt cuenta dada de baja o sin compra pendiente de ese tipo
+        API-->>C: No encontrado (404)
+    else compra pendiente encontrada
+        API->>DB: Marcar la compra más antigua como "en inventario"
+        API-->>C: Compra en inventario + estado del jugador
+    end
+
+    C->>API: Activar potenciador (item_type)
+    alt cuenta dada de baja o sin compra en inventario de ese tipo
+        API-->>C: No encontrado (404)
+    else tipo de potenciador no soportado (p. ej. escudo de racha)
+        API-->>C: Solicitud inválida (400)
+    else compra en inventario de vidas ilimitadas o multiplicador de XP
+        API->>DB: Traer inventario del jugador (USER_STATS)
+        API->>API: Fijar el vencimiento del efecto (ahora + duración del ítem)
+        API->>DB: Guardar inventario actualizado
+        API->>DB: Marcar la compra como activada
+        API-->>C: Estado del potenciador + inventario actualizado
+    end
+```
+
 ## Importación de contenido
 
 ```mermaid
