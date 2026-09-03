@@ -17,10 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Read side of the notification inbox. The write side is internal: notifications are produced by
- * the services that trigger them (friend requests, likes, streak reminders, …).
- */
+/** Read side only: notifications are produced by the services that trigger them. */
 @RestController
 @RequestMapping("/notifications")
 @RequiredArgsConstructor

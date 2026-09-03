@@ -49,11 +49,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(400).body(ErrorResponse.of(message, 400));
     }
 
-    /**
-     * Validation on a request parameter or path variable (`@Validated` on the controller) rather
-     * than on a request body. Without this it would fall through to the catch-all and answer 500 to
-     * what is really a bad request.
-     */
+    /** Query param and path variable validation; without this it would answer 500, not 400. */
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ErrorResponse> handleConstraintViolation(
             ConstraintViolationException ex) {

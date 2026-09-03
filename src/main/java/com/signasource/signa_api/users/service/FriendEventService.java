@@ -27,11 +27,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Builds the friends activity feed. Events are not stored: they are derived from each friend's most
- * recent achievements and learned signs, and identified by ({@code eventType}, {@code eventRefId})
- * so a like can be attached to one.
- */
+/** Events are derived from each friend's recent achievements and learned signs, never stored. */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -68,10 +64,7 @@ public class FriendEventService {
         return markLiked(user, page);
     }
 
-    /**
-     * Records a like on a friend's event and notifies its owner. Liking twice is a no-op, so no
-     * duplicate notification is sent.
-     */
+    /** Liking twice is a no-op, so the owner is not notified again. */
     @Transactional
     public void likeEvent(User user, FriendEventType eventType, UUID eventRefId) {
         if (friendEventLikeRepository
@@ -162,7 +155,7 @@ public class FriendEventService {
                 .isPresent();
     }
 
-    /** A failed notification must not roll back the like itself. */
+    /** A failed notification must not roll back the like. */
     private void notifyLiked(User owner, User liker) {
         try {
             notificationService.notifyUser(

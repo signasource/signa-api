@@ -215,7 +215,6 @@ public class FriendshipService {
         friendshipRepository.delete(friendship);
     }
 
-    /** Withdraws a pending request the user sent. */
     @Transactional
     public void cancelFriendRequest(User requester, UUID addresseeId) {
         User addressee =
@@ -240,7 +239,6 @@ public class FriendshipService {
         return friendshipRepository.findByRequesterAndStatus(user, FriendshipStatus.PENDING);
     }
 
-    /** Accepted friends with the gamification stats each row renders. */
     @Transactional(readOnly = true)
     public List<FriendResponse> getFriendsWithStats(User user) {
         return getFriends(user).stream()
@@ -257,7 +255,7 @@ public class FriendshipService {
                 .toList();
     }
 
-    /** A failed notification must not roll back the friendship change that triggered it. */
+    /** A failed notification must not roll back the friendship change. */
     private void notifyRequestReceived(User addressee, User requester) {
         notifySafely(addressee, NotificationCode.FRIEND_REQUEST_RECEIVED, requester);
     }

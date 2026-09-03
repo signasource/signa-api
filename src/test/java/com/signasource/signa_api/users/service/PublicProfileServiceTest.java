@@ -154,10 +154,7 @@ class PublicProfileServiceTest {
                 publicProfileService.getByUsername("target", viewer).relation());
     }
 
-    /**
-     * A private account still resolves — otherwise a stranger who found it through search could not
-     * send a request — but carries no progress at all.
-     */
+    /** A private account still resolves, so a stranger can still send a request. */
     @Test
     void getByUsername_HidesTheProgressOfAPrivateAccountFromAStranger() {
         target.setAccountVisibility(AccountVisibility.PRIVATE);

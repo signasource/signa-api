@@ -2,10 +2,7 @@ package com.signasource.signa_api.users.dto;
 
 import com.signasource.signa_api.gamification.entity.UserStats;
 
-/**
- * The subset of a user's gamification stats that is safe to show to someone else: progress, not
- * wallet. Gems, lives and boosters stay private.
- */
+/** Progress only. Gems, lives and boosters stay private. */
 public record PublicUserStatsResponse(
         int currentStreak, int longestStreak, long totalXp, int weeklyXp, int learnedSignsCount) {
 

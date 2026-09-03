@@ -22,11 +22,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     boolean existsByUsername(String username);
 
-    /**
-     * Case-insensitive "contains" match on username or display name, excluding the caller and
-     * disabled accounts. Exact username matches sort first so typing a full handle finds it at the
-     * top.
-     */
+    /** Case-insensitive contains match. Exact username hits sort first. */
     @Query(
             "SELECT u FROM User u WHERE u.id <> :excludeId AND u.enabled = true "
                     + "AND (LOWER(u.username) LIKE LOWER(CONCAT('%', :query, '%')) "

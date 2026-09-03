@@ -59,11 +59,7 @@ public class UserService {
         deviceTokenRepository.deleteByUser(user);
     }
 
-    /**
-     * Free-text search over username and display name, resolved against the caller: each result
-     * already carries the relationship and the number of friends in common, so the client can
-     * render the right action without extra calls. Users who blocked the caller are left out.
-     */
+    /** Resolves each match against the caller. Users who blocked the caller are left out. */
     @Transactional(readOnly = true)
     public List<UserSearchResultResponse> searchUsers(User requester, String query, int limit) {
         List<User> matches =
@@ -101,7 +97,7 @@ public class UserService {
         return friendshipRepository.countMutualFriends(candidateId, myFriendIds);
     }
 
-    /** Every user the requester has a relation with, keyed by that user's id. */
+    /** Every relation of the requester, keyed by the other user's id. */
     private Map<UUID, RelationStatus> relationsOf(User requester) {
         Map<UUID, RelationStatus> relations = new HashMap<>();
 

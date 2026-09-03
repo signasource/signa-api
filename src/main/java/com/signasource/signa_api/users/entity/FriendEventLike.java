@@ -22,13 +22,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
-/**
- * A "me gusta" a user left on a friend's feed event.
- *
- * <p>Feed events are derived on the fly from {@code user_achievements} / {@code user_learned_signs}
- * rather than stored, so a like points at its source row through the pair ({@code eventType},
- * {@code eventRefId}).
- */
+/** Feed events are not stored, so a like points at its source row by type and id. */
 @Entity
 @Table(
         name = "friend_event_likes",
@@ -49,7 +43,6 @@ public class FriendEventLike {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** The user who left the like. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
@@ -58,11 +51,10 @@ public class FriendEventLike {
     @Column(name = "event_type", nullable = false)
     private FriendEventType eventType;
 
-    /** Id of the source row the event was derived from. */
     @Column(name = "event_ref_id", nullable = false)
     private UUID eventRefId;
 
-    /** The friend whose activity was liked, kept so the notification can be addressed. */
+    /** Denormalised so the notification can be addressed without re-resolving the event. */
     @Column(name = "event_owner_id", nullable = false)
     private UUID eventOwnerId;
 

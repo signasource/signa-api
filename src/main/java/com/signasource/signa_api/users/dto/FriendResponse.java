@@ -6,10 +6,7 @@ import com.signasource.signa_api.users.entity.User;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-/**
- * An accepted friend. Carries the gamification stats the social list renders next to each row; they
- * fall back to zero when the friend has no {@link UserStats} row yet.
- */
+/** Stats fall back to zero when the friend has no {@link UserStats} row yet. */
 public record FriendResponse(
         UUID id,
         String username,

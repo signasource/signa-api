@@ -4,7 +4,6 @@ import com.signasource.signa_api.users.entity.Friendship;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-/** A friend request the authenticated user sent and that is still pending. */
 public record SentFriendRequestResponse(
         UUID addresseeId,
         String addresseeUsername,

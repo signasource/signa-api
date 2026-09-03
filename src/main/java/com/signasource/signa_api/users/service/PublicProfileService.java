@@ -19,13 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Assembles another user's profile for the read-only profile screen, composing the pieces owned by
- * the gamification and learning modules.
- *
- * <p>Deliberately excludes gems, lives and boosters: those are the viewer's own wallet, not public
- * progress.
- */
+/** Composes another user's profile. Excludes gems, lives and boosters: those are not public. */
 @Service
 @RequiredArgsConstructor
 public class PublicProfileService {
@@ -68,7 +62,7 @@ public class PublicProfileService {
                 courseTrackingService.getUserCourseProgress(target));
     }
 
-    /** A private account only opens up to the owner and to accepted friends. */
+    /** A private account opens only to its owner and to accepted friends. */
     private boolean canView(User target, User viewer, RelationStatus relation) {
         if (target.getAccountVisibility() == AccountVisibility.PUBLIC) {
             return true;
