@@ -4,6 +4,8 @@ import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.users.dto.FriendEventResponse;
 import com.signasource.signa_api.users.dto.FriendRequestResponse;
 import com.signasource.signa_api.users.dto.FriendResponse;
+import com.signasource.signa_api.users.dto.SentFriendRequestResponse;
+import com.signasource.signa_api.users.entity.FriendEventType;
 import com.signasource.signa_api.users.service.FriendEventService;
 import com.signasource.signa_api.users.service.FriendshipService;
 import java.util.List;
@@ -68,12 +70,7 @@ public class FriendshipController {
     public ResponseEntity<List<FriendResponse>> getFriends(
             @AuthenticationPrincipal CustomUserDetails currentUser) {
 
-        var friends =
-                friendshipService.getFriends(currentUser.getUser()).stream()
-                        .map(f -> FriendResponse.from(f, currentUser.getUser()))
-                        .toList();
-
-        return ResponseEntity.ok(friends);
+        return ResponseEntity.ok(friendshipService.getFriendsWithStats(currentUser.getUser()));
     }
 
     @GetMapping("/requests")
@@ -83,6 +80,27 @@ public class FriendshipController {
         var requests =
                 friendshipService.getPendingRequests(currentUser.getUser()).stream()
                         .map(FriendRequestResponse::from)
+                        .toList();
+
+        return ResponseEntity.ok(requests);
+    }
+
+    @DeleteMapping("/request/{addresseeId}")
+    public ResponseEntity<Void> cancelFriendRequest(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @PathVariable UUID addresseeId) {
+
+        friendshipService.cancelFriendRequest(currentUser.getUser(), addresseeId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/requests/sent")
+    public ResponseEntity<List<SentFriendRequestResponse>> getSentRequests(
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
+
+        var requests =
+                friendshipService.getSentRequests(currentUser.getUser()).stream()
+                        .map(SentFriendRequestResponse::from)
                         .toList();
 
         return ResponseEntity.ok(requests);
@@ -111,5 +129,25 @@ public class FriendshipController {
 
         var events = friendEventService.getFriendsEvents(currentUser.getUser(), limit);
         return ResponseEntity.ok(events);
+    }
+
+    @PostMapping("/events/{eventType}/{eventRefId}/like")
+    public ResponseEntity<Void> likeEvent(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @PathVariable FriendEventType eventType,
+            @PathVariable UUID eventRefId) {
+
+        friendEventService.likeEvent(currentUser.getUser(), eventType, eventRefId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/events/{eventType}/{eventRefId}/like")
+    public ResponseEntity<Void> unlikeEvent(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @PathVariable FriendEventType eventType,
+            @PathVariable UUID eventRefId) {
+
+        friendEventService.unlikeEvent(currentUser.getUser(), eventType, eventRefId);
+        return ResponseEntity.noContent().build();
     }
 }

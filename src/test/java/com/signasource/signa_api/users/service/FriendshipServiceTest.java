@@ -3,6 +3,8 @@ package com.signasource.signa_api.users.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -12,6 +14,10 @@ import static org.mockito.Mockito.when;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
+import com.signasource.signa_api.gamification.entity.UserStats;
+import com.signasource.signa_api.gamification.repository.UserStatsRepository;
+import com.signasource.signa_api.notification.entity.NotificationCode;
+import com.signasource.signa_api.notification.service.NotificationService;
 import com.signasource.signa_api.users.entity.Friendship;
 import com.signasource.signa_api.users.entity.FriendshipStatus;
 import com.signasource.signa_api.users.entity.User;
@@ -35,6 +41,10 @@ class FriendshipServiceTest {
 
     @Mock private UserRepository userRepository;
 
+    @Mock private UserStatsRepository userStatsRepository;
+
+    @Mock private NotificationService notificationService;
+
     @InjectMocks private FriendshipService friendshipService;
 
     private User requester;
@@ -49,9 +59,13 @@ class FriendshipServiceTest {
 
         requester = new User();
         requester.setId(requesterId);
+        requester.setUsername("requester");
+        requester.setName("Requester");
 
         addressee = new User();
         addressee.setId(addresseeId);
+        addressee.setUsername("addressee");
+        addressee.setName("Addressee");
     }
 
     @Test
@@ -535,5 +549,127 @@ class FriendshipServiceTest {
                 () -> friendshipService.unblockUser(requester, addresseeId));
 
         verify(friendshipRepository, never()).delete(any(Friendship.class));
+    }
+
+    @Test
+    void cancelFriendRequest_DeletesPendingRequest() {
+        Friendship pending = new Friendship();
+        pending.setRequester(requester);
+        pending.setAddressee(addressee);
+        pending.setStatus(FriendshipStatus.PENDING);
+
+        when(userRepository.findById(addresseeId)).thenReturn(Optional.of(addressee));
+        when(friendshipRepository.findByRequesterAndAddressee(requester, addressee))
+                .thenReturn(Optional.of(pending));
+
+        friendshipService.cancelFriendRequest(requester, addresseeId);
+
+        verify(friendshipRepository).delete(pending);
+    }
+
+    @Test
+    void cancelFriendRequest_ThrowsWhenNotPending() {
+        Friendship accepted = new Friendship();
+        accepted.setRequester(requester);
+        accepted.setAddressee(addressee);
+        accepted.setStatus(FriendshipStatus.ACCEPTED);
+
+        when(userRepository.findById(addresseeId)).thenReturn(Optional.of(addressee));
+        when(friendshipRepository.findByRequesterAndAddressee(requester, addressee))
+                .thenReturn(Optional.of(accepted));
+
+        assertThrows(
+                InvalidInputException.class,
+                () -> friendshipService.cancelFriendRequest(requester, addresseeId));
+        verify(friendshipRepository, never()).delete(any(Friendship.class));
+    }
+
+    @Test
+    void cancelFriendRequest_ThrowsWhenRequestMissing() {
+        when(userRepository.findById(addresseeId)).thenReturn(Optional.of(addressee));
+        when(friendshipRepository.findByRequesterAndAddressee(requester, addressee))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                NotFoundException.class,
+                () -> friendshipService.cancelFriendRequest(requester, addresseeId));
+    }
+
+    @Test
+    void getFriendsWithStats_FallsBackToZeroWhenTheFriendHasNoStats() {
+        Friendship friendship = new Friendship();
+        friendship.setRequester(requester);
+        friendship.setAddressee(addressee);
+        friendship.setStatus(FriendshipStatus.ACCEPTED);
+
+        when(friendshipRepository.findAllFriendshipsByUserAndStatus(
+                        requester, FriendshipStatus.ACCEPTED))
+                .thenReturn(List.of(friendship));
+        when(userStatsRepository.findByUserId(addresseeId)).thenReturn(Optional.empty());
+
+        var friends = friendshipService.getFriendsWithStats(requester);
+
+        assertEquals(1, friends.size());
+        assertEquals(addresseeId, friends.get(0).id());
+        assertEquals(0, friends.get(0).currentStreak());
+        assertEquals(0L, friends.get(0).totalXp());
+    }
+
+    @Test
+    void getFriendsWithStats_CarriesTheFriendStats() {
+        Friendship friendship = new Friendship();
+        friendship.setRequester(addressee);
+        friendship.setAddressee(requester);
+        friendship.setStatus(FriendshipStatus.ACCEPTED);
+
+        UserStats stats = UserStats.builder().currentStreak(9).totalXp(4200L).build();
+
+        when(friendshipRepository.findAllFriendshipsByUserAndStatus(
+                        requester, FriendshipStatus.ACCEPTED))
+                .thenReturn(List.of(friendship));
+        when(userStatsRepository.findByUserId(addresseeId)).thenReturn(Optional.of(stats));
+
+        var friends = friendshipService.getFriendsWithStats(requester);
+
+        assertEquals(9, friends.get(0).currentStreak());
+        assertEquals(4200L, friends.get(0).totalXp());
+    }
+
+    @Test
+    void acceptFriendRequest_NotifiesTheRequester() {
+        Friendship pending = new Friendship();
+        pending.setRequester(requester);
+        pending.setAddressee(addressee);
+        pending.setStatus(FriendshipStatus.PENDING);
+
+        when(userRepository.findById(requesterId)).thenReturn(Optional.of(requester));
+        when(friendshipRepository.findByRequesterAndAddressee(requester, addressee))
+                .thenReturn(Optional.of(pending));
+
+        friendshipService.acceptFriendRequest(requesterId, addressee);
+
+        verify(notificationService)
+                .notifyUser(eq(requesterId), eq(NotificationCode.FRIEND_REQUEST_ACCEPTED), any());
+    }
+
+    /** A notification backend that is down must not roll back the friendship itself. */
+    @Test
+    void acceptFriendRequest_SucceedsWhenTheNotificationFails() {
+        Friendship pending = new Friendship();
+        pending.setRequester(requester);
+        pending.setAddressee(addressee);
+        pending.setStatus(FriendshipStatus.PENDING);
+
+        when(userRepository.findById(requesterId)).thenReturn(Optional.of(requester));
+        when(friendshipRepository.findByRequesterAndAddressee(requester, addressee))
+                .thenReturn(Optional.of(pending));
+        doThrow(new IllegalStateException("firebase down"))
+                .when(notificationService)
+                .notifyUser(any(), any(), any());
+
+        friendshipService.acceptFriendRequest(requesterId, addressee);
+
+        assertEquals(FriendshipStatus.ACCEPTED, pending.getStatus());
+        verify(friendshipRepository).save(pending);
     }
 }

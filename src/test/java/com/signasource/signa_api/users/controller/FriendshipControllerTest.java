@@ -9,6 +9,8 @@ import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.users.dto.FriendEventResponse;
 import com.signasource.signa_api.users.dto.FriendRequestResponse;
 import com.signasource.signa_api.users.dto.FriendResponse;
+import com.signasource.signa_api.users.dto.SentFriendRequestResponse;
+import com.signasource.signa_api.users.entity.FriendEventType;
 import com.signasource.signa_api.users.entity.Friendship;
 import com.signasource.signa_api.users.entity.FriendshipStatus;
 import com.signasource.signa_api.users.entity.User;
@@ -108,39 +110,49 @@ class FriendshipControllerTest {
         friend2.setUsername("friend2");
         friend2.setName("Friend 2");
 
-        Friendship friendship1 = new Friendship();
-        friendship1.setRequester(currentUser);
-        friendship1.setAddressee(friend1);
-        friendship1.setStatus(FriendshipStatus.ACCEPTED);
-        friendship1.setUpdatedAt(LocalDateTime.now());
+        FriendResponse response1 =
+                new FriendResponse(
+                        friend1.getId(),
+                        friend1.getUsername(),
+                        friend1.getName(),
+                        LocalDateTime.now(),
+                        7,
+                        1200L,
+                        30);
 
-        Friendship friendship2 = new Friendship();
-        friendship2.setRequester(friend2);
-        friendship2.setAddressee(currentUser);
-        friendship2.setStatus(FriendshipStatus.ACCEPTED);
-        friendship2.setUpdatedAt(LocalDateTime.now());
+        FriendResponse response2 =
+                new FriendResponse(
+                        friend2.getId(),
+                        friend2.getUsername(),
+                        friend2.getName(),
+                        LocalDateTime.now(),
+                        0,
+                        0L,
+                        0);
 
-        when(friendshipService.getFriends(currentUser))
-                .thenReturn(List.of(friendship1, friendship2));
+        when(friendshipService.getFriendsWithStats(currentUser))
+                .thenReturn(List.of(response1, response2));
 
         ResponseEntity<List<FriendResponse>> response =
                 friendshipController.getFriends(mockUserDetails);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(2, response.getBody().size());
-        verify(friendshipService).getFriends(currentUser);
+        assertEquals(7, response.getBody().get(0).currentStreak());
+        assertEquals(1200L, response.getBody().get(0).totalXp());
+        verify(friendshipService).getFriendsWithStats(currentUser);
     }
 
     @Test
     void getFriends_ReturnsOkWithEmptyList() {
-        when(friendshipService.getFriends(currentUser)).thenReturn(List.of());
+        when(friendshipService.getFriendsWithStats(currentUser)).thenReturn(List.of());
 
         ResponseEntity<List<FriendResponse>> response =
                 friendshipController.getFriends(mockUserDetails);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(0, response.getBody().size());
-        verify(friendshipService).getFriends(currentUser);
+        verify(friendshipService).getFriendsWithStats(currentUser);
     }
 
     @Test
@@ -195,8 +207,11 @@ class FriendshipControllerTest {
                         otherUserId,
                         "friend1",
                         "Friend 1",
-                        "ACHIEVEMENT",
-                        "Earned achievement: Test",
+                        FriendEventType.ACHIEVEMENT,
+                        UUID.randomUUID(),
+                        "Test",
+                        "A test achievement",
+                        false,
                         Instant.now());
 
         when(friendEventService.getFriendsEvents(currentUser, 50)).thenReturn(List.of(event1));
@@ -218,5 +233,69 @@ class FriendshipControllerTest {
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         verify(friendEventService).getFriendsEvents(currentUser, 50);
+    }
+
+    @Test
+    void cancelFriendRequest_ReturnsNoContent() {
+        doNothing().when(friendshipService).cancelFriendRequest(currentUser, otherUserId);
+
+        ResponseEntity<Void> response =
+                friendshipController.cancelFriendRequest(mockUserDetails, otherUserId);
+
+        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+        verify(friendshipService).cancelFriendRequest(currentUser, otherUserId);
+    }
+
+    @Test
+    void getSentRequests_ReturnsOkWithRequests() {
+        User addressee = new User();
+        addressee.setId(UUID.randomUUID());
+        addressee.setUsername("addressee1");
+        addressee.setName("Addressee 1");
+
+        Friendship request = new Friendship();
+        request.setRequester(currentUser);
+        request.setAddressee(addressee);
+        request.setStatus(FriendshipStatus.PENDING);
+        request.setCreatedAt(LocalDateTime.now());
+
+        when(friendshipService.getSentRequests(currentUser)).thenReturn(List.of(request));
+
+        ResponseEntity<List<SentFriendRequestResponse>> response =
+                friendshipController.getSentRequests(mockUserDetails);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(1, response.getBody().size());
+        assertEquals("addressee1", response.getBody().get(0).addresseeUsername());
+        verify(friendshipService).getSentRequests(currentUser);
+    }
+
+    @Test
+    void likeEvent_ReturnsNoContent() {
+        UUID refId = UUID.randomUUID();
+        doNothing()
+                .when(friendEventService)
+                .likeEvent(currentUser, FriendEventType.ACHIEVEMENT, refId);
+
+        ResponseEntity<Void> response =
+                friendshipController.likeEvent(mockUserDetails, FriendEventType.ACHIEVEMENT, refId);
+
+        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+        verify(friendEventService).likeEvent(currentUser, FriendEventType.ACHIEVEMENT, refId);
+    }
+
+    @Test
+    void unlikeEvent_ReturnsNoContent() {
+        UUID refId = UUID.randomUUID();
+        doNothing()
+                .when(friendEventService)
+                .unlikeEvent(currentUser, FriendEventType.SIGN_LEARNED, refId);
+
+        ResponseEntity<Void> response =
+                friendshipController.unlikeEvent(
+                        mockUserDetails, FriendEventType.SIGN_LEARNED, refId);
+
+        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+        verify(friendEventService).unlikeEvent(currentUser, FriendEventType.SIGN_LEARNED, refId);
     }
 }

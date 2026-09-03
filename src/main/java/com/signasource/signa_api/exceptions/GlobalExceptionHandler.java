@@ -1,5 +1,6 @@
 package com.signasource.signa_api.exceptions;
 
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.AuthenticationException;
@@ -43,6 +44,28 @@ public class GlobalExceptionHandler {
                 ex.getBindingResult().getFieldErrors().stream()
                         .map(err -> err.getField() + ": " + err.getDefaultMessage())
                         .findFirst()
+                        .orElse("Validation error");
+
+        return ResponseEntity.status(400).body(ErrorResponse.of(message, 400));
+    }
+
+    /**
+     * Validation on a request parameter or path variable (`@Validated` on the controller) rather
+     * than on a request body. Without this it would fall through to the catch-all and answer 500 to
+     * what is really a bad request.
+     */
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ErrorResponse> handleConstraintViolation(
+            ConstraintViolationException ex) {
+        String message =
+                ex.getConstraintViolations().stream()
+                        .findFirst()
+                        .map(
+                                violation -> {
+                                    String path = violation.getPropertyPath().toString();
+                                    String field = path.substring(path.lastIndexOf('.') + 1);
+                                    return field + ": " + violation.getMessage();
+                                })
                         .orElse("Validation error");
 
         return ResponseEntity.status(400).body(ErrorResponse.of(message, 400));
