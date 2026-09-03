@@ -66,7 +66,25 @@ public class NotificationCatalogSeeder implements CommandLineRunner {
                                 NotificationScope.GLOBAL,
                                 false,
                                 "Novedades",
-                                "Tenemos novedades para vos."));
+                                "Tenemos novedades para vos."),
+                        template(
+                                NotificationCode.FRIEND_REQUEST_RECEIVED,
+                                NotificationScope.INDIVIDUAL,
+                                false,
+                                "Nueva solicitud de amistad",
+                                "{{friend}} te envió una solicitud de amistad."),
+                        template(
+                                NotificationCode.FRIEND_REQUEST_ACCEPTED,
+                                NotificationScope.INDIVIDUAL,
+                                false,
+                                "Solicitud aceptada",
+                                "{{friend}} aceptó tu solicitud de amistad."),
+                        template(
+                                NotificationCode.FRIEND_EVENT_LIKED,
+                                NotificationScope.INDIVIDUAL,
+                                false,
+                                "Le gustó tu actividad",
+                                "A {{friend}} le gustó tu actividad."));
 
         for (NotificationTemplate t : defaults) {
             if (!templateRepository.existsByCode(t.getCode())) {
