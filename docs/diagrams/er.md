@@ -5,7 +5,11 @@ temáticas para facilitar la lectura.
 
 ## Usuarios
 
-Perfil, settings, tokens y amistades.
+Perfil, settings, tokens, amistades y los "me gusta" del feed social.
+
+Los eventos del feed social **no se almacenan**: se derivan al vuelo de los logros y las señas
+aprendidas de cada amigo. Por eso `FRIEND_EVENT_LIKE` no apunta a una tabla de eventos sino a la
+fila que originó el evento, mediante el par (`eventType`, `eventRefId`).
 
 ```mermaid
 erDiagram
@@ -13,6 +17,7 @@ erDiagram
     USER ||--o{ TOKEN : posee
     USER ||--o{ FRIENDSHIP : "requester"
     USER ||--o{ FRIENDSHIP : "addressee"
+    USER ||--o{ FRIEND_EVENT_LIKE : "da me gusta"
 
     USER {
         uuid id PK
@@ -53,6 +58,14 @@ erDiagram
         uuid requester_user_id FK
         uuid addressee_user_id FK
         enum status
+    }
+    FRIEND_EVENT_LIKE {
+        bigint id PK
+        uuid user_id FK "quien da el me gusta"
+        enum event_type "FriendEventType: ACHIEVEMENT | SIGN_LEARNED"
+        uuid event_ref_id "id de la fila que originó el evento"
+        uuid event_owner_id "amigo dueño del evento; destinatario de la notificación"
+        instant createdAt
     }
 ```
 
