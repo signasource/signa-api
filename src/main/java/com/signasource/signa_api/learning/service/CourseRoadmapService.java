@@ -88,7 +88,8 @@ public class CourseRoadmapService {
             List<RoadmapLessonResponse> lessonResponses = new ArrayList<>(lessons.size());
             for (Lesson lesson : lessons) {
                 long[] agg = blockAggByLesson.getOrDefault(lesson.getId(), EMPTY_AGG);
-                List<String> signsLearned = signsLearnedByLesson.getOrDefault(lesson.getId(), List.of());
+                List<String> signsLearned =
+                        signsLearnedByLesson.getOrDefault(lesson.getId(), List.of());
                 ProgressStatus status = statusByLesson.get(lesson.getId());
                 lessonResponses.add(
                         RoadmapLessonResponse.of(
