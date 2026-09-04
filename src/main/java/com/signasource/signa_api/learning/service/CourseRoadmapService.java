@@ -57,7 +57,7 @@ public class CourseRoadmapService {
                                         LessonBlockAggregateView::getLessonId,
                                         v -> new long[] {v.getBlockCount(), v.getXpTotal()}));
 
-        Map<UUID, Integer> signsCountByLesson =
+        Map<UUID, List<String>> signsLearnedByLesson =
                 lessonBlockRepository.findByCourseVersionId(version.getId()).stream()
                         .collect(
                                 Collectors.groupingBy(
@@ -65,16 +65,14 @@ public class CourseRoadmapService {
                                         Collectors.collectingAndThen(
                                                 Collectors.toList(),
                                                 blocks ->
-                                                        (int)
-                                                                blocks.stream()
-                                                                        .flatMap(
-                                                                                b ->
-                                                                                        blockSignExtractor
-                                                                                                .extract(
-                                                                                                        b)
-                                                                                                .stream())
-                                                                        .distinct()
-                                                                        .count())));
+                                                        blocks.stream()
+                                                                .flatMap(
+                                                                        b ->
+                                                                                blockSignExtractor
+                                                                                        .extract(b)
+                                                                                        .stream())
+                                                                .distinct()
+                                                                .toList())));
 
         Map<UUID, ProgressStatus> statusByLesson =
                 lessonProgressRepository.findLessonStatuses(user.getId(), version.getId()).stream()
@@ -90,14 +88,14 @@ public class CourseRoadmapService {
             List<RoadmapLessonResponse> lessonResponses = new ArrayList<>(lessons.size());
             for (Lesson lesson : lessons) {
                 long[] agg = blockAggByLesson.getOrDefault(lesson.getId(), EMPTY_AGG);
-                int signsCount = signsCountByLesson.getOrDefault(lesson.getId(), 0);
+                List<String> signsLearned = signsLearnedByLesson.getOrDefault(lesson.getId(), List.of());
                 ProgressStatus status = statusByLesson.get(lesson.getId());
                 lessonResponses.add(
                         RoadmapLessonResponse.of(
                                 lesson,
                                 (int) agg[0],
                                 (int) agg[1],
-                                signsCount,
+                                signsLearned,
                                 resolveState(status, previousCompleted)));
                 previousCompleted = status == ProgressStatus.COMPLETED;
             }
