@@ -24,6 +24,7 @@ import com.signasource.signa_api.learning.repository.TopicRepository;
 import com.signasource.signa_api.learning.repository.UserLessonProgressRepository;
 import com.signasource.signa_api.learning.repository.projection.LessonBlockAggregateView;
 import com.signasource.signa_api.learning.repository.projection.LessonProgressStatusView;
+import com.signasource.signa_api.learning.util.BlockSignExtractor;
 import com.signasource.signa_api.users.entity.User;
 import java.util.List;
 import java.util.Optional;
@@ -42,6 +43,7 @@ class CourseRoadmapServiceTest {
     @Mock private TopicRepository topicRepository;
     @Mock private LessonBlockRepository lessonBlockRepository;
     @Mock private UserLessonProgressRepository lessonProgressRepository;
+    @Mock private BlockSignExtractor blockSignExtractor;
 
     @InjectMocks private CourseRoadmapService courseRoadmapService;
 

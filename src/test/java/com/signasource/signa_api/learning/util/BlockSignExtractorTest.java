@@ -62,7 +62,7 @@ class BlockSignExtractorTest {
         LessonBlock block =
                 block(
                         BlockType.VISUAL_RECOGNITION,
-                        "{\"signSequence\":[\"a\",\"b\"],\"options\":[\"ab\",\"ba\"],\"keepOrder\":true}");
+                        "{\"sign_sequence\":[\"a\",\"b\"],\"options\":[\"ab\",\"ba\"],\"keep_order\":true}");
         assertEquals(List.of("a", "b"), extractor.extract(block));
     }
 

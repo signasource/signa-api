@@ -1,6 +1,7 @@
 package com.signasource.signa_api.learning.dto;
 
 import com.signasource.signa_api.learning.entity.Lesson;
+import java.util.List;
 import java.util.UUID;
 
 public record RoadmapLessonResponse(
@@ -11,10 +12,16 @@ public record RoadmapLessonResponse(
         int order,
         int blockCount,
         int xpTotal,
+        int signsCount,
+        List<String> signsLearned,
         LessonRoadmapState state) {
 
     public static RoadmapLessonResponse of(
-            Lesson lesson, int blockCount, int xpTotal, LessonRoadmapState state) {
+            Lesson lesson,
+            int blockCount,
+            int xpTotal,
+            List<String> signsLearned,
+            LessonRoadmapState state) {
         return new RoadmapLessonResponse(
                 lesson.getId(),
                 lesson.getCode(),
@@ -23,6 +30,8 @@ public record RoadmapLessonResponse(
                 lesson.getOrder(),
                 blockCount,
                 xpTotal,
+                signsLearned.size(),
+                signsLearned,
                 state);
     }
 }

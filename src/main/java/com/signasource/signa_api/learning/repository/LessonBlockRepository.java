@@ -26,4 +26,9 @@ public interface LessonBlockRepository extends JpaRepository<LessonBlock, UUID> 
                     + "WHERE b.lesson.topic.courseVersion.id = :versionId "
                     + "GROUP BY b.lesson.id")
     List<LessonBlockAggregateView> aggregateByCourseVersionId(@Param("versionId") UUID versionId);
+
+    @Query(
+            "SELECT b FROM LessonBlock b JOIN FETCH b.lesson "
+                    + "WHERE b.lesson.topic.courseVersion.id = :versionId")
+    List<LessonBlock> findByCourseVersionId(@Param("versionId") UUID versionId);
 }
