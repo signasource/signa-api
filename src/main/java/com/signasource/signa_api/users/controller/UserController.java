@@ -12,9 +12,11 @@ import com.signasource.signa_api.users.dto.UpdateDailyGoalRequest;
 import com.signasource.signa_api.users.dto.UpdateUserSettingsRequest;
 import com.signasource.signa_api.users.dto.UpdateUsernameRequest;
 import com.signasource.signa_api.users.dto.UserProfileResponse;
+import com.signasource.signa_api.users.dto.UserSearchResultResponse;
 import com.signasource.signa_api.users.dto.UserSettingsResponse;
 import com.signasource.signa_api.users.dto.UsernameAvailabilityResponse;
 import com.signasource.signa_api.users.entity.User;
+import com.signasource.signa_api.users.service.PublicProfileService;
 import com.signasource.signa_api.users.service.UserService;
 import com.signasource.signa_api.users.service.UserSettingsService;
 import jakarta.validation.Valid;
@@ -45,6 +47,7 @@ public class UserController {
 
     private final AuthService authService;
     private final UserSettingsService userSettingsService;
+    private final PublicProfileService publicProfileService;
     private final UserService userService;
     private final UserStatsService userStatsService;
 
@@ -111,12 +114,21 @@ public class UserController {
         return ResponseEntity.ok(UserProfileResponse.from(userDetails.getUser()));
     }
 
+    @GetMapping("/search")
+    public ResponseEntity<List<UserSearchResultResponse>> searchUsers(
+            @RequestParam @NotBlank @Size(min = 2, max = 50) String query,
+            @RequestParam(defaultValue = "20") int limit,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        int capped = Math.min(Math.max(limit, 1), 50);
+        return ResponseEntity.ok(userService.searchUsers(userDetails.getUser(), query, capped));
+    }
+
     @GetMapping("/{username}")
     public ResponseEntity<PublicUserProfileResponse> getByUsername(
             @PathVariable @NotBlank @Size(min = 3, max = 50) String username,
             @AuthenticationPrincipal(errorOnInvalidType = false) CustomUserDetails userDetails) {
         User requester = userDetails != null ? userDetails.getUser() : null;
-        return ResponseEntity.ok(userService.getPublicProfileByUsername(username, requester));
+        return ResponseEntity.ok(publicProfileService.getByUsername(username, requester));
     }
 
     @DeleteMapping("/me")

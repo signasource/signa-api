@@ -4,16 +4,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.auth.repository.TokenRepository;
-import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.notification.repository.DeviceTokenRepository;
-import com.signasource.signa_api.users.dto.PublicUserProfileResponse;
+import com.signasource.signa_api.users.dto.RelationStatus;
 import com.signasource.signa_api.users.dto.UpdateUsernameRequest;
+import com.signasource.signa_api.users.dto.UserSearchResultResponse;
 import com.signasource.signa_api.users.dto.UsernameAvailabilityResponse;
 import com.signasource.signa_api.users.entity.AccountVisibility;
 import com.signasource.signa_api.users.entity.Friendship;
@@ -22,7 +25,7 @@ import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.repository.FriendshipRepository;
 import com.signasource.signa_api.users.repository.UserRepository;
-import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,6 +33,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
@@ -111,127 +115,6 @@ class UserServiceTest {
     }
 
     @Test
-    void getPublicProfileByUsername_whenUserDoesNotExist_throwsNotFound() {
-        when(userRepository.findByUsername("ghost")).thenReturn(Optional.empty());
-
-        assertThrows(
-                NotFoundException.class,
-                () -> userService.getPublicProfileByUsername("ghost", null));
-    }
-
-    @Test
-    void getPublicProfileByUsername_whenAccountIsPublic_returnsProfileEvenWithoutRequester() {
-        when(userRepository.findByUsername(CURRENT_USERNAME)).thenReturn(Optional.of(user));
-
-        PublicUserProfileResponse response =
-                userService.getPublicProfileByUsername(CURRENT_USERNAME, null);
-
-        assertEquals(user.getId(), response.id());
-        assertEquals(CURRENT_USERNAME, response.username());
-        assertEquals(user.getName(), response.name());
-    }
-
-    @Test
-    void getPublicProfileByUsername_whenRequesterIsSameUser_returnsProfile() {
-        user.setAccountVisibility(AccountVisibility.PRIVATE);
-        when(userRepository.findByUsername(CURRENT_USERNAME)).thenReturn(Optional.of(user));
-
-        PublicUserProfileResponse response =
-                userService.getPublicProfileByUsername(CURRENT_USERNAME, user);
-
-        assertEquals(user.getId(), response.id());
-    }
-
-    @Test
-    void getPublicProfileByUsername_whenPrivateAndNoRequester_throwsNotFound() {
-        user.setAccountVisibility(AccountVisibility.PRIVATE);
-        when(userRepository.findByUsername(CURRENT_USERNAME)).thenReturn(Optional.of(user));
-
-        assertThrows(
-                NotFoundException.class,
-                () -> userService.getPublicProfileByUsername(CURRENT_USERNAME, null));
-    }
-
-    @Test
-    void getPublicProfileByUsername_whenPrivateAndRequesterNotFriend_throwsNotFound() {
-        user.setAccountVisibility(AccountVisibility.PRIVATE);
-        User requester =
-                User.builder()
-                        .id(UUID.randomUUID())
-                        .email("other@example.com")
-                        .username("otheruser")
-                        .name("Other User")
-                        .passwordHash("hashed")
-                        .role(Role.USER)
-                        .enabled(true)
-                        .build();
-        when(userRepository.findByUsername(CURRENT_USERNAME)).thenReturn(Optional.of(user));
-        when(friendshipRepository.findFriendshipBetween(requester, user))
-                .thenReturn(Optional.empty());
-
-        assertThrows(
-                NotFoundException.class,
-                () -> userService.getPublicProfileByUsername(CURRENT_USERNAME, requester));
-    }
-
-    @Test
-    void getPublicProfileByUsername_whenPrivateAndRequesterIsAcceptedFriend_returnsProfile() {
-        user.setAccountVisibility(AccountVisibility.PRIVATE);
-        User requester =
-                User.builder()
-                        .id(UUID.randomUUID())
-                        .email("other@example.com")
-                        .username("otheruser")
-                        .name("Other User")
-                        .passwordHash("hashed")
-                        .role(Role.USER)
-                        .enabled(true)
-                        .build();
-        Friendship friendship =
-                Friendship.builder()
-                        .requester(requester)
-                        .addressee(user)
-                        .status(FriendshipStatus.ACCEPTED)
-                        .build();
-        when(userRepository.findByUsername(CURRENT_USERNAME)).thenReturn(Optional.of(user));
-        when(friendshipRepository.findFriendshipBetween(requester, user))
-                .thenReturn(Optional.of(friendship));
-
-        PublicUserProfileResponse response =
-                userService.getPublicProfileByUsername(CURRENT_USERNAME, requester);
-
-        assertEquals(user.getId(), response.id());
-    }
-
-    @Test
-    void getPublicProfileByUsername_whenPrivateAndRequesterIsPendingFriend_throwsNotFound() {
-        user.setAccountVisibility(AccountVisibility.PRIVATE);
-        User requester =
-                User.builder()
-                        .id(UUID.randomUUID())
-                        .email("other@example.com")
-                        .username("otheruser")
-                        .name("Other User")
-                        .passwordHash("hashed")
-                        .role(Role.USER)
-                        .enabled(true)
-                        .build();
-        Friendship friendship =
-                Friendship.builder()
-                        .requester(requester)
-                        .addressee(user)
-                        .status(FriendshipStatus.PENDING)
-                        .build();
-        when(userRepository.findByUsername(CURRENT_USERNAME)).thenReturn(Optional.of(user));
-        when(friendshipRepository.findFriendshipBetween(requester, user))
-                .thenReturn(Optional.of(friendship));
-
-        assertThrows(
-                NotFoundException.class,
-                () -> userService.getPublicProfileByUsername(CURRENT_USERNAME, requester));
-    }
-
-    @Test
     void deleteAccount_disablesUserObfuscatesEmailAndRevokesTokens() {
         UUID userId = UUID.randomUUID();
         user =
@@ -252,5 +135,125 @@ class UserServiceTest {
         verify(userRepository).save(user);
         verify(tokenRepository).deleteByUser(user);
         verify(deviceTokenRepository).deleteByUser(user);
+    }
+
+    private User user(String username, String name) {
+        User u = new User();
+        u.setId(UUID.randomUUID());
+        u.setUsername(username);
+        u.setName(name);
+        u.setEnabled(true);
+        return u;
+    }
+
+    private Friendship friendship(User requester, User addressee, FriendshipStatus status) {
+        Friendship f = new Friendship();
+        f.setRequester(requester);
+        f.setAddressee(addressee);
+        f.setStatus(status);
+        return f;
+    }
+
+    @Test
+    void searchUsers_ReturnsNoneForAStranger() {
+        User me = user("me", "Me");
+        User stranger = user("stranger", "Stranger");
+
+        when(userRepository.searchByUsernameOrName(
+                        eq("stran"), eq(me.getId()), any(Pageable.class)))
+                .thenReturn(List.of(stranger));
+        when(friendshipRepository.findAllByUser(me)).thenReturn(List.of());
+
+        List<UserSearchResultResponse> results = userService.searchUsers(me, "stran", 20);
+
+        assertEquals(1, results.size());
+        assertEquals(RelationStatus.NONE, results.get(0).relation());
+        assertEquals(0L, results.get(0).mutualFriends());
+    }
+
+    @Test
+    void searchUsers_ResolvesEachRelationFromTheCallerPointOfView() {
+        User me = user("me", "Me");
+        User friend = user("friend", "Friend");
+        User theyAsked = user("theyasked", "They Asked");
+        User iAsked = user("iasked", "I Asked");
+        User blockedByMe = user("blocked", "Blocked");
+
+        when(userRepository.searchByUsernameOrName(any(), eq(me.getId()), any(Pageable.class)))
+                .thenReturn(List.of(friend, theyAsked, iAsked, blockedByMe));
+        when(friendshipRepository.findAllByUser(me))
+                .thenReturn(
+                        List.of(
+                                friendship(me, friend, FriendshipStatus.ACCEPTED),
+                                friendship(theyAsked, me, FriendshipStatus.PENDING),
+                                friendship(me, iAsked, FriendshipStatus.PENDING),
+                                friendship(me, blockedByMe, FriendshipStatus.BLOCKED)));
+        when(friendshipRepository.countMutualFriends(any(), anyCollection())).thenReturn(0L);
+
+        List<UserSearchResultResponse> results = userService.searchUsers(me, "a", 20);
+
+        assertEquals(RelationStatus.FRIEND, results.get(0).relation());
+        assertEquals(RelationStatus.INCOMING, results.get(1).relation());
+        assertEquals(RelationStatus.OUTGOING, results.get(2).relation());
+        assertEquals(RelationStatus.BLOCKED, results.get(3).relation());
+    }
+
+    /** Someone who blocked the caller must not surface in their search results. */
+    @Test
+    void searchUsers_HidesUsersWhoBlockedTheCaller() {
+        User me = user("me", "Me");
+        User blocker = user("blocker", "Blocker");
+
+        when(userRepository.searchByUsernameOrName(any(), eq(me.getId()), any(Pageable.class)))
+                .thenReturn(List.of(blocker));
+        when(friendshipRepository.findAllByUser(me))
+                .thenReturn(List.of(friendship(blocker, me, FriendshipStatus.BLOCKED)));
+
+        assertTrue(userService.searchUsers(me, "block", 20).isEmpty());
+    }
+
+    /** A rejected request leaves no trace: the user can be added again. */
+    @Test
+    void searchUsers_TreatsARejectedRequestAsNoRelation() {
+        User me = user("me", "Me");
+        User rejected = user("rejected", "Rejected");
+
+        when(userRepository.searchByUsernameOrName(any(), eq(me.getId()), any(Pageable.class)))
+                .thenReturn(List.of(rejected));
+        when(friendshipRepository.findAllByUser(me))
+                .thenReturn(List.of(friendship(me, rejected, FriendshipStatus.REJECTED)));
+
+        List<UserSearchResultResponse> results = userService.searchUsers(me, "rej", 20);
+
+        assertEquals(RelationStatus.NONE, results.get(0).relation());
+    }
+
+    @Test
+    void searchUsers_CountsMutualFriendsOnlyWhenTheCallerHasFriends() {
+        User me = user("me", "Me");
+        User friend = user("friend", "Friend");
+        User candidate = user("candidate", "Candidate");
+
+        when(userRepository.searchByUsernameOrName(any(), eq(me.getId()), any(Pageable.class)))
+                .thenReturn(List.of(candidate));
+        when(friendshipRepository.findAllByUser(me))
+                .thenReturn(List.of(friendship(me, friend, FriendshipStatus.ACCEPTED)));
+        when(friendshipRepository.countMutualFriends(eq(candidate.getId()), anyCollection()))
+                .thenReturn(3L);
+
+        List<UserSearchResultResponse> results = userService.searchUsers(me, "cand", 20);
+
+        assertEquals(3L, results.get(0).mutualFriends());
+    }
+
+    @Test
+    void searchUsers_SkipsTheMutualQueryWhenThereAreNoMatches() {
+        User me = user("me", "Me");
+
+        when(userRepository.searchByUsernameOrName(any(), eq(me.getId()), any(Pageable.class)))
+                .thenReturn(List.of());
+
+        assertTrue(userService.searchUsers(me, "nobody", 20).isEmpty());
+        verify(friendshipRepository, never()).findAllByUser(me);
     }
 }

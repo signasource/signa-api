@@ -64,10 +64,17 @@ stateDiagram-v2
     Pendiente --> Aceptada : aceptar
     Pendiente --> Rechazada : rechazar
     Pendiente --> Bloqueada : bloquear
+    Pendiente --> [*] : cancelar (quien la envió)
+    Aceptada --> [*] : dejar de ser amigos
     Aceptada --> Bloqueada : bloquear
+    Rechazada --> Pendiente : se vuelve a enviar
     Rechazada --> [*]
-    Bloqueada --> [*]
+    Bloqueada --> [*] : desbloquear
 ```
+
+Cancelar, dejar de ser amigos y desbloquear **borran** la relación, así que las dos personas
+vuelven a partir de cero. Una solicitud rechazada, en cambio, se conserva y se reutiliza si alguien
+vuelve a enviarla.
 
 ## Reporte de una seña
 

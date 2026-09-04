@@ -57,11 +57,11 @@ la frontera HTTP; se mapean a/desde DTOs mediante factories estáticas (`Dto.fro
 | Módulo | Responsabilidad |
 |---|---|
 | `auth` | Registro (auto-login + verificación de email por flag `verified`), login, JWT, refresh, reset de password, Google OAuth2 |
-| `users` | Perfil, settings, amistades (`Friendship`: request/accept/reject/block), username, daily goal, color de header |
+| `users` | Perfil propio y **perfil público de otra persona** (`PublicProfileService`: compone stats, XP semanal, logros y cursos; respeta `AccountVisibility`), settings, búsqueda de usuarios (`GET /users/search`, resuelve relación + amigos en común), amistades (`Friendship`: request/accept/reject/cancel/remove/block/unblock), feed de actividad de amigos y sus "me gusta" (`FriendEventLike`), username, daily goal, color de header |
 | `learning` | Cursos, versiones, temas, lecciones, bloques, señas y reportes de señas; seguimiento de progreso (inscripciones, progreso de tema/lección, intentos de bloque); animación de seña vía presigned URL de R2 (`GET /signs/{meaning}/animation`; `meaning` es único) y su variante batch (`POST /signs/animations`, usada por el lesson player para precargar todas las animaciones de una lección en un solo request) |
 | `content` | Pipeline de importación de contenido YAML (load → validate → persist), idempotente; además **upserta el catálogo de señas** a partir de los bloques: crea una `Sign` por cada _meaning_ que un bloque renderiza como animación, con `animationUrl = lsa/{meaning}.glb` y `handedness = ONE_HANDED` (`SignCatalogExtractor` + `SignCatalogImporter`) |
 | `gamification` | Stats de usuario, logros, desafíos, tienda, compras, regalos; XP diario/semanal, señas aprendidas y mecánica de vidas/racha |
-| `notification` | Tokens de dispositivo, plantillas, historial y envío push vía Firebase (FCM) |
+| `notification` | Tokens de dispositivo, plantillas, historial y envío push vía Firebase (FCM). El historial se expone como bandeja de entrada (`NotificationController`: listar, no leídas, contador, marcar leída/todas); **el lado de escritura es interno**: las notificaciones las producen los servicios que las disparan |
 | `config` | Seguridad, rate limiting, Jackson, Google, MVC |
 | `exceptions` | Excepciones de dominio + `@RestControllerAdvice` global |
 | `common`, `validation` | Utilidades transversales (converters JPA, validación de password) |

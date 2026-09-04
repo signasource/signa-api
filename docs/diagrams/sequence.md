@@ -141,6 +141,97 @@ sequenceDiagram
     end
 ```
 
+## Búsqueda de personas para agregar
+
+La búsqueda resuelve cada resultado **contra quien busca**: devuelve ya la relación que los une y
+cuántas amistades tienen en común, para que el cliente pueda dibujar la acción correcta (agregar,
+aceptar, cancelar, desbloquear) sin una segunda consulta. A quien haya bloqueado al que busca no se
+lo muestra.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Cli as Cliente
+    participant API as API
+    participant DB as Base de datos
+
+    Cli->>API: Buscar personas por nombre o usuario
+    API->>DB: Buscar coincidencias (excluye al propio usuario y las cuentas deshabilitadas)
+    DB-->>API: Personas encontradas
+    alt sin coincidencias
+        API-->>Cli: Lista vacía
+    else con coincidencias
+        API->>DB: Obtener todas las relaciones del usuario
+        DB-->>API: Relaciones
+        API->>DB: Contar amistades en común por cada persona
+        DB-->>API: Cantidades
+        API-->>Cli: Resultados con relación y amistades en común
+    end
+```
+
+## Feed social y "me gusta"
+
+Los eventos del feed no se almacenan: se derivan de los logros y las señas aprendidas de los amigos,
+y se identifican por el tipo de evento más la fila que lo originó. Un "me gusta" se guarda contra ese
+par y avisa al dueño del evento; repetirlo no hace nada, así que no se notifica dos veces.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Cli as Cliente
+    participant API as API
+    participant DB as Base de datos
+    participant Notif as Notificaciones
+
+    Cli->>API: Pedir la actividad de mis amigos
+    API->>DB: Obtener amistades aceptadas
+    API->>DB: Obtener logros y señas aprendidas recientes de cada amigo
+    API->>DB: Obtener los "me gusta" que ya dio el usuario
+    API-->>Cli: Eventos ordenados por fecha, marcando los que ya le gustaron
+
+    Cli->>API: Dar "me gusta" a un evento
+    alt ya le había gustado
+        API-->>Cli: Sin cambios
+    else es nuevo
+        API->>DB: Resolver el dueño del evento
+        API->>API: Verificar que sea un amigo y no uno mismo
+        API->>DB: Registrar el "me gusta"
+        API-)Notif: Avisar al dueño del evento
+        Note over API,Notif: Si la notificación falla, el "me gusta" igual queda registrado
+        API-->>Cli: Listo
+    end
+```
+
+## Perfil público de otra persona
+
+Una sola consulta arma toda la pantalla de perfil ajeno. Se excluye a propósito lo que es "billetera"
+del usuario (gemas, vidas, potenciadores): sólo viaja progreso. Una cuenta privada que no es amiga de
+quien mira **no da error**: devuelve identidad y relación, para que igual se le pueda mandar una
+solicitud, y nada de progreso.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Cli as Cliente
+    participant API as API
+    participant DB as Base de datos
+
+    Cli->>API: Pedir el perfil de un usuario
+    API->>DB: Buscar la cuenta (habilitada)
+    alt no existe o está deshabilitada
+        API-->>Cli: No encontrado
+    else existe
+        API->>DB: Resolver la relación con quien mira
+        alt cuenta privada y no son amigos
+            API-->>Cli: Identidad y relación, sin progreso
+        else visible
+            API->>DB: Stats, XP de la semana, logros y progreso de cursos
+            API->>DB: Color de encabezado del perfil
+            API-->>Cli: Perfil completo
+        end
+    end
+```
+
 ## Consulta de logros e inventario
 
 ```mermaid
