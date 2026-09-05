@@ -2,6 +2,7 @@ package com.signasource.signa_api.content.util;
 
 import com.signasource.signa_api.content.dto.config.ContextResponseConfig;
 import com.signasource.signa_api.content.dto.config.IntroduceSignConfig;
+import com.signasource.signa_api.content.dto.config.InvisibleSignsConfig;
 import com.signasource.signa_api.content.dto.config.MatchConfig;
 import com.signasource.signa_api.content.dto.config.SelectMeaningConfig;
 import com.signasource.signa_api.content.dto.config.SelectSignConfig;
@@ -44,6 +45,10 @@ public class SignCatalogExtractor {
             case VISUAL_RECOGNITION ->
                     parser.parse(block.config(), VisualRecognitionConfig.class)
                             .map(config -> many(config.signSequence()))
+                            .orElseGet(List::of);
+            case INVISIBLE_SIGNS ->
+                    parser.parse(block.config(), InvisibleSignsConfig.class)
+                            .map(config -> many(config.signs()))
                             .orElseGet(List::of);
         };
     }
