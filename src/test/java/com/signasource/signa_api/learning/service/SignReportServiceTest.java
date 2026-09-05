@@ -45,26 +45,26 @@ class SignReportServiceTest {
 
         request =
                 new CreateSignReportRequest(
-                        signId, ReportReason.UNCLEAR_ANIMATION, "The hand is backwards.");
+                        "Prueba", ReportReason.UNCLEAR_ANIMATION, "The hand is backwards.");
     }
 
     @Test
     void shouldCreateReportSuccessfully() {
-        when(signRepository.findById(signId)).thenReturn(Optional.of(sign));
+        when(signRepository.findByMeaning("Prueba")).thenReturn(Optional.of(sign));
 
         signReportService.createReport(request, user);
 
-        verify(signRepository).findById(signId);
+        verify(signRepository).findByMeaning("Prueba");
         verify(signReportRepository).save(any(SignReport.class));
     }
 
     @Test
     void shouldThrowExceptionWhenSignNotFound() {
-        when(signRepository.findById(signId)).thenReturn(Optional.empty());
+        when(signRepository.findByMeaning("Prueba")).thenReturn(Optional.empty());
 
         assertThrows(NotFoundException.class, () -> signReportService.createReport(request, user));
 
-        verify(signRepository).findById(signId);
+        verify(signRepository).findByMeaning("Prueba");
         verify(signReportRepository, never()).save(any());
     }
 }

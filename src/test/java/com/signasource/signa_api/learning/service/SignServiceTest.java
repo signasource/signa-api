@@ -66,7 +66,8 @@ class SignServiceTest {
                         .build();
 
         createRequest =
-                new CreateSignRequest("Hola", signLanguageId, Handedness.ONE_HANDED, "url.mp4");
+                new CreateSignRequest(
+                        "Hola", signLanguageId, Handedness.ONE_HANDED, "url.mp4", null);
 
         r2Properties = new R2Properties(null, null, null, "signa-animations", 15);
         signService =
