@@ -1,6 +1,9 @@
 package com.signasource.signa_api.learning.repository;
 
 import com.signasource.signa_api.learning.entity.Sign;
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -13,4 +16,10 @@ public interface SignRepository extends JpaRepository<Sign, UUID> {
 
     Page<Sign> findBySignLanguageIdAndMeaningContainingIgnoreCase(
             UUID signLanguageId, String meaning, Pageable pageable);
+
+    Optional<Sign> findByMeaning(String meaning);
+
+    List<Sign> findByMeaningIn(Collection<String> meanings);
+
+    boolean existsByMeaning(String meaning);
 }

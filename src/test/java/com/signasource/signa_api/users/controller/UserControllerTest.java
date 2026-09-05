@@ -14,10 +14,19 @@ import com.signasource.signa_api.auth.dto.ChangePasswordRequest;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.service.AuthService;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
+import com.signasource.signa_api.gamification.dto.DailyXpResponse;
+import com.signasource.signa_api.gamification.dto.UserStatsResponse;
+import com.signasource.signa_api.gamification.entity.LivesMode;
+import com.signasource.signa_api.gamification.service.UserStatsService;
+import com.signasource.signa_api.users.dto.DailyGoalResponse;
 import com.signasource.signa_api.users.dto.PublicUserProfileResponse;
+import com.signasource.signa_api.users.dto.PublicUserStatsResponse;
+import com.signasource.signa_api.users.dto.RelationStatus;
+import com.signasource.signa_api.users.dto.UpdateDailyGoalRequest;
 import com.signasource.signa_api.users.dto.UpdateUserSettingsRequest;
 import com.signasource.signa_api.users.dto.UpdateUsernameRequest;
 import com.signasource.signa_api.users.dto.UserProfileResponse;
+import com.signasource.signa_api.users.dto.UserSearchResultResponse;
 import com.signasource.signa_api.users.dto.UserSettingsResponse;
 import com.signasource.signa_api.users.dto.UsernameAvailabilityResponse;
 import com.signasource.signa_api.users.entity.AccountVisibility;
@@ -25,9 +34,12 @@ import com.signasource.signa_api.users.entity.FontSize;
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.Theme;
 import com.signasource.signa_api.users.entity.User;
+import com.signasource.signa_api.users.service.PublicProfileService;
 import com.signasource.signa_api.users.service.UserService;
 import com.signasource.signa_api.users.service.UserSettingsService;
+import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -57,7 +69,9 @@ class UserControllerTest {
 
     @Mock private AuthService authService;
     @Mock private UserSettingsService userSettingsService;
+    @Mock private PublicProfileService publicProfileService;
     @Mock private UserService userService;
+    @Mock private UserStatsService userStatsService;
 
     @InjectMocks private UserController userController;
 
@@ -75,6 +89,7 @@ class UserControllerTest {
                         .passwordHash("hashed_password")
                         .role(Role.USER)
                         .enabled(true)
+                        .verified(true)
                         .build();
         userDetails = new CustomUserDetails(user);
     }
@@ -116,7 +131,8 @@ class UserControllerTest {
                         ACCOUNT_VISIBILITY,
                         DAILY_GOAL_MINUTES,
                         true,
-                        DAILY_NOTIFICATION_TIME);
+                        DAILY_NOTIFICATION_TIME,
+                        null);
         UserSettingsResponse expected = buildSettingsResponse();
         when(userSettingsService.updateSettings(user, request)).thenReturn(expected);
 
@@ -124,6 +140,46 @@ class UserControllerTest {
                 userController.updateSettings(userDetails, request);
 
         verify(userSettingsService).updateSettings(user, request);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(expected, response.getBody());
+    }
+
+    @Test
+    void shouldSetDailyGoalAndReturn201() {
+        UpdateDailyGoalRequest request = new UpdateDailyGoalRequest(DAILY_GOAL_MINUTES);
+        DailyGoalResponse expected = new DailyGoalResponse(DAILY_GOAL_MINUTES);
+        when(userSettingsService.setDailyGoal(user, request)).thenReturn(expected);
+
+        ResponseEntity<DailyGoalResponse> response =
+                userController.setDailyGoal(userDetails, request);
+
+        verify(userSettingsService).setDailyGoal(user, request);
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertEquals(expected, response.getBody());
+    }
+
+    @Test
+    void shouldReturnDailyGoal() {
+        DailyGoalResponse expected = new DailyGoalResponse(DAILY_GOAL_MINUTES);
+        when(userSettingsService.getDailyGoal(user)).thenReturn(expected);
+
+        ResponseEntity<DailyGoalResponse> response = userController.getDailyGoal(userDetails);
+
+        verify(userSettingsService).getDailyGoal(user);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(expected, response.getBody());
+    }
+
+    @Test
+    void shouldReturnUpdatedDailyGoal() {
+        UpdateDailyGoalRequest request = new UpdateDailyGoalRequest(DAILY_GOAL_MINUTES);
+        DailyGoalResponse expected = new DailyGoalResponse(DAILY_GOAL_MINUTES);
+        when(userSettingsService.updateDailyGoal(user, request)).thenReturn(expected);
+
+        ResponseEntity<DailyGoalResponse> response =
+                userController.updateDailyGoal(userDetails, request);
+
+        verify(userSettingsService).updateDailyGoal(user, request);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(expected, response.getBody());
     }
@@ -186,7 +242,8 @@ class UserControllerTest {
                 ACCOUNT_VISIBILITY,
                 DAILY_GOAL_MINUTES,
                 true,
-                DAILY_NOTIFICATION_TIME);
+                DAILY_NOTIFICATION_TIME,
+                "#FFFFFF");
     }
 
     @Test
@@ -202,32 +259,31 @@ class UserControllerTest {
         assertEquals(user.getName(), body.name());
         assertEquals(Role.USER, body.role());
         assertEquals(true, body.enabled());
+        assertEquals(true, body.verified());
     }
 
     @Test
     void shouldReturnPublicProfileByUsername_whenAuthenticated() {
-        PublicUserProfileResponse expected =
-                new PublicUserProfileResponse(user.getId(), USERNAME, user.getName());
-        when(userService.getPublicProfileByUsername(USERNAME, user)).thenReturn(expected);
+        PublicUserProfileResponse expected = publicProfile();
+        when(publicProfileService.getByUsername(USERNAME, user)).thenReturn(expected);
 
         ResponseEntity<PublicUserProfileResponse> response =
                 userController.getByUsername(USERNAME, userDetails);
 
-        verify(userService).getPublicProfileByUsername(USERNAME, user);
+        verify(publicProfileService).getByUsername(USERNAME, user);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(expected, response.getBody());
     }
 
     @Test
     void shouldReturnPublicProfileByUsername_whenAnonymous() {
-        PublicUserProfileResponse expected =
-                new PublicUserProfileResponse(user.getId(), USERNAME, user.getName());
-        when(userService.getPublicProfileByUsername(USERNAME, null)).thenReturn(expected);
+        PublicUserProfileResponse expected = publicProfile();
+        when(publicProfileService.getByUsername(USERNAME, null)).thenReturn(expected);
 
         ResponseEntity<PublicUserProfileResponse> response =
                 userController.getByUsername(USERNAME, null);
 
-        verify(userService).getPublicProfileByUsername(USERNAME, null);
+        verify(publicProfileService).getByUsername(USERNAME, null);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(expected, response.getBody());
     }
@@ -240,5 +296,90 @@ class UserControllerTest {
 
         verify(userService).deleteAccount(user);
         assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+    }
+
+    @Test
+    void shouldReturnWeeklyXpBreakdown() {
+        List<DailyXpResponse> expected =
+                List.of(
+                        new DailyXpResponse(LocalDate.of(2026, 8, 10), 100),
+                        new DailyXpResponse(LocalDate.of(2026, 8, 11), 0),
+                        new DailyXpResponse(LocalDate.of(2026, 8, 12), 50));
+        when(userStatsService.getWeeklyXpBreakdown(user)).thenReturn(expected);
+
+        ResponseEntity<List<DailyXpResponse>> response =
+                userController.getWeeklyXpBreakdown(userDetails);
+
+        verify(userStatsService).getWeeklyXpBreakdown(user);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(expected, response.getBody());
+    }
+
+    private PublicUserProfileResponse publicProfile() {
+        return new PublicUserProfileResponse(
+                user.getId(),
+                USERNAME,
+                user.getName(),
+                "#FFFFFF",
+                RelationStatus.NONE,
+                true,
+                PublicUserStatsResponse.EMPTY,
+                List.of(),
+                List.of(),
+                List.of());
+    }
+
+    @Test
+    void searchUsers_ReturnsOkWithResults() {
+        UserSearchResultResponse result =
+                new UserSearchResultResponse(
+                        UUID.randomUUID(), "camisosa", "Camila Sosa", RelationStatus.NONE, 3L);
+        when(userService.searchUsers(user, "cami", 20)).thenReturn(List.of(result));
+
+        ResponseEntity<List<UserSearchResultResponse>> response =
+                userController.searchUsers("cami", 20, userDetails);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(1, response.getBody().size());
+        assertEquals(3L, response.getBody().get(0).mutualFriends());
+    }
+
+    @Test
+    void searchUsers_CapsAndFloorsTheLimit() {
+        when(userService.searchUsers(user, "cami", 50)).thenReturn(List.of());
+        when(userService.searchUsers(user, "cami", 1)).thenReturn(List.of());
+
+        userController.searchUsers("cami", 500, userDetails);
+        userController.searchUsers("cami", 0, userDetails);
+
+        verify(userService).searchUsers(user, "cami", 50);
+        verify(userService).searchUsers(user, "cami", 1);
+    }
+
+    @Test
+    void shouldReturnMeStats() {
+        UserStatsResponse expected =
+                new UserStatsResponse(
+                        1500,
+                        200,
+                        7,
+                        14,
+                        50,
+                        1,
+                        30,
+                        3,
+                        LivesMode.LIMITED,
+                        null,
+                        false,
+                        1.0,
+                        null,
+                        null);
+        when(userStatsService.getStats(user)).thenReturn(expected);
+
+        ResponseEntity<UserStatsResponse> response = userController.getMeStats(userDetails);
+
+        verify(userStatsService).getStats(user);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(expected, response.getBody());
     }
 }

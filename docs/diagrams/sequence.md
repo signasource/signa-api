@@ -18,10 +18,12 @@ sequenceDiagram
     alt ya existe
         API-->>C: Conflicto (409)
     else disponible
-        API->>DB: Crear cuenta (sin verificar, contraseña cifrada)
+        API->>DB: Crear cuenta (activa, correo sin verificar, contraseña cifrada)
         API->>DB: Generar token de verificación
         API->>Mail: Enviar correo de verificación
-        API-->>C: Registro exitoso
+        API->>API: Emitir token de acceso
+        API->>DB: Generar token de renovación
+        API-->>C: Registro exitoso + tokens (sesión iniciada; verificar correo es opcional)
     end
 ```
 
@@ -36,7 +38,7 @@ sequenceDiagram
 
     C->>API: Credenciales
     API->>DB: Verificar credenciales
-    alt inválidas o cuenta no verificada
+    alt inválidas o cuenta dada de baja
         API-->>C: No autorizado (401)
     else válidas
         API->>API: Emitir token de acceso
@@ -139,6 +141,412 @@ sequenceDiagram
     end
 ```
 
+## Búsqueda de personas para agregar
+
+La búsqueda resuelve cada resultado **contra quien busca**: devuelve ya la relación que los une y
+cuántas amistades tienen en común, para que el cliente pueda dibujar la acción correcta (agregar,
+aceptar, cancelar, desbloquear) sin una segunda consulta. A quien haya bloqueado al que busca no se
+lo muestra.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Cli as Cliente
+    participant API as API
+    participant DB as Base de datos
+
+    Cli->>API: Buscar personas por nombre o usuario
+    API->>DB: Buscar coincidencias (excluye al propio usuario y las cuentas deshabilitadas)
+    DB-->>API: Personas encontradas
+    alt sin coincidencias
+        API-->>Cli: Lista vacía
+    else con coincidencias
+        API->>DB: Obtener todas las relaciones del usuario
+        DB-->>API: Relaciones
+        API->>DB: Contar amistades en común por cada persona
+        DB-->>API: Cantidades
+        API-->>Cli: Resultados con relación y amistades en común
+    end
+```
+
+## Feed social y "me gusta"
+
+Los eventos del feed no se almacenan: se derivan de los logros y las señas aprendidas de los amigos,
+y se identifican por el tipo de evento más la fila que lo originó. Un "me gusta" se guarda contra ese
+par y avisa al dueño del evento; repetirlo no hace nada, así que no se notifica dos veces.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Cli as Cliente
+    participant API as API
+    participant DB as Base de datos
+    participant Notif as Notificaciones
+
+    Cli->>API: Pedir la actividad de mis amigos
+    API->>DB: Obtener amistades aceptadas
+    API->>DB: Obtener logros y señas aprendidas recientes de cada amigo
+    API->>DB: Obtener los "me gusta" que ya dio el usuario
+    API-->>Cli: Eventos ordenados por fecha, marcando los que ya le gustaron
+
+    Cli->>API: Dar "me gusta" a un evento
+    alt ya le había gustado
+        API-->>Cli: Sin cambios
+    else es nuevo
+        API->>DB: Resolver el dueño del evento
+        API->>API: Verificar que sea un amigo y no uno mismo
+        API->>DB: Registrar el "me gusta"
+        API-)Notif: Avisar al dueño del evento
+        Note over API,Notif: Si la notificación falla, el "me gusta" igual queda registrado
+        API-->>Cli: Listo
+    end
+```
+
+## Perfil público de otra persona
+
+Una sola consulta arma toda la pantalla de perfil ajeno. Se excluye a propósito lo que es "billetera"
+del usuario (gemas, vidas, potenciadores): sólo viaja progreso. Una cuenta privada que no es amiga de
+quien mira **no da error**: devuelve identidad y relación, para que igual se le pueda mandar una
+solicitud, y nada de progreso.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Cli as Cliente
+    participant API as API
+    participant DB as Base de datos
+
+    Cli->>API: Pedir el perfil de un usuario
+    API->>DB: Buscar la cuenta (habilitada)
+    alt no existe o está deshabilitada
+        API-->>Cli: No encontrado
+    else existe
+        API->>DB: Resolver la relación con quien mira
+        alt cuenta privada y no son amigos
+            API-->>Cli: Identidad y relación, sin progreso
+        else visible
+            API->>DB: Stats, XP de la semana, logros y progreso de cursos
+            API->>DB: Color de encabezado del perfil
+            API-->>Cli: Perfil completo
+        end
+    end
+```
+
+## Consulta de logros e inventario
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant API as API
+    participant DB as Base de datos
+
+    C->>API: Consultar logros (opcional: filtrar por desbloqueados / activos)
+    alt cuenta dada de baja
+        API-->>C: No encontrado (404)
+    else cuenta activa
+        API->>DB: Traer catálogo de logros + los que el usuario desbloqueó
+        API->>API: Marcar cada logro como desbloqueado o no y aplicar filtros
+        API-->>C: Lista de logros con su estado
+    end
+
+    C->>API: Consultar inventario
+    alt cuenta dada de baja
+        API-->>C: No encontrado (404)
+    else cuenta activa
+        API->>DB: Traer estado del jugador
+        API-->>C: Inventario (gemas, vidas, multiplicador de XP)
+    end
+```
+
+## Consulta de progreso de cursos
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant API as API
+    participant DB as Base de datos
+
+    C->>API: Consultar mi progreso
+    API->>DB: Traer inscripciones del usuario (curso y estado)
+    alt sin inscripciones
+        API-->>C: Lista vacía
+    else con inscripciones
+        API->>DB: Total de lecciones por tema
+        API->>DB: Lecciones completadas por tema
+        API->>DB: Tema en progreso de cada curso
+        API->>API: Calcular porcentajes del curso y del tema en progreso
+        API-->>C: Progreso por curso (lecciones, porcentaje y tema en progreso)
+    end
+```
+
+## Recorrido de un curso (roadmap)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant API as API
+    participant DB as Base de datos
+
+    C->>API: Pedir el recorrido de un curso
+    API->>DB: Buscar la versión publicada del curso
+    alt sin versión publicada
+        API-->>C: No encontrado (404)
+    else publicada
+        API->>DB: Temas con sus lecciones ordenadas
+        API->>DB: Cantidad de bloques y XP por lección
+        API->>DB: Estado de progreso del usuario por lección
+        API->>API: Resolver estado por lección (completada / en progreso / disponible / bloqueada)
+        API-->>C: Temas con lecciones y su estado
+    end
+```
+
+## Inscripción a un curso
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant API as API
+    participant DB as Base de datos
+
+    C->>API: Inscribirme a una versión de curso
+    API->>DB: ¿Ya inscripto en esta versión?
+    alt ya inscripto
+        API-->>C: Conflicto (409)
+    else no inscripto
+        API->>DB: Buscar la versión del curso
+        alt no existe
+            API-->>C: No encontrado (404)
+        else existe
+            API->>DB: Crear inscripción (estado inscripto)
+            API-->>C: Inscripción creada (201)
+        end
+    end
+```
+
+## Interacción con un bloque de lección
+
+Registra el intento del usuario y propaga la finalización hacia arriba en la jerarquía
+(lección → tema → curso). El XP y demás recompensas de gamificación se disparan por eventos, fuera
+del camino principal. El progreso de lección y tema se crea de forma diferida en la primera
+interacción.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant API as API
+    participant DB as Base de datos
+    participant Gam as Gamificación (eventos)
+
+    C->>API: Interacción con un bloque (correcto/incorrecto, o vista de bloque informativo)
+    API->>DB: Buscar el bloque
+    alt no existe
+        API-->>C: No encontrado (404)
+    else existe
+        alt correctitud incompatible con el tipo de bloque
+            API-->>C: Entrada inválida (400)
+        else válida
+            API->>DB: Registrar el intento
+            API->>DB: Marcar lección y tema en progreso (si estaban bloqueados)
+            alt primer hito (primer acierto / primera vista)
+                API-)Gam: XP ganado
+                API-)Gam: Señas aprendidas (bloques de ejercicio)
+                API->>DB: ¿Todos los bloques de la lección resueltos?
+                opt lección completa
+                    API->>DB: Completar lección (con XP acumulado)
+                    opt todos los temas... completos
+                        API->>DB: Completar tema y, si corresponde, la inscripción
+                    end
+                end
+            end
+            API-->>C: Intento registrado (201)
+        end
+    end
+```
+
+## Tienda: compra para uno mismo o como regalo
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant API as API
+    participant DB as Base de datos
+
+    C->>API: Comprar ítem de la tienda (para sí mismo o para un amigo)
+    API->>DB: Traer el ítem del catálogo (debe estar activo)
+    alt ítem inexistente o inactivo
+        API-->>C: Solicitud inválida (400) o no encontrado (404)
+    else ítem disponible
+        API->>DB: Verificar gemas suficientes del comprador
+        alt gemas insuficientes
+            API-->>C: Solicitud inválida (400)
+        else alcanza
+            API->>DB: Debitar gemas y registrar la compra
+            alt compra para uno mismo
+                alt gemas, vida, escudo de racha o cofre sorpresa
+                    API->>API: Aplicar el efecto de inmediato
+                    Note over API: Si es un cofre sorpresa, se resuelve<br/>a una recompensa concreta al azar antes de aplicarla
+                    API->>DB: Marcar la compra como activada y actualizar el inventario
+                    API-->>C: Compra confirmada + efecto aplicado + inventario actualizado
+                else multiplicador de XP o vidas ilimitadas (potenciador)
+                    API->>DB: Guardar la compra en inventario (sin aplicar el efecto)
+                    API-->>C: Compra confirmada, en inventario + inventario sin cambios
+                end
+            else regalo a un amigo
+                API->>DB: Verificar amistad aceptada entre comprador y destinatario
+                alt no son amigos
+                    API-->>C: Solicitud inválida (400)
+                else son amigos
+                    API->>DB: Crear el regalo (pendiente, con vencimiento)
+                    API-->>C: Regalo enviado
+                end
+            end
+        end
+    end
+```
+
+## Obtención de la animación de una seña
+
+La API firma una URL de descarga temporal contra el almacenamiento de objetos usando sus
+credenciales privadas; el cliente nunca las recibe, sólo la URL, que expira a los pocos minutos. El
+archivo se descarga directamente desde el almacenamiento, sin pasar por la API.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant API as API
+    participant DB as Base de datos
+    participant OS as Almacenamiento de objetos
+
+    C->>API: Solicitar la animación de una seña
+    API->>DB: Buscar la seña
+    alt no existe
+        API-->>C: No encontrado (404)
+    else existe
+        alt sin animación asociada
+            API-->>C: No encontrado (404)
+        else con animación
+            API->>OS: Firmar una URL temporal de descarga
+            API-->>C: URL temporal (expira en minutos)
+            C->>OS: Descargar el archivo de animación
+            OS-->>C: Archivo de animación
+        end
+    end
+```
+
+## Tienda: reclamar un regalo
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente (destinatario)
+    participant API as API
+    participant DB as Base de datos
+
+    C->>API: Reclamar regalo recibido
+    API->>DB: Buscar el regalo (debe pertenecer al destinatario)
+    alt no encontrado
+        API-->>C: No encontrado (404)
+    else ya reclamado
+        API-->>C: Conflicto (409)
+    else vencido
+        API->>DB: Marcar como expirado
+        API-->>C: Solicitud inválida (400)
+    else pendiente y vigente
+        API->>API: Aplicar el efecto del ítem regalado (resolviendo el cofre sorpresa si corresponde)
+        API->>DB: Actualizar el inventario del destinatario
+        API->>DB: Marcar el regalo como reclamado
+        API-->>C: Efecto aplicado + inventario actualizado
+    end
+```
+
+## Reclamo y activación de un potenciador
+
+Una compra de la tienda pasa por hasta tres estados: **pendiente** (regalo sin reclamar),
+**en inventario** (el ítem ya es del usuario) y **activada** (ya se consumió). Una compra para uno
+mismo de gemas, vida, escudo de racha o cofre sorpresa aplica el efecto al instante y nace ya
+**activada**; si es un potenciador temporal (vidas ilimitadas o multiplicador de XP) nace
+directamente **en inventario**, sin pasar por pendiente, a la espera de que el usuario la active. El
+regalo a un amigo es el único camino que nace **pendiente**: el destinatario lo reclama primero (pasa
+a **en inventario**) y luego, si es un potenciador, lo activa. Ambos pasos se piden por `item_type`
+(no por id de compra), tomando siempre la compra más antigua de ese tipo en el estado esperado
+(FIFO).
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant API as API
+    participant DB as Base de datos
+
+    C->>API: Reclamar compra (item_type)
+    alt cuenta dada de baja o sin compra pendiente de ese tipo
+        API-->>C: No encontrado (404)
+    else compra pendiente encontrada
+        API->>DB: Marcar la compra más antigua como "en inventario"
+        API-->>C: Compra en inventario + estado del jugador
+    end
+
+    C->>API: Activar potenciador (item_type)
+    alt cuenta dada de baja o sin compra en inventario de ese tipo
+        API-->>C: No encontrado (404)
+    else tipo de potenciador no soportado (p. ej. escudo de racha)
+        API-->>C: Solicitud inválida (400)
+    else compra en inventario de vidas ilimitadas o multiplicador de XP
+        API->>DB: Traer inventario del jugador (USER_STATS)
+        API->>API: Fijar el vencimiento del efecto (ahora + duración del ítem)
+        API->>DB: Guardar inventario actualizado
+        API->>DB: Marcar la compra como activada
+        API-->>C: Estado del potenciador + inventario actualizado
+    end
+```
+
+## Reclamo y activación de un potenciador
+
+Toda compra nace **pendiente** (regalo sin reclamar). El cliente primero la reclama (queda **en
+inventario**, propiedad del usuario) y luego la activa; hoy ambos pasos se piden por
+`item_type` (no por id de compra), tomando siempre la compra más antigua pendiente/en inventario de
+ese tipo (FIFO). Cuando la recompensa ya está pagada (p. ej. un cofre sorpresa) el cliente encadena
+las dos llamadas una detrás de la otra. Sólo se activan manualmente los potenciadores temporales
+(vidas ilimitadas y multiplicador de XP): el escudo de racha y la regeneración de vidas se aplican en
+otros flujos (cuando la racha está por romperse, cuando se gasta una vida), no a través de este
+endpoint — pero sí pueden reclamarse.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant API as API
+    participant DB as Base de datos
+
+    C->>API: Reclamar compra (item_type)
+    alt cuenta dada de baja o sin compra pendiente de ese tipo
+        API-->>C: No encontrado (404)
+    else compra pendiente encontrada
+        API->>DB: Marcar la compra más antigua como "en inventario"
+        API-->>C: Compra en inventario + estado del jugador
+    end
+
+    C->>API: Activar potenciador (item_type)
+    alt cuenta dada de baja o sin compra en inventario de ese tipo
+        API-->>C: No encontrado (404)
+    else tipo de potenciador no soportado (p. ej. escudo de racha)
+        API-->>C: Solicitud inválida (400)
+    else compra en inventario de vidas ilimitadas o multiplicador de XP
+        API->>DB: Traer inventario del jugador (USER_STATS)
+        API->>API: Fijar el vencimiento del efecto (ahora + duración del ítem)
+        API->>DB: Guardar inventario actualizado
+        API->>DB: Marcar la compra como activada
+        API-->>C: Estado del potenciador + inventario actualizado
+    end
+```
+
 ## Importación de contenido
 
 ```mermaid
@@ -158,6 +566,14 @@ sequenceDiagram
                 P-->>P: Sin cambios
             else nuevo o modificado
                 P->>DB: Crear o actualizar
+            end
+        end
+        Note over P,DB: Catálogo de señas (independiente del resultado por curso)
+        loop por cada seña que un bloque renderiza como animación
+            alt ya existe en el catálogo
+                P-->>P: Se conserva sin cambios
+            else nueva
+                P->>DB: Crear la seña (apunta a su archivo de animación)
             end
         end
     end

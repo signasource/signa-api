@@ -18,6 +18,8 @@ import com.signasource.signa_api.exceptions.InvalidCredentialsException;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.InvalidTokenException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
+import com.signasource.signa_api.gamification.entity.UserStats;
+import com.signasource.signa_api.gamification.repository.UserStatsRepository;
 import com.signasource.signa_api.users.entity.AuthProvider;
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
@@ -47,6 +49,7 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final UserSettingsRepository userSettingsRepository;
+    private final UserStatsRepository userStatsRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
@@ -64,7 +67,7 @@ public class AuthService {
     private Long emailVerificationTokenExpiration;
 
     @Transactional
-    public void register(RegisterRequest request) {
+    public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.email())) {
             throw new ResourceAlreadyInUseException("Email already in use");
         }
@@ -78,15 +81,18 @@ public class AuthService {
                         .email(request.email())
                         .username(request.username())
                         .name(request.name())
+                        .lastName(request.lastName())
                         .passwordHash(passwordEncoder.encode(request.password()))
                         .role(Role.USER)
-                        .enabled(false)
+                        .enabled(true)
+                        .verified(false)
                         .providers(new HashSet<>(Set.of(AuthProvider.LOCAL)))
                         .build();
 
         userRepository.save(user);
 
         userSettingsRepository.save(UserSettings.builder().user(user).build());
+        userStatsRepository.save(UserStats.builder().user(user).updatedAt(Instant.now()).build());
 
         Token token =
                 createToken(
@@ -95,6 +101,8 @@ public class AuthService {
                         Duration.ofMillis(emailVerificationTokenExpiration));
 
         emailService.sendVerificationEmail(user.getEmail(), token.getToken());
+
+        return generateTokens(user);
     }
 
     public AuthResponse login(LoginRequest request) {
@@ -105,10 +113,6 @@ public class AuthService {
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         User user = userDetails.getUser();
-
-        if (!user.isEnabled()) {
-            throw new InvalidCredentialsException("Account not verified");
-        }
 
         return generateTokens(user);
     }
@@ -127,7 +131,7 @@ public class AuthService {
         tokenRepository.delete(verificationToken);
 
         User user = verificationToken.getUser();
-        user.setEnabled(true);
+        user.setVerified(true);
 
         userRepository.save(user);
     }
@@ -194,7 +198,7 @@ public class AuthService {
             return;
         }
 
-        if (user.isEnabled()) {
+        if (user.isVerified()) {
             return;
         }
 
@@ -231,6 +235,8 @@ public class AuthService {
             GoogleIdToken.Payload payload = idToken.getPayload();
             String email = payload.getEmail();
             String name = (String) payload.get("name");
+            String familyName = (String) payload.get("family_name");
+            String lastName = familyName != null ? familyName : "";
 
             Optional<User> userOptional = userRepository.findByEmail(email);
             User user;
@@ -239,8 +245,9 @@ public class AuthService {
                 user = userOptional.get();
                 boolean needsUpdate = false;
 
-                if (!user.isEnabled()) {
-                    user.setEnabled(true);
+                // Google ya verifico el correo del usuario.
+                if (!user.isVerified()) {
+                    user.setVerified(true);
                     needsUpdate = true;
                 }
 
@@ -260,16 +267,20 @@ public class AuthService {
                         User.builder()
                                 .email(email)
                                 .name(name)
+                                .lastName(lastName)
                                 .username(generatedUsername)
                                 .passwordHash(null)
                                 .role(Role.USER)
                                 .enabled(true)
+                                .verified(true)
                                 .providers(new HashSet<>(Set.of(AuthProvider.GOOGLE)))
                                 .build();
 
                 user = userRepository.save(user);
 
                 userSettingsRepository.save(UserSettings.builder().user(user).build());
+                userStatsRepository.save(
+                        UserStats.builder().user(user).updatedAt(Instant.now()).build());
             }
 
             return generateTokens(user);

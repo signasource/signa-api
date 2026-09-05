@@ -6,14 +6,16 @@ Ciclo de vida de las entidades que tienen estados relevantes.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> NoVerificada : registro
-    NoVerificada --> Verificada : verifica el correo
-    NoVerificada --> NoVerificada : reenvío de verificación
-    NoVerificada --> Verificada : inicio de sesión externo (auto-habilita)
+    [*] --> SinVerificar : registro (cuenta activa, correo sin verificar)
+    [*] --> Verificada : inicio de sesión externo (Google verifica el correo)
+    SinVerificar --> Verificada : verifica el correo / reenvío + verificación
+    SinVerificar --> [*] : baja de la cuenta
     Verificada --> [*] : baja de la cuenta
-    note right of NoVerificada
-        No puede iniciar sesión con credenciales
-        hasta verificar el correo.
+    note right of SinVerificar
+        La cuenta nace activa (enabled=true) y puede
+        iniciar sesión de inmediato; 'verified=false'
+        solo indica que el correo no se verificó aún.
+        La baja pone enabled=false y bloquea el login.
     end note
 ```
 
@@ -31,6 +33,29 @@ stateDiagram-v2
     end note
 ```
 
+## Inscripción a un curso
+
+```mermaid
+stateDiagram-v2
+    [*] --> Inscripto : inscribirse
+    Inscripto --> Completado : completar el curso
+    Inscripto --> Abandonado : abandonar
+    Completado --> [*]
+    Abandonado --> [*]
+```
+
+## Progreso de tema y de lección
+
+Mismo ciclo para el avance de un tema y de una lección.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Bloqueado : inicial
+    Bloqueado --> EnProgreso : se empieza
+    EnProgreso --> Completado : se termina
+    Completado --> [*]
+```
+
 ## Solicitud de amistad
 
 ```mermaid
@@ -39,10 +64,17 @@ stateDiagram-v2
     Pendiente --> Aceptada : aceptar
     Pendiente --> Rechazada : rechazar
     Pendiente --> Bloqueada : bloquear
+    Pendiente --> [*] : cancelar (quien la envió)
+    Aceptada --> [*] : dejar de ser amigos
     Aceptada --> Bloqueada : bloquear
+    Rechazada --> Pendiente : se vuelve a enviar
     Rechazada --> [*]
-    Bloqueada --> [*]
+    Bloqueada --> [*] : desbloquear
 ```
+
+Cancelar, dejar de ser amigos y desbloquear **borran** la relación, así que las dos personas
+vuelven a partir de cero. Una solicitud rechazada, en cambio, se conserva y se reutiliza si alguien
+vuelve a enviarla.
 
 ## Reporte de una seña
 
@@ -65,6 +97,31 @@ stateDiagram-v2
     Pendiente --> Expirado : vence sin reclamar
     Reclamado --> [*]
     Expirado --> [*]
+```
+
+## Ítem comprado o regalado
+
+```mermaid
+stateDiagram-v2
+    [*] --> Pendiente : se regala
+    [*] --> EnInventario : se compra un potenciador para uno mismo
+    [*] --> Activado : se compra para uno mismo (gemas, vida, escudo, cofre)
+    Pendiente --> EnInventario : el destinatario reclama el regalo
+    EnInventario --> Activado : se activa el potenciador
+    Activado --> [*]
+    note right of Pendiente
+        Es un regalo aún sin reclamar por el destinatario.
+        Sólo el flujo de regalos pasa por este estado.
+    end note
+    note right of EnInventario
+        El ítem ya es del usuario y está en su inventario.
+        Los potenciadores temporales (vidas ilimitadas y
+        multiplicador de XP) llegan acá para activarse luego;
+        el resto de los ítems se activa de inmediato al comprarse.
+    end note
+    note right of Activado
+        Ya se consumió: el efecto fue aplicado.
+    end note
 ```
 
 ## Resultado de la incorporación de contenido

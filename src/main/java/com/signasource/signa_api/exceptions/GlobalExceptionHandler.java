@@ -1,11 +1,13 @@
 package com.signasource.signa_api.exceptions;
 
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 @Slf4j
@@ -46,6 +48,29 @@ public class GlobalExceptionHandler {
                         .orElse("Validation error");
 
         return ResponseEntity.status(400).body(ErrorResponse.of(message, 400));
+    }
+
+    /** Query param and path variable validation; without this it would answer 500, not 400. */
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ErrorResponse> handleConstraintViolation(
+            ConstraintViolationException ex) {
+        String message =
+                ex.getConstraintViolations().stream()
+                        .findFirst()
+                        .map(
+                                violation -> {
+                                    String path = violation.getPropertyPath().toString();
+                                    String field = path.substring(path.lastIndexOf('.') + 1);
+                                    return field + ": " + violation.getMessage();
+                                })
+                        .orElse("Validation error");
+
+        return ResponseEntity.status(400).body(ErrorResponse.of(message, 400));
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResourceFound(NoResourceFoundException ex) {
+        return ResponseEntity.status(404).body(ErrorResponse.of("Not found", 404));
     }
 
     @ExceptionHandler(AuthenticationException.class)

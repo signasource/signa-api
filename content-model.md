@@ -11,7 +11,8 @@ Cada archivo representa un único tema. Un tema contiene una o más lecciones, y
 ```yaml
 topic:
   code: string
-  name: string
+  title: string
+  subtitle: string
   description: string
 
 lessons:
@@ -33,7 +34,8 @@ lessons:
 | Campo | Obligatorio | Descripción |
 |--------|-------------|-------------|
 | `code` | Sí | Identificador único del tema. |
-| `name` | Sí | Nombre visible del tema. |
+| `title` | Sí | Título del tema (p. ej. `Unidad 1`). |
+| `subtitle` | No | Subtítulo del tema (p. ej. `Conceptos básicos`). |
 | `description` | No | Breve descripción del tema. |
 
 ---
@@ -79,14 +81,31 @@ Muestra información al usuario. No corresponde a un ejercicio.
 type: INFO
 
 config:
+  title: string
   text: string
+  myths:
+    - title: string
+      myth: string
+      reality: string
 ```
 
 ### Configuración
 
+Todos los campos son opcionales. Al menos uno debería estar presente para que el bloque tenga contenido útil.
+
 | Campo | Obligatorio | Descripción |
 |--------|-------------|-------------|
-| `text` | Sí | Texto que se mostrará al usuario. |
+| `title` | No | Título de la pantalla de información. |
+| `text` | No | Texto principal que se mostrará al usuario. |
+| `myths` | No | Lista de mitos con su refutación (ver tabla de `myths`). |
+
+#### `myths[]`
+
+| Campo | Descripción |
+|--------|-------------|
+| `title` | Título del mito. |
+| `myth` | Enunciado del mito. |
+| `reality` | Realidad que lo refuta. |
 
 ---
 
