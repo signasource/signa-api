@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.exceptions.NotFoundException;
@@ -150,9 +152,23 @@ class InventoryServiceTest {
     }
 
     @Test
-    void getInventory_whenStatsNotFound_throwsNotFound() {
+    void getInventory_whenStatsNotFound_createsAndReturnsDefaultStats() {
+        UserStats created =
+                UserStats.builder()
+                        .id(UUID.randomUUID())
+                        .user(user)
+                        .gems(0)
+                        .streakShields(0)
+                        .livesMode(LivesMode.LIMITED)
+                        .updatedAt(Instant.now())
+                        .build();
         when(userStatsRepository.findByUser(user)).thenReturn(Optional.empty());
+        when(userStatsRepository.save(any(UserStats.class))).thenReturn(created);
 
-        assertThrows(NotFoundException.class, () -> inventoryService.getInventory(user));
+        UserInventoryResponse response = inventoryService.getInventory(user);
+
+        verify(userStatsRepository).save(any(UserStats.class));
+        assertEquals(0, response.gems());
+        assertEquals(LivesMode.LIMITED, response.livesMode());
     }
 }

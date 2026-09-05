@@ -292,7 +292,7 @@ class PurchaseServiceTest {
     }
 
     @Test
-    void claim_whenUserStatsNotFound_throwsNotFound() {
+    void claim_whenUserStatsNotFound_createsDefaultStatsAndReturnsStored() {
         ShopItem item =
                 ShopItem.builder()
                         .id(UUID.randomUUID())
@@ -308,10 +308,13 @@ class PurchaseServiceTest {
                         user, ShopItemType.XP_MULTIPLIER, PurchaseStatus.PENDING))
                 .thenReturn(Optional.of(purchase));
         when(userStatsRepository.findByUser(user)).thenReturn(Optional.empty());
+        when(userStatsRepository.save(any(UserStats.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
-        assertThrows(
-                NotFoundException.class,
-                () -> purchaseService.claim(user, ShopItemType.XP_MULTIPLIER));
+        PurchaseResponse response = purchaseService.claim(user, ShopItemType.XP_MULTIPLIER);
+
+        verify(userStatsRepository).save(any(UserStats.class));
+        assertEquals(PurchaseStatus.STORED, response.status());
     }
 
     @Test

@@ -158,7 +158,7 @@ class BoosterServiceTest {
     }
 
     @Test
-    void activate_whenUserStatsNotFound_throwsNotFound() {
+    void activate_whenUserStatsNotFound_createsDefaultStatsAndAppliesBooster() {
         ShopItem item =
                 ShopItem.builder()
                         .id(UUID.randomUUID())
@@ -174,10 +174,13 @@ class BoosterServiceTest {
                         user, ShopItemType.XP_MULTIPLIER, PurchaseStatus.STORED))
                 .thenReturn(Optional.of(purchase));
         when(userStatsRepository.findByUser(user)).thenReturn(Optional.empty());
+        when(userStatsRepository.save(any(UserStats.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
-        assertThrows(
-                NotFoundException.class,
-                () -> boosterService.activate(user, ShopItemType.XP_MULTIPLIER));
+        PurchaseResponse response = boosterService.activate(user, ShopItemType.XP_MULTIPLIER);
+
+        verify(userStatsRepository).save(any(UserStats.class));
+        assertEquals(PurchaseStatus.ACTIVATED, response.status());
     }
 
     @Test
