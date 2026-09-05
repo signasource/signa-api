@@ -1,19 +1,27 @@
 package com.signasource.signa_api.gamification.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.gamification.dto.DailyXpResponse;
+import com.signasource.signa_api.gamification.dto.UserStatsResponse;
+import com.signasource.signa_api.gamification.entity.LivesMode;
 import com.signasource.signa_api.gamification.entity.UserDailyXp;
+import com.signasource.signa_api.gamification.entity.UserStats;
 import com.signasource.signa_api.gamification.repository.UserDailyXpRepository;
+import com.signasource.signa_api.gamification.repository.UserStatsRepository;
 import com.signasource.signa_api.users.entity.User;
 import java.time.DayOfWeek;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.temporal.TemporalAdjusters;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,6 +34,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class UserStatsServiceTest {
 
     @Mock private UserDailyXpRepository userDailyXpRepository;
+    @Mock private UserStatsRepository userStatsRepository;
 
     @InjectMocks private UserStatsService userStatsService;
 
@@ -75,6 +84,59 @@ class UserStatsServiceTest {
         DailyXpResponse last = result.get(result.size() - 1);
         assertEquals(today, last.date());
         assertEquals(90, last.xpEarned());
+    }
+
+    @Test
+    void shouldReturnStats_WhenUserHasStats() {
+        UserStats stats =
+                UserStats.builder()
+                        .user(user)
+                        .totalXp(1500)
+                        .weeklyXp(200)
+                        .currentStreak(7)
+                        .longestStreak(14)
+                        .gems(50)
+                        .streakShields(1)
+                        .learnedSignsCount(30)
+                        .currentLives(3)
+                        .livesMode(LivesMode.LIMITED)
+                        .updatedAt(Instant.now())
+                        .build();
+        when(userStatsRepository.findByUser(user)).thenReturn(Optional.of(stats));
+
+        UserStatsResponse result = userStatsService.getStats(user);
+
+        assertEquals(1500, result.totalXp());
+        assertEquals(200, result.weeklyXp());
+        assertEquals(7, result.currentStreak());
+        assertEquals(14, result.longestStreak());
+        assertEquals(50, result.gems());
+        assertEquals(1, result.streakShields());
+        assertEquals(30, result.learnedSignsCount());
+        assertEquals(3, result.currentLives());
+        assertEquals(LivesMode.LIMITED, result.livesMode());
+    }
+
+    @Test
+    void shouldThrowNotFoundException_WhenUserHasNoStats() {
+        when(userStatsRepository.findByUser(user)).thenReturn(Optional.empty());
+
+        assertThrows(NotFoundException.class, () -> userStatsService.getStats(user));
+    }
+
+    @Test
+    void shouldDefaultCurrentLivesToMaxLives_WhenCurrentLivesIsNull() {
+        UserStats stats =
+                UserStats.builder()
+                        .user(user)
+                        .livesMode(LivesMode.LIMITED)
+                        .updatedAt(Instant.now())
+                        .build();
+        when(userStatsRepository.findByUser(user)).thenReturn(Optional.of(stats));
+
+        UserStatsResponse result = userStatsService.getStats(user);
+
+        assertEquals(UserStats.MAX_LIVES, result.currentLives());
     }
 
     @Test

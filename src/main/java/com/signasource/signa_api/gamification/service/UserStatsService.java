@@ -1,8 +1,11 @@
 package com.signasource.signa_api.gamification.service;
 
+import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.gamification.dto.DailyXpResponse;
+import com.signasource.signa_api.gamification.dto.UserStatsResponse;
 import com.signasource.signa_api.gamification.entity.UserDailyXp;
 import com.signasource.signa_api.gamification.repository.UserDailyXpRepository;
+import com.signasource.signa_api.gamification.repository.UserStatsRepository;
 import com.signasource.signa_api.users.entity.User;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -21,6 +24,15 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserStatsService {
 
     private final UserDailyXpRepository userDailyXpRepository;
+    private final UserStatsRepository userStatsRepository;
+
+    @Transactional(readOnly = true)
+    public UserStatsResponse getStats(User user) {
+        return userStatsRepository
+                .findByUser(user)
+                .map(UserStatsResponse::from)
+                .orElseThrow(() -> new NotFoundException("Stats not found for user"));
+    }
 
     @Transactional(readOnly = true)
     public List<DailyXpResponse> getWeeklyXpBreakdown(User user) {
