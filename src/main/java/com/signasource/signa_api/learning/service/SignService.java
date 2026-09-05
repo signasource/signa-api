@@ -61,6 +61,7 @@ public class SignService {
                         .meaning(request.meaning())
                         .handedness(request.handedness())
                         .animationUrl(request.animationUrl())
+                        .youtubeUrl(request.youtubeUrl())
                         .signLanguage(signLanguage)
                         .build();
 
