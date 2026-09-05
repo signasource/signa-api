@@ -195,7 +195,8 @@ class SignServiceTest {
                         .animationUrl("   ")
                         .signLanguage(signLanguage)
                         .build();
-        when(signRepository.findByMeaningIgnoreCase("Hola")).thenReturn(Optional.of(withoutAnimation));
+        when(signRepository.findByMeaningIgnoreCase("Hola"))
+                .thenReturn(Optional.of(withoutAnimation));
 
         assertThrows(NotFoundException.class, () -> signService.getSignAnimation("Hola"));
 

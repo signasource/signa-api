@@ -26,6 +26,7 @@ import com.signasource.signa_api.learning.repository.SignLanguageRepository;
 import com.signasource.signa_api.learning.repository.SignRepository;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -96,12 +97,20 @@ class SignCatalogImporterTest {
     }
 
     @Test
-    void shouldSkipMeaningsAlreadyInCatalog() {
+    void shouldSkipMeaningsAlreadyInCatalogWithSameCase() {
         LessonBlockDto block = block(1);
         LoadedCourse course = course(LSA, block);
+        Sign existingHola =
+                Sign.builder()
+                        .id(UUID.randomUUID())
+                        .meaning("hola")
+                        .animationUrl("lsa/hola.glb")
+                        .signLanguage(lsa)
+                        .build();
         when(signLanguageRepository.findByCode(LSA)).thenReturn(Optional.of(lsa));
         when(extractor.extract(block)).thenReturn(List.of("hola", "chau"));
-        when(signRepository.existsByMeaningIgnoreCase("hola")).thenReturn(true);
+        when(signRepository.findByMeaningIgnoreCase("hola")).thenReturn(Optional.of(existingHola));
+        when(signRepository.findByMeaningIgnoreCase("chau")).thenReturn(Optional.empty());
 
         importer.importSigns(List.of(course));
 
@@ -109,6 +118,30 @@ class SignCatalogImporterTest {
         List<Sign> saved = signsCaptor.getValue();
         assertEquals(1, saved.size());
         assertEquals("chau", saved.get(0).getMeaning());
+    }
+
+    @Test
+    void shouldUpdateSignWhenMeaningCaseDiffers() {
+        LessonBlockDto block = block(1);
+        LoadedCourse course = course(LSA, block);
+        Sign existing =
+                Sign.builder()
+                        .id(UUID.randomUUID())
+                        .meaning("a")
+                        .animationUrl("lsa/a.glb")
+                        .signLanguage(lsa)
+                        .build();
+        when(signLanguageRepository.findByCode(LSA)).thenReturn(Optional.of(lsa));
+        when(extractor.extract(block)).thenReturn(List.of("A"));
+        when(signRepository.findByMeaningIgnoreCase("A")).thenReturn(Optional.of(existing));
+
+        importer.importSigns(List.of(course));
+
+        verify(signRepository).save(existing);
+        assertEquals("A", existing.getMeaning());
+        assertEquals("lsa/A.glb", existing.getAnimationUrl());
+        verify(signRepository).saveAll(signsCaptor.capture());
+        assertTrue(signsCaptor.getValue().isEmpty());
     }
 
     @Test

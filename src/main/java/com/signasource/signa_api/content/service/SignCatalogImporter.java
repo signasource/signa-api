@@ -45,16 +45,30 @@ public class SignCatalogImporter {
                                                     course.signLanguageCode()));
 
             for (String meaning : meanings(course)) {
-                if (!seen.add(meaning) || signRepository.existsByMeaningIgnoreCase(meaning)) {
+                if (!seen.add(meaning)) {
                     continue;
                 }
-                newSigns.add(
-                        Sign.builder()
-                                .meaning(meaning)
-                                .handedness(DEFAULT_HANDEDNESS)
-                                .animationUrl(objectKey(signLanguage, meaning))
-                                .signLanguage(signLanguage)
-                                .build());
+                String expectedKey = objectKey(signLanguage, meaning);
+                signRepository
+                        .findByMeaningIgnoreCase(meaning)
+                        .ifPresentOrElse(
+                                existing -> {
+                                    // Sync if casing drifted between YAML versions (e.g. "a" → "A")
+                                    if (!existing.getMeaning().equals(meaning)
+                                            || !expectedKey.equals(existing.getAnimationUrl())) {
+                                        existing.setMeaning(meaning);
+                                        existing.setAnimationUrl(expectedKey);
+                                        signRepository.save(existing);
+                                    }
+                                },
+                                () ->
+                                        newSigns.add(
+                                                Sign.builder()
+                                                        .meaning(meaning)
+                                                        .handedness(DEFAULT_HANDEDNESS)
+                                                        .animationUrl(expectedKey)
+                                                        .signLanguage(signLanguage)
+                                                        .build()));
             }
         }
 
