@@ -1,12 +1,11 @@
 package com.signasource.signa_api.gamification.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.gamification.dto.DailyXpResponse;
 import com.signasource.signa_api.gamification.dto.UserStatsResponse;
 import com.signasource.signa_api.gamification.entity.LivesMode;
@@ -118,10 +117,16 @@ class UserStatsServiceTest {
     }
 
     @Test
-    void shouldThrowNotFoundException_WhenUserHasNoStats() {
+    void shouldCreateAndReturnDefaultStats_WhenUserHasNoStats() {
+        UserStats created = UserStats.builder().user(user).updatedAt(Instant.now()).build();
         when(userStatsRepository.findByUser(user)).thenReturn(Optional.empty());
+        when(userStatsRepository.save(any(UserStats.class))).thenReturn(created);
 
-        assertThrows(NotFoundException.class, () -> userStatsService.getStats(user));
+        UserStatsResponse result = userStatsService.getStats(user);
+
+        verify(userStatsRepository).save(any(UserStats.class));
+        assertEquals(0, result.totalXp());
+        assertEquals(LivesMode.LIMITED, result.livesMode());
     }
 
     @Test

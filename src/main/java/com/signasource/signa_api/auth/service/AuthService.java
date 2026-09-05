@@ -18,6 +18,8 @@ import com.signasource.signa_api.exceptions.InvalidCredentialsException;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.InvalidTokenException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
+import com.signasource.signa_api.gamification.entity.UserStats;
+import com.signasource.signa_api.gamification.repository.UserStatsRepository;
 import com.signasource.signa_api.users.entity.AuthProvider;
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
@@ -47,6 +49,7 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final UserSettingsRepository userSettingsRepository;
+    private final UserStatsRepository userStatsRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
@@ -89,6 +92,7 @@ public class AuthService {
         userRepository.save(user);
 
         userSettingsRepository.save(UserSettings.builder().user(user).build());
+        userStatsRepository.save(UserStats.builder().user(user).updatedAt(Instant.now()).build());
 
         Token token =
                 createToken(
@@ -275,6 +279,8 @@ public class AuthService {
                 user = userRepository.save(user);
 
                 userSettingsRepository.save(UserSettings.builder().user(user).build());
+                userStatsRepository.save(
+                        UserStats.builder().user(user).updatedAt(Instant.now()).build());
             }
 
             return generateTokens(user);

@@ -1,13 +1,14 @@
 package com.signasource.signa_api.gamification.service;
 
-import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.gamification.dto.DailyXpResponse;
 import com.signasource.signa_api.gamification.dto.UserStatsResponse;
 import com.signasource.signa_api.gamification.entity.UserDailyXp;
+import com.signasource.signa_api.gamification.entity.UserStats;
 import com.signasource.signa_api.gamification.repository.UserDailyXpRepository;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
 import com.signasource.signa_api.users.entity.User;
 import java.time.DayOfWeek;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.temporal.TemporalAdjusters;
@@ -26,12 +27,19 @@ public class UserStatsService {
     private final UserDailyXpRepository userDailyXpRepository;
     private final UserStatsRepository userStatsRepository;
 
-    @Transactional(readOnly = true)
+    @Transactional
     public UserStatsResponse getStats(User user) {
-        return userStatsRepository
-                .findByUser(user)
-                .map(UserStatsResponse::from)
-                .orElseThrow(() -> new NotFoundException("Stats not found for user"));
+        UserStats stats =
+                userStatsRepository
+                        .findByUser(user)
+                        .orElseGet(
+                                () ->
+                                        userStatsRepository.save(
+                                                UserStats.builder()
+                                                        .user(user)
+                                                        .updatedAt(Instant.now())
+                                                        .build()));
+        return UserStatsResponse.from(stats);
     }
 
     @Transactional(readOnly = true)

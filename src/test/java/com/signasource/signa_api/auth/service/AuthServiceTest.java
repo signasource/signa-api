@@ -32,6 +32,8 @@ import com.signasource.signa_api.exceptions.InvalidCredentialsException;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.InvalidTokenException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
+import com.signasource.signa_api.gamification.entity.UserStats;
+import com.signasource.signa_api.gamification.repository.UserStatsRepository;
 import com.signasource.signa_api.users.entity.AuthProvider;
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
@@ -79,6 +81,7 @@ class AuthServiceTest {
 
     @Mock private UserRepository userRepository;
     @Mock private UserSettingsRepository userSettingsRepository;
+    @Mock private UserStatsRepository userStatsRepository;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private AuthenticationManager authenticationManager;
     @Mock private JwtService jwtService;
@@ -129,6 +132,7 @@ class AuthServiceTest {
         verify(passwordEncoder).encode(PASSWORD);
         verify(userRepository).save(any(User.class));
         verify(userSettingsRepository).save(any(UserSettings.class));
+        verify(userStatsRepository).save(any(UserStats.class));
         verify(jwtService).generateToken(any(CustomUserDetails.class));
         verify(emailService).sendVerificationEmail(eq(EMAIL), any(String.class));
     }
@@ -517,6 +521,9 @@ class AuthServiceTest {
         assertNull(savedUser.getPasswordHash());
         assertTrue(savedUser.isEnabled());
         assertTrue(savedUser.isVerified());
+
+        verify(userSettingsRepository).save(any(UserSettings.class));
+        verify(userStatsRepository).save(any(UserStats.class));
     }
 
     @Test
