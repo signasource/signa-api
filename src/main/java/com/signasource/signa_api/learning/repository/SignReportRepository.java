@@ -13,5 +13,5 @@ public interface SignReportRepository extends JpaRepository<SignReport, UUID> {
 
     List<SignReport> findByUserId(UUID userId);
 
-    List<SignReport> findBySignId(UUID signId);
+    List<SignReport> findBySignMeaning(String meaning);
 }
