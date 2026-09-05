@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.node.TextNode;
 import com.signasource.signa_api.content.dto.config.ContextResponseConfig;
 import com.signasource.signa_api.content.dto.config.InfoConfig;
+import com.signasource.signa_api.content.dto.config.IntroduceSignConfig;
 import com.signasource.signa_api.content.dto.config.MatchConfig;
 import com.signasource.signa_api.content.dto.config.SelectMeaningConfig;
 import com.signasource.signa_api.content.dto.config.SelectSignConfig;
@@ -33,6 +34,13 @@ class SignCatalogExtractorTest {
 
     private LessonBlockDto block(BlockType type, Object config) {
         return new LessonBlockDto(type, null, mapper.valueToTree(config));
+    }
+
+    @Test
+    void shouldExtractMeaningFromIntroduceSign() {
+        LessonBlockDto block =
+                block(BlockType.INTRODUCE_SIGN, new IntroduceSignConfig("hola", "hola"));
+        assertEquals(List.of("hola"), extractor.extract(block));
     }
 
     @Test

@@ -12,6 +12,7 @@ import com.signasource.signa_api.content.validator.ContentValidator;
 import com.signasource.signa_api.content.validator.block.BlockValidator;
 import com.signasource.signa_api.content.validator.block.ContextResponseValidator;
 import com.signasource.signa_api.content.validator.block.InfoValidator;
+import com.signasource.signa_api.content.validator.block.IntroduceSignValidator;
 import com.signasource.signa_api.content.validator.block.MatchValidator;
 import com.signasource.signa_api.content.validator.block.SelectMeaningValidator;
 import com.signasource.signa_api.content.validator.block.SelectSignValidator;
@@ -43,6 +44,7 @@ class ContentValidationCheckTest {
         List<BlockValidator> blockValidators =
                 List.of(
                         new InfoValidator(configParser),
+                        new IntroduceSignValidator(configParser),
                         new SelectMeaningValidator(configParser),
                         new SelectSignValidator(configParser),
                         new MatchValidator(configParser),
