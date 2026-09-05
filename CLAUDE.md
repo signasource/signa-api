@@ -181,8 +181,8 @@ Resumen de alta prioridad; el detalle y los ejemplos están en los bloques sigui
 - **Passwords** hasheadas con **BCrypt** (`PasswordEncoder`). Nunca almacenar ni loguear
   passwords en claro; el campo persistido es `passwordHash`.
 - **Autorización por rol:** `POST /signs` requiere rol `ADMIN`. Regla en `SecurityConfig`.
-- **Rutas públicas:** `/auth/**`, `/users/username-availability`, `/actuator/health`, `/actuator/info`.
-  El resto requiere autenticación.
+- **Rutas públicas:** `/auth/**`, `/users/username-availability`, `/actuator/health`, `/actuator/info`,
+  `GET /signs/{meaning}/animation`. El resto requiere autenticación.
 - **Perfil `local`** desactiva la seguridad (`app.security.enabled=false`, cadena que permite todo)
   para desarrollo. **Nunca** activar ese comportamiento en prod.
 - **Rate limiting** con Bucket4j (`RateLimitInterceptor`) en endpoints sensibles a abuso.
