@@ -21,6 +21,7 @@ import com.signasource.signa_api.gamification.service.UserStatsService;
 import com.signasource.signa_api.users.dto.DailyGoalResponse;
 import com.signasource.signa_api.users.dto.PublicUserProfileResponse;
 import com.signasource.signa_api.users.dto.PublicUserStatsResponse;
+import com.signasource.signa_api.users.dto.RecordActivityRequest;
 import com.signasource.signa_api.users.dto.RelationStatus;
 import com.signasource.signa_api.users.dto.UpdateDailyGoalRequest;
 import com.signasource.signa_api.users.dto.UpdateUserSettingsRequest;
@@ -35,6 +36,7 @@ import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.Theme;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.service.PublicProfileService;
+import com.signasource.signa_api.users.service.UserActivityService;
 import com.signasource.signa_api.users.service.UserService;
 import com.signasource.signa_api.users.service.UserSettingsService;
 import java.time.LocalDate;
@@ -61,6 +63,8 @@ class UserControllerTest {
     private static final FontSize FONT_SIZE = FontSize.LARGE;
     private static final AccountVisibility ACCOUNT_VISIBILITY = AccountVisibility.PUBLIC;
     private static final int DAILY_GOAL_MINUTES = 45;
+    private static final int MINUTES_TODAY = 10;
+    private static final int ACTIVITY_MINUTES = 2;
     private static final LocalTime DAILY_NOTIFICATION_TIME = LocalTime.of(8, 30);
     private static final String CURRENT_PASSWORD = "current-password";
     private static final String NEW_PASSWORD = "new-password";
@@ -72,6 +76,7 @@ class UserControllerTest {
     @Mock private PublicProfileService publicProfileService;
     @Mock private UserService userService;
     @Mock private UserStatsService userStatsService;
+    @Mock private UserActivityService userActivityService;
 
     @InjectMocks private UserController userController;
 
@@ -147,7 +152,7 @@ class UserControllerTest {
     @Test
     void shouldSetDailyGoalAndReturn201() {
         UpdateDailyGoalRequest request = new UpdateDailyGoalRequest(DAILY_GOAL_MINUTES);
-        DailyGoalResponse expected = new DailyGoalResponse(DAILY_GOAL_MINUTES);
+        DailyGoalResponse expected = new DailyGoalResponse(DAILY_GOAL_MINUTES, MINUTES_TODAY);
         when(userSettingsService.setDailyGoal(user, request)).thenReturn(expected);
 
         ResponseEntity<DailyGoalResponse> response =
@@ -160,7 +165,7 @@ class UserControllerTest {
 
     @Test
     void shouldReturnDailyGoal() {
-        DailyGoalResponse expected = new DailyGoalResponse(DAILY_GOAL_MINUTES);
+        DailyGoalResponse expected = new DailyGoalResponse(DAILY_GOAL_MINUTES, MINUTES_TODAY);
         when(userSettingsService.getDailyGoal(user)).thenReturn(expected);
 
         ResponseEntity<DailyGoalResponse> response = userController.getDailyGoal(userDetails);
@@ -173,7 +178,7 @@ class UserControllerTest {
     @Test
     void shouldReturnUpdatedDailyGoal() {
         UpdateDailyGoalRequest request = new UpdateDailyGoalRequest(DAILY_GOAL_MINUTES);
-        DailyGoalResponse expected = new DailyGoalResponse(DAILY_GOAL_MINUTES);
+        DailyGoalResponse expected = new DailyGoalResponse(DAILY_GOAL_MINUTES, MINUTES_TODAY);
         when(userSettingsService.updateDailyGoal(user, request)).thenReturn(expected);
 
         ResponseEntity<DailyGoalResponse> response =
@@ -182,6 +187,16 @@ class UserControllerTest {
         verify(userSettingsService).updateDailyGoal(user, request);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(expected, response.getBody());
+    }
+
+    @Test
+    void shouldRecordActivityAndReturn204() {
+        RecordActivityRequest request = new RecordActivityRequest(ACTIVITY_MINUTES);
+
+        ResponseEntity<Void> response = userController.recordActivity(userDetails, request);
+
+        verify(userActivityService).recordActivity(user, ACTIVITY_MINUTES);
+        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
     }
 
     @Test
