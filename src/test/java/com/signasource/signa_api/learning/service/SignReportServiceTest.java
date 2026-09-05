@@ -50,21 +50,21 @@ class SignReportServiceTest {
 
     @Test
     void shouldCreateReportSuccessfully() {
-        when(signRepository.findByMeaning("Prueba")).thenReturn(Optional.of(sign));
+        when(signRepository.findByMeaningIgnoreCase("Prueba")).thenReturn(Optional.of(sign));
 
         signReportService.createReport(request, user);
 
-        verify(signRepository).findByMeaning("Prueba");
+        verify(signRepository).findByMeaningIgnoreCase("Prueba");
         verify(signReportRepository).save(any(SignReport.class));
     }
 
     @Test
     void shouldThrowExceptionWhenSignNotFound() {
-        when(signRepository.findByMeaning("Prueba")).thenReturn(Optional.empty());
+        when(signRepository.findByMeaningIgnoreCase("Prueba")).thenReturn(Optional.empty());
 
         assertThrows(NotFoundException.class, () -> signReportService.createReport(request, user));
 
-        verify(signRepository).findByMeaning("Prueba");
+        verify(signRepository).findByMeaningIgnoreCase("Prueba");
         verify(signReportRepository, never()).save(any());
     }
 }

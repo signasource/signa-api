@@ -101,7 +101,7 @@ class SignCatalogImporterTest {
         LoadedCourse course = course(LSA, block);
         when(signLanguageRepository.findByCode(LSA)).thenReturn(Optional.of(lsa));
         when(extractor.extract(block)).thenReturn(List.of("hola", "chau"));
-        when(signRepository.existsByMeaning("hola")).thenReturn(true);
+        when(signRepository.existsByMeaningIgnoreCase("hola")).thenReturn(true);
 
         importer.importSigns(List.of(course));
 

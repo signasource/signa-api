@@ -45,7 +45,7 @@ public class SignCatalogImporter {
                                                     course.signLanguageCode()));
 
             for (String meaning : meanings(course)) {
-                if (!seen.add(meaning) || signRepository.existsByMeaning(meaning)) {
+                if (!seen.add(meaning) || signRepository.existsByMeaningIgnoreCase(meaning)) {
                     continue;
                 }
                 newSigns.add(

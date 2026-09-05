@@ -23,7 +23,7 @@ public class SignReportService {
     public void createReport(CreateSignReportRequest request, User user) {
         Sign sign =
                 signRepository
-                        .findByMeaning(request.signMeaning())
+                        .findByMeaningIgnoreCase(request.signMeaning())
                         .orElseThrow(() -> new NotFoundException("Sign not found"));
 
         SignReport report = new SignReport();
