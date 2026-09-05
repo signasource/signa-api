@@ -72,6 +72,41 @@ lessons:
 
             https://cas.org.ar
 
+  - code: "leccion_1"
+    name: "Abecedario"
+    description: "Conocé cómo se hacen las letras del abecedario en Lengua de Señas Argentina."
+
+    blocks:
+      - type: INVISIBLE_SIGNS
+        config:
+          signs:
+            - a
+            - b
+            - c
+            - d
+            - e
+            - f
+            - g
+            - h
+            - i
+            - j
+            - k
+            - l
+            - m
+            - n
+            - o
+            - p
+            - q
+            - r
+            - s
+            - t
+            - u
+            - v
+            - w
+            - x
+            - y
+            - z
+
   - code: leccion-2
     name: Formulas de Cortesía
     description: Aprende las señas de las fórmulas de cortesía más utilizadas.

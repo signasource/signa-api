@@ -17,7 +17,7 @@ public class BlockSignExtractor {
 
     public List<String> extract(LessonBlock block) {
         return switch (block.getType()) {
-            case INFO -> List.of();
+            case INFO, INVISIBLE_SIGNS -> List.of();
             default -> {
                 try {
                     JsonNode config = objectMapper.readTree(block.getConfig());
@@ -38,7 +38,7 @@ public class BlockSignExtractor {
             case CONTEXT_RESPONSE -> singleText(config, "answer");
             case MATCH -> arrayTexts(config, "concepts");
             case VISUAL_RECOGNITION -> arrayTexts(config, "sign_sequence");
-            case INFO -> List.of();
+            case INFO, INVISIBLE_SIGNS -> List.of();
         };
     }
 

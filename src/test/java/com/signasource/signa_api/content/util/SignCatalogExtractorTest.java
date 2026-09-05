@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.node.TextNode;
 import com.signasource.signa_api.content.dto.config.ContextResponseConfig;
 import com.signasource.signa_api.content.dto.config.InfoConfig;
 import com.signasource.signa_api.content.dto.config.IntroduceSignConfig;
+import com.signasource.signa_api.content.dto.config.InvisibleSignsConfig;
 import com.signasource.signa_api.content.dto.config.MatchConfig;
 import com.signasource.signa_api.content.dto.config.SelectMeaningConfig;
 import com.signasource.signa_api.content.dto.config.SelectSignConfig;
@@ -88,6 +89,13 @@ class SignCatalogExtractorTest {
                                 List.of("hola", "chau", "gracias"),
                                 false));
         assertEquals(List.of("hola", "gracias"), extractor.extract(block));
+    }
+
+    @Test
+    void shouldExtractAllSignsFromInvisibleSigns() {
+        LessonBlockDto block =
+                block(BlockType.INVISIBLE_SIGNS, new InvisibleSignsConfig(List.of("a", "b", "c")));
+        assertEquals(List.of("a", "b", "c"), extractor.extract(block));
     }
 
     @Test
