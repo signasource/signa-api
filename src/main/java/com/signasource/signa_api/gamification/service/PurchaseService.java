@@ -94,7 +94,13 @@ public class PurchaseService {
         UserStats stats =
                 userStatsRepository
                         .findByUser(user)
-                        .orElseThrow(() -> new NotFoundException("User stats not found"));
+                        .orElseGet(
+                                () ->
+                                        userStatsRepository.save(
+                                                UserStats.builder()
+                                                        .user(user)
+                                                        .updatedAt(Instant.now())
+                                                        .build()));
 
         purchase.setStatus(PurchaseStatus.STORED);
         purchaseRepository.save(purchase);

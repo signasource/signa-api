@@ -5,6 +5,7 @@ import com.signasource.signa_api.gamification.dto.UserInventoryResponse;
 import com.signasource.signa_api.gamification.entity.UserStats;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
 import com.signasource.signa_api.users.entity.User;
+import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,14 +16,20 @@ public class InventoryService {
 
     private final UserStatsRepository userStatsRepository;
 
-    @Transactional(readOnly = true)
+    @Transactional
     public UserInventoryResponse getInventory(User user) {
         ensureEnabled(user);
 
         UserStats stats =
                 userStatsRepository
                         .findByUser(user)
-                        .orElseThrow(() -> new NotFoundException("User stats not found"));
+                        .orElseGet(
+                                () ->
+                                        userStatsRepository.save(
+                                                UserStats.builder()
+                                                        .user(user)
+                                                        .updatedAt(Instant.now())
+                                                        .build()));
 
         return UserInventoryResponse.from(stats);
     }

@@ -44,7 +44,12 @@ public class BoosterService {
         UserStats stats =
                 userStatsRepository
                         .findByUser(user)
-                        .orElseThrow(() -> new NotFoundException("User stats not found"));
+                        .orElseGet(
+                                () ->
+                                        UserStats.builder()
+                                                .user(user)
+                                                .updatedAt(Instant.now())
+                                                .build());
 
         applyEffect(stats, purchase.getShopItem());
         stats.setUpdatedAt(Instant.now());

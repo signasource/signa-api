@@ -7,6 +7,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 @Slf4j
@@ -65,6 +66,11 @@ public class GlobalExceptionHandler {
                         .orElse("Validation error");
 
         return ResponseEntity.status(400).body(ErrorResponse.of(message, 400));
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResourceFound(NoResourceFoundException ex) {
+        return ResponseEntity.status(404).body(ErrorResponse.of("Not found", 404));
     }
 
     @ExceptionHandler(AuthenticationException.class)

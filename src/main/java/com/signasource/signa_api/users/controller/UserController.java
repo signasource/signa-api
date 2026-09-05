@@ -5,6 +5,7 @@ import com.signasource.signa_api.auth.dto.ChangePasswordRequest;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.service.AuthService;
 import com.signasource.signa_api.gamification.dto.DailyXpResponse;
+import com.signasource.signa_api.gamification.dto.UserStatsResponse;
 import com.signasource.signa_api.gamification.service.UserStatsService;
 import com.signasource.signa_api.users.dto.DailyGoalResponse;
 import com.signasource.signa_api.users.dto.PublicUserProfileResponse;
@@ -135,6 +136,12 @@ public class UserController {
     public ResponseEntity<Void> deleteMe(@AuthenticationPrincipal CustomUserDetails userDetails) {
         userService.deleteAccount(userDetails.getUser());
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/me/stats")
+    public ResponseEntity<UserStatsResponse> getMeStats(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(userStatsService.getStats(userDetails.getUser()));
     }
 
     @GetMapping("/me/weekly-xp")

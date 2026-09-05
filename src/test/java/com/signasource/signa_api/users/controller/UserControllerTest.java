@@ -15,6 +15,8 @@ import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.service.AuthService;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.gamification.dto.DailyXpResponse;
+import com.signasource.signa_api.gamification.dto.UserStatsResponse;
+import com.signasource.signa_api.gamification.entity.LivesMode;
 import com.signasource.signa_api.gamification.service.UserStatsService;
 import com.signasource.signa_api.users.dto.DailyGoalResponse;
 import com.signasource.signa_api.users.dto.PublicUserProfileResponse;
@@ -352,5 +354,32 @@ class UserControllerTest {
 
         verify(userService).searchUsers(user, "cami", 50);
         verify(userService).searchUsers(user, "cami", 1);
+    }
+
+    @Test
+    void shouldReturnMeStats() {
+        UserStatsResponse expected =
+                new UserStatsResponse(
+                        1500,
+                        200,
+                        7,
+                        14,
+                        50,
+                        1,
+                        30,
+                        3,
+                        LivesMode.LIMITED,
+                        null,
+                        false,
+                        1.0,
+                        null,
+                        null);
+        when(userStatsService.getStats(user)).thenReturn(expected);
+
+        ResponseEntity<UserStatsResponse> response = userController.getMeStats(userDetails);
+
+        verify(userStatsService).getStats(user);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(expected, response.getBody());
     }
 }
