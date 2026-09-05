@@ -47,6 +47,8 @@ public class SecurityConfig {
                                         .hasRole("ADMIN")
                                         .requestMatchers("/actuator/health", "/actuator/info")
                                         .permitAll()
+                                        .requestMatchers(HttpMethod.GET, "/signs/*/animation")
+                                        .permitAll()
                                         .anyRequest()
                                         .authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)

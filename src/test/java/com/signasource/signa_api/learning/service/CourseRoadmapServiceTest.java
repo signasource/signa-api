@@ -12,9 +12,11 @@ import com.signasource.signa_api.learning.dto.CourseRoadmapResponse;
 import com.signasource.signa_api.learning.dto.LessonRoadmapState;
 import com.signasource.signa_api.learning.dto.RoadmapLessonResponse;
 import com.signasource.signa_api.learning.dto.RoadmapTopicResponse;
+import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.entity.Course;
 import com.signasource.signa_api.learning.entity.CourseVersion;
 import com.signasource.signa_api.learning.entity.Lesson;
+import com.signasource.signa_api.learning.entity.LessonBlock;
 import com.signasource.signa_api.learning.entity.ProgressStatus;
 import com.signasource.signa_api.learning.entity.Topic;
 import com.signasource.signa_api.learning.entity.VersionStatus;
@@ -161,6 +163,57 @@ class CourseRoadmapServiceTest {
         assertEquals(LessonRoadmapState.LOCKED, response.topics().get(2).lessons().get(0).state());
     }
 
+    @Test
+    void shouldExcludeInvisibleOnlyLessonFromRoadmap() {
+        Lesson visible = lesson("v1", "Saludos", 1);
+        Lesson invisible = lesson("i1", "Abecedario", 2);
+        Lesson visible2 = lesson("v2", "Números", 3);
+        Topic topic =
+                topic("t1", "Unidad 1", "Sub", "Desc", 1, List.of(visible, invisible, visible2));
+
+        LessonBlock inv1 = block(invisible, BlockType.INVISIBLE_SIGNS);
+        LessonBlock inv2 = block(invisible, BlockType.INVISIBLE_SIGNS);
+
+        stubVersionAndTopics(List.of(topic));
+        when(lessonBlockRepository.aggregateByCourseVersionId(versionId)).thenReturn(List.of());
+        when(lessonBlockRepository.findByCourseVersionId(versionId))
+                .thenReturn(List.of(inv1, inv2));
+        when(lessonProgressRepository.findLessonStatuses(userId, versionId)).thenReturn(List.of());
+        when(user.getId()).thenReturn(userId);
+
+        CourseRoadmapResponse response = courseRoadmapService.getCourseRoadmap(user, courseId);
+
+        List<RoadmapLessonResponse> lessons = response.topics().get(0).lessons();
+        assertEquals(2, lessons.size());
+        assertEquals("Saludos", lessons.get(0).name());
+        assertEquals("Números", lessons.get(1).name());
+    }
+
+    @Test
+    void shouldNotBreakUnlockChainWhenInvisibleLessonIsBetweenTwoVisible() {
+        Lesson completed = lesson("c1", "Saludos", 1);
+        Lesson invisible = lesson("i1", "Abecedario", 2);
+        Lesson next = lesson("n1", "Números", 3);
+        Topic topic =
+                topic("t1", "Unidad 1", "Sub", "Desc", 1, List.of(completed, invisible, next));
+
+        LessonBlock invBlock = block(invisible, BlockType.INVISIBLE_SIGNS);
+
+        stubVersionAndTopics(List.of(topic));
+        when(lessonBlockRepository.aggregateByCourseVersionId(versionId)).thenReturn(List.of());
+        when(lessonBlockRepository.findByCourseVersionId(versionId)).thenReturn(List.of(invBlock));
+        when(lessonProgressRepository.findLessonStatuses(userId, versionId))
+                .thenReturn(List.of(status(completed.getId(), ProgressStatus.COMPLETED)));
+        when(user.getId()).thenReturn(userId);
+
+        CourseRoadmapResponse response = courseRoadmapService.getCourseRoadmap(user, courseId);
+
+        List<RoadmapLessonResponse> lessons = response.topics().get(0).lessons();
+        assertEquals(2, lessons.size());
+        assertEquals(LessonRoadmapState.COMPLETED, lessons.get(0).state());
+        assertEquals(LessonRoadmapState.AVAILABLE, lessons.get(1).state());
+    }
+
     private void stubVersionAndTopics(List<Topic> topics) {
         when(courseVersionRepository.findByCourseIdAndStatus(courseId, VersionStatus.PUBLISHED))
                 .thenReturn(Optional.of(version));
@@ -228,5 +281,12 @@ class CourseRoadmapServiceTest {
                 return status;
             }
         };
+    }
+
+    private static LessonBlock block(Lesson lesson, BlockType type) {
+        LessonBlock b = mock(LessonBlock.class);
+        when(b.getLesson()).thenReturn(lesson);
+        when(b.getType()).thenReturn(type);
+        return b;
     }
 }

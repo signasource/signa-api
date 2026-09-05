@@ -34,8 +34,7 @@ class SignReportControllerTest {
         CustomUserDetails userDetails = new CustomUserDetails(mockUser);
 
         CreateSignReportRequest request =
-                new CreateSignReportRequest(
-                        UUID.randomUUID(), ReportReason.UNCLEAR_ANIMATION, "Desc");
+                new CreateSignReportRequest("hola", ReportReason.UNCLEAR_ANIMATION, "Desc");
 
         doNothing()
                 .when(signReportService)

@@ -5,8 +5,10 @@ import com.signasource.signa_api.learning.dto.CourseRoadmapResponse;
 import com.signasource.signa_api.learning.dto.LessonRoadmapState;
 import com.signasource.signa_api.learning.dto.RoadmapLessonResponse;
 import com.signasource.signa_api.learning.dto.RoadmapTopicResponse;
+import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.entity.CourseVersion;
 import com.signasource.signa_api.learning.entity.Lesson;
+import com.signasource.signa_api.learning.entity.LessonBlock;
 import com.signasource.signa_api.learning.entity.ProgressStatus;
 import com.signasource.signa_api.learning.entity.Topic;
 import com.signasource.signa_api.learning.entity.VersionStatus;
@@ -21,6 +23,7 @@ import com.signasource.signa_api.users.entity.User;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -57,8 +60,10 @@ public class CourseRoadmapService {
                                         LessonBlockAggregateView::getLessonId,
                                         v -> new long[] {v.getBlockCount(), v.getXpTotal()}));
 
+        List<LessonBlock> allBlocks = lessonBlockRepository.findByCourseVersionId(version.getId());
+
         Map<UUID, List<String>> signsLearnedByLesson =
-                lessonBlockRepository.findByCourseVersionId(version.getId()).stream()
+                allBlocks.stream()
                         .collect(
                                 Collectors.groupingBy(
                                         b -> b.getLesson().getId(),
@@ -74,6 +79,8 @@ public class CourseRoadmapService {
                                                                 .distinct()
                                                                 .toList())));
 
+        Set<UUID> invisibleOnlyLessonIds = computeInvisibleOnlyLessonIds(allBlocks);
+
         Map<UUID, ProgressStatus> statusByLesson =
                 lessonProgressRepository.findLessonStatuses(user.getId(), version.getId()).stream()
                         .collect(
@@ -87,6 +94,9 @@ public class CourseRoadmapService {
             List<Lesson> lessons = topic.getLessons();
             List<RoadmapLessonResponse> lessonResponses = new ArrayList<>(lessons.size());
             for (Lesson lesson : lessons) {
+                if (invisibleOnlyLessonIds.contains(lesson.getId())) {
+                    continue;
+                }
                 long[] agg = blockAggByLesson.getOrDefault(lesson.getId(), EMPTY_AGG);
                 List<String> signsLearned =
                         signsLearnedByLesson.getOrDefault(lesson.getId(), List.of());
@@ -107,6 +117,19 @@ public class CourseRoadmapService {
     }
 
     private static final long[] EMPTY_AGG = {0L, 0L};
+
+    private static Set<UUID> computeInvisibleOnlyLessonIds(List<LessonBlock> blocks) {
+        return blocks.stream()
+                .collect(Collectors.groupingBy(b -> b.getLesson().getId()))
+                .entrySet()
+                .stream()
+                .filter(
+                        e ->
+                                e.getValue().stream()
+                                        .allMatch(b -> b.getType() == BlockType.INVISIBLE_SIGNS))
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toSet());
+    }
 
     private static LessonRoadmapState resolveState(
             ProgressStatus status, boolean previousCompleted) {
