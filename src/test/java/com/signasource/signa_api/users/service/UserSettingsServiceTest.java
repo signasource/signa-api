@@ -55,8 +55,10 @@ class UserSettingsServiceTest {
     private static final boolean UPDATED_DAILY_NOTIFICATION_ENABLED = true;
     private static final LocalTime UPDATED_DAILY_NOTIFICATION_TIME = LocalTime.of(8, 30);
     private static final String UPDATED_PROFILE_HEADER_COLOR = "#7857FF";
+    private static final int MINUTES_TODAY = 10;
 
     @Mock private UserSettingsRepository userSettingsRepository;
+    @Mock private UserActivityService userActivityService;
 
     @InjectMocks private UserSettingsService userSettingsService;
 
@@ -213,10 +215,12 @@ class UserSettingsServiceTest {
     void shouldSetDailyGoal() {
         UpdateDailyGoalRequest request = new UpdateDailyGoalRequest(UPDATED_DAILY_GOAL_MINUTES);
         when(userSettingsRepository.findByUserId(USER_ID)).thenReturn(Optional.of(settings));
+        when(userActivityService.getMinutesToday(user)).thenReturn(MINUTES_TODAY);
 
         DailyGoalResponse response = userSettingsService.setDailyGoal(user, request);
 
         assertEquals(UPDATED_DAILY_GOAL_MINUTES, response.dailyGoalMinutes());
+        assertEquals(MINUTES_TODAY, response.minutesToday());
         verify(userSettingsRepository).save(settings);
     }
 
@@ -237,10 +241,12 @@ class UserSettingsServiceTest {
     @Test
     void shouldReturnDailyGoalForUser() {
         when(userSettingsRepository.findByUserId(USER_ID)).thenReturn(Optional.of(settings));
+        when(userActivityService.getMinutesToday(user)).thenReturn(MINUTES_TODAY);
 
         DailyGoalResponse response = userSettingsService.getDailyGoal(user);
 
         assertEquals(INITIAL_DAILY_GOAL_MINUTES, response.dailyGoalMinutes());
+        assertEquals(MINUTES_TODAY, response.minutesToday());
         verify(userSettingsRepository, never()).save(settings);
     }
 
@@ -258,10 +264,12 @@ class UserSettingsServiceTest {
     void shouldUpdateDailyGoal() {
         UpdateDailyGoalRequest request = new UpdateDailyGoalRequest(UPDATED_DAILY_GOAL_MINUTES);
         when(userSettingsRepository.findByUserId(USER_ID)).thenReturn(Optional.of(settings));
+        when(userActivityService.getMinutesToday(user)).thenReturn(MINUTES_TODAY);
 
         DailyGoalResponse response = userSettingsService.updateDailyGoal(user, request);
 
         assertEquals(UPDATED_DAILY_GOAL_MINUTES, response.dailyGoalMinutes());
+        assertEquals(MINUTES_TODAY, response.minutesToday());
         verify(userSettingsRepository).save(settings);
     }
 

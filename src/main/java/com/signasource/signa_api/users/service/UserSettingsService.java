@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class UserSettingsService {
     private final UserSettingsRepository userSettingsRepository;
+    private final UserActivityService userActivityService;
 
     @Transactional(readOnly = true)
     public UserSettingsResponse getSettings(User user) {
@@ -39,12 +40,13 @@ public class UserSettingsService {
         settings.setDailyGoalMinutes(request.dailyGoalMinutes());
         userSettingsRepository.save(settings);
 
-        return DailyGoalResponse.from(settings);
+        return DailyGoalResponse.from(settings, userActivityService.getMinutesToday(user));
     }
 
     @Transactional(readOnly = true)
     public DailyGoalResponse getDailyGoal(User user) {
-        return DailyGoalResponse.from(getSettingsEntity(user));
+        UserSettings settings = getSettingsEntity(user);
+        return DailyGoalResponse.from(settings, userActivityService.getMinutesToday(user));
     }
 
     @Transactional
@@ -54,7 +56,7 @@ public class UserSettingsService {
         settings.setDailyGoalMinutes(request.dailyGoalMinutes());
         userSettingsRepository.save(settings);
 
-        return DailyGoalResponse.from(settings);
+        return DailyGoalResponse.from(settings, userActivityService.getMinutesToday(user));
     }
 
     private UserSettings getSettingsEntity(User user) {
