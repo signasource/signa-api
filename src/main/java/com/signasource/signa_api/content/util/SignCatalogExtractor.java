@@ -1,6 +1,7 @@
 package com.signasource.signa_api.content.util;
 
 import com.signasource.signa_api.content.dto.config.ContextResponseConfig;
+import com.signasource.signa_api.content.dto.config.IntroduceSignConfig;
 import com.signasource.signa_api.content.dto.config.MatchConfig;
 import com.signasource.signa_api.content.dto.config.SelectMeaningConfig;
 import com.signasource.signa_api.content.dto.config.SelectSignConfig;
@@ -20,6 +21,10 @@ public class SignCatalogExtractor {
     public List<String> extract(LessonBlockDto block) {
         return switch (block.type()) {
             case INFO -> List.of();
+            case INTRODUCE_SIGN ->
+                    parser.parse(block.config(), IntroduceSignConfig.class)
+                            .map(config -> single(config.meaning()))
+                            .orElseGet(List::of);
             case SELECT_MEANING ->
                     parser.parse(block.config(), SelectMeaningConfig.class)
                             .map(config -> single(config.sign()))

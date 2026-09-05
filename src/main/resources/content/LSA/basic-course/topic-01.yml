@@ -11,6 +11,7 @@ lessons:
 
     blocks:
       - type: INFO
+        xp: 5
         config:
           title: "¿Qué es la Lengua de Señas Argentina?"
           text: |
@@ -23,6 +24,7 @@ lessons:
             *Adaptado de la Ley N.º 27.710, arts. 1 y 2.*
 
       - type: INFO
+        xp: 5
         config:
           title: "La gramática de la LSA"
           text: |
@@ -35,6 +37,7 @@ lessons:
             *Adaptado de la Ley N.º 27.710, art. 2.*
 
       - type: INFO
+        xp: 5
         config:
           title: "Mitos y conceptos erróneos"
           text: |
@@ -53,6 +56,7 @@ lessons:
               reality: "Cualquier persona puede aprender LSA. Aprender LSA favorece una comunicación más inclusiva y facilita el encuentro y la comunicación entre personas sordas y oyentes."
 
       - type: INFO
+        xp: 5
         config:
           title: "Para seguir aprendiendo"
           text: |
@@ -67,12 +71,37 @@ lessons:
             Organización representativa de la comunidad sorda argentina, con información sobre la LSA, actividades y recursos.
 
             https://cas.org.ar
-            
+
   - code: leccion-2
     name: Formulas de Cortesía
     description: Aprende las señas de las fórmulas de cortesía más utilizadas.
 
     blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: hola
+          word: hola
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: chau
+          word: chau
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: por favor
+          word: por favor
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: gracias
+          word: gracias
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: perdón
+          word: perdón
+
       - type: SELECT_MEANING
         xp: 5
         config:
@@ -139,7 +168,6 @@ lessons:
             - gracias
             - perdón
 
-      # cambiar la pregunta
       - type: CONTEXT_RESPONSE
         xp: 5
         config:
@@ -156,6 +184,31 @@ lessons:
     description: Practica las señas de los pronombres personales.
 
     blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: yo
+          word: yo
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: vos
+          word: vos
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: él
+          word: él
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: ella
+          word: ella
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: nosotros
+          word: nosotros
+
       - type: SELECT_MEANING
         xp: 5
         config:
@@ -228,6 +281,41 @@ lessons:
     description: Practica las señas de los días de la semana.
 
     blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: lunes
+          word: lunes
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: martes
+          word: martes
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: miércoles
+          word: miércoles
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: jueves
+          word: jueves
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: viernes
+          word: viernes
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: sábado
+          word: sábado
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: domingo
+          word: domingo
+
       - type: SELECT_MEANING
         xp: 5
         config:
@@ -308,228 +396,308 @@ lessons:
             - sábado
             - domingo
           keep_order: false
-          
+
   - code: leccion-5
     name: Meses del año
     description: Aprende y practica las señas correspondientes a los meses del año.
 
     blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: enero
+          word: enero
 
-    - type: SELECT_MEANING
-      xp: 5
-      config:
-        sign: enero
-        options:
-          - enero
-          - marzo
-          - junio
-          - diciembre
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: febrero
+          word: febrero
 
-    - type: SELECT_SIGN
-      xp: 5
-      config:
-        word: febrero
-        options:
-          - enero
-          - febrero
-          - abril
-          - agosto
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: marzo
+          word: marzo
 
-    - type: SELECT_MEANING
-      xp: 5
-      config:
-        sign: mayo
-        options:
-          - febrero
-          - mayo
-          - julio
-          - noviembre
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: abril
+          word: abril
 
-    - type: CONTEXT_RESPONSE
-      xp: 5
-      config:
-        question: "¿Qué mes viene después de marzo?"
-        answer: abril
-        options:
-          - febrero
-          - marzo
-          - abril
-          - mayo
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: mayo
+          word: mayo
 
-    - type: SELECT_SIGN
-      xp: 5
-      config:
-        word: julio
-        options:
-          - junio
-          - julio
-          - agosto
-          - septiembre
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: junio
+          word: junio
 
-    - type: SELECT_MEANING
-      xp: 5
-      config:
-        sign: septiembre
-        options:
-          - agosto
-          - septiembre
-          - octubre
-          - noviembre
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: julio
+          word: julio
 
-    - type: CONTEXT_RESPONSE
-      xp: 5
-      config:
-        question: "¿Qué mes está antes de diciembre?"
-        answer: noviembre
-        options:
-          - septiembre
-          - octubre
-          - noviembre
-          - enero
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: agosto
+          word: agosto
 
-    - type: SELECT_SIGN
-      xp: 5
-      config:
-        word: octubre
-        options:
-          - agosto
-          - septiembre
-          - octubre
-          - diciembre
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: septiembre
+          word: septiembre
 
-    - type: MATCH
-      xp: 10
-      config:
-        concepts:
-          - enero
-          - marzo
-          - mayo
-          - julio
-          - septiembre
-          - noviembre
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: octubre
+          word: octubre
 
-    - type: VISUAL_RECOGNITION
-      xp: 15
-      config:
-        sign_sequence:
-          - enero
-          - abril
-          - julio
-          - octubre
-        options:
-          - enero
-          - febrero
-          - abril
-          - mayo
-          - julio
-          - agosto
-          - octubre
-          - diciembre
-        keep_order: false
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: noviembre
+          word: noviembre
 
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: diciembre
+          word: diciembre
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: enero
+          options:
+            - enero
+            - marzo
+            - junio
+            - diciembre
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: febrero
+          options:
+            - enero
+            - febrero
+            - abril
+            - agosto
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: mayo
+          options:
+            - febrero
+            - mayo
+            - julio
+            - noviembre
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Qué mes viene después de marzo?"
+          answer: abril
+          options:
+            - febrero
+            - marzo
+            - abril
+            - mayo
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: julio
+          options:
+            - junio
+            - julio
+            - agosto
+            - septiembre
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: septiembre
+          options:
+            - agosto
+            - septiembre
+            - octubre
+            - noviembre
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Qué mes está antes de diciembre?"
+          answer: noviembre
+          options:
+            - septiembre
+            - octubre
+            - noviembre
+            - enero
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: octubre
+          options:
+            - agosto
+            - septiembre
+            - octubre
+            - diciembre
+
+      - type: MATCH
+        xp: 10
+        config:
+          concepts:
+            - enero
+            - marzo
+            - mayo
+            - julio
+            - septiembre
+            - noviembre
+
+      - type: VISUAL_RECOGNITION
+        xp: 15
+        config:
+          sign_sequence:
+            - enero
+            - abril
+            - julio
+            - octubre
+          options:
+            - enero
+            - febrero
+            - abril
+            - mayo
+            - julio
+            - agosto
+            - octubre
+            - diciembre
+          keep_order: false
 
   - code: leccion-6
     name: Amigos y familia
     description: Aprende las señas de personas cercanas y relaciones familiares.
 
     blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: madre
+          word: madre
 
-    - type: SELECT_MEANING
-      xp: 5
-      config:
-        sign: madre
-        options:
-          - madre
-          - padre
-          - hermano
-          - amigo
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: padre
+          word: padre
 
-    - type: SELECT_SIGN
-      xp: 5
-      config:
-        word: padre
-        options:
-          - madre
-          - padre
-          - abuelo
-          - amigo
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: hermano
+          word: hermano
 
-    - type: SELECT_MEANING
-      xp: 5
-      config:
-        sign: amigo
-        options:
-          - hermano
-          - amigo
-          - abuelo
-          - madre
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: amigo
+          word: amigo
 
-    - type: CONTEXT_RESPONSE
-      xp: 5
-      config:
-        question: "¿Cómo llamarías a la persona que es el padre de tu madre?"
-        answer: abuelo
-        options:
-          - hermano
-          - padre
-          - abuelo
-          - amigo
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: abuelo
+          word: abuelo
 
-    - type: SELECT_SIGN
-      xp: 5
-      config:
-        word: hermano
-        options:
-          - padre
-          - amigo
-          - hermano
-          - abuelo
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: madre
+          options:
+            - madre
+            - padre
+            - hermano
+            - amigo
 
-    - type: SELECT_MEANING
-      xp: 5
-      config:
-        sign: abuelo
-        options:
-          - abuelo
-          - hermano
-          - padre
-          - amigo
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: padre
+          options:
+            - madre
+            - padre
+            - abuelo
+            - amigo
 
-    - type: CONTEXT_RESPONSE
-      xp: 5
-      config:
-        question: "¿Quién puede ser una persona con la que compartís una amistad?"
-        answer: amigo
-        options:
-          - padre
-          - abuelo
-          - hermano
-          - amigo
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: amigo
+          options:
+            - hermano
+            - amigo
+            - abuelo
+            - madre
 
-    - type: MATCH
-      xp: 10
-      config:
-        concepts:
-          - madre
-          - padre
-          - amigo
-          - abuelo
-          - hermano
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Cómo llamarías a la persona que es el padre de tu madre?"
+          answer: abuelo
+          options:
+            - hermano
+            - padre
+            - abuelo
+            - amigo
 
-    - type: VISUAL_RECOGNITION
-      xp: 15
-      config:
-        sign_sequence:
-          - madre
-          - amigo
-          - abuelo
-          - hermano
-        options:
-          - madre
-          - padre
-          - amigo
-          - abuelo
-          - hermano
-        keep_order: false
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: hermano
+          options:
+            - padre
+            - amigo
+            - hermano
+            - abuelo
 
-      
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: abuelo
+          options:
+            - abuelo
+            - hermano
+            - padre
+            - amigo
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Quién puede ser una persona con la que compartís una amistad?"
+          answer: amigo
+          options:
+            - padre
+            - abuelo
+            - hermano
+            - amigo
+
+      - type: MATCH
+        xp: 10
+        config:
+          concepts:
+            - madre
+            - padre
+            - amigo
+            - abuelo
+            - hermano
+
+      - type: VISUAL_RECOGNITION
+        xp: 15
+        config:
+          sign_sequence:
+            - madre
+            - amigo
+            - abuelo
+            - hermano
+          options:
+            - madre
+            - padre
+            - amigo
+            - abuelo
+            - hermano
+          keep_order: false
