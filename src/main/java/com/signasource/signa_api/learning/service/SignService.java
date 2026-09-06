@@ -1,6 +1,5 @@
 package com.signasource.signa_api.learning.service;
 
-import com.signasource.signa_api.config.R2Properties;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.learning.dto.CreateSignRequest;
@@ -27,7 +26,6 @@ public class SignService {
     private final SignRepository signRepository;
     private final SignLanguageRepository signLanguageRepository;
     private final SignAnimationService signAnimationService;
-    private final R2Properties r2Properties;
 
     @Transactional(readOnly = true)
     public Page<SignSummaryResponse> getSignsCatalog(
@@ -81,9 +79,7 @@ public class SignService {
             throw new NotFoundException("Sign has no animation");
         }
 
-        String url = signAnimationService.presignedGetUrl(objectKey);
-        return new SignAnimationResponse(
-                sign.getId(), url, r2Properties.presignExpiryMinutes() * 60L);
+        return new SignAnimationResponse(sign.getId(), signAnimationService.publicUrl(objectKey));
     }
 
     /**
@@ -98,8 +94,7 @@ public class SignService {
         for (Sign sign : signRepository.findByMeaningIn(meanings)) {
             String objectKey = sign.getAnimationUrl();
             if (objectKey != null && !objectKey.isBlank()) {
-                urlsByMeaning.put(
-                        sign.getMeaning(), signAnimationService.presignedGetUrl(objectKey));
+                urlsByMeaning.put(sign.getMeaning(), signAnimationService.publicUrl(objectKey));
             }
         }
 

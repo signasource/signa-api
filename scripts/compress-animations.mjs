@@ -1,25 +1,28 @@
 #!/usr/bin/env node
 /**
- * Batch-compresses all GLB animations in R2 using Draco + free mesh opts.
+ * Optimises all GLB animations in R2 (dedup + prune — no Draco).
+ *
+ * Draco is intentionally omitted: the app renders GLBs with Three.js via
+ * expo-gl. DRACOLoader in React Native requires Web Workers which are not
+ * available in Hermes. dedup + prune still yields ~10–25 % size reduction
+ * and HTTP caching (public R2 URLs with Cache-Control: immutable) covers
+ * the first-load cost after that.
  *
  * Usage:
  *   cd scripts && npm install
- *   node compress-animations.mjs            # compress + re-upload
+ *   node compress-animations.mjs            # optimise + re-upload
  *   node compress-animations.mjs --dry-run  # show savings, no upload
  *
- * Required env vars:
- *   R2_ENDPOINT          e.g. https://<account>.r2.cloudflarestorage.com
- *   R2_ACCESS_KEY_ID
- *   R2_SECRET_ACCESS_KEY
- * Optional:
- *   R2_BUCKET_NAME       default: signa-animations
+ * Required env vars: R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY
+ * Optional env vars: R2_BUCKET_NAME (default: signa-animations)
  *
- * Draco settings: encodeSpeed=0 (best ratio) / decodeSpeed=10 (fastest on device).
- * Already-compressed files (KHR_draco_mesh_compression) are skipped automatically.
- * model-viewer includes the Draco decoder, so no frontend changes are needed.
+ * Re-uploaded objects get:
+ *   Cache-Control: public, max-age=31536000, immutable
+ * so Cloudflare CDN and WebView HTTP caches keep them indefinitely.
  */
 
 import {
+  CopyObjectCommand,
   GetObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
@@ -27,13 +30,13 @@ import {
 } from "@aws-sdk/client-s3";
 import { NodeIO } from "@gltf-transform/core";
 import { KHRONOS_EXTENSIONS } from "@gltf-transform/extensions";
-import { dedup, draco, prune } from "@gltf-transform/functions";
-import draco3d from "draco3dgltf";
+import { dedup, prune } from "@gltf-transform/functions";
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
 const BUCKET = process.env.R2_BUCKET_NAME ?? "signa-animations";
 const DRY_RUN = process.argv.includes("--dry-run");
+const CACHE_CONTROL = "public, max-age=31536000, immutable";
 
 for (const v of ["R2_ENDPOINT", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"]) {
   if (!process.env[v]) {
@@ -54,15 +57,7 @@ const s3 = new S3Client({
 
 // ── gltf-transform setup ──────────────────────────────────────────────────────
 
-console.log("Loading Draco encoder/decoder…");
-const [encoder, decoder] = await Promise.all([
-  draco3d.createEncoderModule(),
-  draco3d.createDecoderModule(),
-]);
-
-const io = new NodeIO()
-  .registerExtensions(KHRONOS_EXTENSIONS)
-  .registerDependencies({ "draco3d.encoder": encoder, "draco3d.decoder": decoder });
+const io = new NodeIO().registerExtensions(KHRONOS_EXTENSIONS);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -96,42 +91,24 @@ console.log(
 let totalOriginal = 0;
 let totalCompressed = 0;
 let processed = 0;
-let skipped = 0;
 let failed = 0;
 
 for (const key of keys) {
   process.stdout.write(`  ${key} … `);
   try {
     // Download
-    const { Body } = await s3.send(
+    const { Body, ContentLength } = await s3.send(
       new GetObjectCommand({ Bucket: BUCKET, Key: key })
     );
     const originalBytes = await Body.transformToByteArray();
     const originalSize = originalBytes.byteLength;
 
-    // Parse
+    // Parse and optimise
     const document = await io.readBinary(originalBytes);
 
-    // Skip already-compressed files
-    const alreadyDraco = document
-      .getRoot()
-      .listExtensionsUsed()
-      .some((e) => e.extensionName === "KHR_draco_mesh_compression");
-    if (alreadyDraco) {
-      console.log("already Draco-compressed, skipping");
-      skipped++;
-      continue;
-    }
-
-    // dedup:  merges identical accessors/textures (free size win)
-    // prune:  removes unused nodes, materials, textures
-    // draco:  Draco geometry compression — encodeSpeed=0 maximises ratio,
-    //         decodeSpeed=10 keeps decompression fast on the device
-    await document.transform(
-      dedup(),
-      prune(),
-      draco({ encodeSpeed: 0, decodeSpeed: 10 })
-    );
+    // dedup: merges identical accessors / textures (free win)
+    // prune: removes orphaned nodes, materials, textures
+    await document.transform(dedup(), prune());
 
     const compressedBytes = await io.writeBinary(document);
     const compressedSize = compressedBytes.byteLength;
@@ -144,6 +121,7 @@ for (const key of keys) {
           Key: key,
           Body: Buffer.from(compressedBytes),
           ContentType: "model/gltf-binary",
+          CacheControl: CACHE_CONTROL,
         })
       );
     }
@@ -161,9 +139,7 @@ for (const key of keys) {
 // ── Summary ───────────────────────────────────────────────────────────────────
 
 console.log(`\n${"─".repeat(52)}`);
-console.log(
-  `Processed: ${processed}   Skipped: ${skipped}   Failed: ${failed}`
-);
+console.log(`Processed: ${processed}   Failed: ${failed}`);
 if (processed > 0) {
   const totalPct = ((1 - totalCompressed / totalOriginal) * 100).toFixed(1);
   console.log(
