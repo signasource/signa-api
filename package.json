@@ -1,16 +1,5 @@
 {
   "name": "signa-api",
   "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "compress-glb": "node scripts/compress-glb.mjs"
-  },
-  "devDependencies": {
-    "@gltf-transform/core": "^4.1.0",
-    "@gltf-transform/extensions": "^4.1.0",
-    "@gltf-transform/functions": "^4.1.0",
-    "draco3d": "^1.5.7",
-    "jimp": "^1.6.0"
-  }
+  "version": "0.0.0"
 }
