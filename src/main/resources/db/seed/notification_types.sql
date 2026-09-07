@@ -8,7 +8,10 @@ VALUES
     ('GLOBAL_ANNOUNCEMENT', 'Important announcement', 'We have an important update for you.', 'GLOBAL', false, true),
     ('FRIEND_REQUEST_RECEIVED', 'Nueva solicitud de amistad', '{{friend}} te envió una solicitud de amistad.', 'INDIVIDUAL', false, true),
     ('FRIEND_REQUEST_ACCEPTED', 'Solicitud aceptada', '{{friend}} aceptó tu solicitud de amistad.', 'INDIVIDUAL', false, true),
-    ('FRIEND_EVENT_LIKED', 'Le gustó tu actividad', 'A {{friend}} le gustó tu actividad.', 'INDIVIDUAL', false, true)
+    ('FRIEND_EVENT_LIKED', 'Le gustó tu actividad', 'A {{friend}} le gustó tu actividad.', 'INDIVIDUAL', false, true),
+    ('GIFT_RECEIVED', 'Te llegó un regalo', '{{friend}} te regaló {{item}}.', 'INDIVIDUAL', false, true),
+    ('GIFT_OPENED', 'Abrieron tu regalo', '{{friend}} abrió el regalo que le mandaste.', 'INDIVIDUAL', false, true),
+    ('GIFT_THANKED', 'Te agradecieron', '{{friend}} te agradeció el regalo.', 'INDIVIDUAL', false, true)
 ON CONFLICT (code) DO UPDATE SET
     default_title = EXCLUDED.default_title,
     default_body = EXCLUDED.default_body,

@@ -65,4 +65,9 @@ public class Gift {
     @Column private Instant claimedAt;
 
     @Column private Instant expiresAt;
+
+    @Column private Instant thankedAt;
+
+    @Column(columnDefinition = "TEXT")
+    private String thankMessage;
 }

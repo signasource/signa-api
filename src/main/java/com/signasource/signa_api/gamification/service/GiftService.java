@@ -15,6 +15,8 @@ import com.signasource.signa_api.gamification.entity.UserStats;
 import com.signasource.signa_api.gamification.repository.GiftRepository;
 import com.signasource.signa_api.gamification.repository.PurchaseRepository;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
+import com.signasource.signa_api.notification.entity.NotificationCode;
+import com.signasource.signa_api.notification.service.NotificationService;
 import com.signasource.signa_api.users.entity.FriendshipStatus;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.repository.FriendshipRepository;
@@ -22,11 +24,14 @@ import com.signasource.signa_api.users.repository.UserRepository;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class GiftService {
@@ -39,6 +44,7 @@ public class GiftService {
     private final FriendshipRepository friendshipRepository;
     private final UserRepository userRepository;
     private final PurchaseService purchaseService;
+    private final NotificationService notificationService;
 
     @Transactional
     public GiftResponse sendGift(User sender, UUID shopItemId, UUID recipientId, String message) {
@@ -83,6 +89,8 @@ public class GiftService {
                                 .expiresAt(now.plus(GIFT_EXPIRY_DAYS, ChronoUnit.DAYS))
                                 .build());
 
+        notifyGift(recipient, NotificationCode.GIFT_RECEIVED, sender, item, gift);
+
         return GiftResponse.from(gift);
     }
 
@@ -114,8 +122,36 @@ public class GiftService {
         gift.setClaimedAt(Instant.now());
         giftRepository.save(gift);
 
+        notifyGift(gift.getSender(), NotificationCode.GIFT_OPENED, user, gift.getShopItem(), gift);
+
         return new GiftClaimResponse(
                 GiftResponse.from(gift), effect, UserInventoryResponse.from(stats));
+    }
+
+    @Transactional
+    public GiftResponse thankGift(User user, UUID giftId, String message) {
+        purchaseService.ensureEnabled(user);
+
+        Gift gift =
+                giftRepository
+                        .findByIdAndRecipient(giftId, user)
+                        .orElseThrow(() -> new NotFoundException("Gift not found"));
+
+        if (gift.getStatus() != GiftStatus.CLAIMED) {
+            throw new InvalidInputException("You can only thank for a gift you have opened");
+        }
+
+        if (gift.getThankedAt() != null) {
+            throw new ResourceAlreadyInUseException("You have already thanked for this gift");
+        }
+
+        gift.setThankedAt(Instant.now());
+        gift.setThankMessage(message);
+        giftRepository.save(gift);
+
+        notifyGift(gift.getSender(), NotificationCode.GIFT_THANKED, user, gift.getShopItem(), gift);
+
+        return GiftResponse.from(gift);
     }
 
     @Transactional(readOnly = true)
@@ -153,5 +189,23 @@ public class GiftService {
 
     private boolean isExpired(Gift gift) {
         return gift.getExpiresAt() != null && gift.getExpiresAt().isBefore(Instant.now());
+    }
+
+    /** A failed notification must not roll back the gift change. */
+    private void notifyGift(
+            User recipient, NotificationCode code, User about, ShopItem item, Gift gift) {
+        try {
+            notificationService.notifyUser(
+                    recipient.getId(),
+                    code,
+                    Map.of(
+                            "friend", about.getName(),
+                            "friendUsername", about.getUsername(),
+                            "friendId", about.getId().toString(),
+                            "item", item.getTitle(),
+                            "giftId", gift.getId().toString()));
+        } catch (RuntimeException ex) {
+            log.warn("Could not send {} notification to {}", code, recipient.getId(), ex);
+        }
     }
 }

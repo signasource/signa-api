@@ -16,7 +16,9 @@ public record GiftResponse(
         GiftStatus status,
         Instant sentAt,
         Instant claimedAt,
-        Instant expiresAt) {
+        Instant expiresAt,
+        Instant thankedAt,
+        String thankMessage) {
 
     public static GiftResponse from(Gift gift) {
         GiftStatus effectiveStatus =
@@ -37,6 +39,8 @@ public record GiftResponse(
                 effectiveStatus,
                 gift.getSentAt(),
                 gift.getClaimedAt(),
-                gift.getExpiresAt());
+                gift.getExpiresAt(),
+                gift.getThankedAt(),
+                gift.getThankMessage());
     }
 }

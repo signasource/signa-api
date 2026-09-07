@@ -4,6 +4,7 @@ import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.gamification.dto.GiftClaimResponse;
 import com.signasource.signa_api.gamification.dto.GiftResponse;
 import com.signasource.signa_api.gamification.dto.SendGiftRequest;
+import com.signasource.signa_api.gamification.dto.ThankGiftRequest;
 import com.signasource.signa_api.gamification.entity.GiftStatus;
 import com.signasource.signa_api.gamification.service.GiftService;
 import jakarta.validation.Valid;
@@ -58,5 +59,14 @@ public class GiftController {
     public ResponseEntity<GiftClaimResponse> claimGift(
             @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(giftService.claimGift(userDetails.getUser(), id));
+    }
+
+    @PostMapping("/{id}/thank")
+    public ResponseEntity<GiftResponse> thankGift(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody(required = false) ThankGiftRequest request) {
+        String message = request == null ? null : request.message();
+        return ResponseEntity.ok(giftService.thankGift(userDetails.getUser(), id, message));
     }
 }
