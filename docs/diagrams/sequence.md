@@ -368,6 +368,42 @@ sequenceDiagram
     end
 ```
 
+## Práctica libre
+
+Sesiones sueltas de repaso (por tipo de ejercicio, por seña aprendida, o de errores pendientes),
+fuera del camino de una lección real. Reutiliza los mismos `LESSON_BLOCK` de las lecciones en las
+que el usuario está inscripto, pero el intento se guarda en `PRACTICE_ATTEMPT`, no en
+`LESSON_BLOCK_ATTEMPT` — no dispara XP, no cuesta vidas y no toca el progreso de lección/tema/curso
+(contraste con [Interacción con un bloque de lección](#interaccion-con-un-bloque-de-leccion)). El
+repaso de errores combina ambas tablas: un bloque es un "error pendiente" si su intento más
+reciente, en cualquiera de las dos, fue incorrecto.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant API as API
+    participant DB as Base de datos
+
+    alt práctica por tipo de ejercicio
+        C->>API: Pedir ejercicios de un tipo
+        API->>DB: Bloques de ese tipo en los cursos inscriptos
+    else práctica por seña aprendida
+        C->>API: Pedir ejercicios de una seña
+        API->>DB: Bloques de los cursos inscriptos que enseñan esa seña
+    else repaso de errores
+        C->>API: Pedir bloques con errores pendientes
+        API->>DB: Últimos intentos (lección + práctica) por bloque
+    end
+    API-->>C: Lote de bloques (mezclado, acotado a un límite)
+
+    loop por cada bloque respondido
+        C->>API: Registrar intento de práctica (correcto/incorrecto)
+        API->>DB: Guardar en PRACTICE_ATTEMPT
+        API-->>C: Intento registrado (201)
+    end
+```
+
 ## Tienda: compra para uno mismo o como regalo
 
 ```mermaid

@@ -169,12 +169,20 @@ aprendidas. `USER` es la vista [Usuarios](#usuarios); `COURSE_VERSION`, `TOPIC`,
 `LESSON_BLOCK`, la vista [Contenido / aprendizaje](#contenido-aprendizaje). `USER_LEARNED_SIGN.sign`
 guarda la seña como texto (no es FK a `SIGN`).
 
+`PRACTICE_ATTEMPT` registra los intentos de la práctica libre (por tipo de ejercicio, por seña
+aprendida o repaso de errores) — mismo shape que `LESSON_BLOCK_ATTEMPT` pero deliberadamente
+separada: guardarla **no** dispara XP, pérdida de vidas ni avance de `USER_LESSON_PROGRESS`/
+`USER_TOPIC_PROGRESS` (ver [`PracticeService`](../../src/main/java/com/signasource/signa_api/learning/service/PracticeService.java)).
+El repaso de errores lee de ambas tablas: un bloque es un "error pendiente" si su intento más
+reciente (en cualquiera de las dos) fue incorrecto.
+
 ```mermaid
 erDiagram
     USER ||--o{ USER_COURSE_ENROLLMENT : "se inscribe"
     USER ||--o{ USER_TOPIC_PROGRESS : "avanza"
     USER ||--o{ USER_LESSON_PROGRESS : "avanza"
     USER ||--o{ LESSON_BLOCK_ATTEMPT : "intenta"
+    USER ||--o{ PRACTICE_ATTEMPT : "practica"
     USER ||--o{ USER_DAILY_XP : "acumula"
     USER ||--o{ USER_LEARNED_SIGN : "aprende"
     COURSE_VERSION ||--o{ USER_COURSE_ENROLLMENT : "referida por"
@@ -182,6 +190,7 @@ erDiagram
     TOPIC ||--o{ USER_TOPIC_PROGRESS : "referido por"
     LESSON ||--o{ USER_LESSON_PROGRESS : "referida por"
     LESSON_BLOCK ||--o{ LESSON_BLOCK_ATTEMPT : "referido por"
+    LESSON_BLOCK ||--o{ PRACTICE_ATTEMPT : "referido por"
 
     USER_COURSE_ENROLLMENT {
         uuid id PK
@@ -209,6 +218,13 @@ erDiagram
         int xpEarned
     }
     LESSON_BLOCK_ATTEMPT {
+        uuid id PK
+        uuid user_id FK
+        uuid lesson_block_id FK
+        boolean isCorrect
+        instant attemptedAt
+    }
+    PRACTICE_ATTEMPT {
         uuid id PK
         uuid user_id FK
         uuid lesson_block_id FK
