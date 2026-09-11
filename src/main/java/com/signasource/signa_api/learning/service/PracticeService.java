@@ -14,6 +14,7 @@ import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.entity.LessonBlock;
 import com.signasource.signa_api.learning.entity.LessonBlockAttempt;
 import com.signasource.signa_api.learning.entity.PracticeAttempt;
+import com.signasource.signa_api.learning.event.XpEarnedEvent;
 import com.signasource.signa_api.learning.repository.LessonBlockAttemptRepository;
 import com.signasource.signa_api.learning.repository.LessonBlockRepository;
 import com.signasource.signa_api.learning.repository.PracticeAttemptRepository;
@@ -31,6 +32,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +45,13 @@ public class PracticeService {
     private static final Set<BlockType> NOT_PRACTICABLE =
             EnumSet.of(BlockType.INFO, BlockType.INTRODUCE_SIGN, BlockType.INVISIBLE_SIGNS);
 
+    /**
+     * Flat bonus for finishing a mistake-review batch — unlike other practice modes, "Repaso de
+     * errores" grants real XP (see PracticeController#completeMistakeReview) since it always works
+     * off the user's actual pending mistakes, which shrink as they're resolved.
+     */
+    private static final int MISTAKE_REVIEW_XP_REWARD = 20;
+
     private final LessonBlockRepository lessonBlockRepository;
     private final LessonBlockAttemptRepository lessonBlockAttemptRepository;
     private final PracticeAttemptRepository practiceAttemptRepository;
@@ -50,6 +59,7 @@ public class PracticeService {
     private final UserLearnedSignRepository userLearnedSignRepository;
     private final UserStatsRepository userStatsRepository;
     private final BlockSignExtractor blockSignExtractor;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(readOnly = true)
     public List<LessonBlockResponse> getExercisesByType(User user, BlockType type, int limit) {
@@ -115,6 +125,12 @@ public class PracticeService {
                         .lessonBlock(block)
                         .isCorrect(isCorrect)
                         .build());
+    }
+
+    @Transactional
+    public int completeMistakeReview(User user) {
+        eventPublisher.publishEvent(new XpEarnedEvent(this, user, MISTAKE_REVIEW_XP_REWARD));
+        return MISTAKE_REVIEW_XP_REWARD;
     }
 
     @Transactional(readOnly = true)

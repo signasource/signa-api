@@ -26,6 +26,7 @@ import com.signasource.signa_api.learning.entity.LessonBlockAttempt;
 import com.signasource.signa_api.learning.entity.PracticeAttempt;
 import com.signasource.signa_api.learning.entity.Topic;
 import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
+import com.signasource.signa_api.learning.event.XpEarnedEvent;
 import com.signasource.signa_api.learning.repository.LessonBlockAttemptRepository;
 import com.signasource.signa_api.learning.repository.LessonBlockRepository;
 import com.signasource.signa_api.learning.repository.PracticeAttemptRepository;
@@ -40,9 +41,11 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class PracticeServiceTest {
@@ -54,6 +57,7 @@ class PracticeServiceTest {
     @Mock private UserLearnedSignRepository userLearnedSignRepository;
     @Mock private UserStatsRepository userStatsRepository;
     @Mock private BlockSignExtractor blockSignExtractor;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks private PracticeService practiceService;
 
@@ -292,5 +296,16 @@ class PracticeServiceTest {
         PracticeSummaryResponse summary = practiceService.getSummary(mockUser);
 
         assertEquals(new PracticeSummaryResponse(0, 0L), summary);
+    }
+
+    @Test
+    void completeMistakeReview_ShouldPublishXpEarnedEventAndReturnAwardedAmount() {
+        int xpEarned = practiceService.completeMistakeReview(mockUser);
+
+        ArgumentCaptor<XpEarnedEvent> eventCaptor = ArgumentCaptor.forClass(XpEarnedEvent.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        assertEquals(mockUser, eventCaptor.getValue().getUser());
+        assertEquals(xpEarned, eventCaptor.getValue().getXpAmount());
+        assertTrue(xpEarned > 0);
     }
 }
