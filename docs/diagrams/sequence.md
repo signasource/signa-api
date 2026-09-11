@@ -378,6 +378,11 @@ que el usuario está inscripto, pero el intento se guarda en `PRACTICE_ATTEMPT`,
 repaso de errores combina ambas tablas: un bloque es un "error pendiente" si su intento más
 reciente, en cualquiera de las dos, fue incorrecto.
 
+**Excepción:** terminar un lote de repaso de errores sí otorga una recompensa de XP fija
+(`PracticeService.completeMistakeReview`, evento `XpEarnedEvent`) — a diferencia de los otros modos,
+siempre opera sobre los errores pendientes reales del usuario, así que se autolimita: una vez
+resueltos, el próximo lote sale vacío y no hay repaso que completar.
+
 ```mermaid
 sequenceDiagram
     autonumber
@@ -401,6 +406,12 @@ sequenceDiagram
         C->>API: Registrar intento de práctica (correcto/incorrecto)
         API->>DB: Guardar en PRACTICE_ATTEMPT
         API-->>C: Intento registrado (201)
+    end
+
+    opt lote de repaso de errores completado
+        C->>API: Completar repaso de errores
+        API->>API: Publicar XpEarnedEvent (recompensa fija)
+        API-->>C: XP otorgado
     end
 ```
 

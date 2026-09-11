@@ -5,6 +5,7 @@ import com.signasource.signa_api.learning.dto.LearnedSignResponse;
 import com.signasource.signa_api.learning.dto.LessonBlockResponse;
 import com.signasource.signa_api.learning.dto.PracticeAttemptRequest;
 import com.signasource.signa_api.learning.dto.PracticeMistakeResponse;
+import com.signasource.signa_api.learning.dto.PracticeMistakeReviewCompletedResponse;
 import com.signasource.signa_api.learning.dto.PracticeSummaryResponse;
 import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.service.PracticeService;
@@ -84,5 +85,17 @@ public class PracticeController {
         practiceService.recordAttempt(
                 userDetails.getUser(), request.lessonBlockId(), request.isCorrect());
         return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    /**
+     * Unlike other practice modes, finishing a mistake-review batch grants real XP — it always
+     * works off the user's actual pending mistakes, so the reward can't be farmed for free once
+     * they're resolved (see PracticeService#completeMistakeReview).
+     */
+    @PostMapping("/mistakes/complete")
+    public ResponseEntity<PracticeMistakeReviewCompletedResponse> completeMistakeReview(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        int xpEarned = practiceService.completeMistakeReview(userDetails.getUser());
+        return ResponseEntity.ok(new PracticeMistakeReviewCompletedResponse(xpEarned));
     }
 }

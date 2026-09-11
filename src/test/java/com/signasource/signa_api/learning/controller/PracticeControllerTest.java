@@ -11,6 +11,7 @@ import com.signasource.signa_api.learning.dto.LearnedSignResponse;
 import com.signasource.signa_api.learning.dto.LessonBlockResponse;
 import com.signasource.signa_api.learning.dto.PracticeAttemptRequest;
 import com.signasource.signa_api.learning.dto.PracticeMistakeResponse;
+import com.signasource.signa_api.learning.dto.PracticeMistakeReviewCompletedResponse;
 import com.signasource.signa_api.learning.dto.PracticeSummaryResponse;
 import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.service.PracticeService;
@@ -129,5 +130,16 @@ class PracticeControllerTest {
 
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         verify(practiceService).recordAttempt(mockUser, lessonBlockId, true);
+    }
+
+    @Test
+    void completeMistakeReview_ShouldReturn200WithXpEarned() {
+        when(practiceService.completeMistakeReview(mockUser)).thenReturn(20);
+
+        ResponseEntity<PracticeMistakeReviewCompletedResponse> response =
+                practiceController.completeMistakeReview(mockUserDetails);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(new PracticeMistakeReviewCompletedResponse(20), response.getBody());
     }
 }
