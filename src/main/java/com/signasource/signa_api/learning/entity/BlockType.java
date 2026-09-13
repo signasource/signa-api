@@ -8,5 +8,6 @@ public enum BlockType {
     CONTEXT_RESPONSE,
     MATCH,
     VISUAL_RECOGNITION,
-    INVISIBLE_SIGNS
+    INVISIBLE_SIGNS,
+    PERFORM_SIGN
 }

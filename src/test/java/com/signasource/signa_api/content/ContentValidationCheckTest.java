@@ -15,6 +15,7 @@ import com.signasource.signa_api.content.validator.block.InfoValidator;
 import com.signasource.signa_api.content.validator.block.IntroduceSignValidator;
 import com.signasource.signa_api.content.validator.block.InvisibleSignsValidator;
 import com.signasource.signa_api.content.validator.block.MatchValidator;
+import com.signasource.signa_api.content.validator.block.PerformSignValidator;
 import com.signasource.signa_api.content.validator.block.SelectMeaningValidator;
 import com.signasource.signa_api.content.validator.block.SelectSignValidator;
 import com.signasource.signa_api.content.validator.block.VisualRecognitionValidator;
@@ -51,7 +52,8 @@ class ContentValidationCheckTest {
                         new MatchValidator(configParser),
                         new VisualRecognitionValidator(configParser),
                         new ContextResponseValidator(configParser),
-                        new InvisibleSignsValidator(configParser));
+                        new InvisibleSignsValidator(configParser),
+                        new PerformSignValidator(configParser));
         this.validator = new ContentValidator(blockValidators);
     }
 
