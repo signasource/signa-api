@@ -72,6 +72,189 @@ lessons:
 
             https://cas.org.ar
 
+  - code: "leccion-nombres"
+    name: "Cómo nos llamamos"
+    description: "La seña personal en la comunidad sorda y cuándo se deletrea un nombre."
+
+    blocks:
+      - type: INFO
+        xp: 5
+        config:
+          title: "La seña personal"
+          text: |
+            En la comunidad sorda cada persona tiene una seña personal: una seña única que la identifica y que reemplaza a su nombre en la conversación. Deletrear un nombre letra por letra cada vez que se lo menciona sería lento, así que la seña personal cumple esa función.
+
+            Lo más importante es que la seña personal no se elige: la otorga la comunidad sorda. Ponerse una seña a uno mismo no es parte de la costumbre, y recibirla suele marcar un momento de pertenencia.
+
+      - type: INFO
+        xp: 5
+        config:
+          title: "De dónde sale una seña personal"
+          text: |
+            Casi siempre surge de algo propio de la persona, y por eso no hay dos iguales.
+
+            Puede venir de un rasgo físico (un lunar, el pelo enrulado, los anteojos), de un gesto o una costumbre (cómo se ríe, cómo saluda), de algo que hace o le gusta, o de la inicial del nombre combinada con alguno de esos rasgos.
+
+      - type: INFO
+        xp: 5
+        config:
+          title: "Mientras tanto, se deletrea"
+          text: |
+            Hasta que una persona recibe su seña personal —o cuando habla con alguien que todavía no la conoce— el nombre se deletrea con el alfabeto dactilológico, letra por letra.
+
+            El deletreo también se usa para nombres de lugares, marcas y palabras que no tienen una seña establecida. No reemplaza a la lengua: es un recurso puntual dentro de ella.
+
+      - type: INFO
+        xp: 5
+        config:
+          title: "Ahora vos"
+          text: |
+            En la próxima pantalla vas a escribir tu nombre y deletrearlo con las manos, letra por letra, mientras la cámara te va marcando cuáles vas logrando.
+
+            No hace falta apurarse: cada letra se sostiene un momento hasta que queda reconocida.
+
+      - type: SPELL_NAME
+        xp: 20
+        config:
+          max_letters: 10
+
+  - code: leccion-6
+    name: Amigos y familia
+    description: Aprende las señas de personas cercanas y relaciones familiares.
+
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: madre
+          word: madre
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: padre
+          word: padre
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: hermano
+          word: hermano
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: amigo
+          word: amigo
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: abuelo
+          word: abuelo
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: madre
+          options:
+            - madre
+            - padre
+            - hermano
+            - amigo
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: padre
+          options:
+            - madre
+            - padre
+            - abuelo
+            - amigo
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: amigo
+          options:
+            - hermano
+            - amigo
+            - abuelo
+            - madre
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Cómo llamarías a la persona que es el padre de tu madre?"
+          answer: abuelo
+          options:
+            - hermano
+            - padre
+            - abuelo
+            - amigo
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: hermano
+          options:
+            - padre
+            - amigo
+            - hermano
+            - abuelo
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: abuelo
+          options:
+            - abuelo
+            - hermano
+            - padre
+            - amigo
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Quién puede ser una persona con la que compartís una amistad?"
+          answer: amigo
+          options:
+            - padre
+            - abuelo
+            - hermano
+            - amigo
+
+      - type: MATCH
+        xp: 10
+        config:
+          concepts:
+            - madre
+            - padre
+            - amigo
+            - abuelo
+            - hermano
+
+      - type: VISUAL_RECOGNITION
+        xp: 15
+        config:
+          sign_sequence:
+            - madre
+            - amigo
+            - abuelo
+            - hermano
+          options:
+            - madre
+            - padre
+            - amigo
+            - abuelo
+            - hermano
+          keep_order: false
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - mama
+            - papa
+            - hermano
+            - amigo
+
   - code: "leccion_1"
     name: "Abecedario"
     description: "Conocé cómo se hacen las letras del abecedario en Lengua de Señas Argentina."
@@ -608,132 +791,4 @@ lessons:
             - agosto
             - octubre
             - diciembre
-          keep_order: false
-
-  - code: leccion-6
-    name: Amigos y familia
-    description: Aprende las señas de personas cercanas y relaciones familiares.
-
-    blocks:
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: madre
-          word: madre
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: padre
-          word: padre
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: hermano
-          word: hermano
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: amigo
-          word: amigo
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: abuelo
-          word: abuelo
-
-      - type: SELECT_MEANING
-        xp: 5
-        config:
-          sign: madre
-          options:
-            - madre
-            - padre
-            - hermano
-            - amigo
-
-      - type: SELECT_SIGN
-        xp: 5
-        config:
-          word: padre
-          options:
-            - madre
-            - padre
-            - abuelo
-            - amigo
-
-      - type: SELECT_MEANING
-        xp: 5
-        config:
-          sign: amigo
-          options:
-            - hermano
-            - amigo
-            - abuelo
-            - madre
-
-      - type: CONTEXT_RESPONSE
-        xp: 5
-        config:
-          question: "¿Cómo llamarías a la persona que es el padre de tu madre?"
-          answer: abuelo
-          options:
-            - hermano
-            - padre
-            - abuelo
-            - amigo
-
-      - type: SELECT_SIGN
-        xp: 5
-        config:
-          word: hermano
-          options:
-            - padre
-            - amigo
-            - hermano
-            - abuelo
-
-      - type: SELECT_MEANING
-        xp: 5
-        config:
-          sign: abuelo
-          options:
-            - abuelo
-            - hermano
-            - padre
-            - amigo
-
-      - type: CONTEXT_RESPONSE
-        xp: 5
-        config:
-          question: "¿Quién puede ser una persona con la que compartís una amistad?"
-          answer: amigo
-          options:
-            - padre
-            - abuelo
-            - hermano
-            - amigo
-
-      - type: MATCH
-        xp: 10
-        config:
-          concepts:
-            - madre
-            - padre
-            - amigo
-            - abuelo
-            - hermano
-
-      - type: VISUAL_RECOGNITION
-        xp: 15
-        config:
-          sign_sequence:
-            - madre
-            - amigo
-            - abuelo
-            - hermano
-          options:
-            - madre
-            - padre
-            - amigo
-            - abuelo
-            - hermano
           keep_order: false

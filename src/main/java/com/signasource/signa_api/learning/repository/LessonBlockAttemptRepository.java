@@ -9,6 +9,8 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface LessonBlockAttemptRepository extends JpaRepository<LessonBlockAttempt, UUID> {
 
+    void deleteByLessonBlockId(UUID lessonBlockId);
+
     List<LessonBlockAttempt> findByUserIdAndLessonBlockId(UUID userId, UUID lessonBlockId);
 
     long countByUserIdAndLessonBlockId(UUID userId, UUID lessonBlockId);

@@ -13,6 +13,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface UserLessonProgressRepository extends JpaRepository<UserLessonProgress, UUID> {
 
+    void deleteByLessonId(UUID lessonId);
+
     List<UserLessonProgress> findByUserId(UUID userId);
 
     Optional<UserLessonProgress> findByUserIdAndLessonId(UUID userId, UUID lessonId);

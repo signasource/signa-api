@@ -9,5 +9,6 @@ public enum BlockType {
     MATCH,
     VISUAL_RECOGNITION,
     INVISIBLE_SIGNS,
-    PERFORM_SIGN
+    PERFORM_SIGN,
+    SPELL_NAME
 }

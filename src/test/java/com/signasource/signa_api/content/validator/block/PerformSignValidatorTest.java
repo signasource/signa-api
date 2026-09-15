@@ -35,7 +35,7 @@ class PerformSignValidatorTest {
     @Test
     void shouldPassForValidBlock() {
         List<ValidationError> errors = new ArrayList<>();
-        validator.validate(block(config("mama", "papa", "casa")), ctx, errors);
+        validator.validate(block(config("mama", "papa", "hermano")), ctx, errors);
         assertTrue(errors.isEmpty(), errors.toString());
     }
 
@@ -59,7 +59,7 @@ class PerformSignValidatorTest {
     @Test
     void shouldAcceptSignsWithSurroundingSpacesAndUppercase() {
         List<ValidationError> errors = new ArrayList<>();
-        validator.validate(block(config("  Casa  ")), ctx, errors);
+        validator.validate(block(config("  Mama  ")), ctx, errors);
         assertTrue(errors.isEmpty(), errors.toString());
     }
 
