@@ -92,7 +92,8 @@ public class AuthService {
         userRepository.save(user);
 
         userSettingsRepository.save(UserSettings.builder().user(user).build());
-        userStatsRepository.save(UserStats.builder().user(user).updatedAt(Instant.now()).build());
+        userStatsRepository.save(
+                UserStats.builder().user(user).gems(100).updatedAt(Instant.now()).build());
 
         Token token =
                 createToken(
@@ -280,7 +281,7 @@ public class AuthService {
 
                 userSettingsRepository.save(UserSettings.builder().user(user).build());
                 userStatsRepository.save(
-                        UserStats.builder().user(user).updatedAt(Instant.now()).build());
+                        UserStats.builder().user(user).gems(100).updatedAt(Instant.now()).build());
             }
 
             return generateTokens(user);

@@ -132,7 +132,9 @@ class AuthServiceTest {
         verify(passwordEncoder).encode(PASSWORD);
         verify(userRepository).save(any(User.class));
         verify(userSettingsRepository).save(any(UserSettings.class));
-        verify(userStatsRepository).save(any(UserStats.class));
+        ArgumentCaptor<UserStats> statsCaptor = ArgumentCaptor.forClass(UserStats.class);
+        verify(userStatsRepository).save(statsCaptor.capture());
+        assertEquals(100, statsCaptor.getValue().getGems());
         verify(jwtService).generateToken(any(CustomUserDetails.class));
         verify(emailService).sendVerificationEmail(eq(EMAIL), any(String.class));
     }
@@ -523,7 +525,9 @@ class AuthServiceTest {
         assertTrue(savedUser.isVerified());
 
         verify(userSettingsRepository).save(any(UserSettings.class));
-        verify(userStatsRepository).save(any(UserStats.class));
+        ArgumentCaptor<UserStats> statsCaptor = ArgumentCaptor.forClass(UserStats.class);
+        verify(userStatsRepository).save(statsCaptor.capture());
+        assertEquals(100, statsCaptor.getValue().getGems());
     }
 
     @Test
