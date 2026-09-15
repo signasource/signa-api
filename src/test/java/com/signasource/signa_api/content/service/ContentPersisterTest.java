@@ -27,6 +27,9 @@ import com.signasource.signa_api.learning.repository.LessonRepository;
 import com.signasource.signa_api.learning.repository.SignLanguageRepository;
 import com.signasource.signa_api.learning.repository.TopicRepository;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -214,6 +217,110 @@ class ContentPersisterTest {
         assertThat(courseRepository.count()).isEqualTo(1);
         Course course = courseRepository.findByCode(meta.code()).orElseThrow();
         assertThat(course.getDescription()).isEqualTo("Updated description");
+    }
+
+    @Test
+    void shouldKeepBlockIdsWhenContentAroundThemChanges() {
+        contentPersister.importCourse(happyCourse);
+        Set<UUID> before = blockIds();
+
+        contentPersister.importCourse(withCourseDescription("Edited"));
+
+        // Attempts and progress point at these ids: rebuilding the rows would orphan them, and the
+        // foreign keys would stop the import before that.
+        assertThat(blockIds()).isEqualTo(before);
+    }
+
+    @Test
+    void shouldKeepBlockIdWhenItMovesWithinItsLesson() {
+        contentPersister.importCourse(happyCourse);
+        LessonBlock info =
+                lessonBlockRepository.findAll().stream()
+                        .filter(b -> b.getType() == BlockType.INFO)
+                        .findFirst()
+                        .orElseThrow();
+        UUID idBefore = info.getId();
+
+        contentPersister.importCourse(withFirstLessonBlocksReversed());
+
+        LessonBlock moved =
+                lessonBlockRepository.findAll().stream()
+                        .filter(b -> b.getType() == BlockType.INFO)
+                        .findFirst()
+                        .orElseThrow();
+        assertThat(moved.getId()).isEqualTo(idBefore);
+        assertThat(moved.getOrder()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldReuseTheVersionRowInsteadOfAddingASecondOne() {
+        contentPersister.importCourse(happyCourse);
+        UUID versionId = courseVersionRepository.findAll().get(0).getId();
+
+        contentPersister.importCourse(withCourseDescription("Edited"));
+
+        // The roadmap reads the published version with a single-result query: a second row would
+        // break every read of the course.
+        assertThat(courseVersionRepository.count()).isEqualTo(1);
+        assertThat(courseVersionRepository.findAll().get(0).getId()).isEqualTo(versionId);
+    }
+
+    @Test
+    void shouldDeleteContentThatDisappearedFromTheYaml() {
+        contentPersister.importCourse(happyCourse);
+
+        contentPersister.importCourse(withoutSecondTopic());
+
+        assertThat(topicRepository.count()).isEqualTo(1);
+        assertThat(topicRepository.findAll().get(0).getCode()).isEqualTo("topic-1");
+        assertThat(lessonRepository.findAll()).allMatch(l -> "lesson-1".equals(l.getCode()));
+    }
+
+    private Set<UUID> blockIds() {
+        return lessonBlockRepository.findAll().stream()
+                .map(LessonBlock::getId)
+                .collect(Collectors.toSet());
+    }
+
+    private LoadedCourse withCourseDescription(String description) {
+        CourseYaml original = happyCourse.course();
+        CourseMetadataDto meta = original.course();
+        return new LoadedCourse(
+                SIGN_LANG_CODE,
+                new CourseYaml(
+                        new CourseMetadataDto(
+                                meta.code(), meta.name(), description, meta.free(), meta.cover()),
+                        original.version(),
+                        original.topics()),
+                happyCourse.topics());
+    }
+
+    private LoadedCourse withFirstLessonBlocksReversed() {
+        TopicYaml first = happyCourse.topics().get(0);
+        LessonDto lesson = first.lessons().get(0);
+        List<LessonBlockDto> reversed = new java.util.ArrayList<>(lesson.blocks());
+        java.util.Collections.reverse(reversed);
+        TopicYaml rebuilt =
+                new TopicYaml(
+                        first.topic(),
+                        List.of(
+                                new LessonDto(
+                                        lesson.code(),
+                                        lesson.name(),
+                                        lesson.description(),
+                                        reversed)));
+        List<TopicYaml> topics = new java.util.ArrayList<>(happyCourse.topics());
+        topics.set(0, rebuilt);
+        return new LoadedCourse(SIGN_LANG_CODE, happyCourse.course(), topics);
+    }
+
+    private LoadedCourse withoutSecondTopic() {
+        CourseYaml original = happyCourse.course();
+        return new LoadedCourse(
+                SIGN_LANG_CODE,
+                new CourseYaml(
+                        original.course(), original.version(), List.of(original.topics().get(0))),
+                List.of(happyCourse.topics().get(0)));
     }
 
     @Test

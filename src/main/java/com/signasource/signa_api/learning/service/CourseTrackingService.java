@@ -226,6 +226,11 @@ public class CourseTrackingService {
                             new SignsLearnedEvent(this, user, signs, courseVersion));
                 }
             }
+        }
+
+        // Outside the milestone branch: a milestone requires a correct answer, but a skipped
+        // camera exercise still completes the lesson.
+        if (isNewMilestone || countsAsDoneWhenAttempted(block)) {
             checkLessonCompletion(user, block.getLesson());
         }
 
@@ -277,8 +282,21 @@ public class CourseTrackingService {
         topicProgressRepository.save(topicProgress);
     }
 
+    /**
+     * Blocks that count as done once attempted, with no correct answer required.
+     *
+     * <p>INFO blocks have no answer at all. Camera blocks do, but recognition can fail because of
+     * lighting, framing or the model itself, and the exercise offers a way out. Requiring a correct
+     * attempt left the lesson permanently unfinishable. XP is still only awarded on success.
+     */
+    private boolean countsAsDoneWhenAttempted(LessonBlock block) {
+        return block.getType() == BlockType.INFO
+                || block.getType() == BlockType.PERFORM_SIGN
+                || block.getType() == BlockType.SPELL_NAME;
+    }
+
     private boolean isCompletedByUser(User user, LessonBlock block) {
-        if (block.getType() == BlockType.INFO) {
+        if (countsAsDoneWhenAttempted(block)) {
             return attemptRepository.existsByUserIdAndLessonBlockId(user.getId(), block.getId());
         }
         return attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(

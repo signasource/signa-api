@@ -15,25 +15,11 @@ import org.springframework.stereotype.Component;
 @Component
 public class PerformSignValidator implements BlockValidator {
 
-    /**
-     * Señas que el modelo sabe clasificar. Fuente: {@code signa-ml/models/exports/
-     * signa_model_v3_meta.json}. Hay que actualizarla al cambiar el modelo. "reposo" queda afuera:
-     * es la clase de "no estoy haciendo nada", no una seña.
-     */
+    // Vocabulario del modelo que viaja en la app (assets/models/lsa-signs-v6).
+    // Si acá figura una seña que el modelo no conoce, el ejercicio se queda
+    // esperando algo que nunca va a reconocer.
     private static final Set<String> RECOGNIZABLE_SIGNS =
-            Set.of(
-                    "gracias",
-                    "hermanos",
-                    "casa",
-                    "nombre",
-                    "estudiar",
-                    "entender",
-                    "repetir",
-                    "gato",
-                    "papa",
-                    "mama",
-                    "computadora",
-                    "lengua_de_senas");
+            Set.of("hermano", "amigo", "papa", "mama");
 
     private final BlockConfigParser parser;
 
