@@ -14,6 +14,6 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(rateLimitInterceptor)
-                .addPathPatterns("/users/username-availability");
+                .addPathPatterns("/users/username-availability", "/store/gem-purchases");
     }
 }
