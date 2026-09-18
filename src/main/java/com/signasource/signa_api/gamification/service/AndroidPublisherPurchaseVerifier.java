@@ -44,6 +44,12 @@ public class AndroidPublisherPurchaseVerifier implements GooglePlayPurchaseVerif
             throw new UncheckedIOException("Google Play verification failed", e);
         }
 
+        // Defence in depth: never trust the path lookup alone. A token bought for a cheap pack
+        // must not be redeemable as an expensive one.
+        if (purchase.getProductId() != null && !productId.equals(purchase.getProductId())) {
+            throw new InvalidInputException("Purchase token does not belong to this product");
+        }
+
         return new VerifiedProductPurchase(
                 purchase.getPurchaseState() == null ? -1 : purchase.getPurchaseState(),
                 purchase.getConsumptionState() == null ? 0 : purchase.getConsumptionState(),

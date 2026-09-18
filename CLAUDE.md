@@ -197,7 +197,7 @@ Resumen de alta prioridad; el detalle y los ejemplos están en los bloques sigui
 - **Compras in-app:** el servidor es la única fuente de verdad. Un `purchaseToken` sólo acredita
   gemas si Google lo confirma como pagado (`purchaseState = purchased`) y no fue consumido ni
   acreditado antes. `google-play.enabled=false` (perfiles `local`/`test`) reemplaza el verificador
-  por uno que acepta cualquier token: **nunca** en prod.
+  por uno que acepta cualquier token; con el perfil `prod` activo la app **se niega a arrancar** en ese estado. El verificador real además cruza el `productId` que devuelve Google con el que mandó el cliente (un token de un pack barato no canjea uno caro).
 - **R2 (animaciones):** las credenciales viven **sólo** en el backend; el cliente nunca las recibe.
   `Sign.animationUrl` guarda el *object key* (p. ej. `lsa/hola.glb`), y `GET /signs/{meaning}/animation`
   (la seña se direcciona por su `meaning`, que es único) devuelve una **presigned URL** de descarga con

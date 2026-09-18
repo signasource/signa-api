@@ -67,6 +67,16 @@ class AndroidPublisherPurchaseVerifierTest {
     }
 
     @Test
+    void shouldRejectTokenBoughtForAnotherProduct() throws IOException {
+        ProductPurchase purchase =
+                new ProductPurchase().setPurchaseState(0).setProductId("gems_pack_120");
+        when(androidPublisher.purchases().products().get(PACKAGE, PRODUCT_ID, TOKEN).execute())
+                .thenReturn(purchase);
+
+        assertThrows(InvalidInputException.class, () -> verifier.verify(PRODUCT_ID, TOKEN));
+    }
+
+    @Test
     void shouldDefaultMissingFields() throws IOException {
         when(androidPublisher.purchases().products().get(PACKAGE, PRODUCT_ID, TOKEN).execute())
                 .thenReturn(new ProductPurchase());
