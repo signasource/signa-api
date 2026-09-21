@@ -36,7 +36,8 @@ public class RankingService {
 
     @Transactional(readOnly = true)
     public WeeklyRankingResponse getGlobalRanking(User currentUser) {
-        List<UserStats> top = userStatsRepository.findTopByWeeklyXpDesc(PageRequest.of(0, GLOBAL_LIMIT));
+        List<UserStats> top =
+                userStatsRepository.findTopByWeeklyXpDesc(PageRequest.of(0, GLOBAL_LIMIT));
         int total = (int) userStatsRepository.count();
 
         UserStats myStats = userStatsRepository.findByUser(currentUser).orElse(null);
@@ -58,19 +59,22 @@ public class RankingService {
 
     @Transactional(readOnly = true)
     public WeeklyRankingResponse getFriendsRanking(User currentUser) {
-        List<Friendship> friendships = friendshipRepository.findAllFriendshipsByUserAndStatus(
-                currentUser, FriendshipStatus.ACCEPTED);
+        List<Friendship> friendships =
+                friendshipRepository.findAllFriendshipsByUserAndStatus(
+                        currentUser, FriendshipStatus.ACCEPTED);
 
         Set<UUID> participantIds = new HashSet<>();
         participantIds.add(currentUser.getId());
         for (Friendship f : friendships) {
-            UUID friendId = f.getRequester().getId().equals(currentUser.getId())
-                    ? f.getAddressee().getId()
-                    : f.getRequester().getId();
+            UUID friendId =
+                    f.getRequester().getId().equals(currentUser.getId())
+                            ? f.getAddressee().getId()
+                            : f.getRequester().getId();
             participantIds.add(friendId);
         }
 
-        List<UserStats> sorted = userStatsRepository.findByUserIdInOrderByWeeklyXpDesc(participantIds);
+        List<UserStats> sorted =
+                userStatsRepository.findByUserIdInOrderByWeeklyXpDesc(participantIds);
         Map<UUID, Integer> prevFriendsRank = computePreviousFriendsRanks(sorted);
 
         int myRank = 1;
@@ -90,8 +94,10 @@ public class RankingService {
             UserStats us = sorted.get(i);
             int rank = i + 1;
             Integer prevRank = prevFriendsRank.get(us.getUser().getId());
-            Integer delta = (prevRank != null && us.getPreviousWeeklyRank() != null)
-                    ? prevRank - rank : null;
+            Integer delta =
+                    (prevRank != null && us.getPreviousWeeklyRank() != null)
+                            ? prevRank - rank
+                            : null;
             entries.add(buildEntryWithDelta(rank, us, delta));
         }
 
@@ -106,8 +112,12 @@ public class RankingService {
         }
 
         Integer myPrevFriendsRank = prevFriendsRank.get(currentUser.getId());
-        Integer myDelta = (myPrevFriendsRank != null && myStats != null && myStats.getPreviousWeeklyRank() != null)
-                ? myPrevFriendsRank - myRank : null;
+        Integer myDelta =
+                (myPrevFriendsRank != null
+                                && myStats != null
+                                && myStats.getPreviousWeeklyRank() != null)
+                        ? myPrevFriendsRank - myRank
+                        : null;
 
         var me = new MyRankingPositionResponse(myRank, myXp, myDelta, gapText);
         // total = friend count (not including self)
@@ -121,8 +131,13 @@ public class RankingService {
     private RankingEntryResponse buildEntryWithDelta(int rank, UserStats stats, Integer delta) {
         User user = stats.getUser();
         return new RankingEntryResponse(
-                rank, user.getId(), user.getUsername(), user.getName(),
-                stats.getWeeklyXp(), stats.getCurrentStreak(), delta);
+                rank,
+                user.getId(),
+                user.getUsername(),
+                user.getName(),
+                stats.getWeeklyXp(),
+                stats.getCurrentStreak(),
+                delta);
     }
 
     private Integer computeDelta(UserStats stats, int currentRank) {
@@ -132,10 +147,11 @@ public class RankingService {
 
     /** Derives last-week's friends ranking order from each participant's stored global rank. */
     private Map<UUID, Integer> computePreviousFriendsRanks(List<UserStats> stats) {
-        List<UserStats> withPrev = stats.stream()
-                .filter(us -> us.getPreviousWeeklyRank() != null)
-                .sorted(Comparator.comparingInt(UserStats::getPreviousWeeklyRank))
-                .toList();
+        List<UserStats> withPrev =
+                stats.stream()
+                        .filter(us -> us.getPreviousWeeklyRank() != null)
+                        .sorted(Comparator.comparingInt(UserStats::getPreviousWeeklyRank))
+                        .toList();
 
         Map<UUID, Integer> result = new HashMap<>();
         for (int i = 0; i < withPrev.size(); i++) {

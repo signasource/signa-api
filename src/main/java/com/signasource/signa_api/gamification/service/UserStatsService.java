@@ -39,7 +39,8 @@ public class UserStatsService {
                                                         .user(user)
                                                         .updatedAt(Instant.now())
                                                         .build()));
-        long ahead = userStatsRepository.countUsersAheadByWeeklyXp(stats.getWeeklyXp(), user.getId());
+        long ahead =
+                userStatsRepository.countUsersAheadByWeeklyXp(stats.getWeeklyXp(), user.getId());
         return UserStatsResponse.from(stats, (int) ahead + 1);
     }
 

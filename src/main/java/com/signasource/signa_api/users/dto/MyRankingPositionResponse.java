@@ -5,5 +5,8 @@ public record MyRankingPositionResponse(
         int weeklyXp,
         /** Positive = moved up; negative = moved down; null = no previous data. */
         Integer delta,
-        /** Pre-formatted gap text in Spanish, e.g. "Te faltan 320 XP para entrar al top 10". Null when rank is 1. */
+        /**
+         * Pre-formatted gap text in Spanish, e.g. "Te faltan 320 XP para entrar al top 10". Null
+         * when rank is 1.
+         */
         String gapText) {}

@@ -8,9 +8,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Runs every Monday at 00:00 ART (UTC-3).
- * Snapshots each user's current global rank into previousWeeklyRank, then zeroes weeklyXp.
- * Both operations run in a single transaction so the data is always consistent.
+ * Runs every Monday at 00:00 ART (UTC-3). Snapshots each user's current global rank into
+ * previousWeeklyRank, then zeroes weeklyXp. Both operations run in a single transaction so the data
+ * is always consistent.
  */
 @Slf4j
 @Component

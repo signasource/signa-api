@@ -4,9 +4,15 @@ import com.signasource.signa_api.gamification.entity.UserStats;
 
 /** Progress only. Gems, lives and boosters stay private. */
 public record PublicUserStatsResponse(
-        int currentStreak, int longestStreak, long totalXp, int weeklyXp, int weeklyRank, int learnedSignsCount) {
+        int currentStreak,
+        int longestStreak,
+        long totalXp,
+        int weeklyXp,
+        int weeklyRank,
+        int learnedSignsCount) {
 
-    public static final PublicUserStatsResponse EMPTY = new PublicUserStatsResponse(0, 0, 0L, 0, 0, 0);
+    public static final PublicUserStatsResponse EMPTY =
+            new PublicUserStatsResponse(0, 0, 0L, 0, 0, 0);
 
     public static PublicUserStatsResponse from(UserStats stats, int weeklyRank) {
         if (stats == null) {

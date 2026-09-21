@@ -49,10 +49,15 @@ public class PublicProfileService {
         }
 
         var statsOpt = userStatsRepository.findByUserId(target.getId());
-        int weeklyRank = statsOpt.map(s -> {
-            long ahead = userStatsRepository.countUsersAheadByWeeklyXp(s.getWeeklyXp(), target.getId());
-            return (int) ahead + 1;
-        }).orElse(0);
+        int weeklyRank =
+                statsOpt.map(
+                                s -> {
+                                    long ahead =
+                                            userStatsRepository.countUsersAheadByWeeklyXp(
+                                                    s.getWeeklyXp(), target.getId());
+                                    return (int) ahead + 1;
+                                })
+                        .orElse(0);
 
         return new PublicUserProfileResponse(
                 target.getId(),

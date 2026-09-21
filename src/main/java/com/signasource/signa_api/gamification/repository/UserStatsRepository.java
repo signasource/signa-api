@@ -20,24 +20,30 @@ public interface UserStatsRepository extends JpaRepository<UserStats, UUID> {
 
     Optional<UserStats> findByUser(User user);
 
-    @Query("SELECT us FROM UserStats us JOIN FETCH us.user ORDER BY us.weeklyXp DESC, us.user.id ASC")
+    @Query(
+            "SELECT us FROM UserStats us JOIN FETCH us.user ORDER BY us.weeklyXp DESC, us.user.id ASC")
     List<UserStats> findTopByWeeklyXpDesc(Pageable pageable);
 
-    @Query("SELECT us FROM UserStats us JOIN FETCH us.user WHERE us.user.id IN :ids ORDER BY us.weeklyXp DESC, us.user.id ASC")
+    @Query(
+            "SELECT us FROM UserStats us JOIN FETCH us.user WHERE us.user.id IN :ids ORDER BY us.weeklyXp DESC, us.user.id ASC")
     List<UserStats> findByUserIdInOrderByWeeklyXpDesc(@Param("ids") Collection<UUID> ids);
 
-    @Query("SELECT COUNT(us) FROM UserStats us WHERE us.weeklyXp > :xp AND us.user.id != :excludeId")
+    @Query(
+            "SELECT COUNT(us) FROM UserStats us WHERE us.weeklyXp > :xp AND us.user.id != :excludeId")
     long countUsersAheadByWeeklyXp(@Param("xp") int xp, @Param("excludeId") UUID excludeId);
 
     @Modifying
-    @Query(value = """
+    @Query(
+            value =
+                    """
             WITH ranked AS (
                 SELECT id, ROW_NUMBER() OVER (ORDER BY weekly_xp DESC, id) AS rn
                 FROM user_stats
             )
             UPDATE user_stats SET previous_weekly_rank = ranked.rn
             FROM ranked WHERE user_stats.id = ranked.id
-            """, nativeQuery = true)
+            """,
+            nativeQuery = true)
     void computeAndSavePreviousWeeklyRanks();
 
     @Modifying
