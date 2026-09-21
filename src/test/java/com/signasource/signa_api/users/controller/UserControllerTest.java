@@ -375,8 +375,9 @@ class UserControllerTest {
     void shouldReturnMeStats() {
         UserStatsResponse expected =
                 new UserStatsResponse(
-                        1500,
+                        1500L,
                         200,
+                        1,
                         7,
                         14,
                         50,
