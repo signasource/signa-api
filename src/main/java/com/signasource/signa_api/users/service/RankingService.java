@@ -110,7 +110,8 @@ public class RankingService {
                 ? myPrevFriendsRank - myRank : null;
 
         var me = new MyRankingPositionResponse(myRank, myXp, myDelta, gapText);
-        return new WeeklyRankingResponse(entries, participantIds.size(), me);
+        // total = friend count (not including self)
+        return new WeeklyRankingResponse(entries, participantIds.size() - 1, me);
     }
 
     private RankingEntryResponse buildEntry(int rank, UserStats stats) {
