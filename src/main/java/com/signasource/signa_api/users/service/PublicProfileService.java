@@ -48,6 +48,17 @@ public class PublicProfileService {
             return PublicUserProfileResponse.hidden(target, relation);
         }
 
+        var statsOpt = userStatsRepository.findByUserId(target.getId());
+        int weeklyRank =
+                statsOpt.map(
+                                s -> {
+                                    long ahead =
+                                            userStatsRepository.countUsersAheadByWeeklyXp(
+                                                    s.getWeeklyXp(), target.getId());
+                                    return (int) ahead + 1;
+                                })
+                        .orElse(0);
+
         return new PublicUserProfileResponse(
                 target.getId(),
                 target.getUsername(),
@@ -55,8 +66,7 @@ public class PublicProfileService {
                 headerColorOf(target),
                 relation,
                 true,
-                PublicUserStatsResponse.from(
-                        userStatsRepository.findByUserId(target.getId()).orElse(null)),
+                PublicUserStatsResponse.from(statsOpt.orElse(null), weeklyRank),
                 userStatsService.getWeeklyXpBreakdown(target),
                 achievementService.getAchievements(target, null, true),
                 courseTrackingService.getUserCourseProgress(target));

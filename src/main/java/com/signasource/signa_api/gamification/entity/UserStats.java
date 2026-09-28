@@ -87,6 +87,9 @@ public class UserStats {
     @Column(nullable = false)
     private Instant updatedAt;
 
+    /** Rank at the end of the previous weekly cycle. Null until the first reset runs. */
+    @Column private Integer previousWeeklyRank;
+
     public double getEffectiveXpMultiplier() {
         if (xpMultiplierExpiresAt != null && xpMultiplierExpiresAt.isAfter(Instant.now())) {
             return xpMultiplier;
