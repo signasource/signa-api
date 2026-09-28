@@ -196,9 +196,11 @@ erDiagram
         uuid id PK
         uuid user_id FK
         uuid course_version_id FK
+        uuid organization_id FK "nulo si es autoinscripción"
         enum status
         instant startedAt
         instant completedAt
+        instant accessExpiresAt
     }
     USER_TOPIC_PROGRESS {
         uuid id PK
@@ -420,5 +422,56 @@ erDiagram
         instant readAt
         boolean read "col is_read"
         map metadata
+    }
+```
+
+## Organizaciones
+
+Una organización contrata cursos y todos sus miembros activos acceden al mismo conjunto; el
+progreso es individual. Un usuario pertenece a una sola organización: al salir la membresía queda
+como `REMOVED` (no se borra) y sus inscripciones pasan a `DROPPED`, así el progreso se conserva si
+vuelve. Un código de invitación con `email` es una invitación nominal de un solo uso. Los intentos
+de ejercicio hechos sobre cursos de la organización se etiquetan con ella para separar esa
+actividad de la propia del usuario.
+
+```mermaid
+erDiagram
+    ORGANIZATION ||--o{ ORGANIZATION_MEMBER : "tiene"
+    ORGANIZATION ||--o{ ORGANIZATION_COURSE : "contrata"
+    ORGANIZATION ||--o{ INVITE_CODE : "emite"
+    ORGANIZATION ||--o{ USER_COURSE_ENROLLMENT : "habilita"
+    ORGANIZATION ||--o{ LESSON_BLOCK_ATTEMPT : "contexto de"
+    USER ||--o| ORGANIZATION_MEMBER : "pertenece"
+    COURSE ||--o{ ORGANIZATION_COURSE : "contratado en"
+
+    ORGANIZATION {
+        uuid id PK
+        string name UK
+        instant createdAt
+    }
+    ORGANIZATION_MEMBER {
+        uuid id PK
+        uuid organization_id FK
+        uuid user_id FK,UK
+        enum role "ADMIN | MEMBER"
+        enum status "ACTIVE | REMOVED"
+        instant joinedAt
+        instant removedAt
+    }
+    ORGANIZATION_COURSE {
+        uuid id PK
+        uuid organization_id FK
+        uuid course_id FK
+        instant contractedAt
+    }
+    INVITE_CODE {
+        uuid id PK
+        string code UK
+        uuid organization_id FK
+        string email "nulo si es un código compartido"
+        instant expiresAt
+        int maxUses
+        int useCount
+        boolean active
     }
 ```

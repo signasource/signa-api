@@ -45,6 +45,24 @@ public class SecurityConfig {
                                         .permitAll()
                                         .requestMatchers(HttpMethod.POST, "/signs")
                                         .hasRole("ADMIN")
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/organizations/invite-codes/redeem")
+                                        .authenticated()
+                                        .requestMatchers(HttpMethod.GET, "/organizations/me")
+                                        .authenticated()
+                                        .requestMatchers(HttpMethod.POST, "/organizations")
+                                        .hasRole("ADMIN")
+                                        .requestMatchers(HttpMethod.POST, "/organizations/*/admins")
+                                        .hasRole("ADMIN")
+                                        .requestMatchers(
+                                                HttpMethod.POST, "/organizations/*/courses")
+                                        .hasRole("ADMIN")
+                                        .requestMatchers(
+                                                HttpMethod.DELETE, "/organizations/*/courses/*")
+                                        .hasRole("ADMIN")
+                                        .requestMatchers("/organizations/**")
+                                        .hasAnyRole("ADMIN", "ORG_ADMIN")
                                         .requestMatchers("/actuator/health", "/actuator/info")
                                         .permitAll()
                                         .requestMatchers(HttpMethod.GET, "/signs/*/animation")

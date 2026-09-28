@@ -27,6 +27,11 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(401).body(ErrorResponse.of(ex.getMessage(), 401));
     }
 
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<ErrorResponse> handleForbidden(ForbiddenException ex) {
+        return ResponseEntity.status(403).body(ErrorResponse.of(ex.getMessage(), 403));
+    }
+
     @ExceptionHandler(NotFoundException.class)
     public ResponseEntity<ErrorResponse> handleNotFoundException(NotFoundException ex) {
         return ResponseEntity.status(404).body(ErrorResponse.of(ex.getMessage(), 404));

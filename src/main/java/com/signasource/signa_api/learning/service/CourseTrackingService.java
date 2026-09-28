@@ -5,8 +5,10 @@ import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.gamification.repository.UserLearnedSignRepository;
 import com.signasource.signa_api.learning.dto.CourseProgressResponse;
+import com.signasource.signa_api.learning.dto.EnrollmentSummaryResponse;
 import com.signasource.signa_api.learning.dto.TopicProgressResponse;
 import com.signasource.signa_api.learning.entity.BlockType;
+import com.signasource.signa_api.learning.entity.Course;
 import com.signasource.signa_api.learning.entity.CourseVersion;
 import com.signasource.signa_api.learning.entity.EnrollmentStatus;
 import com.signasource.signa_api.learning.entity.Lesson;
@@ -30,7 +32,9 @@ import com.signasource.signa_api.learning.repository.UserTopicProgressRepository
 import com.signasource.signa_api.learning.repository.projection.TopicCompletedCountView;
 import com.signasource.signa_api.learning.repository.projection.TopicLessonTotalView;
 import com.signasource.signa_api.learning.util.BlockSignExtractor;
+import com.signasource.signa_api.organizations.entity.Organization;
 import com.signasource.signa_api.users.entity.User;
+import com.signasource.signa_api.users.repository.UserRepository;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -55,6 +59,7 @@ public class CourseTrackingService {
     private final CourseVersionRepository courseVersionRepository;
     private final LessonBlockRepository lessonBlockRepository;
     private final TopicRepository topicRepository;
+    private final UserRepository userRepository;
 
     private final ApplicationEventPublisher eventPublisher;
     private final BlockSignExtractor blockSignExtractor;
@@ -77,13 +82,58 @@ public class CourseTrackingService {
         enrollment.setCourseVersion(courseVersion);
         enrollment.setStatus(EnrollmentStatus.ENROLLED);
 
-        return enrollmentRepository.save(enrollment);
+        UserCourseEnrollment saved = enrollmentRepository.save(enrollment);
+
+        user.setCurrentCourse(courseVersion.getCourse());
+        userRepository.save(user);
+
+        return saved;
+    }
+
+    @Transactional(readOnly = true)
+    public List<EnrollmentSummaryResponse> getUserEnrollments(User user) {
+        UUID currentCourseId =
+                user.getCurrentCourse() == null ? null : user.getCurrentCourse().getId();
+
+        return activeEnrollments(user).stream()
+                .map(
+                        enrollment ->
+                                EnrollmentSummaryResponse.from(
+                                        enrollment,
+                                        enrollment
+                                                .getCourseVersion()
+                                                .getCourse()
+                                                .getId()
+                                                .equals(currentCourseId)))
+                .toList();
+    }
+
+    @Transactional
+    public void setCurrentCourse(User user, UUID courseId) {
+        Course course =
+                activeEnrollments(user).stream()
+                        .map(enrollment -> enrollment.getCourseVersion().getCourse())
+                        .filter(c -> c.getId().equals(courseId))
+                        .findFirst()
+                        .orElseThrow(
+                                () -> new NotFoundException("User is not enrolled in this course"));
+
+        user.setCurrentCourse(course);
+        userRepository.save(user);
+    }
+
+    /** Drops enrollments an organization revoked and those whose granted access has lapsed. */
+    private List<UserCourseEnrollment> activeEnrollments(User user) {
+        Instant now = Instant.now();
+        return enrollmentRepository.findWithCourseByUserId(user.getId()).stream()
+                .filter(e -> e.getStatus() != EnrollmentStatus.DROPPED)
+                .filter(e -> e.getAccessExpiresAt() == null || e.getAccessExpiresAt().isAfter(now))
+                .toList();
     }
 
     @Transactional(readOnly = true)
     public List<CourseProgressResponse> getUserCourseProgress(User user) {
-        List<UserCourseEnrollment> enrollments =
-                enrollmentRepository.findWithCourseByUserId(user.getId());
+        List<UserCourseEnrollment> enrollments = activeEnrollments(user);
         if (enrollments.isEmpty()) {
             return List.of();
         }
@@ -206,6 +256,7 @@ public class CourseTrackingService {
                                 .user(user)
                                 .lessonBlock(block)
                                 .isCorrect(isCorrect)
+                                .organization(organizationOf(user, block))
                                 .build());
 
         markInProgress(user, block.getLesson());
@@ -235,6 +286,15 @@ public class CourseTrackingService {
         }
 
         return attempt;
+    }
+
+    private Organization organizationOf(User user, LessonBlock block) {
+        UUID versionId = block.getLesson().getTopic().getCourseVersion().getId();
+        return enrollmentRepository
+                .findByUserIdAndCourseVersionId(user.getId(), versionId)
+                .filter(e -> e.getStatus() != EnrollmentStatus.DROPPED)
+                .map(UserCourseEnrollment::getOrganization)
+                .orElse(null);
     }
 
     /**

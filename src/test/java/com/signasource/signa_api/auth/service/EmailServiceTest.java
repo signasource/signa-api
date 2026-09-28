@@ -49,4 +49,11 @@ class EmailServiceTest {
 
         verify(mailSender).send(mimeMessage);
     }
+
+    @Test
+    void testSendOrganizationInviteEmail() {
+        emailService.sendOrganizationInviteEmail(TO_EMAIL, "Hospital <San Martin>", "ABCD2345");
+
+        verify(mailSender).send(mimeMessage);
+    }
 }

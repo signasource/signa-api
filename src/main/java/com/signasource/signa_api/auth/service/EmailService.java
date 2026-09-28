@@ -8,6 +8,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.util.HtmlUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -37,6 +38,11 @@ public class EmailService {
                 to,
                 "Reseta tu contraseña",
                 buildPasswordResetHtml(buildUrl(PASSWORD_RESET_PATH, token)));
+    }
+
+    @Async
+    public void sendOrganizationInviteEmail(String to, String organizationName, String code) {
+        sendEmail(to, "Te invitaron a SIGNA", buildOrganizationInviteHtml(organizationName, code));
     }
 
     private void sendEmail(String to, String subject, String html) {
@@ -95,5 +101,17 @@ public class EmailService {
 				</div>
 				"""
                 .formatted(link);
+    }
+
+    private String buildOrganizationInviteHtml(String organizationName, String code) {
+        return """
+				<div style="font-family: Arial;">
+				    <h2>¡Hola!</h2>
+				    <p>%s te invitó a aprender Lengua de Señas Argentina en SIGNA.</p>
+				    <p>Ingresá este código en la app para sumarte:</p>
+				    <p style="font-size:24px; font-weight:bold; letter-spacing:4px;">%s</p>
+				</div>
+				"""
+                .formatted(HtmlUtils.htmlEscape(organizationName), code);
     }
 }

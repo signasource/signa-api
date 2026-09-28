@@ -457,6 +457,40 @@ sequenceDiagram
     end
 ```
 
+## Ingreso a una organización con código o invitación
+
+La organización (o un admin de SIGNA) genera un código compartido o invita por email; en ese caso
+se crea un código de un solo uso atado al correo y se le envía. Canjearlo une a la persona a la
+organización y la inscribe en todos los cursos que la organización contrató.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as Admin de la organización
+    participant C as Usuario (app)
+    participant API as API
+    participant M as Correo
+    participant DB as Base de datos
+
+    A->>API: Invitar por email (o generar código compartido)
+    API->>DB: Guardar código (atado al email, un solo uso)
+    API-)M: Enviar el código por correo
+    C->>API: Canjear código
+    API->>DB: Buscar código
+    alt inexistente, inactivo, vencido, agotado o de otro correo
+        API-->>C: Solicitud inválida (400)
+    else pertenece a otra organización
+        API-->>C: Conflicto (409)
+    else válido
+        API->>DB: Crear o reactivar la membresía
+        API->>DB: Inscribir en cada curso contratado (conserva progreso previo)
+        API-->>C: Organización y cursos habilitados
+    end
+    A->>API: Quitar participante
+    API->>DB: Marcar membresía como removida y bajar sus inscripciones
+    Note over API,DB: El progreso queda guardado por si se reincorpora
+```
+
 ## Tienda: compra de gemas con dinero real (Google Play)
 
 La app nunca acredita gemas por su cuenta: paga en Google Play, le pasa el comprobante a la API y
