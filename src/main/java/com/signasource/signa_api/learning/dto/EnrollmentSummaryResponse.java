@@ -12,13 +12,16 @@ public record EnrollmentSummaryResponse(
         String organizationName,
         Instant accessExpiresAt,
         boolean isCurrent) {
-    public static EnrollmentSummaryResponse from(UserCourseEnrollment enrollment, boolean isCurrent) {
+    public static EnrollmentSummaryResponse from(
+            UserCourseEnrollment enrollment, boolean isCurrent) {
         Course course = enrollment.getCourseVersion().getCourse();
         return new EnrollmentSummaryResponse(
                 course.getId(),
                 course.getName(),
                 course.getCoverUrl(),
-                enrollment.getOrganization() == null ? null : enrollment.getOrganization().getName(),
+                enrollment.getOrganization() == null
+                        ? null
+                        : enrollment.getOrganization().getName(),
                 enrollment.getAccessExpiresAt(),
                 isCurrent);
     }

@@ -113,7 +113,9 @@ class CourseTrackingControllerTest {
     @Test
     void getMyEnrollments_ShouldReturn200WithEnrollments() {
         List<EnrollmentSummaryResponse> enrollments =
-                List.of(new EnrollmentSummaryResponse(UUID.randomUUID(), "Curso básico", null, null, null, true));
+                List.of(
+                        new EnrollmentSummaryResponse(
+                                UUID.randomUUID(), "Curso básico", null, null, null, true));
         when(trackingService.getUserEnrollments(mockUser)).thenReturn(enrollments);
 
         ResponseEntity<List<EnrollmentSummaryResponse>> response =

@@ -48,8 +48,11 @@ import com.signasource.signa_api.learning.repository.UserTopicProgressRepository
 import com.signasource.signa_api.learning.repository.projection.TopicCompletedCountView;
 import com.signasource.signa_api.learning.repository.projection.TopicLessonTotalView;
 import com.signasource.signa_api.learning.util.BlockSignExtractor;
+import com.signasource.signa_api.organizations.entity.Organization;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.repository.UserRepository;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -176,7 +179,8 @@ class CourseTrackingServiceTest {
     @Test
     void recordBlockInteraction_IncorrectAttempt_DoesNotAwardXp_ButMarksLessonAndTopicInProgress() {
         UUID blockId = UUID.randomUUID();
-        Topic topic = Topic.builder().id(UUID.randomUUID()).build();
+        Topic topic =
+                Topic.builder().id(UUID.randomUUID()).courseVersion(new CourseVersion()).build();
         Lesson lesson = Lesson.builder().id(UUID.randomUUID()).topic(topic).build();
         LessonBlock block =
                 LessonBlock.builder()
@@ -221,7 +225,11 @@ class CourseTrackingServiceTest {
     @Test
     void recordBlockInteraction_DoesNotRegressCompletedLessonBackToInProgress() {
         UUID blockId = UUID.randomUUID();
-        Lesson lesson = Lesson.builder().id(UUID.randomUUID()).build();
+        Lesson lesson =
+                Lesson.builder()
+                        .id(UUID.randomUUID())
+                        .topic(Topic.builder().courseVersion(new CourseVersion()).build())
+                        .build();
         LessonBlock block =
                 LessonBlock.builder()
                         .id(blockId)
@@ -253,7 +261,11 @@ class CourseTrackingServiceTest {
     @Test
     void recordBlockInteraction_RepeatedCorrectAttempt_DoesNotAwardXpAgain() {
         UUID blockId = UUID.randomUUID();
-        Lesson lesson = Lesson.builder().id(UUID.randomUUID()).build();
+        Lesson lesson =
+                Lesson.builder()
+                        .id(UUID.randomUUID())
+                        .topic(Topic.builder().courseVersion(new CourseVersion()).build())
+                        .build();
         LessonBlock block =
                 LessonBlock.builder()
                         .id(blockId)
@@ -288,7 +300,7 @@ class CourseTrackingServiceTest {
         UUID topicId = UUID.randomUUID();
         UUID otherLessonId = UUID.randomUUID();
 
-        Topic topic = Topic.builder().id(topicId).build();
+        Topic topic = Topic.builder().id(topicId).courseVersion(new CourseVersion()).build();
         Lesson lesson = Lesson.builder().id(lessonId).topic(topic).build();
         Lesson otherLesson = Lesson.builder().id(otherLessonId).topic(topic).build();
         topic.setLessons(List.of(lesson, otherLesson));
@@ -414,7 +426,11 @@ class CourseTrackingServiceTest {
     void recordBlockInteraction_DoesNotCompleteLesson_WhenOtherBlocksPending() {
         UUID blockId = UUID.randomUUID();
         UUID otherBlockId = UUID.randomUUID();
-        Lesson lesson = Lesson.builder().id(UUID.randomUUID()).build();
+        Lesson lesson =
+                Lesson.builder()
+                        .id(UUID.randomUUID())
+                        .topic(Topic.builder().courseVersion(new CourseVersion()).build())
+                        .build();
         LessonBlock block =
                 LessonBlock.builder()
                         .id(blockId)
@@ -457,7 +473,8 @@ class CourseTrackingServiceTest {
     @Test
     void recordBlockInteraction_FirstView_AwardsXpAndMarksLessonInProgress() {
         UUID blockId = UUID.randomUUID();
-        Topic topic = Topic.builder().id(UUID.randomUUID()).build();
+        Topic topic =
+                Topic.builder().id(UUID.randomUUID()).courseVersion(new CourseVersion()).build();
         Lesson lesson = Lesson.builder().id(UUID.randomUUID()).topic(topic).build();
         LessonBlock block =
                 LessonBlock.builder()
@@ -499,7 +516,8 @@ class CourseTrackingServiceTest {
     @Test
     void recordBlockInteraction_FirstView_NoXpEvent_WhenBlockHasNoXpReward() {
         UUID blockId = UUID.randomUUID();
-        Topic topic = Topic.builder().id(UUID.randomUUID()).build();
+        Topic topic =
+                Topic.builder().id(UUID.randomUUID()).courseVersion(new CourseVersion()).build();
         Lesson lesson = Lesson.builder().id(UUID.randomUUID()).topic(topic).build();
         LessonBlock block =
                 LessonBlock.builder().id(blockId).type(BlockType.INFO).lesson(lesson).build();
@@ -528,7 +546,11 @@ class CourseTrackingServiceTest {
     @Test
     void recordBlockInteraction_RepeatedView_DoesNotAwardXpAgain() {
         UUID blockId = UUID.randomUUID();
-        Lesson lesson = Lesson.builder().id(UUID.randomUUID()).build();
+        Lesson lesson =
+                Lesson.builder()
+                        .id(UUID.randomUUID())
+                        .topic(Topic.builder().courseVersion(new CourseVersion()).build())
+                        .build();
         LessonBlock block =
                 LessonBlock.builder()
                         .id(blockId)
@@ -559,7 +581,8 @@ class CourseTrackingServiceTest {
     void recordBlockInteraction_CompletesLesson_WhenLastPendingBlockAmongMixedTypes() {
         UUID infoBlockId = UUID.randomUUID();
         UUID exerciseBlockId = UUID.randomUUID();
-        Topic topic = Topic.builder().id(UUID.randomUUID()).build();
+        Topic topic =
+                Topic.builder().id(UUID.randomUUID()).courseVersion(new CourseVersion()).build();
         Lesson lesson = Lesson.builder().id(UUID.randomUUID()).topic(topic).build();
         LessonBlock infoBlock =
                 LessonBlock.builder()
@@ -610,7 +633,8 @@ class CourseTrackingServiceTest {
     @Test
     void shouldPublishSignsLearnedEvent_WhenFirstCorrectAttemptExtractsSigns() {
         UUID blockId = UUID.randomUUID();
-        Topic topic = Topic.builder().id(UUID.randomUUID()).build();
+        Topic topic =
+                Topic.builder().id(UUID.randomUUID()).courseVersion(new CourseVersion()).build();
         Lesson lesson = Lesson.builder().id(UUID.randomUUID()).topic(topic).build();
         LessonBlock block =
                 LessonBlock.builder()
@@ -645,7 +669,8 @@ class CourseTrackingServiceTest {
     @Test
     void shouldNotPublishSignsLearnedEvent_WhenBlockExtractsNoSigns() {
         UUID blockId = UUID.randomUUID();
-        Topic topic = Topic.builder().id(UUID.randomUUID()).build();
+        Topic topic =
+                Topic.builder().id(UUID.randomUUID()).courseVersion(new CourseVersion()).build();
         Lesson lesson = Lesson.builder().id(UUID.randomUUID()).topic(topic).build();
         LessonBlock block =
                 LessonBlock.builder()
@@ -713,7 +738,7 @@ class CourseTrackingServiceTest {
                                 .build(),
                         UserCourseEnrollment.builder()
                                 .courseVersion(emptyCourseVersion)
-                                .status(EnrollmentStatus.DROPPED)
+                                .status(EnrollmentStatus.COMPLETED)
                                 .build());
 
         Topic numbers =
@@ -764,7 +789,7 @@ class CourseTrackingServiceTest {
         assertEquals(50, currentTopic.progressPercentage());
 
         CourseProgressResponse courseWithoutTopics = result.get(1);
-        assertEquals(EnrollmentStatus.DROPPED, courseWithoutTopics.status());
+        assertEquals(EnrollmentStatus.COMPLETED, courseWithoutTopics.status());
         assertEquals(0, courseWithoutTopics.totalLessons());
         assertEquals(0, courseWithoutTopics.completedLessons());
         assertEquals(0, courseWithoutTopics.progressPercentage());
@@ -804,7 +829,8 @@ class CourseTrackingServiceTest {
                 .thenReturn(
                         List.of(
                                 UserCourseEnrollment.builder()
-                                        .courseVersion(CourseVersion.builder().course(course).build())
+                                        .courseVersion(
+                                                CourseVersion.builder().course(course).build())
                                         .status(EnrollmentStatus.ENROLLED)
                                         .build()));
 
@@ -822,6 +848,84 @@ class CourseTrackingServiceTest {
                 NotFoundException.class,
                 () -> courseTrackingService.setCurrentCourse(mockUser, UUID.randomUUID()));
         verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void getUserEnrollments_HidesRevokedAndExpiredOrganizationAccess() {
+        Course active = Course.builder().id(UUID.randomUUID()).name("Active").build();
+        Course revoked = Course.builder().id(UUID.randomUUID()).name("Revoked").build();
+        Course expired = Course.builder().id(UUID.randomUUID()).name("Expired").build();
+        Course lapsingLater = Course.builder().id(UUID.randomUUID()).name("Later").build();
+        Instant now = Instant.now();
+
+        when(enrollmentRepository.findWithCourseByUserId(userId))
+                .thenReturn(
+                        List.of(
+                                enrollmentOf(active, EnrollmentStatus.ENROLLED, null),
+                                enrollmentOf(revoked, EnrollmentStatus.DROPPED, null),
+                                enrollmentOf(
+                                        expired,
+                                        EnrollmentStatus.ENROLLED,
+                                        now.minus(1, ChronoUnit.DAYS)),
+                                enrollmentOf(
+                                        lapsingLater,
+                                        EnrollmentStatus.ENROLLED,
+                                        now.plus(1, ChronoUnit.DAYS))));
+
+        var result = courseTrackingService.getUserEnrollments(mockUser);
+
+        assertEquals(List.of("Active", "Later"), result.stream().map(r -> r.courseName()).toList());
+    }
+
+    @Test
+    void recordBlockInteraction_TagsTheAttemptWithTheEnrollmentsOrganization() {
+        UUID blockId = UUID.randomUUID();
+        Organization organization =
+                Organization.builder().id(UUID.randomUUID()).name("Hospital").build();
+        CourseVersion version = CourseVersion.builder().id(courseVersionId).build();
+        Topic topic = Topic.builder().id(UUID.randomUUID()).courseVersion(version).build();
+        Lesson lesson = Lesson.builder().id(UUID.randomUUID()).topic(topic).build();
+        LessonBlock block =
+                LessonBlock.builder()
+                        .id(blockId)
+                        .type(BlockType.SELECT_MEANING)
+                        .lesson(lesson)
+                        .build();
+        UserCourseEnrollment enrollment =
+                UserCourseEnrollment.builder()
+                        .courseVersion(version)
+                        .status(EnrollmentStatus.ENROLLED)
+                        .organization(organization)
+                        .build();
+
+        when(lessonBlockRepository.findWithCourseVersionById(blockId))
+                .thenReturn(Optional.of(block));
+        when(enrollmentRepository.findByUserIdAndCourseVersionId(userId, courseVersionId))
+                .thenReturn(Optional.of(enrollment));
+        when(attemptRepository.save(any(LessonBlockAttempt.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(lessonProgressRepository.findByUserIdAndLessonId(userId, lesson.getId()))
+                .thenReturn(Optional.empty());
+        when(lessonProgressRepository.save(any(UserLessonProgress.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(topicProgressRepository.findByUserIdAndTopicId(userId, topic.getId()))
+                .thenReturn(Optional.empty());
+        when(topicProgressRepository.save(any(UserTopicProgress.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        LessonBlockAttempt result =
+                courseTrackingService.recordBlockInteraction(mockUser, blockId, false);
+
+        assertEquals(organization, result.getOrganization());
+    }
+
+    private static UserCourseEnrollment enrollmentOf(
+            Course course, EnrollmentStatus status, Instant accessExpiresAt) {
+        return UserCourseEnrollment.builder()
+                .courseVersion(CourseVersion.builder().course(course).build())
+                .status(status)
+                .accessExpiresAt(accessExpiresAt)
+                .build();
     }
 
     private static TopicLessonTotalView topicTotalView(

@@ -13,8 +13,10 @@ public interface InviteCodeRepository extends JpaRepository<InviteCode, UUID> {
 
     boolean existsByCode(String code);
 
-    @EntityGraph(attributePaths = {"organization", "course"})
+    @EntityGraph(attributePaths = {"organization"})
     Optional<InviteCode> findByCode(String code);
 
     List<InviteCode> findByOrganizationId(UUID organizationId);
+
+    Optional<InviteCode> findByIdAndOrganizationId(UUID id, UUID organizationId);
 }

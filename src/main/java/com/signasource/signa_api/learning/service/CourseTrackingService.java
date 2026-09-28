@@ -67,19 +67,6 @@ public class CourseTrackingService {
 
     @Transactional
     public UserCourseEnrollment enrollUserInCourse(User user, UUID courseVersionId) {
-        return enrollUserInCourse(user, courseVersionId, null, null);
-    }
-
-    /**
-     * Enrolls the user, optionally tagging the enrollment as coming from an organization's invite
-     * code — {@code organization}/{@code accessExpiresAt} are {@code null} for a self-enrollment.
-     * Also switches the user's {@code currentCourse} to the newly enrolled one, so Home shows it
-     * right away (mirrors the "Acceso empresas" design: redeeming a code jumps Home to that
-     * course).
-     */
-    @Transactional
-    public UserCourseEnrollment enrollUserInCourse(
-            User user, UUID courseVersionId, Organization organization, Instant accessExpiresAt) {
         if (enrollmentRepository.existsByUserIdAndCourseVersionId(user.getId(), courseVersionId)) {
             throw new ResourceAlreadyInUseException(
                     "User is already enrolled in this course's version");
@@ -94,8 +81,6 @@ public class CourseTrackingService {
         enrollment.setUser(user);
         enrollment.setCourseVersion(courseVersion);
         enrollment.setStatus(EnrollmentStatus.ENROLLED);
-        enrollment.setOrganization(organization);
-        enrollment.setAccessExpiresAt(accessExpiresAt);
 
         UserCourseEnrollment saved = enrollmentRepository.save(enrollment);
 
@@ -110,12 +95,15 @@ public class CourseTrackingService {
         UUID currentCourseId =
                 user.getCurrentCourse() == null ? null : user.getCurrentCourse().getId();
 
-        return enrollmentRepository.findWithCourseByUserId(user.getId()).stream()
+        return activeEnrollments(user).stream()
                 .map(
                         enrollment ->
                                 EnrollmentSummaryResponse.from(
                                         enrollment,
-                                        enrollment.getCourseVersion().getCourse().getId()
+                                        enrollment
+                                                .getCourseVersion()
+                                                .getCourse()
+                                                .getId()
                                                 .equals(currentCourseId)))
                 .toList();
     }
@@ -123,20 +111,29 @@ public class CourseTrackingService {
     @Transactional
     public void setCurrentCourse(User user, UUID courseId) {
         Course course =
-                enrollmentRepository.findWithCourseByUserId(user.getId()).stream()
+                activeEnrollments(user).stream()
                         .map(enrollment -> enrollment.getCourseVersion().getCourse())
                         .filter(c -> c.getId().equals(courseId))
                         .findFirst()
-                        .orElseThrow(() -> new NotFoundException("User is not enrolled in this course"));
+                        .orElseThrow(
+                                () -> new NotFoundException("User is not enrolled in this course"));
 
         user.setCurrentCourse(course);
         userRepository.save(user);
     }
 
+    /** Drops enrollments an organization revoked and those whose granted access has lapsed. */
+    private List<UserCourseEnrollment> activeEnrollments(User user) {
+        Instant now = Instant.now();
+        return enrollmentRepository.findWithCourseByUserId(user.getId()).stream()
+                .filter(e -> e.getStatus() != EnrollmentStatus.DROPPED)
+                .filter(e -> e.getAccessExpiresAt() == null || e.getAccessExpiresAt().isAfter(now))
+                .toList();
+    }
+
     @Transactional(readOnly = true)
     public List<CourseProgressResponse> getUserCourseProgress(User user) {
-        List<UserCourseEnrollment> enrollments =
-                enrollmentRepository.findWithCourseByUserId(user.getId());
+        List<UserCourseEnrollment> enrollments = activeEnrollments(user);
         if (enrollments.isEmpty()) {
             return List.of();
         }
@@ -259,6 +256,7 @@ public class CourseTrackingService {
                                 .user(user)
                                 .lessonBlock(block)
                                 .isCorrect(isCorrect)
+                                .organization(organizationOf(user, block))
                                 .build());
 
         markInProgress(user, block.getLesson());
@@ -288,6 +286,15 @@ public class CourseTrackingService {
         }
 
         return attempt;
+    }
+
+    private Organization organizationOf(User user, LessonBlock block) {
+        UUID versionId = block.getLesson().getTopic().getCourseVersion().getId();
+        return enrollmentRepository
+                .findByUserIdAndCourseVersionId(user.getId(), versionId)
+                .filter(e -> e.getStatus() != EnrollmentStatus.DROPPED)
+                .map(UserCourseEnrollment::getOrganization)
+                .orElse(null);
     }
 
     /**

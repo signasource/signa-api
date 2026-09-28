@@ -1,5 +1,6 @@
 package com.signasource.signa_api.learning.entity;
 
+import com.signasource.signa_api.organizations.entity.Organization;
 import com.signasource.signa_api.users.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -42,6 +43,14 @@ public class LessonBlockAttempt {
 
     /** True/false for evaluable blocks, null for INFO blocks (view-only, no correctness). */
     @Column private Boolean isCorrect;
+
+    /**
+     * Set when the attempt was made through an enrollment granted by an organization, so activity
+     * on contracted content can be told apart from the user's own.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id")
+    private Organization organization;
 
     @Column(nullable = false, updatable = false)
     private Instant attemptedAt;
