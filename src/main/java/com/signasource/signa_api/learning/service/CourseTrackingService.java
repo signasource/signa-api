@@ -5,8 +5,10 @@ import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.gamification.repository.UserLearnedSignRepository;
 import com.signasource.signa_api.learning.dto.CourseProgressResponse;
+import com.signasource.signa_api.learning.dto.EnrollmentSummaryResponse;
 import com.signasource.signa_api.learning.dto.TopicProgressResponse;
 import com.signasource.signa_api.learning.entity.BlockType;
+import com.signasource.signa_api.learning.entity.Course;
 import com.signasource.signa_api.learning.entity.CourseVersion;
 import com.signasource.signa_api.learning.entity.EnrollmentStatus;
 import com.signasource.signa_api.learning.entity.Lesson;
@@ -30,7 +32,9 @@ import com.signasource.signa_api.learning.repository.UserTopicProgressRepository
 import com.signasource.signa_api.learning.repository.projection.TopicCompletedCountView;
 import com.signasource.signa_api.learning.repository.projection.TopicLessonTotalView;
 import com.signasource.signa_api.learning.util.BlockSignExtractor;
+import com.signasource.signa_api.organizations.entity.Organization;
 import com.signasource.signa_api.users.entity.User;
+import com.signasource.signa_api.users.repository.UserRepository;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -55,6 +59,7 @@ public class CourseTrackingService {
     private final CourseVersionRepository courseVersionRepository;
     private final LessonBlockRepository lessonBlockRepository;
     private final TopicRepository topicRepository;
+    private final UserRepository userRepository;
 
     private final ApplicationEventPublisher eventPublisher;
     private final BlockSignExtractor blockSignExtractor;
@@ -62,6 +67,19 @@ public class CourseTrackingService {
 
     @Transactional
     public UserCourseEnrollment enrollUserInCourse(User user, UUID courseVersionId) {
+        return enrollUserInCourse(user, courseVersionId, null, null);
+    }
+
+    /**
+     * Enrolls the user, optionally tagging the enrollment as coming from an organization's invite
+     * code — {@code organization}/{@code accessExpiresAt} are {@code null} for a self-enrollment.
+     * Also switches the user's {@code currentCourse} to the newly enrolled one, so Home shows it
+     * right away (mirrors the "Acceso empresas" design: redeeming a code jumps Home to that
+     * course).
+     */
+    @Transactional
+    public UserCourseEnrollment enrollUserInCourse(
+            User user, UUID courseVersionId, Organization organization, Instant accessExpiresAt) {
         if (enrollmentRepository.existsByUserIdAndCourseVersionId(user.getId(), courseVersionId)) {
             throw new ResourceAlreadyInUseException(
                     "User is already enrolled in this course's version");
@@ -76,8 +94,43 @@ public class CourseTrackingService {
         enrollment.setUser(user);
         enrollment.setCourseVersion(courseVersion);
         enrollment.setStatus(EnrollmentStatus.ENROLLED);
+        enrollment.setOrganization(organization);
+        enrollment.setAccessExpiresAt(accessExpiresAt);
 
-        return enrollmentRepository.save(enrollment);
+        UserCourseEnrollment saved = enrollmentRepository.save(enrollment);
+
+        user.setCurrentCourse(courseVersion.getCourse());
+        userRepository.save(user);
+
+        return saved;
+    }
+
+    @Transactional(readOnly = true)
+    public List<EnrollmentSummaryResponse> getUserEnrollments(User user) {
+        UUID currentCourseId =
+                user.getCurrentCourse() == null ? null : user.getCurrentCourse().getId();
+
+        return enrollmentRepository.findWithCourseByUserId(user.getId()).stream()
+                .map(
+                        enrollment ->
+                                EnrollmentSummaryResponse.from(
+                                        enrollment,
+                                        enrollment.getCourseVersion().getCourse().getId()
+                                                .equals(currentCourseId)))
+                .toList();
+    }
+
+    @Transactional
+    public void setCurrentCourse(User user, UUID courseId) {
+        Course course =
+                enrollmentRepository.findWithCourseByUserId(user.getId()).stream()
+                        .map(enrollment -> enrollment.getCourseVersion().getCourse())
+                        .filter(c -> c.getId().equals(courseId))
+                        .findFirst()
+                        .orElseThrow(() -> new NotFoundException("User is not enrolled in this course"));
+
+        user.setCurrentCourse(course);
+        userRepository.save(user);
     }
 
     @Transactional(readOnly = true)

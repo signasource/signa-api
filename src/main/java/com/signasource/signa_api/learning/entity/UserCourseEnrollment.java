@@ -1,5 +1,6 @@
 package com.signasource.signa_api.learning.entity;
 
+import com.signasource.signa_api.organizations.entity.Organization;
 import com.signasource.signa_api.users.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -53,6 +54,18 @@ public class UserCourseEnrollment {
     private Instant startedAt;
 
     @Column private Instant completedAt;
+
+    /**
+     * Set when this enrollment came from redeeming an organization's invite code, {@code null} for
+     * a self-enrolled course. {@code accessExpiresAt} mirrors the invite code's own expiry at
+     * redemption time, so a later change to the code doesn't retroactively revoke access already
+     * granted.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id")
+    private Organization organization;
+
+    @Column private Instant accessExpiresAt;
 
     @PrePersist
     protected void onCreate() {

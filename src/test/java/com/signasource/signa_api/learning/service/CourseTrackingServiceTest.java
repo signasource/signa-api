@@ -49,6 +49,7 @@ import com.signasource.signa_api.learning.repository.projection.TopicCompletedCo
 import com.signasource.signa_api.learning.repository.projection.TopicLessonTotalView;
 import com.signasource.signa_api.learning.util.BlockSignExtractor;
 import com.signasource.signa_api.users.entity.User;
+import com.signasource.signa_api.users.repository.UserRepository;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -71,6 +72,7 @@ class CourseTrackingServiceTest {
     @Mock private CourseVersionRepository courseVersionRepository;
     @Mock private LessonBlockRepository lessonBlockRepository;
     @Mock private TopicRepository topicRepository;
+    @Mock private UserRepository userRepository;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private BlockSignExtractor blockSignExtractor;
     @Mock private UserLearnedSignRepository userLearnedSignRepository;
@@ -767,6 +769,59 @@ class CourseTrackingServiceTest {
         assertEquals(0, courseWithoutTopics.completedLessons());
         assertEquals(0, courseWithoutTopics.progressPercentage());
         assertNull(courseWithoutTopics.currentTopic());
+    }
+
+    @Test
+    void getUserEnrollments_FlagsTheUsersCurrentCourse() {
+        Course basic = Course.builder().id(UUID.randomUUID()).name("Curso básico").build();
+        Course health = Course.builder().id(UUID.randomUUID()).name("LSA para Salud").build();
+        mockUser.setCurrentCourse(health);
+
+        List<UserCourseEnrollment> enrollments =
+                List.of(
+                        UserCourseEnrollment.builder()
+                                .courseVersion(CourseVersion.builder().course(basic).build())
+                                .status(EnrollmentStatus.ENROLLED)
+                                .build(),
+                        UserCourseEnrollment.builder()
+                                .courseVersion(CourseVersion.builder().course(health).build())
+                                .status(EnrollmentStatus.ENROLLED)
+                                .build());
+        when(enrollmentRepository.findWithCourseByUserId(userId)).thenReturn(enrollments);
+
+        var result = courseTrackingService.getUserEnrollments(mockUser);
+
+        assertEquals(2, result.size());
+        assertFalse(result.get(0).isCurrent());
+        assertTrue(result.get(1).isCurrent());
+    }
+
+    @Test
+    void setCurrentCourse_SwitchesTheUsersCurrentCourse_WhenEnrolled() {
+        UUID courseId = UUID.randomUUID();
+        Course course = Course.builder().id(courseId).name("LSA para Salud").build();
+        when(enrollmentRepository.findWithCourseByUserId(userId))
+                .thenReturn(
+                        List.of(
+                                UserCourseEnrollment.builder()
+                                        .courseVersion(CourseVersion.builder().course(course).build())
+                                        .status(EnrollmentStatus.ENROLLED)
+                                        .build()));
+
+        courseTrackingService.setCurrentCourse(mockUser, courseId);
+
+        assertEquals(course, mockUser.getCurrentCourse());
+        verify(userRepository).save(mockUser);
+    }
+
+    @Test
+    void setCurrentCourse_ThrowsNotFound_WhenUserIsNotEnrolled() {
+        when(enrollmentRepository.findWithCourseByUserId(userId)).thenReturn(List.of());
+
+        assertThrows(
+                NotFoundException.class,
+                () -> courseTrackingService.setCurrentCourse(mockUser, UUID.randomUUID()));
+        verify(userRepository, never()).save(any());
     }
 
     private static TopicLessonTotalView topicTotalView(
