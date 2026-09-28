@@ -60,6 +60,11 @@ firebase:
   global-topic: global
   credentials-json: ${FIREBASE_CREDENTIALS_JSON:}
 
+google-play:
+  enabled: ${GOOGLE_PLAY_ENABLED:true}
+  package-name: ${GOOGLE_PLAY_PACKAGE_NAME:com.signasource.signamobile}
+  credentials-json: ${GOOGLE_PLAY_CREDENTIALS_JSON:}
+
 r2:
   endpoint: ${R2_ENDPOINT:}
   access-key-id: ${R2_ACCESS_KEY_ID:}

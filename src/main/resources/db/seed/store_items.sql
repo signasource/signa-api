@@ -60,3 +60,6 @@ WHERE code NOT IN (
     'streak_shield_x1', 'streak_shield_x3', 'streak_shield_x7',
     'mystery_chest'
 );
+
+-- Legacy GEMS-priced items are retired by the clause above too: gems are only sold for real money
+-- through Google Play (gem_packs), never for gems.

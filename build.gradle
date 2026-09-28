@@ -38,6 +38,9 @@ dependencies {
 
     implementation 'com.google.api-client:google-api-client:2.9.0'
 
+    // Google Play Developer API (server-side verification of in-app purchases)
+    implementation 'com.google.apis:google-api-services-androidpublisher:v3-rev20260528-2.0.0'
+
     // AWS SDK v2 (S3-compatible; used to sign Cloudflare R2 object URLs)
     implementation platform('software.amazon.awssdk:bom:2.31.6')
     implementation 'software.amazon.awssdk:s3'

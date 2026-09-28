@@ -457,6 +457,50 @@ sequenceDiagram
     end
 ```
 
+## Tienda: compra de gemas con dinero real (Google Play)
+
+La app nunca acredita gemas por su cuenta: paga en Google Play, le pasa el comprobante a la API y
+sólo cuando la API confirma la acreditación le avisa a Google que el producto fue consumido. Si la
+app se cierra entre el pago y la acreditación, al volver a abrir la tienda reintenta con el mismo
+comprobante y la API responde lo mismo sin acreditar de nuevo.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant GP as Google Play
+    participant API as API
+    participant G as Google Play Developer API
+    participant DB as Base de datos
+
+    C->>API: Listar packs de gemas
+    API->>DB: Traer packs activos
+    API-->>C: Packs (id de producto + cantidad de gemas)
+    C->>GP: Precio localizado de cada producto y compra
+    GP-->>C: Compra completada (token de compra)
+    C->>API: Canjear compra (producto + token)
+    API->>DB: ¿Ya existe una compra con ese token?
+    alt ya canjeado por este usuario
+        API-->>C: Compra ya acreditada (sin acreditar de nuevo) + inventario
+    else canjeado por otro usuario
+        API-->>C: Conflicto (409)
+    else token nuevo
+        API->>G: Consultar el estado de la compra
+        alt token inválido o de otro producto
+            API-->>C: Solicitud inválida (400)
+        else pago pendiente o cancelado
+            API-->>C: Solicitud inválida (400)
+        else ya consumido sin haberse acreditado
+            API-->>C: Conflicto (409)
+        else pagado y sin consumir
+            API->>DB: Acreditar gemas y registrar la compra (token único)
+            Note over API,DB: Si dos requests con el mismo token corren a la vez,<br/>la restricción de unicidad hace ganar a una sola;<br/>la otra devuelve la compra ya acreditada
+            API-->>C: Compra acreditada + inventario actualizado
+        end
+    end
+    C->>GP: Marcar el producto como consumido
+```
+
 ## Obtención de la animación de una seña
 
 La API firma una URL de descarga temporal contra el almacenamiento de objetos usando sus
