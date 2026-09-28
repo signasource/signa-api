@@ -15,6 +15,9 @@ public interface TopicRepository extends JpaRepository<Topic, UUID> {
 
     List<Topic> findByCourseVersionIdOrderByOrderAsc(UUID courseVersionId);
 
+    List<Topic> findByCourseVersionIdInOrderByCourseVersionIdAscOrderAsc(
+            Collection<UUID> courseVersionIds);
+
     @Query(
             "SELECT DISTINCT t FROM Topic t LEFT JOIN FETCH t.lessons "
                     + "WHERE t.courseVersion.id = :versionId "
