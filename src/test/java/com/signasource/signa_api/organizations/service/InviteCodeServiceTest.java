@@ -33,6 +33,7 @@ import com.signasource.signa_api.organizations.entity.OrganizationMember;
 import com.signasource.signa_api.organizations.repository.InviteCodeRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationMemberRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationRepository;
+import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.repository.UserRepository;
 import java.time.Instant;
@@ -275,6 +276,111 @@ class InviteCodeServiceTest {
         assertEquals(0, inviteCode.getUseCount());
         verify(memberRepository, never()).save(any());
         verify(inviteCodeRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldCreateAdminInviteBoundToTheEmailAndMailAPanelLink() {
+        stubOrganizationLookupAndSave();
+
+        InviteCodeResponse response =
+                inviteCodeService.inviteAdminByEmail(
+                        user,
+                        organization.getId(),
+                        new InviteByEmailRequest(" Boss@Hospital.com ", null));
+
+        verify(accessService).requireManage(user, organization.getId());
+        assertEquals(MemberRole.ADMIN, response.memberRole());
+        assertEquals("boss@hospital.com", response.email());
+        assertEquals(1, response.maxUses());
+        verify(emailService)
+                .sendOrganizationAdminInviteEmail(
+                        "boss@hospital.com", "Hospital San Martin", response.code());
+        verify(emailService, never()).sendOrganizationInviteEmail(any(), any(), any());
+    }
+
+    @Test
+    void shouldMakeTheRedeemerAnAdminWithoutEnrollingThemInCourses() {
+        user.setRole(Role.USER);
+        inviteCode.setMemberRole(MemberRole.ADMIN);
+        when(inviteCodeRepository.findByCode("HSMT2026")).thenReturn(Optional.of(inviteCode));
+        when(memberRepository.findByUserId(user.getId())).thenReturn(Optional.empty());
+
+        RedeemInviteCodeResponse response = inviteCodeService.redeem(user, "HSMT2026");
+
+        assertEquals(MemberRole.ADMIN, response.role());
+        assertTrue(response.courses().isEmpty());
+        assertFalse(response.alreadyMember());
+        assertEquals(Role.ORG_ADMIN, user.getRole());
+        assertEquals(1, inviteCode.getUseCount());
+        ArgumentCaptor<OrganizationMember> captor =
+                ArgumentCaptor.forClass(OrganizationMember.class);
+        verify(memberRepository).save(captor.capture());
+        assertEquals(MemberRole.ADMIN, captor.getValue().getRole());
+        verify(userRepository).save(user);
+        verify(enrollmentService, never()).grantContractedCourses(any(), any(), any());
+    }
+
+    @Test
+    void shouldPromoteAnExistingParticipantWhoRedeemsAnAdminCode() {
+        user.setRole(Role.USER);
+        inviteCode.setMemberRole(MemberRole.ADMIN);
+        OrganizationMember participant =
+                OrganizationMember.builder()
+                        .user(user)
+                        .organization(organization)
+                        .role(MemberRole.MEMBER)
+                        .status(MemberStatus.ACTIVE)
+                        .build();
+        when(inviteCodeRepository.findByCode("HSMT2026")).thenReturn(Optional.of(inviteCode));
+        when(memberRepository.findByUserId(user.getId())).thenReturn(Optional.of(participant));
+
+        RedeemInviteCodeResponse response = inviteCodeService.redeem(user, "HSMT2026");
+
+        assertFalse(response.alreadyMember());
+        assertEquals(MemberRole.ADMIN, participant.getRole());
+        assertEquals(Role.ORG_ADMIN, user.getRole());
+    }
+
+    @Test
+    void shouldNotTouchTheUserRoleWhenTheyAreAlreadyAnAdmin() {
+        user.setRole(Role.ORG_ADMIN);
+        inviteCode.setMemberRole(MemberRole.ADMIN);
+        OrganizationMember admin =
+                OrganizationMember.builder()
+                        .user(user)
+                        .organization(organization)
+                        .role(MemberRole.ADMIN)
+                        .status(MemberStatus.ACTIVE)
+                        .build();
+        when(inviteCodeRepository.findByCode("HSMT2026")).thenReturn(Optional.of(inviteCode));
+        when(memberRepository.findByUserId(user.getId())).thenReturn(Optional.of(admin));
+
+        RedeemInviteCodeResponse response = inviteCodeService.redeem(user, "HSMT2026");
+
+        assertTrue(response.alreadyMember());
+        assertEquals(0, inviteCode.getUseCount());
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldNotDemoteAnAdminWhoRedeemsAParticipantCode() {
+        user.setRole(Role.ORG_ADMIN);
+        OrganizationMember admin =
+                OrganizationMember.builder()
+                        .user(user)
+                        .organization(organization)
+                        .role(MemberRole.ADMIN)
+                        .status(MemberStatus.ACTIVE)
+                        .build();
+        when(inviteCodeRepository.findByCode("HSMT2026")).thenReturn(Optional.of(inviteCode));
+        when(memberRepository.findByUserId(user.getId())).thenReturn(Optional.of(admin));
+
+        RedeemInviteCodeResponse response = inviteCodeService.redeem(user, "HSMT2026");
+
+        assertTrue(response.alreadyMember());
+        assertEquals(MemberRole.ADMIN, admin.getRole());
+        assertEquals(MemberRole.ADMIN, response.role());
+        verify(enrollmentService, never()).grantContractedCourses(any(), any(), any());
     }
 
     @Test

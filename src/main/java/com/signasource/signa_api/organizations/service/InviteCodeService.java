@@ -18,6 +18,7 @@ import com.signasource.signa_api.organizations.entity.OrganizationMember;
 import com.signasource.signa_api.organizations.repository.InviteCodeRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationMemberRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationRepository;
+import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.repository.UserRepository;
 import java.security.SecureRandom;
@@ -54,7 +55,12 @@ public class InviteCodeService {
             User actor, UUID organizationId, CreateInviteCodeRequest request) {
         accessService.requireManage(actor, organizationId);
         return InviteCodeResponse.from(
-                saveCode(organizationId, request.expiresAt(), request.maxUses(), null));
+                saveCode(
+                        organizationId,
+                        request.expiresAt(),
+                        request.maxUses(),
+                        null,
+                        MemberRole.MEMBER));
     }
 
     /**
@@ -70,8 +76,32 @@ public class InviteCodeService {
                         organizationId,
                         request.expiresAt(),
                         1,
-                        request.email().trim().toLowerCase());
+                        request.email().trim().toLowerCase(),
+                        MemberRole.MEMBER);
         emailService.sendOrganizationInviteEmail(
+                inviteCode.getEmail(),
+                inviteCode.getOrganization().getName(),
+                inviteCode.getCode());
+        return InviteCodeResponse.from(inviteCode);
+    }
+
+    /**
+     * Invites someone to administer the organization from the web panel. Same single-use,
+     * email-bound code as a participant invite, but redeeming it grants the ADMIN role and mails a
+     * link to the panel instead of the app.
+     */
+    @Transactional
+    public InviteCodeResponse inviteAdminByEmail(
+            User actor, UUID organizationId, InviteByEmailRequest request) {
+        accessService.requireManage(actor, organizationId);
+        InviteCode inviteCode =
+                saveCode(
+                        organizationId,
+                        request.expiresAt(),
+                        1,
+                        request.email().trim().toLowerCase(),
+                        MemberRole.ADMIN);
+        emailService.sendOrganizationAdminInviteEmail(
                 inviteCode.getEmail(),
                 inviteCode.getOrganization().getName(),
                 inviteCode.getCode());
@@ -111,26 +141,45 @@ public class InviteCodeService {
         Organization organization = inviteCode.getOrganization();
         OrganizationMember member = memberRepository.findByUserId(user.getId()).orElse(null);
 
-        boolean alreadyMember =
-                member != null
-                        && member.getStatus() == MemberStatus.ACTIVE
-                        && member.getOrganization().getId().equals(organization.getId());
-        if (member != null && member.getStatus() == MemberStatus.ACTIVE && !alreadyMember) {
+        boolean activeMember = member != null && member.getStatus() == MemberStatus.ACTIVE;
+        boolean inThisOrganization =
+                activeMember && member.getOrganization().getId().equals(organization.getId());
+        if (activeMember && !inThisOrganization) {
             throw new ResourceAlreadyInUseException("User already belongs to another organization");
         }
+
+        // Only a participant redeeming an admin code changes anything; an admin redeeming a
+        // participant code must not be demoted.
+        MemberRole granted = inviteCode.getMemberRole();
+        boolean alreadyMember =
+                inThisOrganization
+                        && (member.getRole() == MemberRole.ADMIN || granted == MemberRole.MEMBER);
 
         if (!alreadyMember) {
             if (member == null) {
                 member = OrganizationMember.builder().user(user).build();
             }
             member.setOrganization(organization);
-            member.setRole(MemberRole.MEMBER);
+            member.setRole(granted);
             member.setStatus(MemberStatus.ACTIVE);
             member.setRemovedAt(null);
             memberRepository.save(member);
 
             inviteCode.setUseCount(inviteCode.getUseCount() + 1);
             inviteCodeRepository.save(inviteCode);
+        }
+
+        if (member.getRole() == MemberRole.ADMIN) {
+            if (user.getRole() == Role.USER) {
+                user.setRole(Role.ORG_ADMIN);
+                userRepository.save(user);
+            }
+            return new RedeemInviteCodeResponse(
+                    organization.getName(),
+                    List.of(),
+                    alreadyMember,
+                    inviteCode.getExpiresAt(),
+                    MemberRole.ADMIN);
         }
 
         List<Course> courses =
@@ -145,7 +194,8 @@ public class InviteCodeService {
                 organization.getName(),
                 courses.stream().map(CourseSummaryResponse::from).toList(),
                 alreadyMember,
-                inviteCode.getExpiresAt());
+                inviteCode.getExpiresAt(),
+                MemberRole.MEMBER);
     }
 
     private boolean isRedeemable(InviteCode inviteCode, User user) {
@@ -162,7 +212,11 @@ public class InviteCodeService {
     }
 
     private InviteCode saveCode(
-            UUID organizationId, Instant expiresAt, Integer maxUses, String email) {
+            UUID organizationId,
+            Instant expiresAt,
+            Integer maxUses,
+            String email,
+            MemberRole memberRole) {
         Organization organization =
                 organizationRepository
                         .findById(organizationId)
@@ -175,6 +229,7 @@ public class InviteCodeService {
                         .expiresAt(expiresAt)
                         .maxUses(maxUses)
                         .email(email)
+                        .memberRole(memberRole)
                         .build());
     }
 

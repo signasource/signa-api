@@ -2,6 +2,8 @@ package com.signasource.signa_api.organizations.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -47,6 +49,15 @@ public class InviteCode {
     @Column private Instant expiresAt;
 
     @Column private Integer maxUses;
+
+    /** Role the redeemer gets in the organization; ADMIN codes are panel-admin invitations. */
+    @Enumerated(EnumType.STRING)
+    @Column(
+            nullable = false,
+            length = 20,
+            columnDefinition = "varchar(20) not null default 'MEMBER'")
+    @Builder.Default
+    private MemberRole memberRole = MemberRole.MEMBER;
 
     @Column(nullable = false)
     @Builder.Default

@@ -16,8 +16,12 @@ import org.springframework.web.util.HtmlUtils;
 public class EmailService {
     private static final String VERIFICATION_PATH = "/auth/verify";
     private static final String PASSWORD_RESET_PATH = "/auth/reset-password";
+    private static final String ADMIN_INVITE_PATH = "/accept-invite";
 
     private final JavaMailSender mailSender;
+
+    @Value("${app.panel-url:}")
+    private String panelUrl;
 
     @Value("${app.base-url}")
     private String baseUrl;
@@ -43,6 +47,16 @@ public class EmailService {
     @Async
     public void sendOrganizationInviteEmail(String to, String organizationName, String code) {
         sendEmail(to, "Te invitaron a SIGNA", buildOrganizationInviteHtml(organizationName, code));
+    }
+
+    @Async
+    public void sendOrganizationAdminInviteEmail(String to, String organizationName, String code) {
+        sendEmail(
+                to,
+                "Te invitaron a administrar una organización en SIGNA",
+                buildOrganizationAdminInviteHtml(
+                        organizationName,
+                        String.format("%s%s?code=%s", panelUrl, ADMIN_INVITE_PATH, code)));
     }
 
     private void sendEmail(String to, String subject, String html) {
@@ -113,5 +127,24 @@ public class EmailService {
 				</div>
 				"""
                 .formatted(HtmlUtils.htmlEscape(organizationName), code);
+    }
+
+    private String buildOrganizationAdminInviteHtml(String organizationName, String link) {
+        return """
+				<div style="font-family: Arial;">
+				    <h2>¡Hola!</h2>
+				    <p>%s te invitó a administrar su organización en SIGNA.</p>
+				    <p>Creá tu cuenta o iniciá sesión en el panel y aceptá la invitación:</p>
+				    <a href="%s" style="
+				        background-color:#4CAF50;
+				        color:white;
+				        padding:10px 20px;
+				        text-decoration:none;
+				        border-radius:5px;">
+				        Aceptar invitación
+				    </a>
+				</div>
+				"""
+                .formatted(HtmlUtils.htmlEscape(organizationName), link);
     }
 }

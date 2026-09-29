@@ -491,6 +491,38 @@ sequenceDiagram
     Note over API,DB: El progreso queda guardado por si se reincorpora
 ```
 
+## Invitación de un administrador al panel de la organización
+
+Un admin de SIGNA invita por email a quien va a administrar la organización desde el panel web. El
+correo lleva al panel; la persona crea su cuenta o inicia sesión y acepta la invitación, con lo que
+pasa a administrar esa organización (y solo esa).
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant S as Admin de SIGNA
+    participant API as API
+    participant M as Correo
+    participant P as Panel web
+    participant DB as Base de datos
+
+    S->>API: Invitar administrador (email)
+    API->>DB: Guardar invitación de un solo uso atada al email, con rol administrador
+    API-)M: Enviar enlace al panel con el código
+    M-->>P: La persona abre el enlace
+    P->>API: Registrarse o iniciar sesión
+    P->>API: Aceptar invitación (código)
+    API->>DB: Buscar código
+    alt inexistente, vencido, usado o de otro correo
+        API-->>P: Solicitud inválida (400)
+    else pertenece a otra organización
+        API-->>P: Conflicto (409)
+    else válido
+        API->>DB: Crear o promover la membresía como administradora
+        API-->>P: Organización y rol
+    end
+```
+
 ## Tienda: compra de gemas con dinero real (Google Play)
 
 La app nunca acredita gemas por su cuenta: paga en Google Play, le pasa el comprobante a la API y

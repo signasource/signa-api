@@ -5,6 +5,9 @@ spring:
 
 app:
   base-url: http://localhost:8080
+  panel-url: http://localhost:5173
+  cors:
+    allowed-origins: http://localhost:5173
 
 google-play:
   enabled: false

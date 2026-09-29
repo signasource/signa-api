@@ -19,6 +19,7 @@ import com.signasource.signa_api.organizations.dto.OrganizationCourseResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationResponse;
 import com.signasource.signa_api.organizations.dto.RedeemInviteCodeRequest;
 import com.signasource.signa_api.organizations.dto.RedeemInviteCodeResponse;
+import com.signasource.signa_api.organizations.entity.MemberRole;
 import com.signasource.signa_api.organizations.service.InviteCodeService;
 import com.signasource.signa_api.organizations.service.OrganizationService;
 import com.signasource.signa_api.users.entity.User;
@@ -58,7 +59,7 @@ class OrganizationControllerTest {
 
     private InviteCodeResponse inviteCodeResponse() {
         return new InviteCodeResponse(
-                UUID.randomUUID(), "HSMT2026", organizationId, null, null, null, 0, true);
+                UUID.randomUUID(), "HSMT2026", organizationId, null, null, null, null, 0, true);
     }
 
     @Test
@@ -195,10 +196,25 @@ class OrganizationControllerTest {
     }
 
     @Test
+    void shouldReturn201WhenInvitingAnAdminByEmail() {
+        stubPrincipal();
+        InviteByEmailRequest request = new InviteByEmailRequest("boss@hospital.com", null);
+        InviteCodeResponse response = inviteCodeResponse();
+        when(inviteCodeService.inviteAdminByEmail(mockUser, organizationId, request))
+                .thenReturn(response);
+
+        ResponseEntity<InviteCodeResponse> result =
+                organizationController.inviteAdminByEmail(organizationId, request, mockUserDetails);
+
+        assertEquals(HttpStatus.CREATED, result.getStatusCode());
+        assertSame(response, result.getBody());
+    }
+
+    @Test
     void shouldRedeemInviteCodeForTheAuthenticatedUser() {
         stubPrincipal();
         RedeemInviteCodeResponse response =
-                new RedeemInviteCodeResponse("Hospital", List.of(), false, null);
+                new RedeemInviteCodeResponse("Hospital", List.of(), false, null, MemberRole.MEMBER);
         when(inviteCodeService.redeem(mockUser, "HSMT2026")).thenReturn(response);
 
         ResponseEntity<RedeemInviteCodeResponse> result =
