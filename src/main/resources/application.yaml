@@ -41,6 +41,9 @@ management:
 
 app:
   base-url:
+  panel-url: ${PANEL_URL:}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:}
   content:
     import-on-startup: ${CONTENT_IMPORT_ON_STARTUP:true}
 

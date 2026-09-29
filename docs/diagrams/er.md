@@ -469,6 +469,7 @@ erDiagram
         string code UK
         uuid organization_id FK
         string email "nulo si es un código compartido"
+        enum memberRole "MEMBER | ADMIN"
         instant expiresAt
         int maxUses
         int useCount

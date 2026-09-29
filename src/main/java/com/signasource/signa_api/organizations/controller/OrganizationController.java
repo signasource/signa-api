@@ -121,6 +121,17 @@ public class OrganizationController {
                                 userDetails.getUser(), organizationId, request));
     }
 
+    @PostMapping("/{organizationId}/admin-invitations")
+    public ResponseEntity<InviteCodeResponse> inviteAdminByEmail(
+            @PathVariable UUID organizationId,
+            @Valid @RequestBody InviteByEmailRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(
+                        inviteCodeService.inviteAdminByEmail(
+                                userDetails.getUser(), organizationId, request));
+    }
+
     @PostMapping("/invite-codes/redeem")
     public ResponseEntity<RedeemInviteCodeResponse> redeemInviteCode(
             @Valid @RequestBody RedeemInviteCodeRequest request,
