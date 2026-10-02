@@ -64,7 +64,7 @@ firebase:
   credentials-json: ${FIREBASE_CREDENTIALS_JSON:}
 
 google-play:
-  enabled: ${GOOGLE_PLAY_ENABLED:true}
+  enabled: ${GOOGLE_PLAY_ENABLED:false}
   package-name: ${GOOGLE_PLAY_PACKAGE_NAME:com.signasource.signamobile}
   credentials-json: ${GOOGLE_PLAY_CREDENTIALS_JSON:}
 
