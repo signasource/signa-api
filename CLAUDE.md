@@ -187,6 +187,8 @@ Resumen de alta prioridad; el detalle y los ejemplos están en los bloques sigui
 - **CORS:** `CorsConfig` habilita solo los orígenes de `app.cors.allowed-origins` (`CORS_ALLOWED_ORIGINS`, separados por coma; el panel web). Vacío = sin headers CORS, la API queda cerrada a navegadores. Sin credenciales: la auth es bearer en header. `PANEL_URL` es la URL base del panel para los links de los emails.
 - **Rutas públicas:** `/auth/**`, `/users/username-availability`, `/actuator/health`, `/actuator/info`,
   `GET /signs/{meaning}/animation`. El resto requiere autenticación.
+- **401 vs 403:** token ausente, inválido o vencido → **401** (`HttpStatusEntryPoint` en `SecurityConfig`; los clientes
+  refrescan el access token ante un 401). Token válido sin el rol requerido → 403 (`AccessDeniedHandler` por defecto).
 - **Perfil `local`** desactiva la seguridad (`app.security.enabled=false`, cadena que permite todo)
   para desarrollo. **Nunca** activar ese comportamiento en prod.
 - **Rate limiting** con Bucket4j (`RateLimitInterceptor`) en endpoints sensibles a abuso
