@@ -63,6 +63,15 @@ public class CourseTrackingController {
         return ResponseEntity.noContent().build();
     }
 
+    /** Idempotent self-enrollment in a free course by course id (no version id needed). */
+    @PostMapping("/courses/{courseId}/join")
+    public ResponseEntity<Void> joinFreeCourse(
+            @PathVariable UUID courseId, @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        trackingService.joinFreeCourse(userDetails.getUser(), courseId);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/courses/{courseVersionId}/enroll")
     public ResponseEntity<Void> enroll(
             @PathVariable UUID courseVersionId,

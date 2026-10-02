@@ -1,5 +1,6 @@
 package com.signasource.signa_api.learning.service;
 
+import com.signasource.signa_api.exceptions.ForbiddenException;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
@@ -19,6 +20,7 @@ import com.signasource.signa_api.learning.entity.Topic;
 import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import com.signasource.signa_api.learning.entity.UserLessonProgress;
 import com.signasource.signa_api.learning.entity.UserTopicProgress;
+import com.signasource.signa_api.learning.entity.VersionStatus;
 import com.signasource.signa_api.learning.event.LifeLostEvent;
 import com.signasource.signa_api.learning.event.SignsLearnedEvent;
 import com.signasource.signa_api.learning.event.XpEarnedEvent;
@@ -88,6 +90,37 @@ public class CourseTrackingService {
         userRepository.save(user);
 
         return saved;
+    }
+
+    /**
+     * Idempotently enrolls the user in the published version of a free course, so the learner
+     * doesn't need to know the version id. A no-op if they already have an enrollment for it.
+     * Doesn't touch the current course: the caller already picked it.
+     */
+    @Transactional
+    public void joinFreeCourse(User user, UUID courseId) {
+        CourseVersion version =
+                courseVersionRepository
+                        .findByCourseIdAndStatus(courseId, VersionStatus.PUBLISHED)
+                        .orElseThrow(() -> new NotFoundException("Course not found"));
+
+        if (!version.getCourse().isFree()) {
+            throw new ForbiddenException("This course requires an invitation");
+        }
+        if (enrollmentRepository.existsByUserIdAndCourseVersionId(user.getId(), version.getId())) {
+            return;
+        }
+
+        UserCourseEnrollment enrollment = new UserCourseEnrollment();
+        enrollment.setUser(user);
+        enrollment.setCourseVersion(version);
+        enrollment.setStatus(EnrollmentStatus.ENROLLED);
+        enrollmentRepository.save(enrollment);
+
+        if (user.getCurrentCourse() == null) {
+            user.setCurrentCourse(version.getCourse());
+            userRepository.save(user);
+        }
     }
 
     @Transactional(readOnly = true)
