@@ -17,7 +17,7 @@ import org.springframework.stereotype.Service;
  * I/O, so it must never run inside a database transaction.
  */
 @Service
-@ConditionalOnProperty(name = "google-play.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "google-play.enabled", havingValue = "true")
 @RequiredArgsConstructor
 public class AndroidPublisherPurchaseVerifier implements GooglePlayPurchaseVerifier {
 

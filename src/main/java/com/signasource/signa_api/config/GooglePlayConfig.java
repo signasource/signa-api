@@ -18,7 +18,7 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @EnableConfigurationProperties(GooglePlayProperties.class)
-@ConditionalOnProperty(name = "google-play.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "google-play.enabled", havingValue = "true")
 public class GooglePlayConfig {
 
     @Bean
