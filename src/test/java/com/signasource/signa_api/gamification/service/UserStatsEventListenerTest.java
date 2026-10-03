@@ -9,6 +9,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.signasource.signa_api.common.ArgentinaTime;
 import com.signasource.signa_api.gamification.entity.LivesMode;
 import com.signasource.signa_api.gamification.entity.UserDailyXp;
 import com.signasource.signa_api.gamification.entity.UserLearnedSign;
@@ -21,12 +22,8 @@ import com.signasource.signa_api.learning.event.LifeLostEvent;
 import com.signasource.signa_api.learning.event.SignsLearnedEvent;
 import com.signasource.signa_api.learning.event.XpEarnedEvent;
 import com.signasource.signa_api.users.entity.User;
-import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
-import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -68,11 +65,7 @@ class UserStatsEventListenerTest {
     }
 
     private static Instant startOfCurrentWeek() {
-        return ZonedDateTime.now(ZoneOffset.UTC)
-                .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-                .toLocalDate()
-                .atStartOfDay(ZoneOffset.UTC)
-                .toInstant();
+        return ArgentinaTime.startOfCurrentWeek();
     }
 
     @Test
@@ -237,7 +230,7 @@ class UserStatsEventListenerTest {
         verify(userDailyXpRepository).save(captor.capture());
         UserDailyXp saved = captor.getValue();
         assertEquals(75, saved.getXpEarned());
-        assertEquals(LocalDate.now(ZoneOffset.UTC), saved.getXpDate());
+        assertEquals(ArgentinaTime.today(), saved.getXpDate());
         assertEquals(mockUser, saved.getUser());
     }
 
@@ -250,7 +243,7 @@ class UserStatsEventListenerTest {
         UserDailyXp existing =
                 UserDailyXp.builder()
                         .user(mockUser)
-                        .xpDate(LocalDate.now(ZoneOffset.UTC))
+                        .xpDate(ArgentinaTime.today())
                         .xpEarned(40)
                         .build();
         when(userDailyXpRepository.findByUserAndXpDate(eq(mockUser), any(LocalDate.class)))

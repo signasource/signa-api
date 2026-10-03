@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.signasource.signa_api.common.ArgentinaTime;
 import com.signasource.signa_api.gamification.dto.DailyXpResponse;
 import com.signasource.signa_api.gamification.dto.UserStatsResponse;
 import com.signasource.signa_api.gamification.entity.LivesMode;
@@ -17,7 +18,6 @@ import com.signasource.signa_api.users.entity.User;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.Optional;
@@ -44,7 +44,7 @@ class UserStatsServiceTest {
     @BeforeEach
     void setUp() {
         user = User.builder().id(UUID.randomUUID()).build();
-        today = LocalDate.now(ZoneOffset.UTC);
+        today = ArgentinaTime.today();
         monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
     }
 

@@ -6,11 +6,11 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.signasource.signa_api.common.ArgentinaTime;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.entity.UserDailyActivity;
 import com.signasource.signa_api.users.repository.UserDailyActivityRepository;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,7 +34,7 @@ class UserActivityServiceTest {
     @BeforeEach
     void setUp() {
         user = User.builder().id(UUID.randomUUID()).build();
-        today = LocalDate.now(ZoneOffset.UTC);
+        today = ArgentinaTime.today();
     }
 
     @Test
