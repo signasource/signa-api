@@ -763,6 +763,37 @@ lessons:
             - octubre
             - diciembre
 
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: junio
+          options:
+            - mayo
+            - junio
+            - julio
+            - agosto
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: agosto
+          options:
+            - abril
+            - julio
+            - agosto
+            - septiembre
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Qué mes está entre noviembre y enero?"
+          answer: diciembre
+          options:
+            - octubre
+            - diciembre
+            - febrero
+            - marzo
+
       - type: MATCH
         xp: 10
         config:

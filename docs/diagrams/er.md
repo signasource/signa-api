@@ -174,7 +174,8 @@ aprendida o repaso de errores) — mismo shape que `LESSON_BLOCK_ATTEMPT` pero d
 separada: guardarla **no** dispara XP, pérdida de vidas ni avance de `USER_LESSON_PROGRESS`/
 `USER_TOPIC_PROGRESS` (ver [`PracticeService`](../../src/main/java/com/signasource/signa_api/learning/service/PracticeService.java)).
 El repaso de errores lee de ambas tablas: un bloque es un "error pendiente" si su intento más
-reciente (en cualquiera de las dos) fue incorrecto.
+reciente (en cualquiera de las dos) fue incorrecto. `USER_STATS.lastMistakeReviewAt` marca el último
+cobro del XP del repaso de errores: un nuevo cobro exige un error resuelto después de esa fecha.
 
 ```mermaid
 erDiagram
@@ -291,6 +292,7 @@ erDiagram
         instant unlimitedLivesExpiresAt
         instant nextLifeAt
         int learnedSignsCount
+        instant lastMistakeReviewAt
         instant updatedAt
     }
     ACHIEVEMENT {

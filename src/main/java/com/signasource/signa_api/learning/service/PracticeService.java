@@ -19,6 +19,7 @@ import com.signasource.signa_api.learning.repository.LessonBlockAttemptRepositor
 import com.signasource.signa_api.learning.repository.LessonBlockRepository;
 import com.signasource.signa_api.learning.repository.PracticeAttemptRepository;
 import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
+import com.signasource.signa_api.learning.repository.UserLessonProgressRepository;
 import com.signasource.signa_api.learning.util.BlockSignExtractor;
 import com.signasource.signa_api.users.entity.User;
 import java.time.Instant;
@@ -26,11 +27,13 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
@@ -73,6 +76,7 @@ public class PracticeService {
     private final LessonBlockAttemptRepository lessonBlockAttemptRepository;
     private final PracticeAttemptRepository practiceAttemptRepository;
     private final UserCourseEnrollmentRepository userCourseEnrollmentRepository;
+    private final UserLessonProgressRepository userLessonProgressRepository;
     private final UserLearnedSignRepository userLearnedSignRepository;
     private final UserStatsRepository userStatsRepository;
     private final BlockSignExtractor blockSignExtractor;
@@ -84,7 +88,7 @@ public class PracticeService {
             throw new InvalidInputException("Block type is not practicable: " + type);
         }
         List<LessonBlock> blocks =
-                enrolledBlocks(user).stream().filter(b -> b.getType() == type).toList();
+                practiceBlocks(user).stream().filter(b -> b.getType() == type).toList();
         return shuffleAndLimit(blocks, limit).stream().map(LessonBlockResponse::from).toList();
     }
 
@@ -107,7 +111,7 @@ public class PracticeService {
     @Transactional(readOnly = true)
     public List<LessonBlockResponse> getExercisesForSign(User user, String meaning, int limit) {
         List<LessonBlock> blocks =
-                enrolledBlocks(user).stream()
+                practiceBlocks(user).stream()
                         .filter(b -> !NOT_PRACTICABLE.contains(b.getType()))
                         .filter(
                                 b ->
@@ -146,8 +150,31 @@ public class PracticeService {
                         .build());
     }
 
+    /**
+     * Grants {@link #MISTAKE_REVIEW_XP_REWARD} only if the user resolved at least one mistake
+     * (answered right a block they'd previously missed) since the last time they claimed it.
+     * Answering wrong on purpose leaves nothing resolved, so the reward can't be farmed that way.
+     *
+     * @return the XP awarded, 0 when there was nothing new to reward
+     */
     @Transactional
     public int completeMistakeReview(User user) {
+        UserStats stats =
+                userStatsRepository
+                        .findByUser(user)
+                        .orElseGet(
+                                () ->
+                                        UserStats.builder()
+                                                .user(user)
+                                                .updatedAt(Instant.now())
+                                                .build());
+
+        if (!hasResolvedMistakeSince(user, stats.getLastMistakeReviewAt())) {
+            return 0;
+        }
+
+        stats.setLastMistakeReviewAt(Instant.now());
+        userStatsRepository.save(stats);
         eventPublisher.publishEvent(new XpEarnedEvent(this, user, MISTAKE_REVIEW_XP_REWARD));
         return MISTAKE_REVIEW_XP_REWARD;
     }
@@ -156,13 +183,22 @@ public class PracticeService {
     public PracticeSummaryResponse getSummary(User user) {
         int signsLearnedCount =
                 userStatsRepository.findByUser(user).map(UserStats::getLearnedSignsCount).orElse(0);
-        long exercisesDoneCount = practiceAttemptRepository.countByUserId(user.getId());
+        // Exercises done in lessons count too: they're exercises the user did, wherever.
+        long exercisesDoneCount =
+                practiceAttemptRepository.countByUserId(user.getId())
+                        + lessonBlockAttemptRepository.countByUserIdAndIsCorrectIsNotNull(
+                                user.getId());
         return new PracticeSummaryResponse(signsLearnedCount, exercisesDoneCount);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────
 
-    private List<LessonBlock> enrolledBlocks(User user) {
+    /**
+     * Blocks the user can practice: those of enrolled courses, restricted to lessons they have
+     * already started. Practice is a review ("repasá lo que ya aprendiste"), so it must not serve
+     * exercises — or their answers — from lessons the user hasn't reached.
+     */
+    private List<LessonBlock> practiceBlocks(User user) {
         List<UUID> versionIds =
                 userCourseEnrollmentRepository.findByUserId(user.getId()).stream()
                         .map(enrollment -> enrollment.getCourseVersion().getId())
@@ -170,7 +206,48 @@ public class PracticeService {
         if (versionIds.isEmpty()) {
             return List.of();
         }
-        return lessonBlockRepository.findByLessonTopicCourseVersionIdIn(versionIds);
+        Set<UUID> startedLessonIds =
+                userLessonProgressRepository.findByUserId(user.getId()).stream()
+                        .map(progress -> progress.getLesson().getId())
+                        .collect(Collectors.toSet());
+        return lessonBlockRepository.findByLessonTopicCourseVersionIdIn(versionIds).stream()
+                .filter(block -> startedLessonIds.contains(block.getLesson().getId()))
+                .toList();
+    }
+
+    /**
+     * True when the user got right, since {@code since} (null = ever), a block they had previously
+     * got wrong in either a lesson or a practice — i.e. they actually resolved a mistake.
+     */
+    private boolean hasResolvedMistakeSince(User user, Instant since) {
+        Map<UUID, Instant> firstWrongAt = new HashMap<>();
+        for (LessonBlockAttempt attempt :
+                lessonBlockAttemptRepository.findByUserIdOrderByAttemptedAtDesc(user.getId())) {
+            if (Boolean.FALSE.equals(attempt.getIsCorrect())) {
+                firstWrongAt.merge(
+                        attempt.getLessonBlock().getId(),
+                        attempt.getAttemptedAt(),
+                        (a, b) -> a.isBefore(b) ? a : b);
+            }
+        }
+        List<PracticeAttempt> practiceAttempts =
+                practiceAttemptRepository.findByUserIdOrderByAttemptedAtDesc(user.getId());
+        for (PracticeAttempt attempt : practiceAttempts) {
+            if (!attempt.isCorrect()) {
+                firstWrongAt.merge(
+                        attempt.getLessonBlock().getId(),
+                        attempt.getAttemptedAt(),
+                        (a, b) -> a.isBefore(b) ? a : b);
+            }
+        }
+        return practiceAttempts.stream()
+                .filter(PracticeAttempt::isCorrect)
+                .filter(a -> since == null || a.getAttemptedAt().isAfter(since))
+                .anyMatch(
+                        a -> {
+                            Instant wrongAt = firstWrongAt.get(a.getLessonBlock().getId());
+                            return wrongAt != null && wrongAt.isBefore(a.getAttemptedAt());
+                        });
     }
 
     private List<LessonBlock> shuffleAndLimit(List<LessonBlock> blocks, int limit) {

@@ -87,6 +87,12 @@ public class UserStats {
     @Column(nullable = false)
     private Instant updatedAt;
 
+    /**
+     * When the user last claimed the mistake-review XP bonus. A new claim requires a mistake
+     * resolved after this moment, so the bonus can't be farmed (see PracticeService).
+     */
+    @Column private Instant lastMistakeReviewAt;
+
     /** Rank at the end of the previous weekly cycle. Null until the first reset runs. */
     @Column private Integer previousWeeklyRank;
 

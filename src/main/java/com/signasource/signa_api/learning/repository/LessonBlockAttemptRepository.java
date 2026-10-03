@@ -15,6 +15,9 @@ public interface LessonBlockAttemptRepository extends JpaRepository<LessonBlockA
 
     long countByUserIdAndLessonBlockId(UUID userId, UUID lessonBlockId);
 
+    /** Exercise attempts only: INFO views are stored with a null correctness. */
+    long countByUserIdAndIsCorrectIsNotNull(UUID userId);
+
     boolean existsByUserIdAndLessonBlockId(UUID userId, UUID lessonBlockId);
 
     boolean existsByUserIdAndLessonBlockIdAndIsCorrectTrue(UUID userId, UUID lessonBlockId);
