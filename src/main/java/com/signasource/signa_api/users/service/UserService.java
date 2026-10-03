@@ -47,14 +47,14 @@ public class UserService {
             changed = true;
         }
 
-        if (request.name() != null && !request.name().isBlank()
+        if (request.name() != null
+                && !request.name().isBlank()
                 && !request.name().trim().equals(user.getName())) {
             user.setName(request.name().trim());
             changed = true;
         }
 
-        if (request.lastName() != null
-                && !request.lastName().trim().equals(user.getLastName())) {
+        if (request.lastName() != null && !request.lastName().trim().equals(user.getLastName())) {
             user.setLastName(request.lastName().trim());
             changed = true;
         }
