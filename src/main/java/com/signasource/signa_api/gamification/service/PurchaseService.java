@@ -6,6 +6,7 @@ import com.signasource.signa_api.gamification.dto.AppliedEffectResponse;
 import com.signasource.signa_api.gamification.dto.PurchaseResponse;
 import com.signasource.signa_api.gamification.dto.ShopItemResponse;
 import com.signasource.signa_api.gamification.dto.UserInventoryResponse;
+import com.signasource.signa_api.gamification.entity.AchievementCriteriaType;
 import com.signasource.signa_api.gamification.entity.LivesMode;
 import com.signasource.signa_api.gamification.entity.Purchase;
 import com.signasource.signa_api.gamification.entity.PurchaseStatus;
@@ -36,6 +37,7 @@ public class PurchaseService {
     private final ShopItemRepository shopItemRepository;
     private final PurchaseRepository purchaseRepository;
     private final UserStatsRepository userStatsRepository;
+    private final AchievementService achievementService;
 
     @Transactional
     public PurchaseResponse purchaseForSelf(User buyer, UUID shopItemId) {
@@ -66,6 +68,12 @@ public class PurchaseService {
                                 .status(status)
                                 .activatedAt(activatedAt)
                                 .build());
+
+        achievementService.awardReached(
+                buyer,
+                AchievementCriteriaType.SHOP_PURCHASES,
+                purchaseRepository.countByUser(buyer),
+                stats);
 
         return new PurchaseResponse(
                 purchase.getId(),

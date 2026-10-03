@@ -43,6 +43,7 @@ class PurchaseServiceTest {
     @Mock private ShopItemRepository shopItemRepository;
     @Mock private PurchaseRepository purchaseRepository;
     @Mock private UserStatsRepository userStatsRepository;
+    @Mock private AchievementService achievementService;
 
     @InjectMocks private PurchaseService purchaseService;
 

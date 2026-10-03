@@ -30,6 +30,11 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Long> {
     List<Friendship> findAllFriendshipsByUserAndStatus(
             @Param("user") User user, @Param("status") FriendshipStatus status);
 
+    @Query(
+            "SELECT COUNT(f) FROM Friendship f WHERE (f.requester = :user OR f.addressee = :user) "
+                    + "AND f.status = com.signasource.signa_api.users.entity.FriendshipStatus.ACCEPTED")
+    long countAcceptedFriends(@Param("user") User user);
+
     /** Every relation the user takes part in, whatever its status. */
     @Query("SELECT f FROM Friendship f WHERE f.requester = :user OR f.addressee = :user")
     List<Friendship> findAllByUser(@Param("user") User user);

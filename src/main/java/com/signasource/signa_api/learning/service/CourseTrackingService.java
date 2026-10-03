@@ -4,7 +4,9 @@ import com.signasource.signa_api.exceptions.ForbiddenException;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
+import com.signasource.signa_api.gamification.entity.AchievementCriteriaType;
 import com.signasource.signa_api.gamification.repository.UserLearnedSignRepository;
+import com.signasource.signa_api.gamification.service.AchievementService;
 import com.signasource.signa_api.learning.dto.CourseProgressResponse;
 import com.signasource.signa_api.learning.dto.EnrollmentSummaryResponse;
 import com.signasource.signa_api.learning.dto.TopicProgressResponse;
@@ -66,6 +68,7 @@ public class CourseTrackingService {
     private final ApplicationEventPublisher eventPublisher;
     private final BlockSignExtractor blockSignExtractor;
     private final UserLearnedSignRepository userLearnedSignRepository;
+    private final AchievementService achievementService;
 
     @Transactional
     public UserCourseEnrollment enrollUserInCourse(User user, UUID courseVersionId) {
@@ -427,6 +430,11 @@ public class CourseTrackingService {
         progress.setCompletedAt(Instant.now());
         progress.setXpEarned(xpEarned);
         lessonProgressRepository.save(progress);
+        achievementService.awardReached(
+                user,
+                AchievementCriteriaType.LESSONS_COMPLETED,
+                lessonProgressRepository.countByUserIdAndStatus(
+                        user.getId(), ProgressStatus.COMPLETED));
 
         checkTopicCompletion(user, lesson.getTopic());
     }
@@ -494,6 +502,11 @@ public class CourseTrackingService {
                             enrollment.setStatus(EnrollmentStatus.COMPLETED);
                             enrollment.setCompletedAt(Instant.now());
                             enrollmentRepository.save(enrollment);
+                            achievementService.awardReached(
+                                    user,
+                                    AchievementCriteriaType.COURSES_COMPLETED,
+                                    enrollmentRepository.countByUserIdAndStatus(
+                                            user.getId(), EnrollmentStatus.COMPLETED));
                         });
     }
 }
