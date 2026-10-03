@@ -104,6 +104,25 @@ class UserServiceTest {
     }
 
     @Test
+    void updateUsername_whenNameAndLastNameChange_updatesAndSavesWithSameUsername() {
+        userService.updateUsername(
+                new UpdateUsernameRequest(CURRENT_USERNAME, " Nuevo ", " Apellido "), user);
+
+        assertEquals("Nuevo", user.getName());
+        assertEquals("Apellido", user.getLastName());
+        assertEquals(CURRENT_USERNAME, user.getUsername());
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void updateUsername_whenNameBlank_keepsCurrentName() {
+        userService.updateUsername(new UpdateUsernameRequest(CURRENT_USERNAME, "  ", null), user);
+
+        assertEquals("Test User", user.getName());
+        verify(userRepository, never()).save(user);
+    }
+
+    @Test
     void updateUsername_whenUsernameTaken_throwsConflict() {
         when(userRepository.existsByUsername(TAKEN_USERNAME)).thenReturn(true);
 

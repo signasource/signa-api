@@ -9,6 +9,7 @@ public record UserProfileResponse(
         String email,
         String username,
         String name,
+        String lastName,
         Role role,
         boolean enabled,
         boolean verified) {
@@ -18,6 +19,7 @@ public record UserProfileResponse(
                 user.getEmail(),
                 user.getUsername(),
                 user.getName(),
+                user.getLastName(),
                 user.getRole(),
                 user.isEnabled(),
                 user.isVerified());

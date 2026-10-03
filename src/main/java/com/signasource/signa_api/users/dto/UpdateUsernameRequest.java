@@ -5,4 +5,11 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public record UpdateUsernameRequest(
-        @NotBlank @Size(min = 3, max = 50) @Pattern(regexp = "^[a-zA-Z0-9_]+$") String username) {}
+        @NotBlank @Size(min = 3, max = 50) @Pattern(regexp = "^[a-zA-Z0-9_]+$") String username,
+        @Size(max = 100) String name,
+        @Size(max = 100) String lastName) {
+
+    public UpdateUsernameRequest(String username) {
+        this(username, null, null);
+    }
+}

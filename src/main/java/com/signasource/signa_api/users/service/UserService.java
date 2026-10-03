@@ -37,16 +37,31 @@ public class UserService {
 
     @Transactional
     public void updateUsername(UpdateUsernameRequest request, User user) {
-        if (user.getUsername().equals(request.username())) {
-            return;
+        boolean changed = false;
+
+        if (!user.getUsername().equals(request.username())) {
+            if (userRepository.existsByUsername(request.username())) {
+                throw new ResourceAlreadyInUseException("Username already in use");
+            }
+            user.setUsername(request.username());
+            changed = true;
         }
 
-        if (userRepository.existsByUsername(request.username())) {
-            throw new ResourceAlreadyInUseException("Username already in use");
+        if (request.name() != null
+                && !request.name().isBlank()
+                && !request.name().trim().equals(user.getName())) {
+            user.setName(request.name().trim());
+            changed = true;
         }
 
-        user.setUsername(request.username());
-        userRepository.save(user);
+        if (request.lastName() != null && !request.lastName().trim().equals(user.getLastName())) {
+            user.setLastName(request.lastName().trim());
+            changed = true;
+        }
+
+        if (changed) {
+            userRepository.save(user);
+        }
     }
 
     @Transactional
