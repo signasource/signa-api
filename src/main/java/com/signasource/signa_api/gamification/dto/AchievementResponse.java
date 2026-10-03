@@ -16,7 +16,8 @@ public record AchievementResponse(
         int criteriaValue,
         boolean active,
         boolean earned,
-        Instant earnedAt) {
+        Instant earnedAt,
+        int rewardStreakShields) {
 
     public static AchievementResponse from(
             Achievement achievement, UserAchievement userAchievement) {
@@ -30,6 +31,7 @@ public record AchievementResponse(
                 achievement.getCriteriaValue(),
                 achievement.isActive(),
                 userAchievement != null,
-                userAchievement != null ? userAchievement.getEarnedAt() : null);
+                userAchievement != null ? userAchievement.getEarnedAt() : null,
+                achievement.getRewardStreakShields());
     }
 }

@@ -48,4 +48,7 @@ public class UserAchievement {
 
     @Column(nullable = false)
     private Instant earnedAt;
+
+    /** Set once the client has shown the celebration; null while it is still pending. */
+    @Column private Instant seenAt;
 }

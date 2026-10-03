@@ -13,6 +13,8 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -46,6 +48,9 @@ public class UserStats {
     @Column(nullable = false)
     @Builder.Default
     private int longestStreak = 0;
+
+    /** UTC day of the last activity that counted towards the streak. */
+    @Column private LocalDate lastStreakDate;
 
     @Column(nullable = false)
     @Builder.Default
@@ -142,6 +147,32 @@ public class UserStats {
             return false;
         }
         currentLives = lives - 1;
+        return true;
+    }
+
+    /**
+     * Counts {@code today} as a day of activity. Consecutive days extend the streak; each missed
+     * day burns one streak shield, and without enough shields the streak restarts at 1.
+     *
+     * @return {@code true} when the streak advanced (first activity of the day)
+     */
+    public boolean registerStreakActivity(LocalDate today) {
+        if (lastStreakDate != null && !today.isAfter(lastStreakDate)) {
+            return false;
+        }
+        if (lastStreakDate == null) {
+            currentStreak = 1;
+        } else {
+            long missedDays = ChronoUnit.DAYS.between(lastStreakDate, today) - 1;
+            if (missedDays <= streakShields) {
+                streakShields -= (int) missedDays;
+                currentStreak += 1;
+            } else {
+                currentStreak = 1;
+            }
+        }
+        longestStreak = Math.max(longestStreak, currentStreak);
+        lastStreakDate = today;
         return true;
     }
 }

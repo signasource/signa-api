@@ -47,4 +47,9 @@ public class Achievement {
     @Column(nullable = false)
     @Builder.Default
     private boolean active = true;
+
+    /** Streak shields granted the moment the achievement is earned. */
+    @Column(nullable = false, columnDefinition = "integer not null default 0")
+    @Builder.Default
+    private int rewardStreakShields = 0;
 }

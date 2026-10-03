@@ -13,5 +13,7 @@ public interface UserAchievementRepository extends JpaRepository<UserAchievement
 
     Optional<UserAchievement> findByUserAndAchievementId(User user, UUID achievementId);
 
+    List<UserAchievement> findByUserAndSeenAtIsNullOrderByEarnedAtAsc(User user);
+
     List<UserAchievement> findByUserOrderByEarnedAtDesc(User user, Pageable pageable);
 }
