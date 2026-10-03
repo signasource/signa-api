@@ -56,15 +56,13 @@ public class AchievementService {
      * credits its rewards (gems, streak shields) on {@code stats}. Does not save {@code stats}: the
      * caller owns that transaction.
      *
-     * <p>Only streak achievements get a celebration on the client; the rest are born already seen
-     * so they don't pile up in {@link #getUnseen}.
+     * <p>Every grant starts unseen: the client celebrates it and then calls {@link #markSeen}.
      */
     @Transactional
     public List<UserAchievement> awardReached(
             User user, AchievementCriteriaType type, long value, UserStats stats) {
         List<Achievement> reached = achievementRepository.findUnearnedReached(user, type, value);
         Instant now = Instant.now();
-        boolean celebrated = type == AchievementCriteriaType.STREAK_DAYS;
         return reached.stream()
                 .map(
                         achievement -> {
@@ -77,7 +75,6 @@ public class AchievementService {
                                             .user(user)
                                             .achievement(achievement)
                                             .earnedAt(now)
-                                            .seenAt(celebrated ? null : now)
                                             .build());
                         })
                 .toList();

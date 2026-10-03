@@ -2,7 +2,6 @@ package com.signasource.signa_api.gamification.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -292,7 +291,7 @@ class AchievementServiceTest {
     }
 
     @Test
-    void awardReached_creditsGemsAndNonStreakAchievementsAreBornSeen() {
+    void awardReached_creditsGemsAndStartsUnseenForAnyCriteria() {
         Achievement firstFriend =
                 Achievement.builder()
                         .id(UUID.randomUUID())
@@ -313,7 +312,7 @@ class AchievementServiceTest {
                         user, AchievementCriteriaType.FRIENDS_COUNT, 1, stats);
 
         assertEquals(25, stats.getGems());
-        assertNotNull(granted.get(0).getSeenAt());
+        assertNull(granted.get(0).getSeenAt());
     }
 
     @Test
