@@ -60,7 +60,7 @@ public class UserStatsEventListener {
         stats.setWeeklyXp(stats.getWeeklyXp() + xpToAdd);
         stats.setUpdatedAt(Instant.now());
 
-        if (stats.registerStreakActivity(LocalDate.now(ZoneOffset.UTC))) {
+        if (stats.registerStreakActivity(UserStats.streakDay(Instant.now()))) {
             achievementService.awardStreakMilestones(user, stats);
         }
 
