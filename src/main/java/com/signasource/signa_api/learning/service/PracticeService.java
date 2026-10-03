@@ -42,8 +42,25 @@ import org.springframework.transaction.annotation.Transactional;
 public class PracticeService {
 
     private static final int MAX_LIMIT = 20;
+
+    /**
+     * The learned-signs list is a catalog, not a batch of exercises: capping it at {@link
+     * #MAX_LIMIT} hid every sign past the 20th even though the course teaches many more.
+     */
+    private static final int MAX_SIGNS_LIMIT = 200;
+
+    /**
+     * Blocks the practice player can't evaluate: no answer to grade (INFO, INTRODUCE_SIGN,
+     * INVISIBLE_SIGNS) or camera-driven (PERFORM_SIGN, SPELL_NAME), which the mobile player doesn't
+     * render. Returning them used to leave the session stuck on a blank screen.
+     */
     private static final Set<BlockType> NOT_PRACTICABLE =
-            EnumSet.of(BlockType.INFO, BlockType.INTRODUCE_SIGN, BlockType.INVISIBLE_SIGNS);
+            EnumSet.of(
+                    BlockType.INFO,
+                    BlockType.INTRODUCE_SIGN,
+                    BlockType.INVISIBLE_SIGNS,
+                    BlockType.PERFORM_SIGN,
+                    BlockType.SPELL_NAME);
 
     /**
      * Flat bonus for finishing a mistake-review batch — unlike other practice modes, "Repaso de
@@ -75,7 +92,8 @@ public class PracticeService {
     public List<LearnedSignResponse> getLearnedSigns(User user, int limit) {
         List<UserLearnedSign> learned =
                 userLearnedSignRepository.findByUserOrderByLearnedAtDesc(
-                        user, PageRequest.of(0, clamp(limit)));
+                        user,
+                        PageRequest.of(0, Math.max(1, Math.min(limit, MAX_SIGNS_LIMIT))));
 
         // A sign learned via more than one course version appears once, keeping the
         // desc-by-date order already returned by the query.
@@ -90,6 +108,7 @@ public class PracticeService {
     public List<LessonBlockResponse> getExercisesForSign(User user, String meaning, int limit) {
         List<LessonBlock> blocks =
                 enrolledBlocks(user).stream()
+                        .filter(b -> !NOT_PRACTICABLE.contains(b.getType()))
                         .filter(
                                 b ->
                                         blockSignExtractor.extract(b).stream()
@@ -176,6 +195,9 @@ public class PracticeService {
                 continue; // INFO block view, not an evaluable exercise attempt.
             }
             LessonBlock block = attempt.getLessonBlock();
+            if (NOT_PRACTICABLE.contains(block.getType())) {
+                continue; // e.g. a skipped camera exercise: can't be replayed in practice.
+            }
             blocksById.putIfAbsent(block.getId(), block);
             attemptsByBlockId
                     .computeIfAbsent(block.getId(), k -> new ArrayList<>())
@@ -185,6 +207,9 @@ public class PracticeService {
         for (PracticeAttempt attempt :
                 practiceAttemptRepository.findByUserIdOrderByAttemptedAtDesc(user.getId())) {
             LessonBlock block = attempt.getLessonBlock();
+            if (NOT_PRACTICABLE.contains(block.getType())) {
+                continue;
+            }
             blocksById.putIfAbsent(block.getId(), block);
             attemptsByBlockId
                     .computeIfAbsent(block.getId(), k -> new ArrayList<>())

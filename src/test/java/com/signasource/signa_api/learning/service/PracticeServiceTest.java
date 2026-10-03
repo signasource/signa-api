@@ -110,6 +110,57 @@ class PracticeServiceTest {
         assertThrows(
                 InvalidInputException.class,
                 () -> practiceService.getExercisesByType(mockUser, BlockType.INVISIBLE_SIGNS, 10));
+        assertThrows(
+                InvalidInputException.class,
+                () -> practiceService.getExercisesByType(mockUser, BlockType.PERFORM_SIGN, 10));
+        assertThrows(
+                InvalidInputException.class,
+                () -> practiceService.getExercisesByType(mockUser, BlockType.SPELL_NAME, 10));
+    }
+
+    @Test
+    void getExercisesForSign_ShouldSkipNonPracticableBlocks() {
+        LessonBlock introBlock = block(BlockType.INTRODUCE_SIGN);
+        LessonBlock selectBlock = block(BlockType.SELECT_MEANING);
+        givenEnrolled(List.of(introBlock, selectBlock));
+        when(blockSignExtractor.extract(selectBlock)).thenReturn(List.of("madre"));
+
+        List<LessonBlockResponse> result =
+                practiceService.getExercisesForSign(mockUser, "madre", 10);
+
+        assertEquals(1, result.size());
+        assertEquals(selectBlock.getId(), result.get(0).id());
+    }
+
+    @Test
+    void getMistakes_ShouldIgnoreSkippedCameraExercises() {
+        LessonBlock performBlock = block(BlockType.PERFORM_SIGN);
+        LessonBlockAttempt skipped =
+                LessonBlockAttempt.builder()
+                        .lessonBlock(performBlock)
+                        .isCorrect(false)
+                        .attemptedAt(Instant.now())
+                        .build();
+        when(lessonBlockAttemptRepository.findByUserIdOrderByAttemptedAtDesc(userId))
+                .thenReturn(List.of(skipped));
+        when(practiceAttemptRepository.findByUserIdOrderByAttemptedAtDesc(userId))
+                .thenReturn(List.of());
+
+        assertTrue(practiceService.getMistakes(mockUser, 20).isEmpty());
+        assertTrue(practiceService.getMistakeExercises(mockUser, 20).isEmpty());
+    }
+
+    @Test
+    void getLearnedSigns_ShouldNotCapAtExerciseBatchLimit() {
+        when(userLearnedSignRepository.findByUserOrderByLearnedAtDesc(any(), any()))
+                .thenReturn(List.of());
+
+        practiceService.getLearnedSigns(mockUser, 50);
+
+        ArgumentCaptor<org.springframework.data.domain.Pageable> page =
+                ArgumentCaptor.forClass(org.springframework.data.domain.Pageable.class);
+        verify(userLearnedSignRepository).findByUserOrderByLearnedAtDesc(any(), page.capture());
+        assertEquals(50, page.getValue().getPageSize());
     }
 
     @Test
