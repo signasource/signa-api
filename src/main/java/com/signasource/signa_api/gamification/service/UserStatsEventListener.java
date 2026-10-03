@@ -33,6 +33,7 @@ public class UserStatsEventListener {
     private final UserStatsRepository userStatsRepository;
     private final UserDailyXpRepository userDailyXpRepository;
     private final UserLearnedSignRepository userLearnedSignRepository;
+    private final AchievementService achievementService;
 
     @EventListener
     @Transactional
@@ -58,6 +59,10 @@ public class UserStatsEventListener {
         stats.setTotalXp(stats.getTotalXp() + xpToAdd);
         stats.setWeeklyXp(stats.getWeeklyXp() + xpToAdd);
         stats.setUpdatedAt(Instant.now());
+
+        if (stats.registerStreakActivity(LocalDate.now(ZoneOffset.UTC))) {
+            achievementService.awardStreakMilestones(user, stats);
+        }
 
         userStatsRepository.save(stats);
 

@@ -1,6 +1,7 @@
 package com.signasource.signa_api.gamification.repository;
 
 import com.signasource.signa_api.gamification.entity.Achievement;
+import com.signasource.signa_api.gamification.entity.AchievementCriteriaType;
 import com.signasource.signa_api.users.entity.User;
 import java.util.List;
 import java.util.Optional;
@@ -22,4 +23,14 @@ public interface AchievementRepository extends JpaRepository<Achievement, UUID> 
                     + "LEFT JOIN UserAchievement ua ON ua.achievement = a AND ua.user = :user "
                     + "WHERE a.id = :id")
     Optional<Object[]> findByIdWithUserAchievement(@Param("id") UUID id, @Param("user") User user);
+
+    @Query(
+            "SELECT a FROM Achievement a WHERE a.active = true AND a.criteriaType = :type "
+                    + "AND a.criteriaValue <= :value AND NOT EXISTS ("
+                    + "SELECT 1 FROM UserAchievement ua WHERE ua.achievement = a AND ua.user = :user) "
+                    + "ORDER BY a.criteriaValue ASC")
+    List<Achievement> findUnearnedReached(
+            @Param("user") User user,
+            @Param("type") AchievementCriteriaType type,
+            @Param("value") int value);
 }

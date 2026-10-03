@@ -60,7 +60,8 @@ class AchievementControllerTest {
                         7,
                         true,
                         false,
-                        null);
+                        null,
+                        1);
         when(achievementService.getAchievements(user, null, null)).thenReturn(List.of(achievement));
 
         ResponseEntity<List<AchievementResponse>> response =
@@ -86,7 +87,8 @@ class AchievementControllerTest {
                         7,
                         true,
                         true,
-                        java.time.Instant.now());
+                        java.time.Instant.now(),
+                        1);
         when(achievementService.getAchievementById(id, user)).thenReturn(achievement);
 
         ResponseEntity<AchievementResponse> response =
@@ -95,5 +97,39 @@ class AchievementControllerTest {
         verify(achievementService).getAchievementById(id, user);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(achievement, response.getBody());
+    }
+
+    @Test
+    void shouldReturnUnseenAchievements() {
+        AchievementResponse achievement =
+                new AchievementResponse(
+                        UUID.randomUUID(),
+                        "STREAK_3",
+                        "Tres días de racha",
+                        "desc",
+                        null,
+                        AchievementCriteriaType.STREAK_DAYS,
+                        3,
+                        true,
+                        true,
+                        java.time.Instant.now(),
+                        1);
+        when(achievementService.getUnseen(user)).thenReturn(List.of(achievement));
+
+        ResponseEntity<List<AchievementResponse>> response =
+                achievementController.getUnseenAchievements(userDetails);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(List.of(achievement), response.getBody());
+    }
+
+    @Test
+    void shouldMarkAchievementSeen() {
+        UUID id = UUID.randomUUID();
+
+        ResponseEntity<Void> response = achievementController.markSeen(id, userDetails);
+
+        verify(achievementService).markSeen(id, user);
+        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
     }
 }

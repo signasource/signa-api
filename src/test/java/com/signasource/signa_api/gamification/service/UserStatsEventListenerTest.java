@@ -44,6 +44,7 @@ class UserStatsEventListenerTest {
     @Mock private UserStatsRepository userStatsRepository;
     @Mock private UserDailyXpRepository userDailyXpRepository;
     @Mock private UserLearnedSignRepository userLearnedSignRepository;
+    @Mock private AchievementService achievementService;
 
     @InjectMocks private UserStatsEventListener userStatsEventListener;
 
