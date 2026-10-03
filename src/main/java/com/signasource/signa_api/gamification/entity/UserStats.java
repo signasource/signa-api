@@ -1,5 +1,6 @@
 package com.signasource.signa_api.gamification.entity;
 
+import com.signasource.signa_api.common.ArgentinaTime;
 import com.signasource.signa_api.users.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -49,7 +50,7 @@ public class UserStats {
     @Builder.Default
     private int longestStreak = 0;
 
-    /** UTC day of the last activity that counted towards the streak. */
+    /** Streak day ({@link ArgentinaTime}) of the last activity that counted towards the streak. */
     @Column private LocalDate lastStreakDate;
 
     @Column(nullable = false)

@@ -1,5 +1,6 @@
 package com.signasource.signa_api.gamification.service;
 
+import com.signasource.signa_api.common.ArgentinaTime;
 import com.signasource.signa_api.gamification.dto.DailyXpResponse;
 import com.signasource.signa_api.gamification.dto.UserStatsResponse;
 import com.signasource.signa_api.gamification.entity.UserDailyXp;
@@ -10,7 +11,6 @@ import com.signasource.signa_api.users.entity.User;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,7 +46,7 @@ public class UserStatsService {
 
     @Transactional(readOnly = true)
     public List<DailyXpResponse> getWeeklyXpBreakdown(User user) {
-        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        LocalDate today = ArgentinaTime.today();
         LocalDate monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
 
         List<UserDailyXp> records =
