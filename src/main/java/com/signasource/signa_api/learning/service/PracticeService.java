@@ -96,8 +96,7 @@ public class PracticeService {
     public List<LearnedSignResponse> getLearnedSigns(User user, int limit) {
         List<UserLearnedSign> learned =
                 userLearnedSignRepository.findByUserOrderByLearnedAtDesc(
-                        user,
-                        PageRequest.of(0, Math.max(1, Math.min(limit, MAX_SIGNS_LIMIT))));
+                        user, PageRequest.of(0, Math.max(1, Math.min(limit, MAX_SIGNS_LIMIT))));
 
         // A sign learned via more than one course version appears once, keeping the
         // desc-by-date order already returned by the query.

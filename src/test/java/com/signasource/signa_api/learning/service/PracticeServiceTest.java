@@ -25,8 +25,8 @@ import com.signasource.signa_api.learning.entity.LessonBlock;
 import com.signasource.signa_api.learning.entity.LessonBlockAttempt;
 import com.signasource.signa_api.learning.entity.PracticeAttempt;
 import com.signasource.signa_api.learning.entity.Topic;
-import com.signasource.signa_api.learning.entity.UserLessonProgress;
 import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
+import com.signasource.signa_api.learning.entity.UserLessonProgress;
 import com.signasource.signa_api.learning.event.XpEarnedEvent;
 import com.signasource.signa_api.learning.repository.LessonBlockAttemptRepository;
 import com.signasource.signa_api.learning.repository.LessonBlockRepository;
@@ -372,7 +372,11 @@ class PracticeServiceTest {
     }
 
     private void givenAttempts(
-            LessonBlock block, boolean lessonWrong, Instant wrongAt, boolean fixed, Instant fixedAt) {
+            LessonBlock block,
+            boolean lessonWrong,
+            Instant wrongAt,
+            boolean fixed,
+            Instant fixedAt) {
         List<LessonBlockAttempt> lessonAttempts =
                 lessonWrong
                         ? List.of(
