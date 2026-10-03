@@ -26,11 +26,13 @@ import com.signasource.signa_api.learning.entity.LessonBlockAttempt;
 import com.signasource.signa_api.learning.entity.PracticeAttempt;
 import com.signasource.signa_api.learning.entity.Topic;
 import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
+import com.signasource.signa_api.learning.entity.UserLessonProgress;
 import com.signasource.signa_api.learning.event.XpEarnedEvent;
 import com.signasource.signa_api.learning.repository.LessonBlockAttemptRepository;
 import com.signasource.signa_api.learning.repository.LessonBlockRepository;
 import com.signasource.signa_api.learning.repository.PracticeAttemptRepository;
 import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
+import com.signasource.signa_api.learning.repository.UserLessonProgressRepository;
 import com.signasource.signa_api.learning.util.BlockSignExtractor;
 import com.signasource.signa_api.users.entity.User;
 import java.time.Instant;
@@ -54,6 +56,7 @@ class PracticeServiceTest {
     @Mock private LessonBlockAttemptRepository lessonBlockAttemptRepository;
     @Mock private PracticeAttemptRepository practiceAttemptRepository;
     @Mock private UserCourseEnrollmentRepository userCourseEnrollmentRepository;
+    @Mock private UserLessonProgressRepository userLessonProgressRepository;
     @Mock private UserLearnedSignRepository userLearnedSignRepository;
     @Mock private UserStatsRepository userStatsRepository;
     @Mock private BlockSignExtractor blockSignExtractor;
@@ -64,11 +67,13 @@ class PracticeServiceTest {
     private User mockUser;
     private UUID userId;
     private UUID courseVersionId;
+    private UUID lessonId;
 
     @BeforeEach
     void setUp() {
         userId = UUID.randomUUID();
         courseVersionId = UUID.randomUUID();
+        lessonId = UUID.randomUUID();
         mockUser = new User();
         mockUser.setId(userId);
     }
@@ -78,7 +83,7 @@ class PracticeServiceTest {
                 Topic.builder()
                         .courseVersion(CourseVersion.builder().id(courseVersionId).build())
                         .build();
-        Lesson lesson = Lesson.builder().topic(topic).build();
+        Lesson lesson = Lesson.builder().id(lessonId).topic(topic).build();
         return LessonBlock.builder()
                 .id(UUID.randomUUID())
                 .type(type)
@@ -97,6 +102,12 @@ class PracticeServiceTest {
         when(userCourseEnrollmentRepository.findByUserId(userId)).thenReturn(List.of(enrollment));
         when(lessonBlockRepository.findByLessonTopicCourseVersionIdIn(List.of(courseVersionId)))
                 .thenReturn(blocks);
+        when(userLessonProgressRepository.findByUserId(userId))
+                .thenReturn(
+                        List.of(
+                                UserLessonProgress.builder()
+                                        .lesson(Lesson.builder().id(lessonId).build())
+                                        .build()));
     }
 
     @Test
@@ -110,6 +121,57 @@ class PracticeServiceTest {
         assertThrows(
                 InvalidInputException.class,
                 () -> practiceService.getExercisesByType(mockUser, BlockType.INVISIBLE_SIGNS, 10));
+        assertThrows(
+                InvalidInputException.class,
+                () -> practiceService.getExercisesByType(mockUser, BlockType.PERFORM_SIGN, 10));
+        assertThrows(
+                InvalidInputException.class,
+                () -> practiceService.getExercisesByType(mockUser, BlockType.SPELL_NAME, 10));
+    }
+
+    @Test
+    void getExercisesForSign_ShouldSkipNonPracticableBlocks() {
+        LessonBlock introBlock = block(BlockType.INTRODUCE_SIGN);
+        LessonBlock selectBlock = block(BlockType.SELECT_MEANING);
+        givenEnrolled(List.of(introBlock, selectBlock));
+        when(blockSignExtractor.extract(selectBlock)).thenReturn(List.of("madre"));
+
+        List<LessonBlockResponse> result =
+                practiceService.getExercisesForSign(mockUser, "madre", 10);
+
+        assertEquals(1, result.size());
+        assertEquals(selectBlock.getId(), result.get(0).id());
+    }
+
+    @Test
+    void getMistakes_ShouldIgnoreSkippedCameraExercises() {
+        LessonBlock performBlock = block(BlockType.PERFORM_SIGN);
+        LessonBlockAttempt skipped =
+                LessonBlockAttempt.builder()
+                        .lessonBlock(performBlock)
+                        .isCorrect(false)
+                        .attemptedAt(Instant.now())
+                        .build();
+        when(lessonBlockAttemptRepository.findByUserIdOrderByAttemptedAtDesc(userId))
+                .thenReturn(List.of(skipped));
+        when(practiceAttemptRepository.findByUserIdOrderByAttemptedAtDesc(userId))
+                .thenReturn(List.of());
+
+        assertTrue(practiceService.getMistakes(mockUser, 20).isEmpty());
+        assertTrue(practiceService.getMistakeExercises(mockUser, 20).isEmpty());
+    }
+
+    @Test
+    void getLearnedSigns_ShouldNotCapAtExerciseBatchLimit() {
+        when(userLearnedSignRepository.findByUserOrderByLearnedAtDesc(any(), any()))
+                .thenReturn(List.of());
+
+        practiceService.getLearnedSigns(mockUser, 50);
+
+        ArgumentCaptor<org.springframework.data.domain.Pageable> page =
+                ArgumentCaptor.forClass(org.springframework.data.domain.Pageable.class);
+        verify(userLearnedSignRepository).findByUserOrderByLearnedAtDesc(any(), page.capture());
+        assertEquals(50, page.getValue().getPageSize());
     }
 
     @Test
@@ -282,10 +344,12 @@ class PracticeServiceTest {
         UserStats stats = UserStats.builder().learnedSignsCount(7).build();
         when(userStatsRepository.findByUser(mockUser)).thenReturn(Optional.of(stats));
         when(practiceAttemptRepository.countByUserId(userId)).thenReturn(15L);
+        when(lessonBlockAttemptRepository.countByUserIdAndIsCorrectIsNotNull(userId))
+                .thenReturn(6L);
 
         PracticeSummaryResponse summary = practiceService.getSummary(mockUser);
 
-        assertEquals(new PracticeSummaryResponse(7, 15L), summary);
+        assertEquals(new PracticeSummaryResponse(7, 21L), summary);
     }
 
     @Test
@@ -299,7 +363,51 @@ class PracticeServiceTest {
     }
 
     @Test
-    void completeMistakeReview_ShouldPublishXpEarnedEventAndReturnAwardedAmount() {
+    void getExercisesByType_ShouldSkipLessonsTheUserHasNotStarted() {
+        LessonBlock matchBlock = block(BlockType.MATCH);
+        givenEnrolled(List.of(matchBlock));
+        when(userLessonProgressRepository.findByUserId(userId)).thenReturn(List.of());
+
+        assertTrue(practiceService.getExercisesByType(mockUser, BlockType.MATCH, 10).isEmpty());
+    }
+
+    private void givenAttempts(
+            LessonBlock block,
+            boolean lessonWrong,
+            Instant wrongAt,
+            boolean fixed,
+            Instant fixedAt) {
+        List<LessonBlockAttempt> lessonAttempts =
+                lessonWrong
+                        ? List.of(
+                                LessonBlockAttempt.builder()
+                                        .lessonBlock(block)
+                                        .isCorrect(false)
+                                        .attemptedAt(wrongAt)
+                                        .build())
+                        : List.of();
+        List<PracticeAttempt> practiceAttempts =
+                fixed
+                        ? List.of(
+                                PracticeAttempt.builder()
+                                        .lessonBlock(block)
+                                        .isCorrect(true)
+                                        .attemptedAt(fixedAt)
+                                        .build())
+                        : List.of();
+        when(lessonBlockAttemptRepository.findByUserIdOrderByAttemptedAtDesc(userId))
+                .thenReturn(lessonAttempts);
+        when(practiceAttemptRepository.findByUserIdOrderByAttemptedAtDesc(userId))
+                .thenReturn(practiceAttempts);
+    }
+
+    @Test
+    void completeMistakeReview_ShouldAwardXpAndStampClaim_WhenAMistakeWasResolved() {
+        Instant now = Instant.now();
+        UserStats stats = UserStats.builder().build();
+        when(userStatsRepository.findByUser(mockUser)).thenReturn(Optional.of(stats));
+        givenAttempts(block(BlockType.MATCH), true, now.minusSeconds(60), true, now);
+
         int xpEarned = practiceService.completeMistakeReview(mockUser);
 
         ArgumentCaptor<XpEarnedEvent> eventCaptor = ArgumentCaptor.forClass(XpEarnedEvent.class);
@@ -307,5 +415,28 @@ class PracticeServiceTest {
         assertEquals(mockUser, eventCaptor.getValue().getUser());
         assertEquals(xpEarned, eventCaptor.getValue().getXpAmount());
         assertTrue(xpEarned > 0);
+        assertTrue(stats.getLastMistakeReviewAt() != null);
+    }
+
+    @Test
+    void completeMistakeReview_ShouldAwardNothing_WhenNoMistakeWasResolved() {
+        UserStats stats = UserStats.builder().build();
+        when(userStatsRepository.findByUser(mockUser)).thenReturn(Optional.of(stats));
+        // Wrong in the lesson, never answered right afterwards (answering wrong on purpose).
+        givenAttempts(block(BlockType.MATCH), true, Instant.now(), false, null);
+
+        assertEquals(0, practiceService.completeMistakeReview(mockUser));
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    void completeMistakeReview_ShouldNotAwardTwice_ForTheSameResolvedMistake() {
+        Instant now = Instant.now();
+        UserStats stats = UserStats.builder().lastMistakeReviewAt(now.plusSeconds(1)).build();
+        when(userStatsRepository.findByUser(mockUser)).thenReturn(Optional.of(stats));
+        givenAttempts(block(BlockType.MATCH), true, now.minusSeconds(60), true, now);
+
+        assertEquals(0, practiceService.completeMistakeReview(mockUser));
+        verify(eventPublisher, never()).publishEvent(any());
     }
 }

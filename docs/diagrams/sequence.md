@@ -378,10 +378,13 @@ que el usuario está inscripto, pero el intento se guarda en `PRACTICE_ATTEMPT`,
 repaso de errores combina ambas tablas: un bloque es un "error pendiente" si su intento más
 reciente, en cualquiera de las dos, fue incorrecto.
 
-**Excepción:** terminar un lote de repaso de errores sí otorga una recompensa de XP fija
-(`PracticeService.completeMistakeReview`, evento `XpEarnedEvent`) — a diferencia de los otros modos,
-siempre opera sobre los errores pendientes reales del usuario, así que se autolimita: una vez
-resueltos, el próximo lote sale vacío y no hay repaso que completar.
+Solo se practican bloques evaluables (se excluyen `INFO`, `INTRODUCE_SIGN`, `INVISIBLE_SIGNS`,
+`PERFORM_SIGN` y `SPELL_NAME`) y solo de lecciones que el usuario ya empezó (`USER_LESSON_PROGRESS`).
+
+**Excepción:** terminar un lote de repaso de errores puede otorgar una recompensa de XP fija
+(`PracticeService.completeMistakeReview`, evento `XpEarnedEvent`). Se otorga solo si, desde el último
+cobro (`USER_STATS.last_mistake_review_at`), el usuario respondió bien un bloque que antes había fallado;
+si no, devuelve 0 XP. Así no se puede farmear contestando mal a propósito.
 
 ```mermaid
 sequenceDiagram
