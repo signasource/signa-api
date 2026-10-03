@@ -1,5 +1,6 @@
 package com.signasource.signa_api.learning.repository;
 
+import com.signasource.signa_api.learning.entity.EnrollmentStatus;
 import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import java.util.List;
 import java.util.Optional;
@@ -10,6 +11,8 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface UserCourseEnrollmentRepository extends JpaRepository<UserCourseEnrollment, UUID> {
+
+    long countByUserIdAndStatus(UUID userId, EnrollmentStatus status);
 
     List<UserCourseEnrollment> findByUserId(UUID userId);
 

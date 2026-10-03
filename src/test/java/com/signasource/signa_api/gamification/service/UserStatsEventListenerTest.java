@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.common.ArgentinaTime;
+import com.signasource.signa_api.gamification.entity.AchievementCriteriaType;
 import com.signasource.signa_api.gamification.entity.LivesMode;
 import com.signasource.signa_api.gamification.entity.UserDailyXp;
 import com.signasource.signa_api.gamification.entity.UserLearnedSign;
@@ -66,6 +67,26 @@ class UserStatsEventListenerTest {
 
     private static Instant startOfCurrentWeek() {
         return ArgentinaTime.startOfCurrentWeek();
+    }
+
+    @Test
+    void handleXpEarnedEvent_AwardsXpAndStreakAchievements() {
+        when(userStatsRepository.findByUserId(userId)).thenReturn(Optional.empty());
+        when(userStatsRepository.save(any(UserStats.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(userDailyXpRepository.findByUserAndXpDate(eq(mockUser), any(LocalDate.class)))
+                .thenReturn(Optional.empty());
+        when(userDailyXpRepository.save(any(UserDailyXp.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        userStatsEventListener.handleXpEarnedEvent(new XpEarnedEvent(this, mockUser, 50));
+
+        verify(achievementService)
+                .awardReached(eq(mockUser), eq(AchievementCriteriaType.STREAK_DAYS), eq(1L), any());
+        verify(achievementService)
+                .awardReached(eq(mockUser), eq(AchievementCriteriaType.TOTAL_XP), eq(50L), any());
+        verify(achievementService)
+                .awardReached(eq(mockUser), eq(AchievementCriteriaType.WEEKLY_XP), eq(50L), any());
     }
 
     @Test

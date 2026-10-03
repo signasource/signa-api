@@ -3,8 +3,10 @@ package com.signasource.signa_api.users.service;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
+import com.signasource.signa_api.gamification.entity.AchievementCriteriaType;
 import com.signasource.signa_api.gamification.entity.UserStats;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
+import com.signasource.signa_api.gamification.service.AchievementService;
 import com.signasource.signa_api.notification.entity.NotificationCode;
 import com.signasource.signa_api.notification.service.NotificationService;
 import com.signasource.signa_api.users.dto.FriendResponse;
@@ -32,6 +34,7 @@ public class FriendshipService {
     private final UserRepository userRepository;
     private final UserStatsRepository userStatsRepository;
     private final NotificationService notificationService;
+    private final AchievementService achievementService;
 
     @Transactional
     public void sendFriendRequest(User requester, UUID addresseeId) {
@@ -96,7 +99,16 @@ public class FriendshipService {
 
         friendship.setStatus(FriendshipStatus.ACCEPTED);
         friendshipRepository.save(friendship);
+        awardFriendAchievements(requester);
+        awardFriendAchievements(addressee);
         notifyRequestAccepted(requester, addressee);
+    }
+
+    private void awardFriendAchievements(User user) {
+        achievementService.awardReached(
+                user,
+                AchievementCriteriaType.FRIENDS_COUNT,
+                friendshipRepository.countAcceptedFriends(user));
     }
 
     @Transactional

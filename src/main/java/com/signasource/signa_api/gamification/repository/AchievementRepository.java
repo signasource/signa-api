@@ -32,5 +32,5 @@ public interface AchievementRepository extends JpaRepository<Achievement, UUID> 
     List<Achievement> findUnearnedReached(
             @Param("user") User user,
             @Param("type") AchievementCriteriaType type,
-            @Param("value") int value);
+            @Param("value") long value);
 }

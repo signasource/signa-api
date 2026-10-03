@@ -61,7 +61,8 @@ class AchievementControllerTest {
                         true,
                         false,
                         null,
-                        1);
+                        1,
+                        0);
         when(achievementService.getAchievements(user, null, null)).thenReturn(List.of(achievement));
 
         ResponseEntity<List<AchievementResponse>> response =
@@ -88,7 +89,8 @@ class AchievementControllerTest {
                         true,
                         true,
                         java.time.Instant.now(),
-                        1);
+                        1,
+                        0);
         when(achievementService.getAchievementById(id, user)).thenReturn(achievement);
 
         ResponseEntity<AchievementResponse> response =
@@ -113,7 +115,8 @@ class AchievementControllerTest {
                         true,
                         true,
                         java.time.Instant.now(),
-                        1);
+                        1,
+                        0);
         when(achievementService.getUnseen(user)).thenReturn(List.of(achievement));
 
         ResponseEntity<List<AchievementResponse>> response =

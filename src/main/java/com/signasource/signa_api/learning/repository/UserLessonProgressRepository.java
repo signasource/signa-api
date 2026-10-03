@@ -1,5 +1,6 @@
 package com.signasource.signa_api.learning.repository;
 
+import com.signasource.signa_api.learning.entity.ProgressStatus;
 import com.signasource.signa_api.learning.entity.UserLessonProgress;
 import com.signasource.signa_api.learning.repository.projection.LessonProgressStatusView;
 import com.signasource.signa_api.learning.repository.projection.TopicCompletedCountView;
@@ -12,6 +13,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface UserLessonProgressRepository extends JpaRepository<UserLessonProgress, UUID> {
+
+    long countByUserIdAndStatus(UUID userId, ProgressStatus status);
 
     void deleteByLessonId(UUID lessonId);
 

@@ -8,6 +8,7 @@ import com.signasource.signa_api.gamification.entity.UserAchievement;
 import com.signasource.signa_api.gamification.entity.UserStats;
 import com.signasource.signa_api.gamification.repository.AchievementRepository;
 import com.signasource.signa_api.gamification.repository.UserAchievementRepository;
+import com.signasource.signa_api.gamification.repository.UserStatsRepository;
 import com.signasource.signa_api.users.entity.User;
 import java.time.Instant;
 import java.util.List;
@@ -22,6 +23,7 @@ public class AchievementService {
 
     private final AchievementRepository achievementRepository;
     private final UserAchievementRepository userAchievementRepository;
+    private final UserStatsRepository userStatsRepository;
 
     @Transactional(readOnly = true)
     public List<AchievementResponse> getAchievements(User user, Boolean unlocked, Boolean active) {
@@ -50,14 +52,16 @@ public class AchievementService {
     }
 
     /**
-     * Grants every streak achievement the user's current streak has reached and credits its reward.
-     * Mutates {@code stats} (shields) but does not save it: the caller owns that transaction.
+     * Grants every active achievement of {@code type} whose threshold {@code value} has reached and
+     * credits its rewards (gems, streak shields) on {@code stats}. Does not save {@code stats}: the
+     * caller owns that transaction.
+     *
+     * <p>Every grant starts unseen: the client celebrates it and then calls {@link #markSeen}.
      */
     @Transactional
-    public List<UserAchievement> awardStreakMilestones(User user, UserStats stats) {
-        List<Achievement> reached =
-                achievementRepository.findUnearnedReached(
-                        user, AchievementCriteriaType.STREAK_DAYS, stats.getCurrentStreak());
+    public List<UserAchievement> awardReached(
+            User user, AchievementCriteriaType type, long value, UserStats stats) {
+        List<Achievement> reached = achievementRepository.findUnearnedReached(user, type, value);
         Instant now = Instant.now();
         return reached.stream()
                 .map(
@@ -65,6 +69,7 @@ public class AchievementService {
                             stats.setStreakShields(
                                     stats.getStreakShields()
                                             + achievement.getRewardStreakShields());
+                            stats.setGems(stats.getGems() + achievement.getRewardGems());
                             return userAchievementRepository.save(
                                     UserAchievement.builder()
                                             .user(user)
@@ -73,6 +78,21 @@ public class AchievementService {
                                             .build());
                         })
                 .toList();
+    }
+
+    /** Same as above for callers that don't hold the user's stats; loads and saves them. */
+    @Transactional
+    public List<UserAchievement> awardReached(User user, AchievementCriteriaType type, long value) {
+        UserStats stats =
+                userStatsRepository
+                        .findByUserId(user.getId())
+                        .orElseGet(() -> UserStats.builder().user(user).build());
+        List<UserAchievement> granted = awardReached(user, type, value, stats);
+        if (!granted.isEmpty()) {
+            stats.setUpdatedAt(Instant.now());
+            userStatsRepository.save(stats);
+        }
+        return granted;
     }
 
     /** Earned achievements whose celebration the client has not shown yet, oldest first. */

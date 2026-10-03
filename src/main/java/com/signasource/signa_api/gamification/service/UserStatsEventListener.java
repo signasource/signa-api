@@ -1,6 +1,7 @@
 package com.signasource.signa_api.gamification.service;
 
 import com.signasource.signa_api.common.ArgentinaTime;
+import com.signasource.signa_api.gamification.entity.AchievementCriteriaType;
 import com.signasource.signa_api.gamification.entity.UserDailyXp;
 import com.signasource.signa_api.gamification.entity.UserLearnedSign;
 import com.signasource.signa_api.gamification.entity.UserStats;
@@ -58,8 +59,13 @@ public class UserStatsEventListener {
         stats.setUpdatedAt(Instant.now());
 
         if (stats.registerStreakActivity(ArgentinaTime.today())) {
-            achievementService.awardStreakMilestones(user, stats);
+            achievementService.awardReached(
+                    user, AchievementCriteriaType.STREAK_DAYS, stats.getCurrentStreak(), stats);
         }
+        achievementService.awardReached(
+                user, AchievementCriteriaType.TOTAL_XP, stats.getTotalXp(), stats);
+        achievementService.awardReached(
+                user, AchievementCriteriaType.WEEKLY_XP, stats.getWeeklyXp(), stats);
 
         userStatsRepository.save(stats);
 

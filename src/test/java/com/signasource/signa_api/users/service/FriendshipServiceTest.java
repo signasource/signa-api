@@ -14,8 +14,10 @@ import static org.mockito.Mockito.when;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
+import com.signasource.signa_api.gamification.entity.AchievementCriteriaType;
 import com.signasource.signa_api.gamification.entity.UserStats;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
+import com.signasource.signa_api.gamification.service.AchievementService;
 import com.signasource.signa_api.notification.entity.NotificationCode;
 import com.signasource.signa_api.notification.service.NotificationService;
 import com.signasource.signa_api.users.entity.Friendship;
@@ -44,6 +46,8 @@ class FriendshipServiceTest {
     @Mock private UserStatsRepository userStatsRepository;
 
     @Mock private NotificationService notificationService;
+
+    @Mock private AchievementService achievementService;
 
     @InjectMocks private FriendshipService friendshipService;
 
@@ -169,6 +173,26 @@ class FriendshipServiceTest {
 
         verify(friendshipRepository, times(1)).save(pendingFriendship);
         assertEquals(FriendshipStatus.ACCEPTED, pendingFriendship.getStatus());
+    }
+
+    @Test
+    void acceptFriendRequest_AwardsFriendAchievementsToBothUsers() {
+        Friendship pendingFriendship = new Friendship();
+        pendingFriendship.setRequester(requester);
+        pendingFriendship.setAddressee(addressee);
+        pendingFriendship.setStatus(FriendshipStatus.PENDING);
+        when(userRepository.findById(requesterId)).thenReturn(Optional.of(requester));
+        when(friendshipRepository.findByRequesterAndAddressee(requester, addressee))
+                .thenReturn(Optional.of(pendingFriendship));
+        when(friendshipRepository.countAcceptedFriends(requester)).thenReturn(1L);
+        when(friendshipRepository.countAcceptedFriends(addressee)).thenReturn(3L);
+
+        friendshipService.acceptFriendRequest(requesterId, addressee);
+
+        verify(achievementService)
+                .awardReached(requester, AchievementCriteriaType.FRIENDS_COUNT, 1L);
+        verify(achievementService)
+                .awardReached(addressee, AchievementCriteriaType.FRIENDS_COUNT, 3L);
     }
 
     @Test

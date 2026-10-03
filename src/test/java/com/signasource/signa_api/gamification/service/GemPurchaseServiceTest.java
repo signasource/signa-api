@@ -66,7 +66,8 @@ class GemPurchaseServiceTest {
                         .sortOrder(2)
                         .build();
 
-        PurchaseService purchaseService = new PurchaseService(null, null, userStatsRepository);
+        PurchaseService purchaseService =
+                new PurchaseService(null, null, userStatsRepository, null);
         gemCreditService =
                 new GemCreditService(gemPurchaseRepository, userStatsRepository, purchaseService);
         gemPurchaseService =
