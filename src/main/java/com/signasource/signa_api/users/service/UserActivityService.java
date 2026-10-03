@@ -1,10 +1,10 @@
 package com.signasource.signa_api.users.service;
 
+import com.signasource.signa_api.common.ArgentinaTime;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.entity.UserDailyActivity;
 import com.signasource.signa_api.users.repository.UserDailyActivityRepository;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,7 +17,7 @@ public class UserActivityService {
 
     @Transactional
     public void recordActivity(User user, int minutes) {
-        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        LocalDate today = ArgentinaTime.today();
         UserDailyActivity activity =
                 userDailyActivityRepository
                         .findByUserAndActivityDate(user, today)
@@ -33,7 +33,7 @@ public class UserActivityService {
 
     @Transactional(readOnly = true)
     public int getMinutesToday(User user) {
-        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        LocalDate today = ArgentinaTime.today();
         return userDailyActivityRepository
                 .findByUserAndActivityDate(user, today)
                 .map(UserDailyActivity::getMinutes)

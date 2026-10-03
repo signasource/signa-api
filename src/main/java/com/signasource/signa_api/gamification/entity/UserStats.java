@@ -1,5 +1,6 @@
 package com.signasource.signa_api.gamification.entity;
 
+import com.signasource.signa_api.common.ArgentinaTime;
 import com.signasource.signa_api.users.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -14,7 +15,6 @@ import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
@@ -33,14 +33,6 @@ public class UserStats {
 
     public static final int MAX_LIVES = 5;
 
-    /** The streak day rolls over at local midnight in Argentina (UTC-3, no daylight saving). */
-    public static final ZoneId STREAK_ZONE = ZoneId.of("America/Argentina/Cordoba");
-
-    /** The streak day {@code instant} falls on. */
-    public static LocalDate streakDay(Instant instant) {
-        return LocalDate.ofInstant(instant, STREAK_ZONE);
-    }
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
@@ -58,7 +50,7 @@ public class UserStats {
     @Builder.Default
     private int longestStreak = 0;
 
-    /** Streak day ({@link #STREAK_ZONE}) of the last activity that counted towards the streak. */
+    /** Streak day ({@link ArgentinaTime}) of the last activity that counted towards the streak. */
     @Column private LocalDate lastStreakDate;
 
     @Column(nullable = false)

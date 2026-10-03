@@ -1,5 +1,6 @@
 package com.signasource.signa_api.gamification.service;
 
+import com.signasource.signa_api.common.ArgentinaTime;
 import com.signasource.signa_api.gamification.entity.UserDailyXp;
 import com.signasource.signa_api.gamification.entity.UserLearnedSign;
 import com.signasource.signa_api.gamification.entity.UserStats;
@@ -10,12 +11,8 @@ import com.signasource.signa_api.learning.event.LifeLostEvent;
 import com.signasource.signa_api.learning.event.SignsLearnedEvent;
 import com.signasource.signa_api.learning.event.XpEarnedEvent;
 import com.signasource.signa_api.users.entity.User;
-import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
-import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -60,7 +57,7 @@ public class UserStatsEventListener {
         stats.setWeeklyXp(stats.getWeeklyXp() + xpToAdd);
         stats.setUpdatedAt(Instant.now());
 
-        if (stats.registerStreakActivity(UserStats.streakDay(Instant.now()))) {
+        if (stats.registerStreakActivity(ArgentinaTime.today())) {
             achievementService.awardStreakMilestones(user, stats);
         }
 
@@ -86,7 +83,7 @@ public class UserStatsEventListener {
     }
 
     private void upsertDailyXp(User user, int xpToAdd) {
-        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        LocalDate today = ArgentinaTime.today();
         UserDailyXp daily =
                 userDailyXpRepository
                         .findByUserAndXpDate(user, today)
@@ -152,12 +149,7 @@ public class UserStatsEventListener {
             return false;
         }
 
-        Instant startOfWeek =
-                ZonedDateTime.now(ZoneOffset.UTC)
-                        .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-                        .toLocalDate()
-                        .atStartOfDay(ZoneOffset.UTC)
-                        .toInstant();
+        Instant startOfWeek = ArgentinaTime.startOfCurrentWeek();
 
         return updatedAt.isBefore(startOfWeek);
     }

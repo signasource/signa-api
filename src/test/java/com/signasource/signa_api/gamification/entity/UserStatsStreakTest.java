@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.signasource.signa_api.common.ArgentinaTime;
 import java.time.Instant;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
@@ -73,20 +74,20 @@ class UserStatsStreakTest {
         // 02:59Z is still 23:59 of the previous day in Córdoba (UTC-3).
         assertEquals(
                 LocalDate.of(2026, 10, 3),
-                UserStats.streakDay(Instant.parse("2026-10-04T02:59:59Z")));
+                ArgentinaTime.dayOf(Instant.parse("2026-10-04T02:59:59Z")));
         assertEquals(
                 LocalDate.of(2026, 10, 4),
-                UserStats.streakDay(Instant.parse("2026-10-04T03:00:00Z")));
+                ArgentinaTime.dayOf(Instant.parse("2026-10-04T03:00:00Z")));
     }
 
     @Test
     void lateEveningActivityCountsAsTheSameLocalDay() {
         UserStats stats = UserStats.builder().build();
 
-        stats.registerStreakActivity(UserStats.streakDay(Instant.parse("2026-10-03T15:00:00Z")));
+        stats.registerStreakActivity(ArgentinaTime.dayOf(Instant.parse("2026-10-03T15:00:00Z")));
         boolean advanced =
                 stats.registerStreakActivity(
-                        UserStats.streakDay(Instant.parse("2026-10-04T01:30:00Z")));
+                        ArgentinaTime.dayOf(Instant.parse("2026-10-04T01:30:00Z")));
 
         // 12:00 and 22:30 local on Oct 3: one streak day, not two.
         assertFalse(advanced);
