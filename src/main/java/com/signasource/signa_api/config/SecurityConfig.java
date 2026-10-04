@@ -72,6 +72,8 @@ public class SecurityConfig {
                                         .permitAll()
                                         .requestMatchers(HttpMethod.GET, "/signs/*/animation")
                                         .permitAll()
+                                        .requestMatchers(HttpMethod.POST, "/waitlist")
+                                        .permitAll()
                                         .anyRequest()
                                         .authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
