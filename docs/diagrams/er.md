@@ -478,3 +478,14 @@ erDiagram
         boolean active
     }
 ```
+
+## Lista de espera
+
+```mermaid
+erDiagram
+    WAITLIST_ENTRY {
+        long id PK
+        string email UK "minúsculas, sin espacios"
+        instant createdAt
+    }
+```
