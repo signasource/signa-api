@@ -36,7 +36,6 @@ import com.signasource.signa_api.learning.repository.UserTopicProgressRepository
 import com.signasource.signa_api.learning.repository.projection.TopicCompletedCountView;
 import com.signasource.signa_api.learning.repository.projection.TopicLessonTotalView;
 import com.signasource.signa_api.learning.util.BlockSignExtractor;
-import com.signasource.signa_api.organizations.entity.Organization;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.repository.UserRepository;
 import java.time.Instant;
@@ -277,6 +276,13 @@ public class CourseTrackingService {
             throw new InvalidInputException("This lesson block requires a correctness value");
         }
 
+        UUID versionId = block.getLesson().getTopic().getCourseVersion().getId();
+        UserCourseEnrollment enrollment =
+                enrollmentRepository
+                        .findByUserIdAndCourseVersionId(user.getId(), versionId)
+                        .filter(e -> e.getStatus() != EnrollmentStatus.DROPPED)
+                        .orElseThrow(() -> new ForbiddenException("Not enrolled in this course"));
+
         boolean isNewMilestone =
                 isInfo
                         ? !attemptRepository.existsByUserIdAndLessonBlockId(
@@ -292,7 +298,7 @@ public class CourseTrackingService {
                                 .user(user)
                                 .lessonBlock(block)
                                 .isCorrect(isCorrect)
-                                .organization(organizationOf(user, block))
+                                .organization(enrollment.getOrganization())
                                 .build());
 
         markInProgress(user, block.getLesson());
@@ -322,15 +328,6 @@ public class CourseTrackingService {
         }
 
         return attempt;
-    }
-
-    private Organization organizationOf(User user, LessonBlock block) {
-        UUID versionId = block.getLesson().getTopic().getCourseVersion().getId();
-        return enrollmentRepository
-                .findByUserIdAndCourseVersionId(user.getId(), versionId)
-                .filter(e -> e.getStatus() != EnrollmentStatus.DROPPED)
-                .map(UserCourseEnrollment::getOrganization)
-                .orElse(null);
     }
 
     /**

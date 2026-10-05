@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -17,6 +18,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.signasource.signa_api.exceptions.ForbiddenException;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
@@ -94,6 +96,12 @@ class CourseTrackingServiceTest {
         courseVersionId = UUID.randomUUID();
         mockUser = new User();
         mockUser.setId(userId);
+
+        UserCourseEnrollment activeEnrollment = new UserCourseEnrollment();
+        activeEnrollment.setStatus(EnrollmentStatus.ENROLLED);
+        lenient()
+                .when(enrollmentRepository.findByUserIdAndCourseVersionId(any(), any()))
+                .thenReturn(Optional.of(activeEnrollment));
     }
 
     @Test
@@ -147,6 +155,31 @@ class CourseTrackingServiceTest {
 
         assertThrows(
                 NotFoundException.class,
+                () -> courseTrackingService.recordBlockInteraction(mockUser, blockId, true));
+        verify(attemptRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldThrowForbiddenWhenUserIsNotEnrolledInCourse() {
+        UUID blockId = UUID.randomUUID();
+        CourseVersion courseVersion = CourseVersion.builder().id(UUID.randomUUID()).build();
+        Topic topic = Topic.builder().id(UUID.randomUUID()).courseVersion(courseVersion).build();
+        Lesson lesson = Lesson.builder().id(UUID.randomUUID()).topic(topic).build();
+        LessonBlock block =
+                LessonBlock.builder()
+                        .id(blockId)
+                        .type(BlockType.SELECT_MEANING)
+                        .xpReward(50)
+                        .lesson(lesson)
+                        .build();
+
+        when(lessonBlockRepository.findWithCourseVersionById(blockId))
+                .thenReturn(Optional.of(block));
+        when(enrollmentRepository.findByUserIdAndCourseVersionId(userId, courseVersion.getId()))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                ForbiddenException.class,
                 () -> courseTrackingService.recordBlockInteraction(mockUser, blockId, true));
         verify(attemptRepository, never()).save(any());
     }

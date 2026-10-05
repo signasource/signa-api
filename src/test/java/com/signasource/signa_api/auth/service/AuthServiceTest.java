@@ -609,7 +609,7 @@ class AuthServiceTest {
                         InvalidCredentialsException.class,
                         () -> authService.authenticateWithGoogle(VALID_TOKEN_STRING));
 
-        assertTrue(exception.getMessage().contains("Error authenticating with Google"));
+        assertEquals("Authentication failed", exception.getMessage());
         verifyNoInteractions(userRepository);
     }
 

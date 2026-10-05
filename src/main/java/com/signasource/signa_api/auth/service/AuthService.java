@@ -35,6 +35,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -43,6 +44,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -288,8 +290,8 @@ public class AuthService {
         } catch (InvalidCredentialsException e) {
             throw e;
         } catch (Exception e) {
-            throw new InvalidCredentialsException(
-                    "Error authenticating with Google: " + e.getMessage());
+            log.error("Unexpected error during Google authentication", e);
+            throw new InvalidCredentialsException("Authentication failed");
         }
     }
 
