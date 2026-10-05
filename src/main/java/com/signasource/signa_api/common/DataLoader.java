@@ -18,7 +18,7 @@ import org.springframework.util.StreamUtils;
 public class DataLoader implements CommandLineRunner {
 
     private static final String[] SEED_SCRIPTS = {
-        "db/seed/achievements.sql", "db/seed/store_items.sql"
+        "db/seed/achievements.sql", "db/seed/store_items.sql", "db/seed/challenges.sql"
     };
 
     private final JdbcTemplate jdbcTemplate;
