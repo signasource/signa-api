@@ -81,6 +81,15 @@ public class CourseTrackingController {
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
+    @PostMapping("/lessons/{lessonId}/complete")
+    public ResponseEntity<Void> completeLesson(
+            @PathVariable UUID lessonId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        trackingService.completeLesson(userDetails.getUser(), lessonId);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/blocks/{lessonBlockId}/interactions")
     public ResponseEntity<Void> recordInteraction(
             @PathVariable UUID lessonBlockId,

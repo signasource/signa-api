@@ -29,6 +29,7 @@ import com.signasource.signa_api.learning.event.XpEarnedEvent;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.learning.repository.LessonBlockAttemptRepository;
 import com.signasource.signa_api.learning.repository.LessonBlockRepository;
+import com.signasource.signa_api.learning.repository.LessonRepository;
 import com.signasource.signa_api.learning.repository.TopicRepository;
 import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
 import com.signasource.signa_api.learning.repository.UserLessonProgressRepository;
@@ -61,6 +62,7 @@ public class CourseTrackingService {
 
     private final CourseVersionRepository courseVersionRepository;
     private final LessonBlockRepository lessonBlockRepository;
+    private final LessonRepository lessonRepository;
     private final TopicRepository topicRepository;
     private final UserRepository userRepository;
 
@@ -389,6 +391,54 @@ public class CourseTrackingService {
                 || block.getType() == BlockType.INTRODUCE_SIGN
                 || block.getType() == BlockType.PERFORM_SIGN
                 || block.getType() == BlockType.SPELL_NAME;
+    }
+
+    /**
+     * Marks the lesson as COMPLETED regardless of per-block correctness. Called when the frontend
+     * signals the user finished the lesson (all blocks traversed). This is the source of truth for
+     * lesson unlock: per-block tracking drives XP/signs, but completion is driven by the explicit
+     * client signal so users who answered some blocks incorrectly still unlock the next lesson.
+     */
+    @Transactional
+    public void completeLesson(User user, UUID lessonId) {
+        Lesson lesson =
+                lessonRepository
+                        .findById(lessonId)
+                        .orElseThrow(() -> new NotFoundException("Lesson not found"));
+
+        UUID versionId = lesson.getTopic().getCourseVersion().getId();
+        enrollmentRepository
+                .findByUserIdAndCourseVersionId(user.getId(), versionId)
+                .filter(e -> e.getStatus() != EnrollmentStatus.DROPPED)
+                .orElseThrow(() -> new ForbiddenException("Not enrolled in this course"));
+
+        UserLessonProgress progress =
+                lessonProgressRepository
+                        .findByUserIdAndLessonId(user.getId(), lessonId)
+                        .orElseGet(
+                                () ->
+                                        UserLessonProgress.builder()
+                                                .user(user)
+                                                .lesson(lesson)
+                                                .build());
+
+        if (progress.getStatus() == ProgressStatus.COMPLETED) {
+            return;
+        }
+
+        progress.setStatus(ProgressStatus.COMPLETED);
+        progress.setCompletedAt(Instant.now());
+        if (progress.getStartedAt() == null) {
+            progress.setStartedAt(Instant.now());
+        }
+        lessonProgressRepository.save(progress);
+        achievementService.awardReached(
+                user,
+                AchievementCriteriaType.LESSONS_COMPLETED,
+                lessonProgressRepository.countByUserIdAndStatus(
+                        user.getId(), ProgressStatus.COMPLETED));
+
+        checkTopicCompletion(user, lesson.getTopic());
     }
 
     private boolean isCompletedByUser(User user, LessonBlock block) {
