@@ -268,7 +268,9 @@ public class CourseTrackingService {
                         .findWithCourseVersionById(lessonBlockId)
                         .orElseThrow(() -> new NotFoundException("Lesson block not found"));
 
-        boolean isInfo = block.getType() == BlockType.INFO;
+        boolean isInfo =
+                block.getType() == BlockType.INFO
+                        || block.getType() == BlockType.INTRODUCE_SIGN;
         if (isInfo && isCorrect != null) {
             throw new InvalidInputException("INFO blocks do not accept a correctness value");
         }
@@ -384,6 +386,7 @@ public class CourseTrackingService {
      */
     private boolean countsAsDoneWhenAttempted(LessonBlock block) {
         return block.getType() == BlockType.INFO
+                || block.getType() == BlockType.INTRODUCE_SIGN
                 || block.getType() == BlockType.PERFORM_SIGN
                 || block.getType() == BlockType.SPELL_NAME;
     }
