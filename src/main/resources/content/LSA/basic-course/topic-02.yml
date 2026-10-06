@@ -1,0 +1,314 @@
+topic:
+  code: unidad-2
+  title: "Unidad 2"
+  subtitle: "Números y tiempo"
+  description: Aprende los números y a hablar sobre los días y el tiempo en LSA.
+
+lessons:
+  - code: "leccion_informativa_numeros"
+    name: "Los números en la LSA"
+    description: "Conocé cómo se expresan los números en la Lengua de Señas Argentina y por qué son importantes en la comunicación cotidiana."
+
+    blocks:
+      - type: INFO
+        xp: 5
+        config:
+          title: "Contar en LSA"
+          text: |
+            Los números son una de las primeras herramientas que aprendemos en cualquier lengua.
+
+            En la LSA, los números se expresan con configuraciones específicas de la mano, y son fundamentales para hablar de cantidades, edades, horarios y mucho más.
+
+      - type: INFO
+        xp: 5
+        config:
+          title: "Números y vida cotidiana"
+          text: |
+            Saber los números te permite comunicar precios, teléfonos, fechas y edades.
+
+            A medida que avances, vas a combinar los números con otras señas para expresar ideas más completas.
+
+  - code: leccion-1
+    name: Los primeros números
+    description: Aprende las señas de los números del uno al cinco.
+
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: uno
+          word: uno
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: dos
+          word: dos
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: tres
+          word: tres
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: cuatro
+          word: cuatro
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: cinco
+          word: cinco
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: uno
+          options:
+            - uno
+            - dos
+            - tres
+            - cuatro
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: dos
+          options:
+            - uno
+            - dos
+            - tres
+            - cinco
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: tres
+          options:
+            - tres
+            - cuatro
+            - cinco
+            - uno
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Qué número va después del cuatro?"
+          answer: cinco
+          options:
+            - cinco
+            - tres
+            - dos
+            - uno
+
+      - type: MATCH
+        xp: 10
+        config:
+          concepts:
+            - uno
+            - tres
+            - cinco
+
+      - type: VISUAL_RECOGNITION
+        xp: 15
+        config:
+          sign_sequence:
+            - uno
+            - dos
+            - tres
+            - cuatro
+          options:
+            - uno
+            - dos
+            - tres
+            - cuatro
+            - cinco
+          keep_order: false
+
+  - code: leccion-2
+    name: Los días de la semana
+    description: Aprende las señas de los días y a ubicarte en la semana.
+
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: lunes
+          word: lunes
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: martes
+          word: martes
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: miércoles
+          word: miércoles
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: sábado
+          word: sábado
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: domingo
+          word: domingo
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: lunes
+          options:
+            - lunes
+            - martes
+            - sábado
+            - domingo
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: martes
+          options:
+            - lunes
+            - martes
+            - miércoles
+            - domingo
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: domingo
+          options:
+            - domingo
+            - sábado
+            - lunes
+            - martes
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Qué día suele ser el primero de la semana laboral?"
+          answer: lunes
+          options:
+            - lunes
+            - sábado
+            - domingo
+            - miércoles
+
+      - type: MATCH
+        xp: 10
+        config:
+          concepts:
+            - lunes
+            - miércoles
+            - domingo
+
+      - type: VISUAL_RECOGNITION
+        xp: 15
+        config:
+          sign_sequence:
+            - lunes
+            - martes
+            - miércoles
+            - sábado
+          options:
+            - lunes
+            - martes
+            - miércoles
+            - sábado
+            - domingo
+          keep_order: false
+
+  - code: leccion-3
+    name: Hablar del tiempo
+    description: Aprende señas para referirte al momento del día y a cuándo pasan las cosas.
+
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: día
+          word: día
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: noche
+          word: noche
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: hoy
+          word: hoy
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: mañana
+          word: mañana
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: ahora
+          word: ahora
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: día
+          options:
+            - día
+            - noche
+            - hoy
+            - mañana
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: noche
+          options:
+            - día
+            - noche
+            - ahora
+            - hoy
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: hoy
+          options:
+            - hoy
+            - mañana
+            - ahora
+            - día
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Qué palabra usás para referirte al día en curso?"
+          answer: hoy
+          options:
+            - hoy
+            - mañana
+            - noche
+            - ahora
+
+      - type: MATCH
+        xp: 10
+        config:
+          concepts:
+            - día
+            - hoy
+            - ahora
+
+      - type: VISUAL_RECOGNITION
+        xp: 15
+        config:
+          sign_sequence:
+            - día
+            - noche
+            - hoy
+            - mañana
+          options:
+            - día
+            - noche
+            - hoy
+            - mañana
+            - ahora
+          keep_order: false

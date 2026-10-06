@@ -83,8 +83,7 @@ public class CourseTrackingController {
 
     @PostMapping("/lessons/{lessonId}/complete")
     public ResponseEntity<Void> completeLesson(
-            @PathVariable UUID lessonId,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
+            @PathVariable UUID lessonId, @AuthenticationPrincipal CustomUserDetails userDetails) {
 
         trackingService.completeLesson(userDetails.getUser(), lessonId);
         return ResponseEntity.noContent().build();

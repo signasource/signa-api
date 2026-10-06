@@ -1,0 +1,314 @@
+topic:
+  code: unidad-3
+  title: "Unidad 3"
+  subtitle: "La vida diaria"
+  description: Aprende señas para hablar de colores, comidas y lugares del día a día.
+
+lessons:
+  - code: "leccion_informativa_vida_diaria"
+    name: "Señas del día a día"
+    description: "Descubrí cómo la LSA te permite nombrar objetos, lugares y acciones de la vida cotidiana."
+
+    blocks:
+      - type: INFO
+        xp: 5
+        config:
+          title: "Nombrar el mundo cotidiano"
+          text: |
+            Gran parte de la comunicación diaria consiste en nombrar lo que nos rodea: colores, comidas, lugares y objetos.
+
+            En esta unidad vas a sumar vocabulario que vas a poder usar en situaciones de todos los días.
+
+      - type: INFO
+        xp: 5
+        config:
+          title: "Aprender con contexto"
+          text: |
+            Las señas se entienden mejor cuando las relacionamos con situaciones concretas.
+
+            Pensar en dónde y cuándo usarías cada seña te ayuda a recordarla y a comunicarte con más naturalidad.
+
+  - code: leccion-1
+    name: Los colores
+    description: Aprende las señas de los colores más usados en LSA.
+
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: rojo
+          word: rojo
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: azul
+          word: azul
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: verde
+          word: verde
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: amarillo
+          word: amarillo
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: negro
+          word: negro
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: rojo
+          options:
+            - rojo
+            - azul
+            - verde
+            - amarillo
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: azul
+          options:
+            - rojo
+            - azul
+            - verde
+            - negro
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: verde
+          options:
+            - verde
+            - amarillo
+            - negro
+            - rojo
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿De qué color suele ser el cielo despejado?"
+          answer: azul
+          options:
+            - azul
+            - rojo
+            - verde
+            - negro
+
+      - type: MATCH
+        xp: 10
+        config:
+          concepts:
+            - rojo
+            - verde
+            - negro
+
+      - type: VISUAL_RECOGNITION
+        xp: 15
+        config:
+          sign_sequence:
+            - rojo
+            - azul
+            - verde
+            - amarillo
+          options:
+            - rojo
+            - azul
+            - verde
+            - amarillo
+            - negro
+          keep_order: false
+
+  - code: leccion-2
+    name: La comida
+    description: Aprende señas para hablar de comidas y bebidas.
+
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: comer
+          word: comer
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: agua
+          word: agua
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: pan
+          word: pan
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: leche
+          word: leche
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: fruta
+          word: fruta
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: comer
+          options:
+            - comer
+            - agua
+            - pan
+            - leche
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: agua
+          options:
+            - comer
+            - agua
+            - pan
+            - fruta
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: pan
+          options:
+            - pan
+            - leche
+            - fruta
+            - comer
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Qué tomás cuando tenés sed?"
+          answer: agua
+          options:
+            - agua
+            - pan
+            - fruta
+            - comer
+
+      - type: MATCH
+        xp: 10
+        config:
+          concepts:
+            - comer
+            - pan
+            - fruta
+
+      - type: VISUAL_RECOGNITION
+        xp: 15
+        config:
+          sign_sequence:
+            - comer
+            - agua
+            - pan
+            - leche
+          options:
+            - comer
+            - agua
+            - pan
+            - leche
+            - fruta
+          keep_order: false
+
+  - code: leccion-3
+    name: Los lugares
+    description: Aprende las señas de los lugares donde pasás el día.
+
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: casa
+          word: casa
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: escuela
+          word: escuela
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: trabajo
+          word: trabajo
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: calle
+          word: calle
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: baño
+          word: baño
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: casa
+          options:
+            - casa
+            - escuela
+            - trabajo
+            - calle
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: escuela
+          options:
+            - casa
+            - escuela
+            - trabajo
+            - baño
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: trabajo
+          options:
+            - trabajo
+            - calle
+            - baño
+            - casa
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿A qué lugar van los chicos a aprender?"
+          answer: escuela
+          options:
+            - escuela
+            - trabajo
+            - calle
+            - casa
+
+      - type: MATCH
+        xp: 10
+        config:
+          concepts:
+            - casa
+            - trabajo
+            - baño
+
+      - type: VISUAL_RECOGNITION
+        xp: 15
+        config:
+          sign_sequence:
+            - casa
+            - escuela
+            - trabajo
+            - calle
+          options:
+            - casa
+            - escuela
+            - trabajo
+            - calle
+            - baño
+          keep_order: false

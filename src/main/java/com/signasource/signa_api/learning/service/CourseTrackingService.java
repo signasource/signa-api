@@ -271,8 +271,7 @@ public class CourseTrackingService {
                         .orElseThrow(() -> new NotFoundException("Lesson block not found"));
 
         boolean isInfo =
-                block.getType() == BlockType.INFO
-                        || block.getType() == BlockType.INTRODUCE_SIGN;
+                block.getType() == BlockType.INFO || block.getType() == BlockType.INTRODUCE_SIGN;
         if (isInfo && isCorrect != null) {
             throw new InvalidInputException("INFO blocks do not accept a correctness value");
         }
