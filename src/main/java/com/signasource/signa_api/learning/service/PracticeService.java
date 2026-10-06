@@ -2,10 +2,12 @@ package com.signasource.signa_api.learning.service;
 
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
+import com.signasource.signa_api.gamification.entity.ChallengeCriteriaType;
 import com.signasource.signa_api.gamification.entity.UserLearnedSign;
 import com.signasource.signa_api.gamification.entity.UserStats;
 import com.signasource.signa_api.gamification.repository.UserLearnedSignRepository;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
+import com.signasource.signa_api.gamification.service.ChallengeService;
 import com.signasource.signa_api.learning.dto.LearnedSignResponse;
 import com.signasource.signa_api.learning.dto.LessonBlockResponse;
 import com.signasource.signa_api.learning.dto.PracticeMistakeResponse;
@@ -81,6 +83,7 @@ public class PracticeService {
     private final UserStatsRepository userStatsRepository;
     private final BlockSignExtractor blockSignExtractor;
     private final ApplicationEventPublisher eventPublisher;
+    private final ChallengeService challengeService;
 
     @Transactional(readOnly = true)
     public List<LessonBlockResponse> getExercisesByType(User user, BlockType type, int limit) {
@@ -147,6 +150,10 @@ public class PracticeService {
                         .lessonBlock(block)
                         .isCorrect(isCorrect)
                         .build());
+
+        if (isCorrect && ChallengeService.isCameraBlock(block.getType())) {
+            challengeService.record(user, ChallengeCriteriaType.CAMERA_PRACTICES, 1);
+        }
     }
 
     /**

@@ -2,6 +2,7 @@ package com.signasource.signa_api.gamification.service;
 
 import com.signasource.signa_api.common.ArgentinaTime;
 import com.signasource.signa_api.gamification.entity.AchievementCriteriaType;
+import com.signasource.signa_api.gamification.entity.ChallengeCriteriaType;
 import com.signasource.signa_api.gamification.entity.UserDailyXp;
 import com.signasource.signa_api.gamification.entity.UserLearnedSign;
 import com.signasource.signa_api.gamification.entity.UserStats;
@@ -32,6 +33,7 @@ public class UserStatsEventListener {
     private final UserDailyXpRepository userDailyXpRepository;
     private final UserLearnedSignRepository userLearnedSignRepository;
     private final AchievementService achievementService;
+    private final ChallengeService challengeService;
 
     @EventListener
     @Transactional
@@ -61,6 +63,8 @@ public class UserStatsEventListener {
         if (stats.registerStreakActivity(ArgentinaTime.today())) {
             achievementService.awardReached(
                     user, AchievementCriteriaType.STREAK_DAYS, stats.getCurrentStreak(), stats);
+            challengeService.record(
+                    user, ChallengeCriteriaType.STREAK_DAYS, stats.getCurrentStreak());
         }
         achievementService.awardReached(
                 user, AchievementCriteriaType.TOTAL_XP, stats.getTotalXp(), stats);
@@ -70,6 +74,7 @@ public class UserStatsEventListener {
         userStatsRepository.save(stats);
 
         upsertDailyXp(user, xpToAdd);
+        challengeService.record(user, ChallengeCriteriaType.EARN_XP, xpToAdd);
     }
 
     @EventListener
