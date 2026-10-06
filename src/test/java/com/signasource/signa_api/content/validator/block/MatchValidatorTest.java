@@ -42,6 +42,24 @@ class MatchValidatorTest {
     }
 
     @Test
+    void shouldPassWithThreeConcepts() {
+        List<ValidationError> errors = new ArrayList<>();
+        validator.validate(block(config(List.of("hola", "chau", "gracias"))), ctx, errors);
+        assertThat(errors).isEmpty();
+    }
+
+    @Test
+    void shouldFailWhenConceptsHasMoreThanThreeElements() {
+        List<ValidationError> errors = new ArrayList<>();
+        validator.validate(
+                block(config(List.of("hola", "chau", "gracias", "perdón"))), ctx, errors);
+        assertThat(errors)
+                .extracting(ValidationError::render)
+                .contains(
+                        "Topic topic-1 > Lesson lesson-1 > Block #1: concepts must have at most 3 elements");
+    }
+
+    @Test
     void shouldFailWhenConceptsIsNull() {
         List<ValidationError> errors = new ArrayList<>();
         validator.validate(block(JsonNodeFactory.instance.objectNode()), ctx, errors);

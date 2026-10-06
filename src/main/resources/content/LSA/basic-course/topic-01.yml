@@ -148,8 +148,6 @@ lessons:
         config:
           concepts:
             - yo
-            - vos
-            - nombre
             - sordo
             - oyente
 
@@ -247,8 +245,6 @@ lessons:
             - hola
             - chau
             - cómo estás
-            - bien
-            - mal
 
       - type: VISUAL_RECOGNITION
         xp: 15
@@ -341,8 +337,6 @@ lessons:
         xp: 10
         config:
           concepts:
-            - amigo
-            - hermano
             - mamá
             - papá
             - abuelo

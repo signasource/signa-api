@@ -230,7 +230,7 @@ Ejercicio de emparejar conceptos.
 
 | Campo | Regla |
 |---|---|
-| `concepts` | Obligatorio. Al menos **2** conceptos. |
+| `concepts` | Obligatorio. Entre **2 y 3** conceptos. |
 
 ### `VISUAL_RECOGNITION` — reconocimiento visual
 

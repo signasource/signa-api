@@ -197,7 +197,7 @@ config:
 
 | Campo | Obligatorio | Descripción |
 |--------|-------------|-------------|
-| `concepts` | Sí | Lista de conceptos que formarán el ejercicio de emparejamiento. |
+| `concepts` | Sí | Lista de conceptos que formarán el ejercicio de emparejamiento. Entre 2 y 3 conceptos. |
 
 ---
 

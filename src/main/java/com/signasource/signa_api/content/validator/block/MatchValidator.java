@@ -39,6 +39,9 @@ public class MatchValidator implements BlockValidator {
         } else if (config.concepts().size() < 2) {
             errors.add(
                     new ValidationError(ctx.location(), "concepts must have at least 2 elements"));
+        } else if (config.concepts().size() > 3) {
+            errors.add(
+                    new ValidationError(ctx.location(), "concepts must have at most 3 elements"));
         }
     }
 }
