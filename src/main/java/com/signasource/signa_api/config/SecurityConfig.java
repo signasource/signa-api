@@ -83,7 +83,10 @@ public class SecurityConfig {
                                         .hasRole("ADMIN")
                                         .requestMatchers("/organizations/**")
                                         .hasAnyRole("ADMIN", "ORG_ADMIN")
-                                        .requestMatchers("/actuator/health", "/actuator/info")
+                                        .requestMatchers(
+                                                "/actuator/health",
+                                                "/actuator/info",
+                                                "/actuator/prometheus")
                                         .permitAll()
                                         .requestMatchers(HttpMethod.GET, "/signs/*/animation")
                                         .permitAll()

@@ -1,6 +1,7 @@
 package com.signasource.signa_api.gamification.service;
 
 import com.signasource.signa_api.common.ArgentinaTime;
+import com.signasource.signa_api.common.MetricsService;
 import com.signasource.signa_api.gamification.entity.AchievementCriteriaType;
 import com.signasource.signa_api.gamification.entity.UserDailyXp;
 import com.signasource.signa_api.gamification.entity.UserLearnedSign;
@@ -32,6 +33,7 @@ public class UserStatsEventListener {
     private final UserDailyXpRepository userDailyXpRepository;
     private final UserLearnedSignRepository userLearnedSignRepository;
     private final AchievementService achievementService;
+    private final MetricsService metricsService;
 
     @EventListener
     @Transactional
@@ -68,6 +70,7 @@ public class UserStatsEventListener {
                 user, AchievementCriteriaType.WEEKLY_XP, stats.getWeeklyXp(), stats);
 
         userStatsRepository.save(stats);
+        metricsService.recordXpEarned(xpToAdd);
 
         upsertDailyXp(user, xpToAdd);
     }
@@ -85,6 +88,7 @@ public class UserStatsEventListener {
         if (stats.loseLife()) {
             stats.setUpdatedAt(Instant.now());
             userStatsRepository.save(stats);
+            metricsService.recordLifeLost();
         }
     }
 
@@ -148,6 +152,7 @@ public class UserStatsEventListener {
         stats.setLearnedSignsCount(stats.getLearnedSignsCount() + newGlobally.size());
         stats.setUpdatedAt(now);
         userStatsRepository.save(stats);
+        metricsService.recordSignsLearned(newGlobally.size());
     }
 
     private boolean isBeforeCurrentWeek(Instant updatedAt) {

@@ -18,6 +18,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.signasource.signa_api.common.MetricsService;
 import com.signasource.signa_api.exceptions.ForbiddenException;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
@@ -83,6 +84,7 @@ class CourseTrackingServiceTest {
     @Mock private BlockSignExtractor blockSignExtractor;
     @Mock private UserLearnedSignRepository userLearnedSignRepository;
     @Mock private AchievementService achievementService;
+    @Mock private MetricsService metricsService;
 
     @InjectMocks private CourseTrackingService courseTrackingService;
 

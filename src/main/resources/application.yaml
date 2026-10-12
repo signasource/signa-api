@@ -31,13 +31,18 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
   endpoint:
     health:
       show-details: when-authorized
+    prometheus:
+      enabled: true
   health:
     mail:
       enabled: false
+  metrics:
+    tags:
+      application: ${spring.application.name}
 
 app:
   base-url:

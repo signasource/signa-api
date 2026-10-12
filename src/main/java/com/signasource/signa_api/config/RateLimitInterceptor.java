@@ -1,6 +1,7 @@
 package com.signasource.signa_api.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.signasource.signa_api.common.MetricsService;
 import com.signasource.signa_api.exceptions.ErrorResponse;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
@@ -26,6 +27,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
     private static final String TOO_MANY_REQUESTS_MESSAGE = "Too many requests";
 
     private final ObjectMapper objectMapper;
+    private final MetricsService metricsService;
     private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
 
     @Override
@@ -43,6 +45,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         ErrorResponse body = ErrorResponse.of(TOO_MANY_REQUESTS_MESSAGE, TOO_MANY_REQUESTS);
         response.getWriter().write(objectMapper.writeValueAsString(body));
+        metricsService.recordRateLimitHit(request.getRequestURI());
         return false;
     }
 
