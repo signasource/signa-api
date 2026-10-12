@@ -1,0 +1,19 @@
+prometheus.scrape "signa_api" {
+  targets = [{
+    __address__ = "signa-api:8080",
+  }]
+  metrics_path    = "/actuator/prometheus"
+  scrape_interval = "60s"
+  forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+prometheus.remote_write "grafana_cloud" {
+  endpoint {
+    url = "https://prometheus-prod-40-prod-sa-east-1.grafana.net/api/prom/push"
+
+    basic_auth {
+      username = "3658481"
+      password = sys.env("GRAFANA_CLOUD_API_KEY")
+    }
+  }
+}

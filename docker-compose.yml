@@ -47,5 +47,19 @@ services:
     depends_on:
       - signa-api
 
+  alloy:
+    image: grafana/alloy:latest
+    container_name: signa-alloy
+    restart: unless-stopped
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy
+      - alloy_data:/var/lib/alloy/data
+    environment:
+      GRAFANA_CLOUD_API_KEY: ${GRAFANA_CLOUD_API_KEY}
+    command: ["run", "--storage.path=/var/lib/alloy/data", "/etc/alloy/config.alloy"]
+    depends_on:
+      - signa-api
+
 volumes:
   postgres_data: {}
+  alloy_data: {}
