@@ -6,8 +6,13 @@ course:
   cover: "mock-cover"
 
 version:
-  version: "0.1.0"
+  version: "0.2.0"
   status: PUBLISHED
 
 topics:
+  - topic-00.yml
   - topic-01.yml
+  - topic-02.yml
+  - topic-03.yml
+  - topic-04.yml
+  - topic-05.yml

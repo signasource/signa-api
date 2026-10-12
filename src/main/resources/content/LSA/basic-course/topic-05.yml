@@ -1,0 +1,192 @@
+topic:
+  code: unidad-5
+  title: "Unidad 5"
+  subtitle: "Medios de transporte"
+  description: Aprendé a señar los medios de transporte más comunes.
+
+lessons:
+  - code: leccion-12
+    name: "Vehículos"
+    description: "Aprendé las señas de auto, moto, bicicleta y camión."
+
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: auto
+          word: auto
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: moto
+          word: moto
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: bicicleta
+          word: bicicleta
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: "camión"
+          word: "camión"
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: auto
+          options:
+            - auto
+            - moto
+            - bicicleta
+            - "camión"
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: moto
+          options:
+            - auto
+            - moto
+            - bicicleta
+            - "camión"
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Qué vehículo grande se usa para transportar mercadería?"
+          answer: "camión"
+          options:
+            - auto
+            - moto
+            - bicicleta
+            - "camión"
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: bicicleta
+          options:
+            - auto
+            - moto
+            - bicicleta
+            - "camión"
+
+      - type: MATCH
+        xp: 10
+        config:
+          concepts:
+            - auto
+            - moto
+            - bicicleta
+            - "camión"
+
+      - type: VISUAL_RECOGNITION
+        xp: 15
+        config:
+          sign_sequence:
+            - bicicleta
+            - auto
+            - "camión"
+          options:
+            - auto
+            - moto
+            - bicicleta
+            - "camión"
+          keep_order: false
+
+  - code: leccion-13
+    name: "Transporte público y más"
+    description: "Aprendé las señas de colectivo, tren, subte, taxi y uber."
+
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: colectivo
+          word: colectivo
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: tren
+          word: tren
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: subte
+          word: subte
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: taxi
+          word: taxi
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: uber
+          word: uber
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: colectivo
+          options:
+            - colectivo
+            - tren
+            - subte
+            - taxi
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: tren
+          options:
+            - colectivo
+            - tren
+            - subte
+            - uber
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Qué transporte viaja por debajo de la ciudad?"
+          answer: subte
+          options:
+            - colectivo
+            - tren
+            - subte
+            - taxi
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: taxi
+          options:
+            - tren
+            - subte
+            - taxi
+            - uber
+
+      - type: MATCH
+        xp: 10
+        config:
+          concepts:
+            - colectivo
+            - tren
+            - subte
+            - taxi
+            - uber
+
+      - type: VISUAL_RECOGNITION
+        xp: 15
+        config:
+          sign_sequence:
+            - uber
+            - subte
+            - colectivo
+            - taxi
+          options:
+            - colectivo
+            - tren
+            - subte
+            - taxi
+            - uber
+          keep_order: false

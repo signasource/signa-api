@@ -1,80 +1,13 @@
 topic:
   code: unidad-1
   title: "Unidad 1"
-  subtitle: "Conceptos básicos"
-  description: Aprende las señas fundamentales para comenzar a comunicarte en LSA.
+  subtitle: "Presentándonos"
+  description: Aprendé a presentarte y a usar señas básicas de interacción.
 
 lessons:
-  - code: "leccion_0"
-    name: "Introducción a la LSA"
-    description: "Conocé qué es la Lengua de Señas Argentina, cómo funciona y algunos conceptos erróneos frecuentes."
-
-    blocks:
-      - type: INFO
-        xp: 5
-        config:
-          title: "¿Qué es la Lengua de Señas Argentina?"
-          text: |
-            La Lengua de Señas Argentina (LSA) es la lengua natural de gran parte de la comunidad sorda argentina.
-
-            Se expresa a través de las manos, el rostro y el cuerpo, y tiene reglas gramaticales propias, diferentes de las del español.
-
-            La LSA es una lengua completa, con su propio vocabulario y estructura. Por eso, no debe entenderse como una traducción del español realizada mediante señas.
-
-            *Adaptado de la Ley N.º 27.710, arts. 1 y 2.*
-
-      - type: INFO
-        xp: 5
-        config:
-          title: "La gramática de la LSA"
-          text: |
-            La LSA tiene una gramática propia, diferente de la del español.
-
-            Esto significa que las señas se organizan siguiendo reglas específicas de la lengua. Por eso, una oración en LSA no necesariamente sigue el mismo orden de palabras que una oración en español.
-
-            Aprender LSA no consiste simplemente en reemplazar cada palabra del español por una seña: implica aprender una lengua con sus propias reglas y formas de expresión.
-
-            *Adaptado de la Ley N.º 27.710, art. 2.*
-
-      - type: INFO
-        xp: 5
-        config:
-          title: "Mitos y conceptos erróneos"
-          text: |
-            Existen algunas ideas frecuentes sobre las lenguas de señas que no son correctas. Conocerlas ayuda a comprender mejor qué es la LSA.
-          myths:
-            - title: "La lengua de señas es universal"
-              myth: "Todas las personas sordas del mundo utilizan la misma lengua de señas."
-              reality: "Cada país, e incluso algunas regiones, puede tener su propia lengua de señas. En Argentina se utiliza la Lengua de Señas Argentina (LSA), que posee su propio vocabulario y gramática."
-
-            - title: "La lengua de señas consiste en deletrear palabras"
-              myth: "Para comunicarse en lengua de señas hay que deletrear cada palabra utilizando el alfabeto manual."
-              reality: "La LSA no es un alfabeto manual. La mayoría de las palabras e ideas se expresan mediante señas propias. El alfabeto dactilológico se utiliza principalmente para nombres propios, siglas o palabras que no tienen una seña establecida."
-
-            - title: "Solo las personas sordas pueden aprender LSA"
-              myth: "La Lengua de Señas Argentina solo puede ser aprendida por personas sordas."
-              reality: "Cualquier persona puede aprender LSA. Aprender LSA favorece una comunicación más inclusiva y facilita el encuentro y la comunicación entre personas sordas y oyentes."
-
-      - type: INFO
-        xp: 5
-        config:
-          title: "Para seguir aprendiendo"
-          text: |
-            Lengua de Señas Argentina – Guía de Derecho Fácil
-
-            Una explicación sencilla de la Ley N.º 27.710, sus alcances y los derechos relacionados con la LSA.
-
-            https://www.argentina.gob.ar/node/374065
-
-            Confederación Argentina de Sordos (CAS)
-
-            Organización representativa de la comunidad sorda argentina, con información sobre la LSA, actividades y recursos.
-
-            https://cas.org.ar
-
-  - code: "leccion-nombres"
-    name: "Cómo nos llamamos"
-    description: "La seña personal en la comunidad sorda y cuándo se deletrea un nombre."
+  - code: leccion-1
+    name: "Deletrear tu nombre"
+    description: "La seña personal en la comunidad sorda y cómo deletrear tu nombre con el alfabeto dactilológico."
 
     blocks:
       - type: INFO
@@ -118,148 +51,6 @@ lessons:
         config:
           max_letters: 10
 
-  - code: leccion-6
-    name: Amigos y familia
-    description: Aprende las señas de personas cercanas y relaciones familiares.
-
-    blocks:
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: madre
-          word: madre
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: padre
-          word: padre
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: hermano
-          word: hermano
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: amigo
-          word: amigo
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: abuelo
-          word: abuelo
-
-      - type: SELECT_MEANING
-        xp: 5
-        config:
-          sign: madre
-          options:
-            - madre
-            - padre
-            - hermano
-            - amigo
-
-      - type: SELECT_SIGN
-        xp: 5
-        config:
-          word: padre
-          options:
-            - madre
-            - padre
-            - abuelo
-            - amigo
-
-      - type: SELECT_MEANING
-        xp: 5
-        config:
-          sign: amigo
-          options:
-            - hermano
-            - amigo
-            - abuelo
-            - madre
-
-      - type: CONTEXT_RESPONSE
-        xp: 5
-        config:
-          question: "¿Cómo llamarías a la persona que es el padre de tu madre?"
-          answer: abuelo
-          options:
-            - hermano
-            - padre
-            - abuelo
-            - amigo
-
-      - type: SELECT_SIGN
-        xp: 5
-        config:
-          word: hermano
-          options:
-            - padre
-            - amigo
-            - hermano
-            - abuelo
-
-      - type: SELECT_MEANING
-        xp: 5
-        config:
-          sign: abuelo
-          options:
-            - abuelo
-            - hermano
-            - padre
-            - amigo
-
-      - type: CONTEXT_RESPONSE
-        xp: 5
-        config:
-          question: "¿Quién puede ser una persona con la que compartís una amistad?"
-          answer: amigo
-          options:
-            - padre
-            - abuelo
-            - hermano
-            - amigo
-
-      - type: MATCH
-        xp: 10
-        config:
-          concepts:
-            - madre
-            - padre
-            - amigo
-            - abuelo
-            - hermano
-
-      - type: VISUAL_RECOGNITION
-        xp: 15
-        config:
-          sign_sequence:
-            - madre
-            - amigo
-            - abuelo
-            - hermano
-          options:
-            - madre
-            - padre
-            - amigo
-            - abuelo
-            - hermano
-          keep_order: false
-
-      - type: PERFORM_SIGN
-        xp: 15
-        config:
-          signs:
-            - mama
-            - papa
-            - hermano
-            - amigo
-
-  - code: "leccion_1"
-    name: "Abecedario"
-    description: "Conocé cómo se hacen las letras del abecedario en Lengua de Señas Argentina."
-
-    blocks:
       - type: INVISIBLE_SIGNS
         config:
           signs:
@@ -277,7 +68,7 @@ lessons:
             - L
             - M
             - N
-            - Ñ
+            - "Ñ"
             - O
             - P
             - Q
@@ -292,115 +83,8 @@ lessons:
             - Z
 
   - code: leccion-2
-    name: Formulas de Cortesía
-    description: Aprende las señas de las fórmulas de cortesía más utilizadas.
-
-    blocks:
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: hola
-          word: hola
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: chau
-          word: chau
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: por favor
-          word: por favor
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: gracias
-          word: gracias
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: perdón
-          word: perdón
-
-      - type: SELECT_MEANING
-        xp: 5
-        config:
-          sign: hola
-          options:
-            - hola
-            - chau
-            - gracias
-            - perdón
-
-      - type: SELECT_SIGN
-        xp: 5
-        config:
-          word: chau
-          options:
-            - hola
-            - chau
-            - por favor
-            - gracias
-
-      - type: VISUAL_RECOGNITION
-        xp: 15
-        config:
-          sign_sequence:
-            - hola
-            - gracias
-            - chau
-            - por favor
-          options:
-            - hola
-            - chau
-            - gracias
-            - por favor
-            - perdón
-          keep_order: false
-
-      - type: SELECT_MEANING
-        xp: 5
-        config:
-          sign: por favor
-          options:
-            - por favor
-            - gracias
-            - hola
-            - perdón
-
-      - type: SELECT_SIGN
-        xp: 5
-        config:
-          word: gracias
-          options:
-            - chau
-            - perdón
-            - gracias
-            - hola
-
-      - type: MATCH
-        xp: 10
-        config:
-          concepts:
-            - hola
-            - chau
-            - por favor
-            - gracias
-            - perdón
-
-      - type: CONTEXT_RESPONSE
-        xp: 5
-        config:
-          question: "¿Qué dirías si alguien te ayuda?"
-          answer: gracias
-          options:
-            - hola
-            - gracias
-            - perdón
-            - chau
-
-  - code: leccion-3
-    name: Pronombres personales
-    description: Practica las señas de los pronombres personales.
+    name: "Yo, vos y más"
+    description: "Aprendé a señar yo, vos, nombre, sordo y oyente."
 
     blocks:
       - type: INTRODUCE_SIGN
@@ -415,18 +99,18 @@ lessons:
 
       - type: INTRODUCE_SIGN
         config:
-          meaning: él
-          word: él
+          meaning: nombre
+          word: nombre
 
       - type: INTRODUCE_SIGN
         config:
-          meaning: ella
-          word: ella
+          meaning: sordo
+          word: sordo
 
       - type: INTRODUCE_SIGN
         config:
-          meaning: nosotros
-          word: nosotros
+          meaning: oyente
+          word: oyente
 
       - type: SELECT_MEANING
         xp: 5
@@ -435,8 +119,8 @@ lessons:
           options:
             - yo
             - vos
-            - él
-            - nosotros
+            - sordo
+            - oyente
 
       - type: SELECT_SIGN
         xp: 5
@@ -445,18 +129,29 @@ lessons:
           options:
             - yo
             - vos
-            - ella
-            - nosotros
+            - nombre
+            - sordo
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Cómo se llama la persona que puede escuchar?"
+          answer: oyente
+          options:
+            - sordo
+            - oyente
+            - yo
+            - nombre
 
       - type: SELECT_MEANING
         xp: 5
         config:
-          sign: él
+          sign: sordo
           options:
-            - él
-            - ella
+            - yo
+            - sordo
+            - oyente
             - vos
-            - nosotros
 
       - type: MATCH
         xp: 10
@@ -464,362 +159,188 @@ lessons:
           concepts:
             - yo
             - vos
-            - él
-            - ella
-            - nosotros
+            - nombre
+            - sordo
+            - oyente
+
+  - code: leccion-3
+    name: "Saludos y estados"
+    description: "Aprendé a saludar y a decir cómo te sentís."
+
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: hola
+          word: hola
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: chau
+          word: chau
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: "cómo estás"
+          word: "cómo estás"
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: bien
+          word: bien
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: mal
+          word: mal
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: hola
+          options:
+            - hola
+            - chau
+            - bien
+            - mal
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: chau
+          options:
+            - hola
+            - chau
+            - "cómo estás"
+            - mal
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Cómo le preguntarías a alguien cómo se siente?"
+          answer: "cómo estás"
+          options:
+            - hola
+            - chau
+            - "cómo estás"
+            - bien
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: bien
+          options:
+            - bien
+            - mal
+            - hola
+            - "cómo estás"
+
+      - type: MATCH
+        xp: 10
+        config:
+          concepts:
+            - hola
+            - chau
+            - bien
+            - mal
 
       - type: VISUAL_RECOGNITION
         xp: 15
         config:
           sign_sequence:
-            - yo
-            - vos
-            - ella
-            - nosotros
+            - hola
+            - bien
+            - "cómo estás"
+            - chau
           options:
-            - yo
-            - él
-            - ella
-            - nosotros
-            - vos
+            - hola
+            - chau
+            - "cómo estás"
+            - bien
+            - mal
           keep_order: false
-
-      - type: CONTEXT_RESPONSE
-        xp: 5
-        config:
-          question: "¿Quién tiene un sombrero?"
-          answer: ella
-          options:
-            - yo
-            - vos
-            - ella
-            - nosotros
 
   - code: leccion-4
-    name: Días de la semana
-    description: Practica las señas de los días de la semana.
+    name: "Fórmulas de cortesía"
+    description: "Aprendé a decir gracias, por favor, perdón y de nada."
 
     blocks:
       - type: INTRODUCE_SIGN
         config:
-          meaning: lunes
-          word: lunes
+          meaning: gracias
+          word: gracias
 
       - type: INTRODUCE_SIGN
         config:
-          meaning: martes
-          word: martes
+          meaning: por favor
+          word: por favor
 
       - type: INTRODUCE_SIGN
         config:
-          meaning: miércoles
-          word: miércoles
+          meaning: "perdón"
+          word: "perdón"
 
       - type: INTRODUCE_SIGN
         config:
-          meaning: jueves
-          word: jueves
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: viernes
-          word: viernes
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: sábado
-          word: sábado
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: domingo
-          word: domingo
+          meaning: de nada
+          word: de nada
 
       - type: SELECT_MEANING
         xp: 5
         config:
-          sign: lunes
+          sign: gracias
           options:
-            - lunes
-            - martes
-            - viernes
-            - domingo
+            - gracias
+            - por favor
+            - "perdón"
+            - de nada
 
       - type: SELECT_SIGN
         xp: 5
         config:
-          word: miércoles
+          word: por favor
           options:
-            - miércoles
-            - jueves
-            - sábado
-            - lunes
+            - gracias
+            - por favor
+            - "perdón"
+            - de nada
 
       - type: CONTEXT_RESPONSE
         xp: 5
         config:
-          question: "¿Qué día sigue después del viernes?"
-          answer: sábado
+          question: "¿Qué le decís a alguien cuando te hace un favor?"
+          answer: gracias
           options:
-            - jueves
-            - viernes
-            - sábado
-            - domingo
+            - gracias
+            - por favor
+            - "perdón"
+            - de nada
 
       - type: SELECT_MEANING
         xp: 5
         config:
-          sign: jueves
+          sign: "perdón"
           options:
-            - jueves
-            - martes
-            - domingo
-            - sábado
-
-      - type: SELECT_SIGN
-        xp: 5
-        config:
-          word: viernes
-          options:
-            - martes
-            - viernes
-            - lunes
-            - domingo
+            - gracias
+            - por favor
+            - "perdón"
+            - de nada
 
       - type: MATCH
         xp: 10
         config:
           concepts:
-            - lunes
-            - martes
-            - miércoles
-            - jueves
-            - viernes
-            - sábado
-            - domingo
-
-      - type: VISUAL_RECOGNITION
-        xp: 15
-        config:
-          sign_sequence:
-            - lunes
-            - miércoles
-            - viernes
-            - domingo
-          options:
-            - lunes
-            - martes
-            - miércoles
-            - jueves
-            - viernes
-            - sábado
-            - domingo
-          keep_order: false
-
-  - code: leccion-5
-    name: Meses del año
-    description: Aprende y practica las señas correspondientes a los meses del año.
-
-    blocks:
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: enero
-          word: enero
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: febrero
-          word: febrero
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: marzo
-          word: marzo
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: abril
-          word: abril
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: mayo
-          word: mayo
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: junio
-          word: junio
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: julio
-          word: julio
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: agosto
-          word: agosto
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: septiembre
-          word: septiembre
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: octubre
-          word: octubre
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: noviembre
-          word: noviembre
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: diciembre
-          word: diciembre
-
-      - type: SELECT_MEANING
-        xp: 5
-        config:
-          sign: enero
-          options:
-            - enero
-            - marzo
-            - junio
-            - diciembre
-
-      - type: SELECT_SIGN
-        xp: 5
-        config:
-          word: febrero
-          options:
-            - enero
-            - febrero
-            - abril
-            - agosto
-
-      - type: SELECT_MEANING
-        xp: 5
-        config:
-          sign: mayo
-          options:
-            - febrero
-            - mayo
-            - julio
-            - noviembre
+            - gracias
+            - por favor
+            - "perdón"
+            - de nada
 
       - type: CONTEXT_RESPONSE
         xp: 5
         config:
-          question: "¿Qué mes viene después de marzo?"
-          answer: abril
+          question: "¿Qué respondés cuando alguien te agradece algo?"
+          answer: de nada
           options:
-            - febrero
-            - marzo
-            - abril
-            - mayo
-
-      - type: SELECT_SIGN
-        xp: 5
-        config:
-          word: julio
-          options:
-            - junio
-            - julio
-            - agosto
-            - septiembre
-
-      - type: SELECT_MEANING
-        xp: 5
-        config:
-          sign: septiembre
-          options:
-            - agosto
-            - septiembre
-            - octubre
-            - noviembre
-
-      - type: CONTEXT_RESPONSE
-        xp: 5
-        config:
-          question: "¿Qué mes está antes de diciembre?"
-          answer: noviembre
-          options:
-            - septiembre
-            - octubre
-            - noviembre
-            - enero
-
-      - type: SELECT_SIGN
-        xp: 5
-        config:
-          word: octubre
-          options:
-            - agosto
-            - septiembre
-            - octubre
-            - diciembre
-
-      - type: SELECT_MEANING
-        xp: 5
-        config:
-          sign: junio
-          options:
-            - mayo
-            - junio
-            - julio
-            - agosto
-
-      - type: SELECT_SIGN
-        xp: 5
-        config:
-          word: agosto
-          options:
-            - abril
-            - julio
-            - agosto
-            - septiembre
-
-      - type: CONTEXT_RESPONSE
-        xp: 5
-        config:
-          question: "¿Qué mes está entre noviembre y enero?"
-          answer: diciembre
-          options:
-            - octubre
-            - diciembre
-            - febrero
-            - marzo
-
-      - type: MATCH
-        xp: 10
-        config:
-          concepts:
-            - enero
-            - marzo
-            - mayo
-            - julio
-            - septiembre
-            - noviembre
-
-      - type: VISUAL_RECOGNITION
-        xp: 15
-        config:
-          sign_sequence:
-            - enero
-            - abril
-            - julio
-            - octubre
-          options:
-            - enero
-            - febrero
-            - abril
-            - mayo
-            - julio
-            - agosto
-            - octubre
-            - diciembre
-          keep_order: false
+            - gracias
+            - por favor
+            - "perdón"
+            - de nada
