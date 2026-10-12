@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.common.ArgentinaTime;
+import com.signasource.signa_api.common.MetricsService;
 import com.signasource.signa_api.gamification.entity.AchievementCriteriaType;
 import com.signasource.signa_api.gamification.entity.LivesMode;
 import com.signasource.signa_api.gamification.entity.UserDailyXp;
@@ -43,6 +44,7 @@ class UserStatsEventListenerTest {
     @Mock private UserDailyXpRepository userDailyXpRepository;
     @Mock private UserLearnedSignRepository userLearnedSignRepository;
     @Mock private AchievementService achievementService;
+    @Mock private MetricsService metricsService;
 
     @InjectMocks private UserStatsEventListener userStatsEventListener;
 

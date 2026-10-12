@@ -14,6 +14,7 @@ import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.entity.Token;
 import com.signasource.signa_api.auth.entity.TokenType;
 import com.signasource.signa_api.auth.repository.TokenRepository;
+import com.signasource.signa_api.common.MetricsService;
 import com.signasource.signa_api.exceptions.InvalidCredentialsException;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.InvalidTokenException;
@@ -58,6 +59,7 @@ public class AuthService {
     private final TokenRepository tokenRepository;
     private final EmailService emailService;
     private final GoogleIdTokenVerifier googleIdTokenVerifier;
+    private final MetricsService metricsService;
 
     @Value("${auth.token-expirations.refresh}")
     private Long refreshTokenExpiration;
@@ -105,6 +107,7 @@ public class AuthService {
 
         emailService.sendVerificationEmail(user.getEmail(), token.getToken());
 
+        metricsService.recordUserRegistration("local");
         return generateTokens(user);
     }
 
@@ -117,6 +120,7 @@ public class AuthService {
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         User user = userDetails.getUser();
 
+        metricsService.recordUserLogin("local");
         return generateTokens(user);
     }
 
@@ -243,6 +247,7 @@ public class AuthService {
 
             Optional<User> userOptional = userRepository.findByEmail(email);
             User user;
+            boolean isNewUser = userOptional.isEmpty();
 
             if (userOptional.isPresent()) {
                 user = userOptional.get();
@@ -286,6 +291,11 @@ public class AuthService {
                         UserStats.builder().user(user).gems(100).updatedAt(Instant.now()).build());
             }
 
+            if (isNewUser) {
+                metricsService.recordUserRegistration("google");
+            } else {
+                metricsService.recordUserLogin("google");
+            }
             return generateTokens(user);
         } catch (InvalidCredentialsException e) {
             throw e;

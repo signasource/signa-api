@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.signasource.signa_api.common.MetricsService;
 import com.signasource.signa_api.waitlist.entity.WaitlistEntry;
 import com.signasource.signa_api.waitlist.repository.WaitlistRepository;
 import org.junit.jupiter.api.Test;
@@ -21,6 +22,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 class WaitlistServiceTest {
 
     @Mock private WaitlistRepository waitlistRepository;
+    @Mock private MetricsService metricsService;
 
     @InjectMocks private WaitlistService waitlistService;
 

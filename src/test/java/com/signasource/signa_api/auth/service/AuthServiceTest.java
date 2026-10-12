@@ -28,6 +28,7 @@ import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.entity.Token;
 import com.signasource.signa_api.auth.entity.TokenType;
 import com.signasource.signa_api.auth.repository.TokenRepository;
+import com.signasource.signa_api.common.MetricsService;
 import com.signasource.signa_api.exceptions.InvalidCredentialsException;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.InvalidTokenException;
@@ -88,6 +89,7 @@ class AuthServiceTest {
     @Mock private TokenRepository tokenRepository;
 
     @Mock private EmailService emailService;
+    @Mock private MetricsService metricsService;
 
     @InjectMocks private AuthService authService;
 

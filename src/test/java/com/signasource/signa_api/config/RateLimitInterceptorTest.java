@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.signasource.signa_api.common.MetricsService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.PrintWriter;
@@ -26,7 +27,7 @@ class RateLimitInterceptorTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        interceptor = new RateLimitInterceptor(new ObjectMapper());
+        interceptor = new RateLimitInterceptor(new ObjectMapper(), mock(MetricsService.class));
         request = mock(HttpServletRequest.class);
         response = mock(HttpServletResponse.class);
         handler = new Object();

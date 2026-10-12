@@ -1,5 +1,6 @@
 package com.signasource.signa_api.learning.service;
 
+import com.signasource.signa_api.common.MetricsService;
 import com.signasource.signa_api.exceptions.ForbiddenException;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
@@ -68,6 +69,7 @@ public class CourseTrackingService {
     private final BlockSignExtractor blockSignExtractor;
     private final UserLearnedSignRepository userLearnedSignRepository;
     private final AchievementService achievementService;
+    private final MetricsService metricsService;
 
     @Transactional
     public UserCourseEnrollment enrollUserInCourse(User user, UUID courseVersionId) {
@@ -91,6 +93,7 @@ public class CourseTrackingService {
         user.setCurrentCourse(courseVersion.getCourse());
         userRepository.save(user);
 
+        metricsService.recordCourseEnrollment();
         return saved;
     }
 
@@ -301,6 +304,7 @@ public class CourseTrackingService {
                                 .organization(enrollment.getOrganization())
                                 .build());
 
+        metricsService.recordBlockAttempt(block.getType(), isCorrect);
         markInProgress(user, block.getLesson());
 
         if (!isInfo && !isCorrect) {
@@ -427,6 +431,7 @@ public class CourseTrackingService {
         progress.setCompletedAt(Instant.now());
         progress.setXpEarned(xpEarned);
         lessonProgressRepository.save(progress);
+        metricsService.recordLessonCompletion();
         achievementService.awardReached(
                 user,
                 AchievementCriteriaType.LESSONS_COMPLETED,
@@ -468,6 +473,7 @@ public class CourseTrackingService {
         topicProgress.setStatus(ProgressStatus.COMPLETED);
         topicProgress.setCompletedAt(Instant.now());
         topicProgressRepository.save(topicProgress);
+        metricsService.recordTopicCompletion();
 
         checkCourseCompletion(user, topic.getCourseVersion());
     }
@@ -499,6 +505,7 @@ public class CourseTrackingService {
                             enrollment.setStatus(EnrollmentStatus.COMPLETED);
                             enrollment.setCompletedAt(Instant.now());
                             enrollmentRepository.save(enrollment);
+                            metricsService.recordCourseCompletion();
                             achievementService.awardReached(
                                     user,
                                     AchievementCriteriaType.COURSES_COMPLETED,
