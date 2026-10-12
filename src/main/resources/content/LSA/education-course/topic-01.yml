@@ -1,0 +1,231 @@
+topic:
+  code: unidad-1
+  name: "Unidad 1: Personas, espacios y rutinas escolares"
+  description: "Aprende el vocabulario fundamental sobre la gente, los lugares y las rutinas de la escuela."
+
+lessons:
+  - code: leccion-1
+    name: "Personas de la escuela"
+    description: "Vocabulario sobre autoridades y estudiantes."
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: alumnos
+          word: alumnos
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: director
+          word: director
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: maestro
+          word: maestro
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: profesor
+          word: profesor
+
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: alumnos
+          options:
+            - alumnos
+            - director
+            - maestro
+            - profesor
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: maestro
+          options:
+            - director
+            - maestro
+            - profesor
+            - alumnos
+      - type: CONTEXT_RESPONSE
+        xp: 15
+        config:
+          question: "¿Quién dirige la escuela?"
+          answer: director
+          options:
+            - maestro
+            - alumnos
+            - director
+            - profesor
+      - type: MATCH
+        xp: 20
+        config:
+          concepts:
+            - alumnos
+            - director
+            - maestro
+            - profesor
+      - type: VISUAL_RECOGNITION
+        xp: 15
+        config:
+          signSequence:
+            - maestro
+            - alumnos
+          options:
+            - maestro
+            - alumnos
+            - director
+            - profesor
+          keepOrder: true
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - alumnos
+            - director
+            - maestro
+            - profesor
+
+  - code: leccion-2
+    name: "Espacios y la Clase"
+    description: "Identifica los diferentes espacios dentro de la escuela."
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: escuela
+          word: escuela
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: aula
+          word: aula
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: clase
+          word: clase
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: silla de ruedas
+          word: silla de ruedas
+
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: aula
+          options:
+            - aula
+            - escuela
+            - clase
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: silla de ruedas
+          options:
+            - aula
+            - silla de ruedas
+            - clase
+            - escuela
+      - type: VISUAL_RECOGNITION
+        xp: 15
+        config:
+          signSequence:
+            - escuela
+            - aula
+            - clase
+          options:
+            - escuela
+            - silla de ruedas
+            - aula
+            - clase
+          keepOrder: true
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - escuela
+            - aula
+            - clase
+            - silla de ruedas
+
+  - code: leccion-3
+    name: "El Patio, Recreo y Rutinas"
+    description: "Actividades al aire libre y momentos compartidos."
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: recreo
+          word: recreo
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: izar la bandera
+          word: izar la bandera
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: formar fila
+          word: formar fila
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: hamaca
+          word: hamaca
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: tobogan
+          word: tobogan
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: pelota
+          word: pelota
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: soga
+          word: soga
+
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: recreo
+          options:
+            - recreo
+            - formar fila
+            - izar la bandera
+            - hamaca
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: pelota
+          options:
+            - pelota
+            - soga
+            - tobogan
+            - hamaca
+      - type: MATCH
+        xp: 20
+        config:
+          concepts:
+            - recreo
+            - izar la bandera
+            - formar fila
+            - pelota
+            - tobogan
+      - type: VISUAL_RECOGNITION
+        xp: 15
+        config:
+          signSequence:
+            - recreo
+            - hamaca
+            - pelota
+          options:
+            - recreo
+            - formar fila
+            - izar la bandera
+            - pelota
+            - soga
+            - hamaca
+            - tobogan
+          keepOrder: false
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - recreo
+            - izar la bandera
+            - formar fila
+            - hamaca
+            - tobogan
+            - pelota
+            - soga
