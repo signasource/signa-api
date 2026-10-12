@@ -1,6 +1,7 @@
 package com.signasource.signa_api.organizations.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -9,6 +10,8 @@ import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
+import com.signasource.signa_api.gamification.entity.UserStats;
+import com.signasource.signa_api.gamification.repository.UserStatsRepository;
 import com.signasource.signa_api.learning.dto.CourseSummaryResponse;
 import com.signasource.signa_api.learning.entity.Course;
 import com.signasource.signa_api.learning.entity.CourseVersion;
@@ -19,7 +22,10 @@ import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.organizations.dto.CreateOrganizationRequest;
 import com.signasource.signa_api.organizations.dto.MyOrganizationResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationCourseResponse;
+import com.signasource.signa_api.organizations.dto.OrganizationPricingResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationResponse;
+import com.signasource.signa_api.organizations.dto.RegisterOrganizationRequest;
+import com.signasource.signa_api.organizations.dto.RegisterOrganizationResponse;
 import com.signasource.signa_api.organizations.entity.MemberRole;
 import com.signasource.signa_api.organizations.entity.MemberStatus;
 import com.signasource.signa_api.organizations.entity.Organization;
@@ -30,7 +36,10 @@ import com.signasource.signa_api.organizations.repository.OrganizationMemberRepo
 import com.signasource.signa_api.organizations.repository.OrganizationRepository;
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
+import com.signasource.signa_api.users.entity.UserSettings;
 import com.signasource.signa_api.users.repository.UserRepository;
+import com.signasource.signa_api.users.repository.UserSettingsRepository;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -42,6 +51,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class OrganizationServiceTest {
@@ -52,6 +63,9 @@ class OrganizationServiceTest {
     @Mock private CourseRepository courseRepository;
     @Mock private CourseVersionRepository courseVersionRepository;
     @Mock private UserRepository userRepository;
+    @Mock private UserSettingsRepository userSettingsRepository;
+    @Mock private UserStatsRepository userStatsRepository;
+    @Mock private PasswordEncoder passwordEncoder;
     @Mock private OrganizationAccessService accessService;
     @Mock private OrganizationEnrollmentService enrollmentService;
 
@@ -63,6 +77,7 @@ class OrganizationServiceTest {
 
     @BeforeEach
     void setUp() {
+        ReflectionTestUtils.setField(organizationService, "pricePerPerson", new BigDecimal("5000"));
         organization = Organization.builder().id(UUID.randomUUID()).name("Hospital").build();
         course =
                 Course.builder()
@@ -339,5 +354,109 @@ class OrganizationServiceTest {
         when(memberRepository.findByUserId(user.getId())).thenReturn(Optional.empty());
 
         assertThrows(NotFoundException.class, () -> organizationService.getMyOrganization(user));
+    }
+
+    @Test
+    void shouldRegisterOrganizationSuccessfully() {
+        when(organizationRepository.existsByNameIgnoreCase("Empresa")).thenReturn(false);
+        when(organizationRepository.existsByCuit("30-12345678-9")).thenReturn(false);
+        when(userRepository.existsByEmail("admin@empresa.com")).thenReturn(false);
+        when(userRepository.existsByUsername(any())).thenReturn(false);
+        when(passwordEncoder.encode("password123")).thenReturn("hashed");
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(userSettingsRepository.save(any(UserSettings.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(userStatsRepository.save(any(UserStats.class))).thenAnswer(inv -> inv.getArgument(0));
+        Organization saved = Organization.builder().id(UUID.randomUUID()).name("Empresa").build();
+        when(organizationRepository.save(any(Organization.class))).thenReturn(saved);
+        when(memberRepository.save(any(OrganizationMember.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        RegisterOrganizationResponse response =
+                organizationService.registerOrganization(
+                        new RegisterOrganizationRequest(
+                                "Empresa",
+                                "30-12345678-9",
+                                "admin@empresa.com",
+                                null,
+                                10,
+                                "Admin User",
+                                "password123"));
+
+        assertEquals("Empresa", response.organizationName());
+        assertNotNull(response.status());
+        verify(userRepository).save(any(User.class));
+        verify(userSettingsRepository).save(any(UserSettings.class));
+        verify(userStatsRepository).save(any(UserStats.class));
+        verify(organizationRepository).save(any(Organization.class));
+        verify(memberRepository).save(any(OrganizationMember.class));
+    }
+
+    @Test
+    void shouldThrowWhenOrgNameAlreadyExists() {
+        when(organizationRepository.existsByNameIgnoreCase("Empresa")).thenReturn(true);
+
+        assertThrows(
+                ResourceAlreadyInUseException.class,
+                () ->
+                        organizationService.registerOrganization(
+                                new RegisterOrganizationRequest(
+                                        "Empresa",
+                                        "30-12345678-9",
+                                        "admin@empresa.com",
+                                        null,
+                                        10,
+                                        "Admin User",
+                                        "password123")));
+        verify(organizationRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldThrowWhenCuitAlreadyExists() {
+        when(organizationRepository.existsByNameIgnoreCase("Empresa")).thenReturn(false);
+        when(organizationRepository.existsByCuit("30-12345678-9")).thenReturn(true);
+
+        assertThrows(
+                ResourceAlreadyInUseException.class,
+                () ->
+                        organizationService.registerOrganization(
+                                new RegisterOrganizationRequest(
+                                        "Empresa",
+                                        "30-12345678-9",
+                                        "admin@empresa.com",
+                                        null,
+                                        10,
+                                        "Admin User",
+                                        "password123")));
+        verify(organizationRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldThrowWhenEmailAlreadyInUse() {
+        when(organizationRepository.existsByNameIgnoreCase("Empresa")).thenReturn(false);
+        when(organizationRepository.existsByCuit("30-12345678-9")).thenReturn(false);
+        when(userRepository.existsByEmail("admin@empresa.com")).thenReturn(true);
+
+        assertThrows(
+                ResourceAlreadyInUseException.class,
+                () ->
+                        organizationService.registerOrganization(
+                                new RegisterOrganizationRequest(
+                                        "Empresa",
+                                        "30-12345678-9",
+                                        "admin@empresa.com",
+                                        null,
+                                        10,
+                                        "Admin User",
+                                        "password123")));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldReturnPricing() {
+        OrganizationPricingResponse pricing = organizationService.getPricing();
+
+        assertNotNull(pricing.pricePerPerson());
+        assertEquals("ARS", pricing.currency());
     }
 }

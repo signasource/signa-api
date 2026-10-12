@@ -74,3 +74,6 @@ r2:
   secret-access-key: ${R2_SECRET_ACCESS_KEY:}
   bucket: ${R2_BUCKET_NAME:signa-animations}
   presign-expiry-minutes: ${R2_PRESIGN_EXPIRY_MINUTES:15}
+
+organizations:
+  price-per-person: ${ORG_PRICE_PER_PERSON:5000}

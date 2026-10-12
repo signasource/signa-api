@@ -2,6 +2,8 @@ package com.signasource.signa_api.organizations.service;
 
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
+import com.signasource.signa_api.gamification.entity.UserStats;
+import com.signasource.signa_api.gamification.repository.UserStatsRepository;
 import com.signasource.signa_api.learning.dto.CourseSummaryResponse;
 import com.signasource.signa_api.learning.entity.Course;
 import com.signasource.signa_api.learning.entity.VersionStatus;
@@ -10,21 +12,35 @@ import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.organizations.dto.CreateOrganizationRequest;
 import com.signasource.signa_api.organizations.dto.MyOrganizationResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationCourseResponse;
+import com.signasource.signa_api.organizations.dto.OrganizationPricingResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationResponse;
+import com.signasource.signa_api.organizations.dto.RegisterOrganizationRequest;
+import com.signasource.signa_api.organizations.dto.RegisterOrganizationResponse;
 import com.signasource.signa_api.organizations.entity.MemberRole;
 import com.signasource.signa_api.organizations.entity.MemberStatus;
 import com.signasource.signa_api.organizations.entity.Organization;
 import com.signasource.signa_api.organizations.entity.OrganizationCourse;
 import com.signasource.signa_api.organizations.entity.OrganizationMember;
+import com.signasource.signa_api.organizations.entity.OrganizationStatus;
 import com.signasource.signa_api.organizations.repository.OrganizationCourseRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationMemberRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationRepository;
+import com.signasource.signa_api.users.entity.AuthProvider;
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
+import com.signasource.signa_api.users.entity.UserSettings;
 import com.signasource.signa_api.users.repository.UserRepository;
+import com.signasource.signa_api.users.repository.UserSettingsRepository;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,8 +54,14 @@ public class OrganizationService {
     private final CourseRepository courseRepository;
     private final CourseVersionRepository courseVersionRepository;
     private final UserRepository userRepository;
+    private final UserSettingsRepository userSettingsRepository;
+    private final UserStatsRepository userStatsRepository;
+    private final PasswordEncoder passwordEncoder;
     private final OrganizationAccessService accessService;
     private final OrganizationEnrollmentService enrollmentService;
+
+    @Value("${organizations.price-per-person}")
+    private BigDecimal pricePerPerson;
 
     @Transactional
     public OrganizationResponse createOrganization(CreateOrganizationRequest request) {
@@ -159,6 +181,82 @@ public class OrganizationService {
                 member.getRole(),
                 member.getJoinedAt(),
                 courses);
+    }
+
+    @Transactional
+    public RegisterOrganizationResponse registerOrganization(RegisterOrganizationRequest request) {
+        if (organizationRepository.existsByNameIgnoreCase(request.orgName())) {
+            throw new ResourceAlreadyInUseException(
+                    "An organization with this name already exists");
+        }
+        if (organizationRepository.existsByCuit(request.cuit())) {
+            throw new ResourceAlreadyInUseException(
+                    "An organization with this CUIT already exists");
+        }
+        if (userRepository.existsByEmail(request.contactEmail())) {
+            throw new ResourceAlreadyInUseException("Email already in use");
+        }
+
+        String base =
+                request.orgName()
+                        .toLowerCase()
+                        .replaceAll("[^a-z0-9]", "_")
+                        .replaceAll("_+", "_")
+                        .replaceAll("(^_+|_+$)", "");
+        if (base.length() > 20) base = base.substring(0, 20);
+        if (base.isEmpty()) base = "org";
+        String username = base;
+        if (userRepository.existsByUsername(username)) {
+            String prefix = base.substring(0, Math.min(base.length(), 15));
+            username =
+                    prefix
+                            + "_"
+                            + String.format("%04d", ThreadLocalRandom.current().nextInt(10000));
+        }
+
+        User adminUser =
+                User.builder()
+                        .email(request.contactEmail())
+                        .username(username)
+                        .passwordHash(passwordEncoder.encode(request.adminPassword()))
+                        .name(request.adminName())
+                        .lastName("")
+                        .role(Role.ORG_ADMIN)
+                        .enabled(true)
+                        .verified(true)
+                        .providers(new HashSet<>(Set.of(AuthProvider.LOCAL)))
+                        .build();
+        userRepository.save(adminUser);
+
+        userSettingsRepository.save(UserSettings.builder().user(adminUser).build());
+        userStatsRepository.save(
+                UserStats.builder().user(adminUser).gems(100).updatedAt(Instant.now()).build());
+
+        Organization organization =
+                Organization.builder()
+                        .name(request.orgName())
+                        .cuit(request.cuit())
+                        .contactEmail(request.contactEmail())
+                        .contactPhone(request.contactPhone())
+                        .memberLimit(request.memberLimit())
+                        .status(OrganizationStatus.PENDING)
+                        .build();
+        organizationRepository.save(organization);
+
+        memberRepository.save(
+                OrganizationMember.builder()
+                        .user(adminUser)
+                        .organization(organization)
+                        .role(MemberRole.ADMIN)
+                        .status(MemberStatus.ACTIVE)
+                        .build());
+
+        return new RegisterOrganizationResponse(
+                organization.getId(), organization.getName(), organization.getStatus().name());
+    }
+
+    public OrganizationPricingResponse getPricing() {
+        return new OrganizationPricingResponse(pricePerPerson, "ARS");
     }
 
     private Organization findOrganization(UUID organizationId) {

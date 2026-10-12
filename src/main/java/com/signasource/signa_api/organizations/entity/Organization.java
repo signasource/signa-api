@@ -2,6 +2,8 @@ package com.signasource.signa_api.organizations.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -28,6 +30,22 @@ public class Organization {
 
     @Column(nullable = false, unique = true, length = 150)
     private String name;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    @Builder.Default
+    private OrganizationStatus status = OrganizationStatus.PENDING;
+
+    @Column(unique = true, length = 20)
+    private String cuit;
+
+    @Column(length = 150)
+    private String contactEmail;
+
+    @Column(length = 50)
+    private String contactPhone;
+
+    @Column private Integer memberLimit;
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt;

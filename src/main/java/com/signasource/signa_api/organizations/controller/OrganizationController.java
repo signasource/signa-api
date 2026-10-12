@@ -9,9 +9,12 @@ import com.signasource.signa_api.organizations.dto.InviteByEmailRequest;
 import com.signasource.signa_api.organizations.dto.InviteCodeResponse;
 import com.signasource.signa_api.organizations.dto.MyOrganizationResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationCourseResponse;
+import com.signasource.signa_api.organizations.dto.OrganizationPricingResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationResponse;
 import com.signasource.signa_api.organizations.dto.RedeemInviteCodeRequest;
 import com.signasource.signa_api.organizations.dto.RedeemInviteCodeResponse;
+import com.signasource.signa_api.organizations.dto.RegisterOrganizationRequest;
+import com.signasource.signa_api.organizations.dto.RegisterOrganizationResponse;
 import com.signasource.signa_api.organizations.service.InviteCodeService;
 import com.signasource.signa_api.organizations.service.OrganizationService;
 import jakarta.validation.Valid;
@@ -36,6 +39,18 @@ public class OrganizationController {
 
     private final OrganizationService organizationService;
     private final InviteCodeService inviteCodeService;
+
+    @PostMapping("/register")
+    public ResponseEntity<RegisterOrganizationResponse> registerOrganization(
+            @Valid @RequestBody RegisterOrganizationRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(organizationService.registerOrganization(request));
+    }
+
+    @GetMapping("/pricing")
+    public ResponseEntity<OrganizationPricingResponse> getPricing() {
+        return ResponseEntity.ok(organizationService.getPricing());
+    }
 
     @PostMapping
     public ResponseEntity<OrganizationResponse> createOrganization(

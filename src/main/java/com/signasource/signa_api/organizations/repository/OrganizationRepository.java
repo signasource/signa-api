@@ -11,5 +11,7 @@ public interface OrganizationRepository extends JpaRepository<Organization, UUID
 
     boolean existsByNameIgnoreCase(String name);
 
+    boolean existsByCuit(String cuit);
+
     Optional<Organization> findByNameIgnoreCase(String name);
 }
