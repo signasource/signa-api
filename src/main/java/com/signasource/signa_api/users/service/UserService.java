@@ -7,8 +7,10 @@ import com.signasource.signa_api.users.dto.RelationStatus;
 import com.signasource.signa_api.users.dto.UpdateUsernameRequest;
 import com.signasource.signa_api.users.dto.UserSearchResultResponse;
 import com.signasource.signa_api.users.dto.UsernameAvailabilityResponse;
+import com.signasource.signa_api.users.entity.AccountVisibility;
 import com.signasource.signa_api.users.entity.Friendship;
 import com.signasource.signa_api.users.entity.User;
+import com.signasource.signa_api.users.repository.AccountErasureRepository;
 import com.signasource.signa_api.users.repository.FriendshipRepository;
 import com.signasource.signa_api.users.repository.UserRepository;
 import java.util.HashMap;
@@ -26,10 +28,14 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class UserService {
 
+    private static final String DELETED_ACCOUNT_NAME = "Usuario";
+    private static final String DELETED_ACCOUNT_LAST_NAME = "eliminado";
+
     private final UserRepository userRepository;
     private final TokenRepository tokenRepository;
     private final DeviceTokenRepository deviceTokenRepository;
     private final FriendshipRepository friendshipRepository;
+    private final AccountErasureRepository accountErasureRepository;
 
     public UsernameAvailabilityResponse checkUsernameAvailability(String username) {
         return new UsernameAvailabilityResponse(!userRepository.existsByUsername(username));
@@ -64,14 +70,26 @@ public class UserService {
         }
     }
 
+    /**
+     * Erases the user's personal and behavioural data and anonymises the {@code users} row, which
+     * stays only so purchase records keep their foreign key.
+     */
     @Transactional
     public void deleteAccount(User user) {
-        user.setEnabled(false);
-        user.setEmail("deleted_" + user.getId() + "@signa.invalid");
-        userRepository.save(user);
-
         tokenRepository.deleteByUser(user);
         deviceTokenRepository.deleteByUser(user);
+        accountErasureRepository.deleteUserData(user);
+
+        user.setEnabled(false);
+        user.setVerified(false);
+        user.setEmail("deleted_" + user.getId() + "@signa.invalid");
+        user.setUsername("deleted_" + user.getId());
+        user.setName(DELETED_ACCOUNT_NAME);
+        user.setLastName(DELETED_ACCOUNT_LAST_NAME);
+        user.setPasswordHash("!" + UUID.randomUUID());
+        user.setAccountVisibility(AccountVisibility.PRIVATE);
+        user.setCurrentCourse(null);
+        userRepository.save(user);
     }
 
     /** Resolves each match against the caller. Users who blocked the caller are left out. */
