@@ -15,6 +15,7 @@ import com.signasource.signa_api.organizations.entity.MemberRole;
 import com.signasource.signa_api.organizations.entity.MemberStatus;
 import com.signasource.signa_api.organizations.entity.Organization;
 import com.signasource.signa_api.organizations.entity.OrganizationMember;
+import com.signasource.signa_api.organizations.entity.OrganizationStatus;
 import com.signasource.signa_api.organizations.repository.InviteCodeRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationMemberRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationRepository;
@@ -54,9 +55,11 @@ public class InviteCodeService {
     public InviteCodeResponse createInviteCode(
             User actor, UUID organizationId, CreateInviteCodeRequest request) {
         accessService.requireManage(actor, organizationId);
+        Organization organization = findOrganization(organizationId);
+        requireActive(organization);
         return InviteCodeResponse.from(
                 saveCode(
-                        organizationId,
+                        organization,
                         request.expiresAt(),
                         request.maxUses(),
                         null,
@@ -71,9 +74,11 @@ public class InviteCodeService {
     public InviteCodeResponse inviteByEmail(
             User actor, UUID organizationId, InviteByEmailRequest request) {
         accessService.requireManage(actor, organizationId);
+        Organization organization = findOrganization(organizationId);
+        requireActive(organization);
         InviteCode inviteCode =
                 saveCode(
-                        organizationId,
+                        organization,
                         request.expiresAt(),
                         1,
                         request.email().trim().toLowerCase(),
@@ -96,7 +101,7 @@ public class InviteCodeService {
         accessService.requireManage(actor, organizationId);
         InviteCode inviteCode =
                 saveCode(
-                        organizationId,
+                        findOrganization(organizationId),
                         request.expiresAt(),
                         1,
                         request.email().trim().toLowerCase(),
@@ -155,6 +160,11 @@ public class InviteCodeService {
                 inThisOrganization
                         && (member.getRole() == MemberRole.ADMIN || granted == MemberRole.MEMBER);
 
+        if (!alreadyMember && granted == MemberRole.MEMBER) {
+            requireActive(organization);
+            requireSeat(organization);
+        }
+
         if (!alreadyMember) {
             if (member == null) {
                 member = OrganizationMember.builder().user(user).build();
@@ -211,17 +221,38 @@ public class InviteCodeService {
         return inviteCode.isActive() && !expired && !exhausted && !wrongRecipient;
     }
 
+    /**
+     * Participants can only join an organization SIGNA approved and has not suspended or rejected;
+     * its admins may still set things up.
+     */
+    private static void requireActive(Organization organization) {
+        if (organization.getStatus() != OrganizationStatus.ACTIVE) {
+            throw new InvalidInputException("Organization is not active");
+        }
+    }
+
+    private void requireSeat(Organization organization) {
+        Integer limit = organization.getMemberLimit();
+        if (limit != null
+                && memberRepository.countByOrganizationIdAndRoleAndStatus(
+                                organization.getId(), MemberRole.MEMBER, MemberStatus.ACTIVE)
+                        >= limit) {
+            throw new InvalidInputException("Organization reached its member limit");
+        }
+    }
+
+    private Organization findOrganization(UUID organizationId) {
+        return organizationRepository
+                .findById(organizationId)
+                .orElseThrow(() -> new NotFoundException("Organization not found"));
+    }
+
     private InviteCode saveCode(
-            UUID organizationId,
+            Organization organization,
             Instant expiresAt,
             Integer maxUses,
             String email,
             MemberRole memberRole) {
-        Organization organization =
-                organizationRepository
-                        .findById(organizationId)
-                        .orElseThrow(() -> new NotFoundException("Organization not found"));
-
         return inviteCodeRepository.save(
                 InviteCode.builder()
                         .code(generateUniqueCode())

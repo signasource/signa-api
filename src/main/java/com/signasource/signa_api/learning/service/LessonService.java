@@ -4,12 +4,12 @@ import com.signasource.signa_api.exceptions.ForbiddenException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.learning.dto.LessonBlockResponse;
 import com.signasource.signa_api.learning.dto.LessonDetailResponse;
-import com.signasource.signa_api.learning.entity.EnrollmentStatus;
 import com.signasource.signa_api.learning.entity.Lesson;
 import com.signasource.signa_api.learning.entity.LessonBlock;
 import com.signasource.signa_api.learning.repository.LessonRepository;
 import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
 import com.signasource.signa_api.users.entity.User;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -34,7 +34,7 @@ public class LessonService {
         UUID versionId = lesson.getTopic().getCourseVersion().getId();
         enrollmentRepository
                 .findByUserIdAndCourseVersionId(user.getId(), versionId)
-                .filter(e -> e.getStatus() != EnrollmentStatus.DROPPED)
+                .filter(e -> e.grantsAccess(Instant.now()))
                 .orElseThrow(() -> new ForbiddenException("Not enrolled in this course"));
 
         List<LessonBlock> blocks = lesson.getLessonBlocks();

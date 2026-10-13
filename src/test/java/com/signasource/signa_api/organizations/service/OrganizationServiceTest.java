@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.gamification.entity.UserStats;
@@ -21,16 +22,20 @@ import com.signasource.signa_api.learning.repository.CourseRepository;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.organizations.dto.CreateOrganizationRequest;
 import com.signasource.signa_api.organizations.dto.MyOrganizationResponse;
+import com.signasource.signa_api.organizations.dto.OrganizationAdminResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationCourseResponse;
+import com.signasource.signa_api.organizations.dto.OrganizationDetailResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationPricingResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationResponse;
 import com.signasource.signa_api.organizations.dto.RegisterOrganizationRequest;
 import com.signasource.signa_api.organizations.dto.RegisterOrganizationResponse;
+import com.signasource.signa_api.organizations.dto.UpdateOrganizationRequest;
 import com.signasource.signa_api.organizations.entity.MemberRole;
 import com.signasource.signa_api.organizations.entity.MemberStatus;
 import com.signasource.signa_api.organizations.entity.Organization;
 import com.signasource.signa_api.organizations.entity.OrganizationCourse;
 import com.signasource.signa_api.organizations.entity.OrganizationMember;
+import com.signasource.signa_api.organizations.entity.OrganizationStatus;
 import com.signasource.signa_api.organizations.repository.OrganizationCourseRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationMemberRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationRepository;
@@ -102,6 +107,9 @@ class OrganizationServiceTest {
 
         assertEquals(organization.getId(), response.id());
         assertEquals("Hospital", response.name());
+        ArgumentCaptor<Organization> saved = ArgumentCaptor.forClass(Organization.class);
+        verify(organizationRepository).save(saved.capture());
+        assertEquals(OrganizationStatus.ACTIVE, saved.getValue().getStatus());
     }
 
     @Test
@@ -330,6 +338,7 @@ class OrganizationServiceTest {
         MyOrganizationResponse response = organizationService.getMyOrganization(user);
 
         assertEquals("Hospital", response.name());
+        assertEquals(OrganizationStatus.PENDING, response.status());
         assertEquals(MemberRole.MEMBER, response.role());
         assertEquals(Instant.parse("2026-09-01T00:00:00Z"), response.joinedAt());
         assertEquals(List.of(CourseSummaryResponse.from(course)), response.courses());
@@ -359,7 +368,7 @@ class OrganizationServiceTest {
     @Test
     void shouldRegisterOrganizationSuccessfully() {
         when(organizationRepository.existsByNameIgnoreCase("Empresa")).thenReturn(false);
-        when(organizationRepository.existsByCuit("30-12345678-9")).thenReturn(false);
+        when(organizationRepository.existsByCuit("30123456789")).thenReturn(false);
         when(userRepository.existsByEmail("admin@empresa.com")).thenReturn(false);
         when(userRepository.existsByUsername(any())).thenReturn(false);
         when(passwordEncoder.encode("password123")).thenReturn("hashed");
@@ -377,7 +386,7 @@ class OrganizationServiceTest {
                         new RegisterOrganizationRequest(
                                 "Empresa",
                                 "30-12345678-9",
-                                "admin@empresa.com",
+                                " Admin@Empresa.com ",
                                 null,
                                 10,
                                 "Admin User",
@@ -385,11 +394,152 @@ class OrganizationServiceTest {
 
         assertEquals("Empresa", response.organizationName());
         assertNotNull(response.status());
-        verify(userRepository).save(any(User.class));
+        ArgumentCaptor<User> admin = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(admin.capture());
+        assertEquals("admin@empresa.com", admin.getValue().getEmail());
+        assertEquals(Role.ORG_ADMIN, admin.getValue().getRole());
+        ArgumentCaptor<Organization> org = ArgumentCaptor.forClass(Organization.class);
+        verify(organizationRepository).save(org.capture());
+        assertEquals("30123456789", org.getValue().getCuit());
+        assertEquals(OrganizationStatus.PENDING, org.getValue().getStatus());
         verify(userSettingsRepository).save(any(UserSettings.class));
         verify(userStatsRepository).save(any(UserStats.class));
-        verify(organizationRepository).save(any(Organization.class));
         verify(memberRepository).save(any(OrganizationMember.class));
+    }
+
+    @Test
+    void shouldRejectRegistrationWithMalformedCuit() {
+        assertThrows(
+                InvalidInputException.class,
+                () ->
+                        organizationService.registerOrganization(
+                                new RegisterOrganizationRequest(
+                                        "Empresa",
+                                        "30-123-9",
+                                        "admin@empresa.com",
+                                        null,
+                                        10,
+                                        "Admin User",
+                                        "password123")));
+        verify(organizationRepository, never()).save(any());
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldReturnOrganizationDetailAfterCheckingAccess() {
+        when(organizationRepository.findById(organization.getId()))
+                .thenReturn(Optional.of(organization));
+        when(memberRepository.countByOrganizationIdAndRoleAndStatus(
+                        organization.getId(), MemberRole.MEMBER, MemberStatus.ACTIVE))
+                .thenReturn(3L);
+
+        OrganizationDetailResponse detail =
+                organizationService.getOrganization(user, organization.getId());
+
+        verify(accessService).requireManage(user, organization.getId());
+        assertEquals("Hospital", detail.name());
+        assertEquals(3, detail.activeMembers());
+    }
+
+    @Test
+    void shouldRenameAndResizeOrganization() {
+        organization.setMemberLimit(5);
+        when(organizationRepository.findById(organization.getId()))
+                .thenReturn(Optional.of(organization));
+        when(organizationRepository.existsByNameIgnoreCase("Hospital Central")).thenReturn(false);
+        when(memberRepository.countByOrganizationIdAndRoleAndStatus(
+                        organization.getId(), MemberRole.MEMBER, MemberStatus.ACTIVE))
+                .thenReturn(4L);
+        when(organizationRepository.save(organization)).thenReturn(organization);
+
+        OrganizationDetailResponse detail =
+                organizationService.updateOrganization(
+                        organization.getId(),
+                        new UpdateOrganizationRequest("Hospital Central", 50));
+
+        assertEquals("Hospital Central", detail.name());
+        assertEquals(50, detail.memberLimit());
+    }
+
+    @Test
+    void shouldLeaveFieldsUntouchedWhenUpdateIsEmptyOrNameOnlyChangesCase() {
+        organization.setMemberLimit(5);
+        when(organizationRepository.findById(organization.getId()))
+                .thenReturn(Optional.of(organization));
+        when(organizationRepository.save(organization)).thenReturn(organization);
+
+        OrganizationDetailResponse detail =
+                organizationService.updateOrganization(
+                        organization.getId(), new UpdateOrganizationRequest("HOSPITAL", null));
+
+        assertEquals("Hospital", detail.name());
+        assertEquals(OrganizationStatus.PENDING, detail.status());
+        assertEquals(5, detail.memberLimit());
+        verify(organizationRepository, never()).existsByNameIgnoreCase(any());
+    }
+
+    @Test
+    void shouldRejectRenamingToAnExistingOrganizationName() {
+        when(organizationRepository.findById(organization.getId()))
+                .thenReturn(Optional.of(organization));
+        when(organizationRepository.existsByNameIgnoreCase("Banco")).thenReturn(true);
+
+        assertThrows(
+                ResourceAlreadyInUseException.class,
+                () ->
+                        organizationService.updateOrganization(
+                                organization.getId(),
+                                new UpdateOrganizationRequest("Banco", null)));
+        verify(organizationRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldRejectMemberLimitBelowCurrentActiveMembers() {
+        when(organizationRepository.findById(organization.getId()))
+                .thenReturn(Optional.of(organization));
+        when(memberRepository.countByOrganizationIdAndRoleAndStatus(
+                        organization.getId(), MemberRole.MEMBER, MemberStatus.ACTIVE))
+                .thenReturn(10L);
+
+        assertThrows(
+                InvalidInputException.class,
+                () ->
+                        organizationService.updateOrganization(
+                                organization.getId(), new UpdateOrganizationRequest(null, 3)));
+        verify(organizationRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldThrowNotFoundWhenUpdatingUnknownOrganization() {
+        UUID unknown = UUID.randomUUID();
+        when(organizationRepository.findById(unknown)).thenReturn(Optional.empty());
+
+        assertThrows(
+                NotFoundException.class,
+                () ->
+                        organizationService.updateOrganization(
+                                unknown, new UpdateOrganizationRequest(null, null)));
+    }
+
+    @Test
+    void shouldListActiveAdminsAfterCheckingAccess() {
+        OrganizationMember admin =
+                OrganizationMember.builder()
+                        .user(user)
+                        .organization(organization)
+                        .role(MemberRole.ADMIN)
+                        .status(MemberStatus.ACTIVE)
+                        .build();
+        when(memberRepository.findByOrganizationIdAndRoleAndStatus(
+                        organization.getId(), MemberRole.ADMIN, MemberStatus.ACTIVE))
+                .thenReturn(List.of(admin));
+
+        List<OrganizationAdminResponse> admins =
+                organizationService.getAdmins(user, organization.getId());
+
+        verify(accessService).requireManage(user, organization.getId());
+        assertEquals(1, admins.size());
+        assertEquals("boss@hospital.com", admins.get(0).email());
     }
 
     @Test
@@ -414,7 +564,7 @@ class OrganizationServiceTest {
     @Test
     void shouldThrowWhenCuitAlreadyExists() {
         when(organizationRepository.existsByNameIgnoreCase("Empresa")).thenReturn(false);
-        when(organizationRepository.existsByCuit("30-12345678-9")).thenReturn(true);
+        when(organizationRepository.existsByCuit("30123456789")).thenReturn(true);
 
         assertThrows(
                 ResourceAlreadyInUseException.class,
@@ -434,7 +584,7 @@ class OrganizationServiceTest {
     @Test
     void shouldThrowWhenEmailAlreadyInUse() {
         when(organizationRepository.existsByNameIgnoreCase("Empresa")).thenReturn(false);
-        when(organizationRepository.existsByCuit("30-12345678-9")).thenReturn(false);
+        when(organizationRepository.existsByCuit("30123456789")).thenReturn(false);
         when(userRepository.existsByEmail("admin@empresa.com")).thenReturn(true);
 
         assertThrows(

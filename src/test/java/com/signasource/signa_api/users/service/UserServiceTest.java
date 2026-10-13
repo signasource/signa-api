@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 import com.signasource.signa_api.auth.repository.TokenRepository;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.notification.repository.DeviceTokenRepository;
+import com.signasource.signa_api.organizations.service.OrganizationMemberService;
 import com.signasource.signa_api.users.dto.RelationStatus;
 import com.signasource.signa_api.users.dto.UpdateUsernameRequest;
 import com.signasource.signa_api.users.dto.UserSearchResultResponse;
@@ -46,6 +47,7 @@ class UserServiceTest {
     @Mock private TokenRepository tokenRepository;
     @Mock private DeviceTokenRepository deviceTokenRepository;
     @Mock private FriendshipRepository friendshipRepository;
+    @Mock private OrganizationMemberService organizationMemberService;
 
     @InjectMocks private UserService userService;
 
@@ -154,6 +156,7 @@ class UserServiceTest {
         verify(userRepository).save(user);
         verify(tokenRepository).deleteByUser(user);
         verify(deviceTokenRepository).deleteByUser(user);
+        verify(organizationMemberService).handleAccountDeletion(user);
     }
 
     private User user(String username, String name) {

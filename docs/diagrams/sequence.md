@@ -482,6 +482,8 @@ sequenceDiagram
     API->>DB: Buscar código
     alt inexistente, inactivo, vencido, agotado o de otro correo
         API-->>C: Solicitud inválida (400)
+    else organización pendiente de aprobación o sin cupo
+        API-->>C: Solicitud inválida (400)
     else pertenece a otra organización
         API-->>C: Conflicto (409)
     else válido
@@ -489,9 +491,40 @@ sequenceDiagram
         API->>DB: Inscribir en cada curso contratado (conserva progreso previo)
         API-->>C: Organización y cursos habilitados
     end
-    A->>API: Quitar participante
+    A->>API: Quitar participante (o el participante sale por su cuenta)
     API->>DB: Marcar membresía como removida y bajar sus inscripciones
     Note over API,DB: El progreso queda guardado por si se reincorpora
+```
+
+## Alta autogestionada de una organización
+
+Una empresa se registra desde la web: se crean en un solo paso la cuenta de su administrador y la
+organización, pendiente de aprobación. SIGNA la revisa desde su panel y la aprueba eligiendo qué
+cursos contrata (o la rechaza); recién ahí la organización puede sumar participantes.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant W as Web (empresa)
+    participant S as Admin de SIGNA
+    participant API as API
+    participant DB as Base de datos
+
+    W->>API: Consultar precio por persona
+    W->>API: Registrar organización (nombre, CUIT, contacto, cupo, admin)
+    alt nombre, CUIT o email ya usados
+        API-->>W: Conflicto (409)
+    else CUIT mal formado
+        API-->>W: Solicitud inválida (400)
+    else válido
+        API->>DB: Crear cuenta del administrador y organización pendiente
+        API-->>W: Organización pendiente (201)
+    end
+    S->>API: Listar organizaciones pendientes (panel de SIGNA)
+    S->>API: Aprobar eligiendo los cursos
+    API->>DB: Organización activa y cursos contratados
+    W->>API: El administrador de la empresa inicia sesión en su panel
+    W->>API: Invitar participantes (código, email o planilla)
 ```
 
 ## Invitación de un administrador al panel de la organización

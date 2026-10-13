@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
+import com.signasource.signa_api.organizations.dto.MemberActivityStatus;
 import com.signasource.signa_api.organizations.dto.MemberProgressResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationMemberSummaryResponse;
 import com.signasource.signa_api.organizations.entity.MemberStatus;
@@ -52,13 +53,26 @@ class OrganizationMemberControllerTest {
     void shouldReturnThePageOfMembers() {
         Pageable pageable = PageRequest.of(0, 20);
         Page<OrganizationMemberSummaryResponse> page = new PageImpl<>(List.of(), pageable, 0);
+        UUID courseId = UUID.randomUUID();
         when(memberQueryService.getMembers(
-                        actor, organizationId, "ana", MemberStatus.ACTIVE, pageable))
+                        actor,
+                        organizationId,
+                        "ana",
+                        MemberStatus.ACTIVE,
+                        MemberActivityStatus.INACTIVE,
+                        courseId,
+                        pageable))
                 .thenReturn(page);
 
         ResponseEntity<Page<OrganizationMemberSummaryResponse>> result =
                 memberController.getMembers(
-                        organizationId, "ana", MemberStatus.ACTIVE, pageable, userDetails);
+                        organizationId,
+                        "ana",
+                        MemberStatus.ACTIVE,
+                        MemberActivityStatus.INACTIVE,
+                        courseId,
+                        pageable,
+                        userDetails);
 
         assertEquals(HttpStatus.OK, result.getStatusCode());
         assertSame(page, result.getBody());
@@ -69,8 +83,8 @@ class OrganizationMemberControllerTest {
         UUID userId = UUID.randomUUID();
         MemberProgressResponse response =
                 new MemberProgressResponse(
-                        userId, null, null, null, null, null, null, 0, 0, 0, 0, null, 0, 0, 0, 0, 0,
-                        0, 0, List.of());
+                        userId, null, null, null, null, null, null, null, 0, 0, 0, 0, null, 0, 0, 0,
+                        0, 0, 0, 0, List.of());
         when(memberQueryService.getMemberProgress(actor, organizationId, userId))
                 .thenReturn(response);
 

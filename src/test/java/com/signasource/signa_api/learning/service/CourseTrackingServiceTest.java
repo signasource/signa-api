@@ -109,6 +109,7 @@ class CourseTrackingServiceTest {
     @Test
     void enrollUserInCourse_Success() {
         CourseVersion mockVersion = new CourseVersion();
+        mockVersion.setCourse(Course.builder().id(UUID.randomUUID()).isFree(true).build());
         when(enrollmentRepository.existsByUserIdAndCourseVersionId(userId, courseVersionId))
                 .thenReturn(false);
         when(courseVersionRepository.findById(courseVersionId))
@@ -125,6 +126,21 @@ class CourseTrackingServiceTest {
         assertNotNull(result);
         assertEquals(EnrollmentStatus.ENROLLED, result.getStatus());
         verify(enrollmentRepository).save(any(UserCourseEnrollment.class));
+    }
+
+    @Test
+    void shouldRejectSelfEnrollmentInAPaidCourse() {
+        CourseVersion paidVersion = new CourseVersion();
+        paidVersion.setCourse(Course.builder().id(UUID.randomUUID()).isFree(false).build());
+        when(enrollmentRepository.existsByUserIdAndCourseVersionId(userId, courseVersionId))
+                .thenReturn(false);
+        when(courseVersionRepository.findById(courseVersionId))
+                .thenReturn(Optional.of(paidVersion));
+
+        assertThrows(
+                ForbiddenException.class,
+                () -> courseTrackingService.enrollUserInCourse(mockUser, courseVersionId));
+        verify(enrollmentRepository, never()).save(any());
     }
 
     @Test
@@ -179,6 +195,36 @@ class CourseTrackingServiceTest {
                 .thenReturn(Optional.of(block));
         when(enrollmentRepository.findByUserIdAndCourseVersionId(userId, courseVersion.getId()))
                 .thenReturn(Optional.empty());
+
+        assertThrows(
+                ForbiddenException.class,
+                () -> courseTrackingService.recordBlockInteraction(mockUser, blockId, true));
+        verify(attemptRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldThrowForbiddenWhenOrganizationAccessHasExpired() {
+        UUID blockId = UUID.randomUUID();
+        CourseVersion courseVersion = CourseVersion.builder().id(UUID.randomUUID()).build();
+        Topic topic = Topic.builder().id(UUID.randomUUID()).courseVersion(courseVersion).build();
+        Lesson lesson = Lesson.builder().id(UUID.randomUUID()).topic(topic).build();
+        LessonBlock block =
+                LessonBlock.builder()
+                        .id(blockId)
+                        .type(BlockType.SELECT_MEANING)
+                        .xpReward(50)
+                        .lesson(lesson)
+                        .build();
+        UserCourseEnrollment expired =
+                UserCourseEnrollment.builder()
+                        .status(EnrollmentStatus.ENROLLED)
+                        .accessExpiresAt(Instant.now().minus(1, ChronoUnit.DAYS))
+                        .build();
+
+        when(lessonBlockRepository.findWithCourseVersionById(blockId))
+                .thenReturn(Optional.of(block));
+        when(enrollmentRepository.findByUserIdAndCourseVersionId(userId, courseVersion.getId()))
+                .thenReturn(Optional.of(expired));
 
         assertThrows(
                 ForbiddenException.class,
@@ -457,6 +503,53 @@ class CourseTrackingServiceTest {
         verify(enrollmentRepository).save(enrollment);
         assertEquals(EnrollmentStatus.COMPLETED, enrollment.getStatus());
         assertNotNull(enrollment.getCompletedAt());
+    }
+
+    @Test
+    void shouldNotAwardXpForAnExerciseBlockWithoutXpReward() {
+        UUID blockId = UUID.randomUUID();
+        UUID otherBlockId = UUID.randomUUID();
+        Lesson lesson =
+                Lesson.builder()
+                        .id(UUID.randomUUID())
+                        .topic(Topic.builder().courseVersion(new CourseVersion()).build())
+                        .build();
+        LessonBlock block =
+                LessonBlock.builder()
+                        .id(blockId)
+                        .type(BlockType.INTRODUCE_SIGN)
+                        .lesson(lesson)
+                        .build();
+        LessonBlock otherBlock =
+                LessonBlock.builder()
+                        .id(otherBlockId)
+                        .type(BlockType.SELECT_MEANING)
+                        .xpReward(50)
+                        .lesson(lesson)
+                        .build();
+        lesson.setLessonBlocks(List.of(block, otherBlock));
+
+        when(blockSignExtractor.extract(block)).thenReturn(List.of());
+        when(lessonBlockRepository.findWithCourseVersionById(blockId))
+                .thenReturn(Optional.of(block));
+        when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, blockId))
+                .thenReturn(false, true);
+        when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, otherBlockId))
+                .thenReturn(false);
+        when(attemptRepository.save(any(LessonBlockAttempt.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(lessonProgressRepository.findByUserIdAndLessonId(userId, lesson.getId()))
+                .thenReturn(
+                        Optional.of(
+                                UserLessonProgress.builder()
+                                        .lesson(lesson)
+                                        .status(ProgressStatus.IN_PROGRESS)
+                                        .build()));
+
+        courseTrackingService.recordBlockInteraction(mockUser, blockId, true);
+
+        verify(eventPublisher, never()).publishEvent(any(XpEarnedEvent.class));
+        verify(attemptRepository).save(any(LessonBlockAttempt.class));
     }
 
     @Test

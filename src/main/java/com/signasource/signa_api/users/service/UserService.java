@@ -3,6 +3,7 @@ package com.signasource.signa_api.users.service;
 import com.signasource.signa_api.auth.repository.TokenRepository;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.notification.repository.DeviceTokenRepository;
+import com.signasource.signa_api.organizations.service.OrganizationMemberService;
 import com.signasource.signa_api.users.dto.RelationStatus;
 import com.signasource.signa_api.users.dto.UpdateUsernameRequest;
 import com.signasource.signa_api.users.dto.UserSearchResultResponse;
@@ -30,6 +31,7 @@ public class UserService {
     private final TokenRepository tokenRepository;
     private final DeviceTokenRepository deviceTokenRepository;
     private final FriendshipRepository friendshipRepository;
+    private final OrganizationMemberService organizationMemberService;
 
     public UsernameAvailabilityResponse checkUsernameAvailability(String username) {
         return new UsernameAvailabilityResponse(!userRepository.existsByUsername(username));
@@ -72,6 +74,7 @@ public class UserService {
 
         tokenRepository.deleteByUser(user);
         deviceTokenRepository.deleteByUser(user);
+        organizationMemberService.handleAccountDeletion(user);
     }
 
     /** Resolves each match against the caller. Users who blocked the caller are left out. */

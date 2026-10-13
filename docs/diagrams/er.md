@@ -431,10 +431,12 @@ erDiagram
 
 Una organización contrata cursos y todos sus miembros activos acceden al mismo conjunto; el
 progreso es individual. Un usuario pertenece a una sola organización: al salir la membresía queda
-como `REMOVED` (no se borra) y sus inscripciones pasan a `DROPPED`, así el progreso se conserva si
-vuelve. Un código de invitación con `email` es una invitación nominal de un solo uso. Los intentos
-de ejercicio hechos sobre cursos de la organización se etiquetan con ella para separar esa
-actividad de la propia del usuario.
+como `REMOVED` (no se borra) y sus inscripciones a cursos pagos pasan a `DROPPED`, así el progreso
+se conserva si vuelve (los cursos gratuitos sólo se desvinculan de la organización). Un código de
+invitación con `email` es una invitación nominal de un solo uso. Los intentos de ejercicio hechos
+sobre cursos de la organización se etiquetan con ella para separar esa actividad de la propia del
+usuario. `memberLimit` es el cupo de participantes activos (nulo = sin límite) y los datos de
+contacto/CUIT vienen del alta autogestionada.
 
 ```mermaid
 erDiagram
@@ -449,6 +451,11 @@ erDiagram
     ORGANIZATION {
         uuid id PK
         string name UK
+        enum status "PENDING | ACTIVE | REJECTED | SUSPENDED"
+        string cuit UK "11 dígitos, nulo si la creó SIGNA"
+        string contactEmail
+        string contactPhone
+        int memberLimit "nulo = sin límite"
         instant createdAt
     }
     ORGANIZATION_MEMBER {

@@ -2,11 +2,13 @@ package com.signasource.signa_api.organizations.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.learning.entity.Course;
 import com.signasource.signa_api.learning.entity.CourseVersion;
 import com.signasource.signa_api.learning.entity.VersionStatus;
@@ -53,6 +55,8 @@ class OrganizationContentScopeTest {
 
         assertTrue(scope.isEmpty());
         assertEquals(0, scope.totalLessons());
+        assertEquals(1, scope.courseIds().size());
+        assertEquals(1, scope.versionIds().size());
         verifyNoInteractions(courseVersionRepository, topicRepository);
     }
 
@@ -96,5 +100,42 @@ class OrganizationContentScopeTest {
         assertEquals(10L, scope.lessonsByVersion().get(version.getId()));
         assertEquals(4L, scope.lessonsByTopic().get(greetings));
         assertEquals(6L, scope.lessonsByTopic().get(numbers));
+    }
+
+    @Test
+    void shouldNarrowTheScopeToTheRequestedCourse() {
+        Course wanted = Course.builder().id(UUID.randomUUID()).build();
+        Course other = Course.builder().id(UUID.randomUUID()).build();
+        CourseVersion version =
+                CourseVersion.builder().id(UUID.randomUUID()).course(wanted).build();
+        when(organizationCourseRepository.findByOrganizationIdOrderByContractedAtAsc(
+                        organizationId))
+                .thenReturn(
+                        List.of(
+                                OrganizationCourse.builder().course(other).build(),
+                                OrganizationCourse.builder().course(wanted).build()));
+        when(courseVersionRepository.findByCourseIdInAndStatus(
+                        List.of(wanted.getId()), VersionStatus.PUBLISHED))
+                .thenReturn(List.of(version));
+        TopicLessonTotalView lessons = total(version.getId(), UUID.randomUUID(), 3);
+        when(topicRepository.findTopicLessonTotals(List.of(version.getId())))
+                .thenReturn(List.of(lessons));
+
+        ContentScope scope = contentScope.resolve(organizationId, wanted.getId());
+
+        assertEquals(List.of(wanted.getId()), scope.courseIds());
+        assertEquals(3, scope.totalLessons());
+    }
+
+    @Test
+    void shouldRejectACourseTheOrganizationDidNotContract() {
+        when(organizationCourseRepository.findByOrganizationIdOrderByContractedAtAsc(
+                        organizationId))
+                .thenReturn(List.of());
+
+        assertThrows(
+                NotFoundException.class,
+                () -> contentScope.resolve(organizationId, UUID.randomUUID()));
+        verifyNoInteractions(courseVersionRepository);
     }
 }

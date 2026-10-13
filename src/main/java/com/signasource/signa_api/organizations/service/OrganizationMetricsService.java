@@ -1,11 +1,16 @@
 package com.signasource.signa_api.organizations.service;
 
+import com.signasource.signa_api.common.ArgentinaTime;
+import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.entity.ProgressStatus;
 import com.signasource.signa_api.learning.entity.Topic;
 import com.signasource.signa_api.learning.repository.TopicRepository;
 import com.signasource.signa_api.organizations.dto.ModuleStatsResponse;
+import com.signasource.signa_api.organizations.dto.OrganizationActivityResponse;
+import com.signasource.signa_api.organizations.dto.OrganizationActivityResponse.ActivityFigures;
+import com.signasource.signa_api.organizations.dto.OrganizationActivityResponse.DailyActivity;
 import com.signasource.signa_api.organizations.dto.OrganizationOverviewResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationOverviewResponse.Participation;
 import com.signasource.signa_api.organizations.dto.OrganizationOverviewResponse.Performance;
@@ -17,7 +22,9 @@ import com.signasource.signa_api.organizations.repository.OrganizationMemberRepo
 import com.signasource.signa_api.organizations.repository.OrganizationMetricsRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationRepository;
 import com.signasource.signa_api.organizations.repository.projection.AttemptTotalsView;
+import com.signasource.signa_api.organizations.repository.projection.AttemptView;
 import com.signasource.signa_api.organizations.repository.projection.DailyAttemptStatsView;
+import com.signasource.signa_api.organizations.repository.projection.DailyMinutesView;
 import com.signasource.signa_api.organizations.repository.projection.TopicAttemptStatsView;
 import com.signasource.signa_api.organizations.repository.projection.TopicStatusCountView;
 import com.signasource.signa_api.organizations.repository.projection.UserAttemptStatsView;
@@ -33,8 +40,11 @@ import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -50,6 +60,7 @@ public class OrganizationMetricsService {
     static final int ACTIVE_WINDOW_DAYS = 7;
     private static final int ACTIVE_DAYS_WINDOW = 30;
     private static final int EVOLUTION_WEEKS = 8;
+    static final int MAX_ACTIVITY_DAYS = 93;
     private static final List<BlockType> SIGN_RECOGNITION_TYPES =
             List.of(BlockType.VISUAL_RECOGNITION, BlockType.PERFORM_SIGN);
 
@@ -61,9 +72,11 @@ public class OrganizationMetricsService {
     private final OrganizationContentScope contentScope;
 
     @Transactional(readOnly = true)
-    public OrganizationOverviewResponse getOverview(User actor, UUID organizationId) {
+    public OrganizationOverviewResponse getOverview(
+            User actor, UUID organizationId, UUID courseId) {
         accessService.requireManage(actor, organizationId);
         requireOrganization(organizationId);
+        ContentScope scope = contentScope.resolve(organizationId, courseId);
 
         List<UUID> userIds = participantIds(organizationId);
         LocalDate today = LocalDate.now(ZoneOffset.UTC);
@@ -74,11 +87,11 @@ public class OrganizationMetricsService {
                     new Performance(0, 0, 0, 0, evolution(List.of(), today)));
         }
 
-        ContentScope scope = contentScope.resolve(organizationId);
         long participants = userIds.size();
 
         List<UserAttemptStatsView> attemptStats =
-                metricsRepository.findAttemptStatsByUser(organizationId, userIds);
+                metricsRepository.findAttemptStatsByUser(
+                        organizationId, userIds, scope.courseIds());
         Instant activeSince = Instant.now().minus(ACTIVE_WINDOW_DAYS, ChronoUnit.DAYS);
         long active =
                 attemptStats.stream()
@@ -111,21 +124,17 @@ public class OrganizationMetricsService {
                         streaks.stream().filter(s -> s > 0).count(),
                         streaks.stream().mapToInt(Integer::intValue).max().orElse(0));
 
-        List<Long> completedPerUser = List.of();
-        long modulesCompleted = 0;
-        if (!scope.isEmpty()) {
-            completedPerUser =
-                    metricsRepository
-                            .findCompletedLessonCountsByUser(userIds, scope.versionIds())
-                            .stream()
-                            .map(UserCompletedLessonsView::getCompletedLessons)
-                            .toList();
-            modulesCompleted =
-                    metricsRepository.findTopicStatusCounts(userIds, scope.versionIds()).stream()
-                            .filter(c -> c.getStatus() == ProgressStatus.COMPLETED)
-                            .mapToLong(TopicStatusCountView::getUsers)
-                            .sum();
-        }
+        List<Long> completedPerUser =
+                metricsRepository
+                        .findCompletedLessonCountsByUser(userIds, scope.versionIds())
+                        .stream()
+                        .map(UserCompletedLessonsView::getCompletedLessons)
+                        .toList();
+        long modulesCompleted =
+                metricsRepository.findTopicStatusCounts(userIds, scope.versionIds()).stream()
+                        .filter(c -> c.getStatus() == ProgressStatus.COMPLETED)
+                        .mapToLong(TopicStatusCountView::getUsers)
+                        .sum();
         long completedLessons = completedPerUser.stream().mapToLong(Long::longValue).sum();
         long percentageSum =
                 completedPerUser.stream()
@@ -150,7 +159,7 @@ public class OrganizationMetricsService {
 
         AttemptTotalsView recognition =
                 metricsRepository.findAttemptTotalsByBlockTypes(
-                        organizationId, userIds, SIGN_RECOGNITION_TYPES);
+                        organizationId, userIds, scope.courseIds(), SIGN_RECOGNITION_TYPES);
         Performance performance =
                 new Performance(
                         exerciseAttempts,
@@ -159,18 +168,22 @@ public class OrganizationMetricsService {
                         MetricMath.percentage(recognition.getCorrect(), recognition.getEvaluated()),
                         evolution(
                                 metricsRepository.findDailyAttemptStats(
-                                        organizationId, userIds, evolutionStart(today)),
+                                        organizationId,
+                                        userIds,
+                                        scope.courseIds(),
+                                        evolutionStart(today)),
                                 today));
 
         return new OrganizationOverviewResponse(participation, progress, performance);
     }
 
     @Transactional(readOnly = true)
-    public List<ModuleStatsResponse> getModuleStats(User actor, UUID organizationId) {
+    public List<ModuleStatsResponse> getModuleStats(
+            User actor, UUID organizationId, UUID courseId) {
         accessService.requireManage(actor, organizationId);
         requireOrganization(organizationId);
 
-        ContentScope scope = contentScope.resolve(organizationId);
+        ContentScope scope = contentScope.resolve(organizationId, courseId);
         List<UUID> userIds = participantIds(organizationId);
         if (scope.isEmpty()) {
             return List.of();
@@ -189,7 +202,9 @@ public class OrganizationMetricsService {
                 }
             }
             attemptsByTopic =
-                    metricsRepository.findAttemptStatsByTopic(organizationId, userIds).stream()
+                    metricsRepository
+                            .findAttemptStatsByTopic(organizationId, userIds, scope.courseIds())
+                            .stream()
                             .collect(
                                     Collectors.toMap(
                                             TopicAttemptStatsView::getTopicId,
@@ -197,9 +212,14 @@ public class OrganizationMetricsService {
         }
 
         List<ModuleStatsResponse> result = new ArrayList<>();
-        for (Topic topic :
-                topicRepository.findByCourseVersionIdInOrderByCourseVersionIdAscOrderAsc(
-                        scope.versionIds())) {
+        List<Topic> topics =
+                topicRepository
+                        .findByCourseVersionIdInOrderByCourseVersionIdAscOrderAsc(
+                                scope.versionIds())
+                        .stream()
+                        .sorted(scope.topicOrder())
+                        .toList();
+        for (Topic topic : topics) {
             long completed = completedByTopic.getOrDefault(topic.getId(), 0L);
             TopicAttemptStatsView attempts = attemptsByTopic.get(topic.getId());
             long evaluated = attempts == null ? 0 : attempts.getEvaluated();
@@ -219,6 +239,99 @@ public class OrganizationMetricsService {
                                     attempts == null ? 0 : attempts.getCorrect(), evaluated)));
         }
         return result;
+    }
+
+    /**
+     * Day-by-day activity of the current participants between {@code from} and {@code to}
+     * (inclusive), in Argentina's calendar. Learning minutes come from the daily activity log,
+     * which is not split by organization or course.
+     */
+    @Transactional(readOnly = true)
+    public OrganizationActivityResponse getActivity(
+            User actor, UUID organizationId, UUID courseId, LocalDate from, LocalDate to) {
+        accessService.requireManage(actor, organizationId);
+        requireOrganization(organizationId);
+        if (from.isAfter(to)) {
+            throw new InvalidInputException("'from' must not be after 'to'");
+        }
+        if (ChronoUnit.DAYS.between(from, to) >= MAX_ACTIVITY_DAYS) {
+            throw new InvalidInputException(
+                    "The period cannot be longer than " + MAX_ACTIVITY_DAYS + " days");
+        }
+        ContentScope scope = contentScope.resolve(organizationId, courseId);
+        List<UUID> userIds = participantIds(organizationId);
+
+        Map<LocalDate, DayTally> days = new TreeMap<>();
+        for (LocalDate day = from; !day.isAfter(to); day = day.plusDays(1)) {
+            days.put(day, new DayTally());
+        }
+        DayTally total = new DayTally();
+        if (!userIds.isEmpty()) {
+            Instant start = from.atStartOfDay(ArgentinaTime.ZONE).toInstant();
+            Instant end = to.plusDays(1).atStartOfDay(ArgentinaTime.ZONE).toInstant();
+            for (AttemptView attempt :
+                    metricsRepository.findAttemptsBetween(
+                            organizationId, userIds, scope.courseIds(), start, end)) {
+                DayTally day = days.get(ArgentinaTime.dayOf(attempt.getAttemptedAt()));
+                if (day != null) {
+                    day.add(attempt);
+                    total.add(attempt);
+                }
+            }
+            for (Instant completedAt :
+                    metricsRepository.findLessonCompletionsBetween(
+                            userIds, scope.versionIds(), start, end)) {
+                DayTally day = days.get(ArgentinaTime.dayOf(completedAt));
+                if (day != null) {
+                    day.lessons++;
+                    total.lessons++;
+                }
+            }
+            for (DailyMinutesView minutes : metricsRepository.findDailyMinutes(userIds, from, to)) {
+                DayTally day = days.get(minutes.getDay());
+                if (day != null) {
+                    day.minutes += minutes.getMinutes();
+                    total.minutes += minutes.getMinutes();
+                }
+            }
+        }
+
+        return new OrganizationActivityResponse(
+                from,
+                to,
+                total.figures(),
+                days.entrySet().stream()
+                        .map(e -> new DailyActivity(e.getKey(), e.getValue().figures()))
+                        .toList());
+    }
+
+    /** Running totals for one day (or the whole period). */
+    private static final class DayTally {
+        private final Set<UUID> people = new HashSet<>();
+        private long exercises;
+        private long correct;
+        private long lessons;
+        private long minutes;
+
+        void add(AttemptView attempt) {
+            people.add(attempt.getUserId());
+            if (attempt.getIsCorrect() != null) {
+                exercises++;
+                if (attempt.getIsCorrect()) {
+                    correct++;
+                }
+            }
+        }
+
+        ActivityFigures figures() {
+            return new ActivityFigures(
+                    people.size(),
+                    exercises,
+                    correct,
+                    MetricMath.percentage(correct, exercises),
+                    lessons,
+                    minutes);
+        }
     }
 
     private List<UUID> participantIds(UUID organizationId) {

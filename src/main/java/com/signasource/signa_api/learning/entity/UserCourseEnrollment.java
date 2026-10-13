@@ -67,6 +67,12 @@ public class UserCourseEnrollment {
 
     @Column private Instant accessExpiresAt;
 
+    /** Whether the learner can still use this course: not revoked and access not lapsed. */
+    public boolean grantsAccess(Instant now) {
+        return status != EnrollmentStatus.DROPPED
+                && (accessExpiresAt == null || accessExpiresAt.isAfter(now));
+    }
+
     @PrePersist
     protected void onCreate() {
         this.startedAt = Instant.now();

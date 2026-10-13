@@ -1,5 +1,6 @@
 package com.signasource.signa_api.organizations.service;
 
+import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.gamification.entity.UserStats;
@@ -11,11 +12,14 @@ import com.signasource.signa_api.learning.repository.CourseRepository;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.organizations.dto.CreateOrganizationRequest;
 import com.signasource.signa_api.organizations.dto.MyOrganizationResponse;
+import com.signasource.signa_api.organizations.dto.OrganizationAdminResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationCourseResponse;
+import com.signasource.signa_api.organizations.dto.OrganizationDetailResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationPricingResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationResponse;
 import com.signasource.signa_api.organizations.dto.RegisterOrganizationRequest;
 import com.signasource.signa_api.organizations.dto.RegisterOrganizationResponse;
+import com.signasource.signa_api.organizations.dto.UpdateOrganizationRequest;
 import com.signasource.signa_api.organizations.entity.MemberRole;
 import com.signasource.signa_api.organizations.entity.MemberStatus;
 import com.signasource.signa_api.organizations.entity.Organization;
@@ -48,6 +52,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class OrganizationService {
 
+    private static final int CUIT_DIGITS = 11;
+
     private final OrganizationRepository organizationRepository;
     private final OrganizationCourseRepository organizationCourseRepository;
     private final OrganizationMemberRepository memberRepository;
@@ -70,8 +76,55 @@ public class OrganizationService {
                     "An organization with this name already exists");
         }
 
-        Organization organization = Organization.builder().name(request.name()).build();
+        // Created by SIGNA after the deal is closed, so it needs no approval step.
+        Organization organization =
+                Organization.builder()
+                        .name(request.name())
+                        .status(OrganizationStatus.ACTIVE)
+                        .build();
         return OrganizationResponse.from(organizationRepository.save(organization));
+    }
+
+    @Transactional(readOnly = true)
+    public OrganizationDetailResponse getOrganization(User actor, UUID organizationId) {
+        accessService.requireManage(actor, organizationId);
+        return detail(findOrganization(organizationId));
+    }
+
+    @Transactional
+    public OrganizationDetailResponse updateOrganization(
+            UUID organizationId, UpdateOrganizationRequest request) {
+        Organization organization = findOrganization(organizationId);
+
+        if (request.name() != null && !request.name().equalsIgnoreCase(organization.getName())) {
+            if (organizationRepository.existsByNameIgnoreCase(request.name())) {
+                throw new ResourceAlreadyInUseException(
+                        "An organization with this name already exists");
+            }
+            organization.setName(request.name());
+        }
+        if (request.memberLimit() != null) {
+            long activeMembers = activeMembers(organizationId);
+            if (request.memberLimit() < activeMembers) {
+                throw new InvalidInputException(
+                        "Member limit cannot be lower than the current "
+                                + activeMembers
+                                + " active members");
+            }
+            organization.setMemberLimit(request.memberLimit());
+        }
+        return detail(organizationRepository.save(organization));
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrganizationAdminResponse> getAdmins(User actor, UUID organizationId) {
+        accessService.requireManage(actor, organizationId);
+        return memberRepository
+                .findByOrganizationIdAndRoleAndStatus(
+                        organizationId, MemberRole.ADMIN, MemberStatus.ACTIVE)
+                .stream()
+                .map(OrganizationAdminResponse::from)
+                .toList();
     }
 
     @Transactional
@@ -178,6 +231,7 @@ public class OrganizationService {
         return new MyOrganizationResponse(
                 organization.getId(),
                 organization.getName(),
+                organization.getStatus(),
                 member.getRole(),
                 member.getJoinedAt(),
                 courses);
@@ -185,15 +239,21 @@ public class OrganizationService {
 
     @Transactional
     public RegisterOrganizationResponse registerOrganization(RegisterOrganizationRequest request) {
+        // "20-12345678-9" and "20123456789" are the same CUIT; store it in one canonical form.
+        String cuit = request.cuit().replaceAll("\\D", "");
+        if (cuit.length() != CUIT_DIGITS) {
+            throw new InvalidInputException("CUIT must have 11 digits");
+        }
+        String contactEmail = request.contactEmail().trim().toLowerCase();
         if (organizationRepository.existsByNameIgnoreCase(request.orgName())) {
             throw new ResourceAlreadyInUseException(
                     "An organization with this name already exists");
         }
-        if (organizationRepository.existsByCuit(request.cuit())) {
+        if (organizationRepository.existsByCuit(cuit)) {
             throw new ResourceAlreadyInUseException(
                     "An organization with this CUIT already exists");
         }
-        if (userRepository.existsByEmail(request.contactEmail())) {
+        if (userRepository.existsByEmail(contactEmail)) {
             throw new ResourceAlreadyInUseException("Email already in use");
         }
 
@@ -216,7 +276,7 @@ public class OrganizationService {
 
         User adminUser =
                 User.builder()
-                        .email(request.contactEmail())
+                        .email(contactEmail)
                         .username(username)
                         .passwordHash(passwordEncoder.encode(request.adminPassword()))
                         .name(request.adminName())
@@ -235,8 +295,8 @@ public class OrganizationService {
         Organization organization =
                 Organization.builder()
                         .name(request.orgName())
-                        .cuit(request.cuit())
-                        .contactEmail(request.contactEmail())
+                        .cuit(cuit)
+                        .contactEmail(contactEmail)
                         .contactPhone(request.contactPhone())
                         .memberLimit(request.memberLimit())
                         .status(OrganizationStatus.PENDING)
@@ -257,6 +317,15 @@ public class OrganizationService {
 
     public OrganizationPricingResponse getPricing() {
         return new OrganizationPricingResponse(pricePerPerson, "ARS");
+    }
+
+    private OrganizationDetailResponse detail(Organization organization) {
+        return OrganizationDetailResponse.from(organization, activeMembers(organization.getId()));
+    }
+
+    private long activeMembers(UUID organizationId) {
+        return memberRepository.countByOrganizationIdAndRoleAndStatus(
+                organizationId, MemberRole.MEMBER, MemberStatus.ACTIVE);
     }
 
     private Organization findOrganization(UUID organizationId) {

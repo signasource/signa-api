@@ -15,12 +15,17 @@ import com.signasource.signa_api.organizations.dto.CreateOrganizationRequest;
 import com.signasource.signa_api.organizations.dto.InviteByEmailRequest;
 import com.signasource.signa_api.organizations.dto.InviteCodeResponse;
 import com.signasource.signa_api.organizations.dto.MyOrganizationResponse;
+import com.signasource.signa_api.organizations.dto.OrganizationAdminResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationCourseResponse;
+import com.signasource.signa_api.organizations.dto.OrganizationDetailResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationResponse;
 import com.signasource.signa_api.organizations.dto.RedeemInviteCodeRequest;
 import com.signasource.signa_api.organizations.dto.RedeemInviteCodeResponse;
+import com.signasource.signa_api.organizations.dto.UpdateOrganizationRequest;
 import com.signasource.signa_api.organizations.entity.MemberRole;
+import com.signasource.signa_api.organizations.entity.OrganizationStatus;
 import com.signasource.signa_api.organizations.service.InviteCodeService;
+import com.signasource.signa_api.organizations.service.OrganizationMemberService;
 import com.signasource.signa_api.organizations.service.OrganizationService;
 import com.signasource.signa_api.users.entity.User;
 import java.util.List;
@@ -39,6 +44,7 @@ class OrganizationControllerTest {
 
     @Mock private OrganizationService organizationService;
     @Mock private InviteCodeService inviteCodeService;
+    @Mock private OrganizationMemberService memberService;
 
     @InjectMocks private OrganizationController organizationController;
 
@@ -80,7 +86,7 @@ class OrganizationControllerTest {
     void shouldReturnTheCallersOrganization() {
         stubPrincipal();
         MyOrganizationResponse response =
-                new MyOrganizationResponse(organizationId, "Hospital", null, null, List.of());
+                new MyOrganizationResponse(organizationId, "Hospital", null, null, null, List.of());
         when(organizationService.getMyOrganization(mockUser)).thenReturn(response);
 
         ResponseEntity<MyOrganizationResponse> result =
@@ -223,5 +229,80 @@ class OrganizationControllerTest {
 
         assertEquals(HttpStatus.OK, result.getStatusCode());
         assertSame(response, result.getBody());
+    }
+
+    private OrganizationDetailResponse detail() {
+        return new OrganizationDetailResponse(
+                organizationId,
+                "Hospital",
+                OrganizationStatus.ACTIVE,
+                "30123456789",
+                "rrhh@hospital.com",
+                null,
+                50,
+                3,
+                null);
+    }
+
+    @Test
+    void shouldReturnOrganizationDetail() {
+        stubPrincipal();
+        OrganizationDetailResponse detail = detail();
+        when(organizationService.getOrganization(mockUser, organizationId)).thenReturn(detail);
+
+        ResponseEntity<OrganizationDetailResponse> result =
+                organizationController.getOrganization(organizationId, mockUserDetails);
+
+        assertEquals(HttpStatus.OK, result.getStatusCode());
+        assertSame(detail, result.getBody());
+    }
+
+    @Test
+    void shouldReturn200WhenUpdatingOrganization() {
+        UpdateOrganizationRequest request = new UpdateOrganizationRequest(null, 10);
+        OrganizationDetailResponse detail = detail();
+        when(organizationService.updateOrganization(organizationId, request)).thenReturn(detail);
+
+        ResponseEntity<OrganizationDetailResponse> result =
+                organizationController.updateOrganization(organizationId, request);
+
+        assertEquals(HttpStatus.OK, result.getStatusCode());
+        assertSame(detail, result.getBody());
+    }
+
+    @Test
+    void shouldReturn204WhenLeavingOrganization() {
+        stubPrincipal();
+
+        ResponseEntity<Void> result = organizationController.leaveOrganization(mockUserDetails);
+
+        assertEquals(HttpStatus.NO_CONTENT, result.getStatusCode());
+        verify(memberService).leave(mockUser);
+    }
+
+    @Test
+    void shouldListOrganizationAdmins() {
+        stubPrincipal();
+        List<OrganizationAdminResponse> admins =
+                List.of(
+                        new OrganizationAdminResponse(
+                                UUID.randomUUID(), "Ana", "Paz", "ana@hospital.com", null));
+        when(organizationService.getAdmins(mockUser, organizationId)).thenReturn(admins);
+
+        ResponseEntity<List<OrganizationAdminResponse>> result =
+                organizationController.getAdmins(organizationId, mockUserDetails);
+
+        assertEquals(HttpStatus.OK, result.getStatusCode());
+        assertSame(admins, result.getBody());
+    }
+
+    @Test
+    void shouldReturn204WhenRemovingAdmin() {
+        UUID userId = UUID.randomUUID();
+
+        ResponseEntity<Void> result = organizationController.removeAdmin(organizationId, userId);
+
+        assertEquals(HttpStatus.NO_CONTENT, result.getStatusCode());
+        verify(memberService).removeAdmin(organizationId, userId);
     }
 }
