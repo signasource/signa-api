@@ -1,6 +1,7 @@
 topic:
   code: unidad-1
-  name: "Unidad 1: Personas, espacios y rutinas escolares"
+  title: "Unidad 1"
+  subtitle: "Personas, espacios y rutinas escolares"
   description: "Aprende el vocabulario fundamental sobre la gente, los lugares y las rutinas de la escuela."
 
 lessons:
@@ -43,6 +44,24 @@ lessons:
             - maestro
             - profesor
             - alumnos
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: director
+          options:
+            - alumnos
+            - profesor
+            - director
+            - maestro
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: profesor
+          options:
+            - alumnos
+            - director
+            - profesor
+            - maestro
       - type: CONTEXT_RESPONSE
         xp: 15
         config:
@@ -57,26 +76,6 @@ lessons:
         xp: 20
         config:
           concepts:
-            - alumnos
-            - director
-            - maestro
-            - profesor
-      - type: VISUAL_RECOGNITION
-        xp: 15
-        config:
-          signSequence:
-            - maestro
-            - alumnos
-          options:
-            - maestro
-            - alumnos
-            - director
-            - profesor
-          keepOrder: true
-      - type: PERFORM_SIGN
-        xp: 15
-        config:
-          signs:
             - alumnos
             - director
             - maestro
@@ -111,6 +110,7 @@ lessons:
             - aula
             - escuela
             - clase
+            - silla de ruedas
       - type: SELECT_MEANING
         xp: 10
         config:
@@ -120,23 +120,28 @@ lessons:
             - silla de ruedas
             - clase
             - escuela
-      - type: VISUAL_RECOGNITION
-        xp: 15
+      - type: SELECT_MEANING
+        xp: 10
         config:
-          signSequence:
-            - escuela
-            - aula
+          sign: escuela
+          options:
             - clase
+            - aula
+            - escuela
+            - silla de ruedas
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: clase
           options:
             - escuela
             - silla de ruedas
             - aula
             - clase
-          keepOrder: true
-      - type: PERFORM_SIGN
-        xp: 15
+      - type: MATCH
+        xp: 20
         config:
-          signs:
+          concepts:
             - escuela
             - aula
             - clase
@@ -193,6 +198,24 @@ lessons:
             - soga
             - tobogan
             - hamaca
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: tobogan
+          options:
+            - hamaca
+            - pelota
+            - soga
+            - tobogan
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: soga
+          options:
+            - recreo
+            - tobogan
+            - soga
+            - izar la bandera
       - type: MATCH
         xp: 20
         config:
@@ -202,30 +225,3 @@ lessons:
             - formar fila
             - pelota
             - tobogan
-      - type: VISUAL_RECOGNITION
-        xp: 15
-        config:
-          signSequence:
-            - recreo
-            - hamaca
-            - pelota
-          options:
-            - recreo
-            - formar fila
-            - izar la bandera
-            - pelota
-            - soga
-            - hamaca
-            - tobogan
-          keepOrder: false
-      - type: PERFORM_SIGN
-        xp: 15
-        config:
-          signs:
-            - recreo
-            - izar la bandera
-            - formar fila
-            - hamaca
-            - tobogan
-            - pelota
-            - soga
