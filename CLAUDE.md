@@ -170,7 +170,8 @@ Resumen de alta prioridad; el detalle y los ejemplos están en los bloques sigui
   lo pone `true`). Una cuenta sin verificar **sí** puede iniciar sesión.
 - **Baja de cuenta** (`UserService.deleteAccount`, `DELETE /users/me`): borra los tokens, los device
   tokens y **todos los datos personales y de actividad** (`AccountErasureRepository`: progreso, intentos,
-  stats, logros, desafíos, amistades, likes, notificaciones, settings, membresía de org) y **anonimiza** la
+  stats, logros, desafíos, amistades, likes, notificaciones, settings, membresía de org y los
+  `InviteCode` atados al email del usuario, que no tienen FK y se buscan por email antes de anonimizarlo) y **anonimiza** la
   fila de `users` (`enabled = false`, email/username `deleted_<id>`, nombre "Usuario eliminado", hash
   inválido, visibilidad `PRIVATE`). La fila queda solo para que `Purchase`, `GemPurchase` y `Gift`
   (registros financieros) conserven su FK. **Si agregás una entidad con FK a `User`, sumala a

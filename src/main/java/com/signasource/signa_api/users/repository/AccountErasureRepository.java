@@ -41,6 +41,11 @@ public class AccountErasureRepository {
                 .createQuery("delete from FriendEventLike l where l.eventOwnerId = :id")
                 .setParameter("id", user.getId())
                 .executeUpdate();
+        // Invite codes bind to an email, not a user id, so they only match while it is still real.
+        entityManager
+                .createQuery("delete from InviteCode c where lower(c.email) = :email")
+                .setParameter("email", user.getEmail().toLowerCase())
+                .executeUpdate();
         entityManager
                 .createQuery(
                         "delete from Friendship f where f.requester = :user or f.addressee = :user")

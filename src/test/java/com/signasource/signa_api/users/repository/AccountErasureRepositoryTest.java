@@ -1,11 +1,16 @@
 package com.signasource.signa_api.users.repository;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.signasource.signa_api.gamification.entity.UserStats;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
+import com.signasource.signa_api.organizations.entity.InviteCode;
+import com.signasource.signa_api.organizations.entity.Organization;
+import com.signasource.signa_api.organizations.repository.InviteCodeRepository;
+import com.signasource.signa_api.organizations.repository.OrganizationRepository;
 import com.signasource.signa_api.users.entity.Friendship;
 import com.signasource.signa_api.users.entity.FriendshipStatus;
 import com.signasource.signa_api.users.entity.User;
@@ -35,6 +40,8 @@ class AccountErasureRepositoryTest {
     @Autowired private FriendshipRepository friendshipRepository;
     @Autowired private UserDailyActivityRepository dailyActivityRepository;
     @Autowired private UserStatsRepository userStatsRepository;
+    @Autowired private InviteCodeRepository inviteCodeRepository;
+    @Autowired private OrganizationRepository organizationRepository;
     @Autowired private EntityManager entityManager;
 
     private User leaving;
@@ -67,6 +74,21 @@ class AccountErasureRepositoryTest {
     }
 
     @Test
+    void shouldDeleteInviteCodesBoundToTheLeavingUsersEmailOnly() {
+        Organization org = organizationRepository.save(Organization.builder().name("Acme").build());
+        inviteCodeRepository.save(code(org, "MINE1", leaving.getEmail().toUpperCase()));
+        inviteCodeRepository.save(code(org, "OTHER1", staying.getEmail()));
+        inviteCodeRepository.save(code(org, "SHARED1", null));
+
+        accountErasureRepository.deleteUserData(leaving);
+        entityManager.flush();
+
+        assertFalse(inviteCodeRepository.existsByCode("MINE1"));
+        assertTrue(inviteCodeRepository.existsByCode("OTHER1"));
+        assertTrue(inviteCodeRepository.existsByCode("SHARED1"));
+    }
+
+    @Test
     void shouldRunWithoutErrorsWhenTheUserHasNoData() {
         accountErasureRepository.deleteUserData(leaving);
         entityManager.flush();
@@ -93,6 +115,10 @@ class AccountErasureRepositoryTest {
                         .enabled(true)
                         .verified(true)
                         .build());
+    }
+
+    private InviteCode code(Organization org, String value, String email) {
+        return InviteCode.builder().code(value).organization(org).email(email).build();
     }
 
     private Friendship friendship(User requester, User addressee) {
