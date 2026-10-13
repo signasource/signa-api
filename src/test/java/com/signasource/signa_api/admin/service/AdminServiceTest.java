@@ -20,6 +20,7 @@ import com.signasource.signa_api.admin.dto.UpdateUserRequest;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
+import com.signasource.signa_api.gamification.repository.UserStatsRepository;
 import com.signasource.signa_api.learning.entity.Handedness;
 import com.signasource.signa_api.learning.entity.ReportReason;
 import com.signasource.signa_api.learning.entity.ReportStatus;
@@ -76,6 +77,7 @@ class AdminServiceTest {
     @Mock private WaitlistRepository waitlistRepository;
     @Mock private CourseRepository courseRepository;
     @Mock private SignRepository signRepository;
+    @Mock private UserStatsRepository userStatsRepository;
     @Mock private PasswordEncoder passwordEncoder;
 
     @InjectMocks private AdminService adminService;
