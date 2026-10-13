@@ -35,13 +35,43 @@ stateDiagram-v2
 
 ## Inscripción a un curso
 
+Por cuenta propia sólo se puede inscribir en cursos gratuitos; a los pagos se llega a través de una
+organización. Una inscripción dada por una organización puede tener fecha de vencimiento: vencida,
+deja de dar acceso aunque siga en `Inscripto`.
+
 ```mermaid
 stateDiagram-v2
-    [*] --> Inscripto : inscribirse
+    [*] --> Inscripto : inscribirse (gratuito) o ingresar a una organización
     Inscripto --> Completado : completar el curso
-    Inscripto --> Abandonado : abandonar
+    Inscripto --> Abandonado : la organización lo quita o descontrata el curso
+    Abandonado --> Inscripto : vuelve a ingresar a la organización
     Completado --> [*]
     Abandonado --> [*]
+```
+
+## Organización
+
+Las que crea SIGNA nacen activas; las que se registran solas desde la web quedan pendientes hasta
+que SIGNA las revisa desde su panel: al aprobarlas elige en el mismo paso qué cursos contratan.
+Mientras no esté activa, su administrador puede entrar al panel, pero no se pueden generar
+invitaciones de participantes ni sumarse participantes.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Pendiente : alta autogestionada
+    [*] --> Activa : alta por SIGNA
+    Pendiente --> Activa : SIGNA la aprueba (y contrata cursos)
+    Pendiente --> Rechazada : SIGNA la rechaza
+    Activa --> Suspendida : SIGNA la suspende
+```
+
+## Membresía en una organización
+
+```mermaid
+stateDiagram-v2
+    [*] --> Activa : canjear código (si hay cupo)
+    Activa --> Removida : la organización lo quita, sale por su cuenta o da de baja la cuenta
+    Removida --> Activa : canjear un código de nuevo
 ```
 
 ## Progreso de tema y de lección

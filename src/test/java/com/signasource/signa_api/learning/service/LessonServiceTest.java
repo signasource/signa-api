@@ -18,6 +18,7 @@ import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import com.signasource.signa_api.learning.repository.LessonRepository;
 import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
 import com.signasource.signa_api.users.entity.User;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -135,6 +136,24 @@ class LessonServiceTest {
         when(enrollmentRepository.findByUserIdAndCourseVersionId(mockUser.getId(), versionId))
                 .thenReturn(Optional.empty());
 
+        assertThrows(
+                ForbiddenException.class, () -> lessonService.getLessonContent(mockUser, lessonId));
+    }
+
+    @Test
+    void shouldThrowForbiddenWhenEnrollmentWasRevokedOrExpired() {
+        lesson.setLessonBlocks(List.of());
+        when(lessonRepository.findById(lessonId)).thenReturn(Optional.of(lesson));
+        UserCourseEnrollment dropped = new UserCourseEnrollment();
+        dropped.setStatus(EnrollmentStatus.DROPPED);
+        UserCourseEnrollment expired = new UserCourseEnrollment();
+        expired.setStatus(EnrollmentStatus.ENROLLED);
+        expired.setAccessExpiresAt(Instant.now().minusSeconds(60));
+        when(enrollmentRepository.findByUserIdAndCourseVersionId(mockUser.getId(), versionId))
+                .thenReturn(Optional.of(dropped), Optional.of(expired));
+
+        assertThrows(
+                ForbiddenException.class, () -> lessonService.getLessonContent(mockUser, lessonId));
         assertThrows(
                 ForbiddenException.class, () -> lessonService.getLessonContent(mockUser, lessonId));
     }

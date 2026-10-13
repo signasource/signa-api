@@ -61,9 +61,20 @@ public class OrganizationEnrollmentService {
 
     @Transactional
     public void revokeCourseFromMembers(UUID organizationId, UUID courseId) {
-        enrollmentRepository
-                .findByOrganizationIdAndCourseVersionCourseId(organizationId, courseId)
-                .forEach(this::drop);
+        for (UserCourseEnrollment enrollment :
+                enrollmentRepository.findByOrganizationIdAndCourseVersionCourseId(
+                        organizationId, courseId)) {
+            drop(enrollment);
+            User user = enrollment.getUser();
+            boolean lostCurrentCourse =
+                    enrollment.getStatus() == EnrollmentStatus.DROPPED
+                            && user.getCurrentCourse() != null
+                            && user.getCurrentCourse().getId().equals(courseId);
+            if (lostCurrentCourse) {
+                user.setCurrentCourse(null);
+                userRepository.save(user);
+            }
+        }
     }
 
     @Transactional
@@ -76,6 +87,7 @@ public class OrganizationEnrollmentService {
         boolean currentWasRevoked =
                 current != null
                         && enrollments.stream()
+                                .filter(e -> e.getStatus() == EnrollmentStatus.DROPPED)
                                 .anyMatch(
                                         e ->
                                                 e.getCourseVersion()
@@ -114,12 +126,22 @@ public class OrganizationEnrollmentService {
             enrollment.setStatus(EnrollmentStatus.ENROLLED);
         }
         enrollment.setOrganization(organization);
-        enrollment.setAccessExpiresAt(accessExpiresAt);
+        // A free course is open to everyone, so the organization can't put an end date on it.
+        enrollment.setAccessExpiresAt(course.isFree() ? null : accessExpiresAt);
         enrollmentRepository.save(enrollment);
     }
 
+    /**
+     * Free courses are only detached from the organization: the learner could have joined them on
+     * their own, and dropping one would lock them out of a course that is open to everyone.
+     */
     private void drop(UserCourseEnrollment enrollment) {
-        enrollment.setStatus(EnrollmentStatus.DROPPED);
+        if (enrollment.getCourseVersion().getCourse().isFree()) {
+            enrollment.setOrganization(null);
+            enrollment.setAccessExpiresAt(null);
+        } else {
+            enrollment.setStatus(EnrollmentStatus.DROPPED);
+        }
         enrollmentRepository.save(enrollment);
     }
 }

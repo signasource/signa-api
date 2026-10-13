@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.learning.entity.Course;
 import com.signasource.signa_api.learning.entity.CourseVersion;
@@ -18,6 +19,8 @@ import com.signasource.signa_api.learning.entity.ProgressStatus;
 import com.signasource.signa_api.learning.entity.Topic;
 import com.signasource.signa_api.learning.repository.TopicRepository;
 import com.signasource.signa_api.organizations.dto.ModuleStatsResponse;
+import com.signasource.signa_api.organizations.dto.OrganizationActivityResponse;
+import com.signasource.signa_api.organizations.dto.OrganizationActivityResponse.ActivityFigures;
 import com.signasource.signa_api.organizations.dto.OrganizationOverviewResponse;
 import com.signasource.signa_api.organizations.dto.WeeklyPerformanceResponse;
 import com.signasource.signa_api.organizations.entity.MemberRole;
@@ -27,7 +30,9 @@ import com.signasource.signa_api.organizations.repository.OrganizationMemberRepo
 import com.signasource.signa_api.organizations.repository.OrganizationMetricsRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationRepository;
 import com.signasource.signa_api.organizations.repository.projection.AttemptTotalsView;
+import com.signasource.signa_api.organizations.repository.projection.AttemptView;
 import com.signasource.signa_api.organizations.repository.projection.DailyAttemptStatsView;
+import com.signasource.signa_api.organizations.repository.projection.DailyMinutesView;
 import com.signasource.signa_api.organizations.repository.projection.TopicAttemptStatsView;
 import com.signasource.signa_api.organizations.repository.projection.TopicStatusCountView;
 import com.signasource.signa_api.organizations.repository.projection.UserAttemptStatsView;
@@ -37,6 +42,7 @@ import com.signasource.signa_api.organizations.service.OrganizationContentScope.
 import com.signasource.signa_api.users.entity.User;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -146,14 +152,15 @@ class OrganizationMetricsServiceTest {
     void shouldReturnAnEmptyOverviewWhenTheOrganizationHasNoParticipants() {
         stubParticipants();
 
-        OrganizationOverviewResponse result = metricsService.getOverview(actor, organizationId);
+        OrganizationOverviewResponse result =
+                metricsService.getOverview(actor, organizationId, null);
 
         verify(accessService).requireManage(actor, organizationId);
         assertEquals(0, result.participation().totalParticipants());
         assertEquals(0, result.progress().averageProgressPercentage());
         assertEquals(0, result.performance().exerciseAttempts());
         assertEquals(8, result.performance().weeklyEvolution().size());
-        verifyNoInteractions(metricsRepository, contentScope);
+        verifyNoInteractions(metricsRepository);
     }
 
     @Test
@@ -169,12 +176,12 @@ class OrganizationMetricsServiceTest {
         when(recognition.getEvaluated()).thenReturn(4L);
         when(recognition.getCorrect()).thenReturn(1L);
 
-        when(contentScope.resolve(organizationId)).thenReturn(scope);
+        when(contentScope.resolve(organizationId, null)).thenReturn(scope);
         UserAttemptStatsView recentStats =
                 attemptStats(Instant.now().minus(1, ChronoUnit.DAYS), 6, 5);
         UserAttemptStatsView staleStats =
                 attemptStats(Instant.now().minus(30, ChronoUnit.DAYS), 4, 3);
-        when(metricsRepository.findAttemptStatsByUser(organizationId, ids))
+        when(metricsRepository.findAttemptStatsByUser(organizationId, ids, scope.courseIds()))
                 .thenReturn(List.of(recentStats, staleStats));
         when(metricsRepository.findCurrentStreaks(ids)).thenReturn(List.of(5, 0));
         UserCountView tenDays = count(10);
@@ -193,12 +200,14 @@ class OrganizationMetricsServiceTest {
         TopicStatusCountView inProgressTopics = statusCount(ProgressStatus.IN_PROGRESS, 1, null);
         when(metricsRepository.findTopicStatusCounts(ids, scope.versionIds()))
                 .thenReturn(List.of(completedTopics, inProgressTopics));
-        when(metricsRepository.findAttemptTotalsByBlockTypes(eq(organizationId), eq(ids), any()))
+        when(metricsRepository.findAttemptTotalsByBlockTypes(
+                        eq(organizationId), eq(ids), any(), any()))
                 .thenReturn(recognition);
-        when(metricsRepository.findDailyAttemptStats(eq(organizationId), eq(ids), any()))
+        when(metricsRepository.findDailyAttemptStats(eq(organizationId), eq(ids), any(), any()))
                 .thenReturn(List.of(todayStats));
 
-        OrganizationOverviewResponse result = metricsService.getOverview(actor, organizationId);
+        OrganizationOverviewResponse result =
+                metricsService.getOverview(actor, organizationId, null);
 
         assertEquals(2, result.participation().totalParticipants());
         assertEquals(1, result.participation().activeParticipants());
@@ -238,18 +247,21 @@ class OrganizationMetricsServiceTest {
         when(none.getEvaluated()).thenReturn(0L);
         when(none.getCorrect()).thenReturn(0L);
 
-        when(contentScope.resolve(organizationId))
+        when(contentScope.resolve(organizationId, null))
                 .thenReturn(new ContentScope(List.of(), Map.of(), Map.of(), 0));
-        when(metricsRepository.findAttemptStatsByUser(organizationId, ids)).thenReturn(List.of());
+        when(metricsRepository.findAttemptStatsByUser(eq(organizationId), eq(ids), any()))
+                .thenReturn(List.of());
         when(metricsRepository.findCurrentStreaks(ids)).thenReturn(List.of());
         when(metricsRepository.findActiveDaysByUser(eq(ids), any())).thenReturn(List.of());
         when(metricsRepository.findLearningMinutesByUser(ids)).thenReturn(List.of());
-        when(metricsRepository.findAttemptTotalsByBlockTypes(eq(organizationId), eq(ids), any()))
+        when(metricsRepository.findAttemptTotalsByBlockTypes(
+                        eq(organizationId), eq(ids), any(), any()))
                 .thenReturn(none);
-        when(metricsRepository.findDailyAttemptStats(eq(organizationId), eq(ids), any()))
+        when(metricsRepository.findDailyAttemptStats(eq(organizationId), eq(ids), any(), any()))
                 .thenReturn(List.of());
 
-        OrganizationOverviewResponse result = metricsService.getOverview(actor, organizationId);
+        OrganizationOverviewResponse result =
+                metricsService.getOverview(actor, organizationId, null);
 
         assertEquals(1, result.participation().totalParticipants());
         assertEquals(0, result.participation().activeParticipants());
@@ -264,7 +276,8 @@ class OrganizationMetricsServiceTest {
         when(organizationRepository.existsById(organizationId)).thenReturn(false);
 
         assertThrows(
-                NotFoundException.class, () -> metricsService.getOverview(actor, organizationId));
+                NotFoundException.class,
+                () -> metricsService.getOverview(actor, organizationId, null));
     }
 
     @Test
@@ -276,7 +289,7 @@ class OrganizationMetricsServiceTest {
         when(attempts.getEvaluated()).thenReturn(20L);
         when(attempts.getCorrect()).thenReturn(15L);
 
-        when(contentScope.resolve(organizationId)).thenReturn(scope);
+        when(contentScope.resolve(organizationId, null)).thenReturn(scope);
         TopicStatusCountView topicCompleted =
                 statusCount(ProgressStatus.COMPLETED, 1, topic.getId());
         TopicStatusCountView topicInProgress =
@@ -284,13 +297,14 @@ class OrganizationMetricsServiceTest {
         TopicStatusCountView topicLocked = statusCount(ProgressStatus.LOCKED, 0, null);
         when(metricsRepository.findTopicStatusCounts(ids, scope.versionIds()))
                 .thenReturn(List.of(topicCompleted, topicInProgress, topicLocked));
-        when(metricsRepository.findAttemptStatsByTopic(organizationId, ids))
+        when(metricsRepository.findAttemptStatsByTopic(organizationId, ids, scope.courseIds()))
                 .thenReturn(List.of(attempts));
         when(topicRepository.findByCourseVersionIdInOrderByCourseVersionIdAscOrderAsc(
                         scope.versionIds()))
                 .thenReturn(List.of(topic));
 
-        List<ModuleStatsResponse> result = metricsService.getModuleStats(actor, organizationId);
+        List<ModuleStatsResponse> result =
+                metricsService.getModuleStats(actor, organizationId, null);
 
         assertEquals(1, result.size());
         ModuleStatsResponse module = result.get(0);
@@ -305,14 +319,50 @@ class OrganizationMetricsServiceTest {
     }
 
     @Test
+    void shouldListModulesInTheOrderTheCoursesWereContracted() {
+        stubParticipants();
+        Course second = Course.builder().id(UUID.randomUUID()).name("Atención").build();
+        CourseVersion secondVersion =
+                CourseVersion.builder().id(UUID.randomUUID()).course(second).build();
+        Topic secondTopic =
+                Topic.builder()
+                        .id(UUID.randomUUID())
+                        .title("Saludar")
+                        .order(1)
+                        .courseVersion(secondVersion)
+                        .build();
+        Topic laterTopic =
+                Topic.builder()
+                        .id(UUID.randomUUID())
+                        .title("Numbers")
+                        .order(2)
+                        .courseVersion(version)
+                        .build();
+        ContentScope twoCourses =
+                new ContentScope(List.of(secondVersion, version), Map.of(), Map.of(), 0);
+        when(contentScope.resolve(organizationId, null)).thenReturn(twoCourses);
+        when(topicRepository.findByCourseVersionIdInOrderByCourseVersionIdAscOrderAsc(
+                        twoCourses.versionIds()))
+                .thenReturn(List.of(laterTopic, topic, secondTopic));
+
+        List<ModuleStatsResponse> result =
+                metricsService.getModuleStats(actor, organizationId, null);
+
+        assertEquals(
+                List.of("Saludar", "Greetings", "Numbers"),
+                result.stream().map(ModuleStatsResponse::title).toList());
+    }
+
+    @Test
     void shouldListModulesWithZeroesWhenThereAreNoParticipants() {
         stubParticipants();
-        when(contentScope.resolve(organizationId)).thenReturn(scope);
+        when(contentScope.resolve(organizationId, null)).thenReturn(scope);
         when(topicRepository.findByCourseVersionIdInOrderByCourseVersionIdAscOrderAsc(
                         scope.versionIds()))
                 .thenReturn(List.of(topic));
 
-        List<ModuleStatsResponse> result = metricsService.getModuleStats(actor, organizationId);
+        List<ModuleStatsResponse> result =
+                metricsService.getModuleStats(actor, organizationId, null);
 
         assertEquals(1, result.size());
         assertEquals(0, result.get(0).participantsCompleted());
@@ -324,10 +374,10 @@ class OrganizationMetricsServiceTest {
     @Test
     void shouldReturnNoModulesWhenNoCourseIsContracted() {
         stubParticipants(ana);
-        when(contentScope.resolve(organizationId))
+        when(contentScope.resolve(organizationId, null))
                 .thenReturn(new ContentScope(List.of(), Map.of(), Map.of(), 0));
 
-        assertTrue(metricsService.getModuleStats(actor, organizationId).isEmpty());
+        assertTrue(metricsService.getModuleStats(actor, organizationId, null).isEmpty());
         verifyNoInteractions(topicRepository, metricsRepository);
     }
 
@@ -337,6 +387,122 @@ class OrganizationMetricsServiceTest {
 
         assertThrows(
                 NotFoundException.class,
-                () -> metricsService.getModuleStats(actor, organizationId));
+                () -> metricsService.getModuleStats(actor, organizationId, null));
+    }
+
+    private AttemptView attempt(User user, Instant at, Boolean correct) {
+        AttemptView view = mock(AttemptView.class);
+        lenient().when(view.getUserId()).thenReturn(user.getId());
+        lenient().when(view.getAttemptedAt()).thenReturn(at);
+        lenient().when(view.getIsCorrect()).thenReturn(correct);
+        return view;
+    }
+
+    private DailyMinutesView minutes(LocalDate day, long total) {
+        DailyMinutesView view = mock(DailyMinutesView.class);
+        lenient().when(view.getDay()).thenReturn(day);
+        lenient().when(view.getMinutes()).thenReturn(total);
+        return view;
+    }
+
+    @Test
+    void shouldBucketActivityByArgentineDay() {
+        stubParticipants(ana, bruno);
+        List<UUID> ids = List.of(ana.getId(), bruno.getId());
+        LocalDate monday = LocalDate.of(2026, 10, 5);
+        LocalDate sunday = monday.plusDays(6);
+        ZoneId argentina = ZoneId.of("America/Argentina/Cordoba");
+        // 23:30 in Argentina is already the next day in UTC: it must count on Monday.
+        Instant mondayNight = monday.atTime(23, 30).atZone(argentina).toInstant();
+        Instant tuesdayMorning = monday.plusDays(1).atTime(9, 0).atZone(argentina).toInstant();
+        when(contentScope.resolve(organizationId, version.getCourse().getId())).thenReturn(scope);
+        List<AttemptView> attempts =
+                List.of(
+                        attempt(ana, mondayNight, true),
+                        attempt(ana, mondayNight, null),
+                        attempt(bruno, tuesdayMorning, false),
+                        attempt(ana, tuesdayMorning, true),
+                        attempt(ana, sunday.plusDays(1).atStartOfDay(argentina).toInstant(), true));
+        when(metricsRepository.findAttemptsBetween(
+                        eq(organizationId), eq(ids), eq(scope.courseIds()), any(), any()))
+                .thenReturn(attempts);
+        when(metricsRepository.findLessonCompletionsBetween(
+                        eq(ids), eq(scope.versionIds()), any(), any()))
+                .thenReturn(List.of(tuesdayMorning, tuesdayMorning));
+        List<DailyMinutesView> dailyMinutes =
+                List.of(minutes(monday, 25), minutes(sunday.plusDays(3), 99));
+        when(metricsRepository.findDailyMinutes(ids, monday, sunday)).thenReturn(dailyMinutes);
+
+        OrganizationActivityResponse result =
+                metricsService.getActivity(
+                        actor, organizationId, version.getCourse().getId(), monday, sunday);
+
+        verify(accessService).requireManage(actor, organizationId);
+        assertEquals(7, result.days().size());
+        ActivityFigures mondayFigures = result.days().get(0).figures();
+        assertEquals(monday, result.days().get(0).date());
+        assertEquals(1, mondayFigures.activeParticipants());
+        assertEquals(1, mondayFigures.exerciseAttempts());
+        assertEquals(100, mondayFigures.correctPercentage());
+        assertEquals(25, mondayFigures.learningMinutes());
+        ActivityFigures tuesdayFigures = result.days().get(1).figures();
+        assertEquals(2, tuesdayFigures.activeParticipants());
+        assertEquals(2, tuesdayFigures.exerciseAttempts());
+        assertEquals(50, tuesdayFigures.correctPercentage());
+        assertEquals(2, tuesdayFigures.lessonsCompleted());
+        assertEquals(0, result.days().get(6).figures().exerciseAttempts());
+
+        assertEquals(2, result.totals().activeParticipants());
+        assertEquals(3, result.totals().exerciseAttempts());
+        assertEquals(2, result.totals().correctAnswers());
+        assertEquals(67, result.totals().correctPercentage());
+        assertEquals(2, result.totals().lessonsCompleted());
+        assertEquals(25, result.totals().learningMinutes());
+    }
+
+    @Test
+    void shouldReturnEmptyDaysWhenThereAreNoParticipants() {
+        stubParticipants();
+        when(contentScope.resolve(organizationId, null)).thenReturn(scope);
+        LocalDate day = LocalDate.of(2026, 10, 1);
+
+        OrganizationActivityResponse result =
+                metricsService.getActivity(actor, organizationId, null, day, day.plusDays(2));
+
+        assertEquals(3, result.days().size());
+        assertEquals(0, result.totals().activeParticipants());
+        verifyNoInteractions(metricsRepository);
+    }
+
+    @Test
+    void shouldRejectAnInvalidOrTooLongPeriod() {
+        when(organizationRepository.existsById(organizationId)).thenReturn(true);
+        LocalDate day = LocalDate.of(2026, 10, 1);
+
+        assertThrows(
+                InvalidInputException.class,
+                () ->
+                        metricsService.getActivity(
+                                actor, organizationId, null, day, day.minusDays(1)));
+        assertThrows(
+                InvalidInputException.class,
+                () ->
+                        metricsService.getActivity(
+                                actor,
+                                organizationId,
+                                null,
+                                day,
+                                day.plusDays(OrganizationMetricsService.MAX_ACTIVITY_DAYS)));
+        verifyNoInteractions(contentScope, metricsRepository);
+    }
+
+    @Test
+    void shouldThrowNotFoundForActivityOfUnknownOrganization() {
+        when(organizationRepository.existsById(organizationId)).thenReturn(false);
+        LocalDate day = LocalDate.of(2026, 10, 1);
+
+        assertThrows(
+                NotFoundException.class,
+                () -> metricsService.getActivity(actor, organizationId, null, day, day));
     }
 }

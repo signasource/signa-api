@@ -1,6 +1,7 @@
 package com.signasource.signa_api.config;
 
 import com.signasource.signa_api.auth.service.JwtAuthFilter;
+import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -48,8 +49,12 @@ public class SecurityConfig {
                                 ex.authenticationEntryPoint(
                                         new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(
+                        // A 403 is rendered by forwarding to /error; that dispatch carries no
+                        // authentication, so it must be open or the entry point turns it into 401.
                         auth ->
-                                auth.requestMatchers("/auth/**")
+                                auth.dispatcherTypeMatchers(DispatcherType.ERROR)
+                                        .permitAll()
+                                        .requestMatchers("/auth/**")
                                         .permitAll()
                                         .requestMatchers("/users/username-availability")
                                         .permitAll()
@@ -63,13 +68,18 @@ public class SecurityConfig {
                                                 HttpMethod.POST,
                                                 "/organizations/invite-codes/redeem")
                                         .authenticated()
-                                        .requestMatchers(HttpMethod.GET, "/organizations/me")
+                                        .requestMatchers("/organizations/me")
                                         .authenticated()
                                         .requestMatchers(HttpMethod.POST, "/organizations/register")
                                         .permitAll()
                                         .requestMatchers(HttpMethod.GET, "/organizations/pricing")
                                         .permitAll()
-                                        .requestMatchers(HttpMethod.POST, "/organizations")
+                                        .requestMatchers("/organizations")
+                                        .hasRole("ADMIN")
+                                        .requestMatchers(HttpMethod.PATCH, "/organizations/*")
+                                        .hasRole("ADMIN")
+                                        .requestMatchers(
+                                                HttpMethod.DELETE, "/organizations/*/admins/*")
                                         .hasRole("ADMIN")
                                         .requestMatchers(HttpMethod.POST, "/organizations/*/admins")
                                         .hasRole("ADMIN")

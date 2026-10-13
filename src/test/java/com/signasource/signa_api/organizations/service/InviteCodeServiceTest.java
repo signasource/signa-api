@@ -30,6 +30,7 @@ import com.signasource.signa_api.organizations.entity.MemberRole;
 import com.signasource.signa_api.organizations.entity.MemberStatus;
 import com.signasource.signa_api.organizations.entity.Organization;
 import com.signasource.signa_api.organizations.entity.OrganizationMember;
+import com.signasource.signa_api.organizations.entity.OrganizationStatus;
 import com.signasource.signa_api.organizations.repository.InviteCodeRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationMemberRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationRepository;
@@ -74,7 +75,11 @@ class InviteCodeServiceTest {
         user.setEmail("ana@hospital.com");
 
         organization =
-                Organization.builder().id(UUID.randomUUID()).name("Hospital San Martin").build();
+                Organization.builder()
+                        .id(UUID.randomUUID())
+                        .name("Hospital San Martin")
+                        .status(OrganizationStatus.ACTIVE)
+                        .build();
         course =
                 Course.builder()
                         .id(UUID.randomUUID())
@@ -469,5 +474,114 @@ class InviteCodeServiceTest {
 
         assertNotNull(response);
         assertFalse(response.alreadyMember());
+    }
+
+    @Test
+    void shouldNotCreateParticipantCodesWhileTheOrganizationIsPending() {
+        organization.setStatus(OrganizationStatus.PENDING);
+        when(organizationRepository.findById(organization.getId()))
+                .thenReturn(Optional.of(organization));
+
+        assertThrows(
+                InvalidInputException.class,
+                () ->
+                        inviteCodeService.createInviteCode(
+                                user, organization.getId(), new CreateInviteCodeRequest(null, 5)));
+        assertThrows(
+                InvalidInputException.class,
+                () ->
+                        inviteCodeService.inviteByEmail(
+                                user,
+                                organization.getId(),
+                                new InviteByEmailRequest("ana@hospital.com", null)));
+        verify(inviteCodeRepository, never()).save(any());
+        verify(emailService, never()).sendOrganizationInviteEmail(any(), any(), any());
+    }
+
+    @Test
+    void shouldRejectParticipantJoiningAPendingOrganization() {
+        organization.setStatus(OrganizationStatus.PENDING);
+        when(inviteCodeRepository.findByCode("HSMT2026")).thenReturn(Optional.of(inviteCode));
+        when(memberRepository.findByUserId(user.getId())).thenReturn(Optional.empty());
+
+        assertThrows(InvalidInputException.class, () -> inviteCodeService.redeem(user, "HSMT2026"));
+        verify(memberRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldRejectParticipantJoiningASuspendedOrganization() {
+        organization.setStatus(OrganizationStatus.SUSPENDED);
+        when(inviteCodeRepository.findByCode("HSMT2026")).thenReturn(Optional.of(inviteCode));
+        when(memberRepository.findByUserId(user.getId())).thenReturn(Optional.empty());
+
+        assertThrows(InvalidInputException.class, () -> inviteCodeService.redeem(user, "HSMT2026"));
+        verify(enrollmentService, never()).grantContractedCourses(any(), any(), any());
+    }
+
+    @Test
+    void shouldLetAnAdminJoinAPendingOrganization() {
+        organization.setStatus(OrganizationStatus.PENDING);
+        inviteCode.setMemberRole(MemberRole.ADMIN);
+        user.setRole(Role.USER);
+        when(inviteCodeRepository.findByCode("HSMT2026")).thenReturn(Optional.of(inviteCode));
+        when(memberRepository.findByUserId(user.getId())).thenReturn(Optional.empty());
+
+        RedeemInviteCodeResponse response = inviteCodeService.redeem(user, "HSMT2026");
+
+        assertEquals(MemberRole.ADMIN, response.role());
+        assertEquals(Role.ORG_ADMIN, user.getRole());
+    }
+
+    @Test
+    void shouldRejectJoiningWhenTheMemberLimitIsReached() {
+        organization.setMemberLimit(10);
+        when(inviteCodeRepository.findByCode("HSMT2026")).thenReturn(Optional.of(inviteCode));
+        when(memberRepository.findByUserId(user.getId())).thenReturn(Optional.empty());
+        when(memberRepository.countByOrganizationIdAndRoleAndStatus(
+                        organization.getId(), MemberRole.MEMBER, MemberStatus.ACTIVE))
+                .thenReturn(10L);
+
+        assertThrows(InvalidInputException.class, () -> inviteCodeService.redeem(user, "HSMT2026"));
+        verify(memberRepository, never()).save(any());
+        verify(enrollmentService, never()).grantContractedCourses(any(), any(), any());
+    }
+
+    @Test
+    void shouldLetAParticipantJoinWhileSeatsRemain() {
+        organization.setMemberLimit(10);
+        when(inviteCodeRepository.findByCode("HSMT2026")).thenReturn(Optional.of(inviteCode));
+        when(memberRepository.findByUserId(user.getId())).thenReturn(Optional.empty());
+        when(memberRepository.countByOrganizationIdAndRoleAndStatus(
+                        organization.getId(), MemberRole.MEMBER, MemberStatus.ACTIVE))
+                .thenReturn(9L);
+        when(enrollmentService.grantContractedCourses(user, organization, null))
+                .thenReturn(List.of());
+
+        RedeemInviteCodeResponse response = inviteCodeService.redeem(user, "HSMT2026");
+
+        assertFalse(response.alreadyMember());
+        verify(memberRepository).save(any(OrganizationMember.class));
+    }
+
+    @Test
+    void shouldNotCountAnExistingMemberAgainstTheLimitWhenRedeemingAgain() {
+        organization.setMemberLimit(1);
+        OrganizationMember active =
+                OrganizationMember.builder()
+                        .user(user)
+                        .organization(organization)
+                        .role(MemberRole.MEMBER)
+                        .status(MemberStatus.ACTIVE)
+                        .build();
+        when(inviteCodeRepository.findByCode("HSMT2026")).thenReturn(Optional.of(inviteCode));
+        when(memberRepository.findByUserId(user.getId())).thenReturn(Optional.of(active));
+        when(enrollmentService.grantContractedCourses(user, organization, null))
+                .thenReturn(List.of());
+
+        RedeemInviteCodeResponse response = inviteCodeService.redeem(user, "HSMT2026");
+
+        assertTrue(response.alreadyMember());
+        verify(memberRepository, never())
+                .countByOrganizationIdAndRoleAndStatus(any(), any(), any());
     }
 }

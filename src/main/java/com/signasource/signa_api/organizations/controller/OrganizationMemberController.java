@@ -1,6 +1,7 @@
 package com.signasource.signa_api.organizations.controller;
 
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
+import com.signasource.signa_api.organizations.dto.MemberActivityStatus;
 import com.signasource.signa_api.organizations.dto.MemberProgressResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationMemberSummaryResponse;
 import com.signasource.signa_api.organizations.entity.MemberStatus;
@@ -33,11 +34,19 @@ public class OrganizationMemberController {
             @PathVariable UUID organizationId,
             @RequestParam(required = false) String query,
             @RequestParam(required = false, defaultValue = "ACTIVE") MemberStatus status,
-            @PageableDefault(size = 20, sort = "joinedAt") Pageable pageable,
+            @RequestParam(required = false) MemberActivityStatus activity,
+            @RequestParam(required = false) UUID courseId,
+            @PageableDefault(size = 20, sort = "name") Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(
                 memberQueryService.getMembers(
-                        userDetails.getUser(), organizationId, query, status, pageable));
+                        userDetails.getUser(),
+                        organizationId,
+                        query,
+                        status,
+                        activity,
+                        courseId,
+                        pageable));
     }
 
     @GetMapping("/{userId}")

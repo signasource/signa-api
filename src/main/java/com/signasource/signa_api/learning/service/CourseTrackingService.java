@@ -82,6 +82,10 @@ public class CourseTrackingService {
                 courseVersionRepository
                         .findById(courseVersionId)
                         .orElseThrow(() -> new NotFoundException("Course version not found"));
+        // Paid courses are only reachable through an organization's invite code.
+        if (!courseVersion.getCourse().isFree()) {
+            throw new ForbiddenException("This course requires an invitation");
+        }
 
         UserCourseEnrollment enrollment = new UserCourseEnrollment();
         enrollment.setUser(user);
@@ -164,8 +168,7 @@ public class CourseTrackingService {
     private List<UserCourseEnrollment> activeEnrollments(User user) {
         Instant now = Instant.now();
         return enrollmentRepository.findWithCourseByUserId(user.getId()).stream()
-                .filter(e -> e.getStatus() != EnrollmentStatus.DROPPED)
-                .filter(e -> e.getAccessExpiresAt() == null || e.getAccessExpiresAt().isAfter(now))
+                .filter(e -> e.grantsAccess(now))
                 .toList();
     }
 
@@ -283,7 +286,7 @@ public class CourseTrackingService {
         UserCourseEnrollment enrollment =
                 enrollmentRepository
                         .findByUserIdAndCourseVersionId(user.getId(), versionId)
-                        .filter(e -> e.getStatus() != EnrollmentStatus.DROPPED)
+                        .filter(e -> e.grantsAccess(Instant.now()))
                         .orElseThrow(() -> new ForbiddenException("Not enrolled in this course"));
 
         boolean isNewMilestone =
@@ -312,7 +315,8 @@ public class CourseTrackingService {
         }
 
         if (isNewMilestone) {
-            if (!isInfo || block.getXpReward() != null) {
+            // Content may leave xpReward empty (e.g. INTRODUCE_SIGN): such a block awards no XP.
+            if (block.getXpReward() != null) {
                 eventPublisher.publishEvent(new XpEarnedEvent(this, user, block.getXpReward()));
             }
             if (!isInfo) {

@@ -15,6 +15,7 @@ public record MemberProgressResponse(
         String lastName,
         String email,
         MemberStatus status,
+        MemberActivityStatus activityStatus,
         Instant joinedAt,
         Instant lastActivityAt,
         int progressPercentage,

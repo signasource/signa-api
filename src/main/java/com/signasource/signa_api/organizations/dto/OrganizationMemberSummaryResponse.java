@@ -13,4 +13,6 @@ public record OrganizationMemberSummaryResponse(
         Instant joinedAt,
         Instant lastActivityAt,
         int progressPercentage,
-        String currentModule) {}
+        String currentModule,
+        String currentCourse,
+        MemberActivityStatus activityStatus) {}

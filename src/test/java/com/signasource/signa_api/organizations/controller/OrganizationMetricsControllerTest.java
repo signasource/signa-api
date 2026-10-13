@@ -7,9 +7,11 @@ import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.organizations.dto.ModuleStatsResponse;
+import com.signasource.signa_api.organizations.dto.OrganizationActivityResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationOverviewResponse;
 import com.signasource.signa_api.organizations.service.OrganizationMetricsService;
 import com.signasource.signa_api.users.entity.User;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,10 +45,11 @@ class OrganizationMetricsControllerTest {
     @Test
     void shouldReturnTheOverview() {
         OrganizationOverviewResponse response = new OrganizationOverviewResponse(null, null, null);
-        when(metricsService.getOverview(actor, organizationId)).thenReturn(response);
+        UUID courseId = UUID.randomUUID();
+        when(metricsService.getOverview(actor, organizationId, courseId)).thenReturn(response);
 
         ResponseEntity<OrganizationOverviewResponse> result =
-                metricsController.getOverview(organizationId, userDetails);
+                metricsController.getOverview(organizationId, courseId, userDetails);
 
         assertEquals(HttpStatus.OK, result.getStatusCode());
         assertSame(response, result.getBody());
@@ -55,10 +58,26 @@ class OrganizationMetricsControllerTest {
     @Test
     void shouldReturnTheModuleStats() {
         List<ModuleStatsResponse> response = List.of();
-        when(metricsService.getModuleStats(actor, organizationId)).thenReturn(response);
+        when(metricsService.getModuleStats(actor, organizationId, null)).thenReturn(response);
 
         ResponseEntity<List<ModuleStatsResponse>> result =
-                metricsController.getModuleStats(organizationId, userDetails);
+                metricsController.getModuleStats(organizationId, null, userDetails);
+
+        assertEquals(HttpStatus.OK, result.getStatusCode());
+        assertSame(response, result.getBody());
+    }
+
+    @Test
+    void shouldReturnTheActivityOfAPeriod() {
+        LocalDate from = LocalDate.of(2026, 10, 6);
+        LocalDate to = LocalDate.of(2026, 10, 12);
+        OrganizationActivityResponse response =
+                new OrganizationActivityResponse(from, to, null, List.of());
+        when(metricsService.getActivity(actor, organizationId, null, from, to))
+                .thenReturn(response);
+
+        ResponseEntity<OrganizationActivityResponse> result =
+                metricsController.getActivity(organizationId, from, to, null, userDetails);
 
         assertEquals(HttpStatus.OK, result.getStatusCode());
         assertSame(response, result.getBody());

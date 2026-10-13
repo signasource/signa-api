@@ -27,6 +27,7 @@ import com.signasource.signa_api.organizations.repository.OrganizationMemberRepo
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.repository.UserRepository;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -242,5 +243,67 @@ class OrganizationEnrollmentServiceTest {
         enrollmentService.revokeAllFromUser(user, organization.getId());
 
         verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldClearCurrentCourseOfMembersWhenTheCourseIsUncontracted() {
+        UserCourseEnrollment enrollment =
+                UserCourseEnrollment.builder()
+                        .user(user)
+                        .courseVersion(version)
+                        .status(EnrollmentStatus.ENROLLED)
+                        .build();
+        user.setCurrentCourse(course);
+        when(enrollmentRepository.findByOrganizationIdAndCourseVersionCourseId(
+                        organization.getId(), course.getId()))
+                .thenReturn(List.of(enrollment));
+
+        enrollmentService.revokeCourseFromMembers(organization.getId(), course.getId());
+
+        assertNull(user.getCurrentCourse());
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void shouldOnlyDetachFreeCoursesInsteadOfDroppingThem() {
+        course.setFree(true);
+        user.setCurrentCourse(course);
+        UserCourseEnrollment enrollment =
+                UserCourseEnrollment.builder()
+                        .user(user)
+                        .courseVersion(version)
+                        .organization(organization)
+                        .status(EnrollmentStatus.ENROLLED)
+                        .build();
+        when(enrollmentRepository.findByOrganizationIdAndCourseVersionCourseId(
+                        organization.getId(), course.getId()))
+                .thenReturn(List.of(enrollment));
+        when(enrollmentRepository.findByUserIdAndOrganizationId(user.getId(), organization.getId()))
+                .thenReturn(List.of(enrollment));
+
+        enrollmentService.revokeCourseFromMembers(organization.getId(), course.getId());
+        enrollmentService.revokeAllFromUser(user, organization.getId());
+
+        assertEquals(EnrollmentStatus.ENROLLED, enrollment.getStatus());
+        assertNull(enrollment.getOrganization());
+        assertEquals(course, user.getCurrentCourse());
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldNotPutAnExpiryOnAFreeCourse() {
+        course.setFree(true);
+        stubContractedCourse();
+        when(enrollmentRepository.findByUserIdAndCourseVersionId(user.getId(), version.getId()))
+                .thenReturn(Optional.empty());
+
+        enrollmentService.grantContractedCourses(
+                user, organization, Instant.now().plus(30, ChronoUnit.DAYS));
+
+        ArgumentCaptor<UserCourseEnrollment> captor =
+                ArgumentCaptor.forClass(UserCourseEnrollment.class);
+        verify(enrollmentRepository).save(captor.capture());
+        assertNull(captor.getValue().getAccessExpiresAt());
+        assertEquals(organization, captor.getValue().getOrganization());
     }
 }
