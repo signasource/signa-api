@@ -82,3 +82,8 @@ r2:
 
 organizations:
   price-per-person: ${ORG_PRICE_PER_PERSON:5000}
+
+admin:
+  seed:
+    email: ${ADMIN_SEED_EMAIL:}
+    password: ${ADMIN_SEED_PASSWORD:}
