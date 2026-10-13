@@ -22,4 +22,6 @@ public interface SignRepository extends JpaRepository<Sign, UUID> {
     List<Sign> findByMeaningIn(Collection<String> meanings);
 
     boolean existsByMeaningIgnoreCase(String meaning);
+
+    Page<Sign> findByMeaningContainingIgnoreCase(String meaning, Pageable pageable);
 }

@@ -55,6 +55,8 @@ public class SecurityConfig {
                                         .permitAll()
                                         .requestMatchers(HttpMethod.POST, "/waitlist")
                                         .permitAll()
+                                        .requestMatchers("/admin/**")
+                                        .hasRole("ADMIN")
                                         .requestMatchers(HttpMethod.POST, "/signs")
                                         .hasRole("ADMIN")
                                         .requestMatchers(

@@ -52,4 +52,14 @@ public class SignReport {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
     private ReportReason reason;
+
+    @Column(name = "admin_note", columnDefinition = "TEXT")
+    private String adminNote;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "resolved_by")
+    private User resolvedBy;
+
+    @Column(name = "resolved_at")
+    private LocalDateTime resolvedAt;
 }
