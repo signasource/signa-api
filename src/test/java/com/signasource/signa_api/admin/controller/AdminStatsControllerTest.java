@@ -50,7 +50,7 @@ class AdminStatsControllerTest {
 
     @Test
     void shouldReturnStats() {
-        AdminStatsResponse stats = new AdminStatsResponse(5, 2, 4, 100, 0, 20);
+        AdminStatsResponse stats = new AdminStatsResponse(5, 2, 4, 100, 0, 20, 500);
         when(adminService.getStats()).thenReturn(stats);
 
         ResponseEntity<AdminStatsResponse> resp = controller.getStats();

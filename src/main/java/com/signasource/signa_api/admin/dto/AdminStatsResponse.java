@@ -6,4 +6,5 @@ public record AdminStatsResponse(
         long openSignReports,
         long totalUsers,
         long activeUsersLast7Days,
-        long waitlistCount) {}
+        long waitlistCount,
+        long totalSigns) {}

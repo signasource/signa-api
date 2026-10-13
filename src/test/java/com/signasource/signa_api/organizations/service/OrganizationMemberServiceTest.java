@@ -175,25 +175,4 @@ class OrganizationMemberServiceTest {
                 () -> memberService.removeAdmin(organizationId, target.getId()));
         verify(memberRepository, never()).save(any());
     }
-
-    @Test
-    void shouldRemoveMembershipWhenTheAccountIsDeleted() {
-        OrganizationMember admin = member(MemberRole.ADMIN, MemberStatus.ACTIVE);
-        when(memberRepository.findByUserId(target.getId())).thenReturn(Optional.of(admin));
-
-        memberService.handleAccountDeletion(target);
-
-        assertEquals(MemberStatus.REMOVED, admin.getStatus());
-        verify(enrollmentService).revokeAllFromUser(target, organizationId);
-    }
-
-    @Test
-    void shouldDoNothingOnAccountDeletionWithoutActiveMembership() {
-        when(memberRepository.findByUserId(target.getId())).thenReturn(Optional.empty());
-
-        memberService.handleAccountDeletion(target);
-
-        verify(memberRepository, never()).save(any());
-        verifyNoInteractions(enrollmentService);
-    }
 }

@@ -14,6 +14,8 @@ import com.signasource.signa_api.admin.dto.UpdateUserRequest;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
+import com.signasource.signa_api.gamification.entity.UserStats;
+import com.signasource.signa_api.gamification.repository.UserStatsRepository;
 import com.signasource.signa_api.learning.entity.Course;
 import com.signasource.signa_api.learning.entity.ReportReason;
 import com.signasource.signa_api.learning.entity.ReportStatus;
@@ -68,6 +70,7 @@ public class AdminService {
     private final WaitlistRepository waitlistRepository;
     private final CourseRepository courseRepository;
     private final SignRepository signRepository;
+    private final UserStatsRepository userStatsRepository;
     private final PasswordEncoder passwordEncoder;
 
     // ── Stats ────────────────────────────────────────────────────────────────
@@ -81,8 +84,9 @@ public class AdminService {
                         + signReportRepository.countByStatus(ReportStatus.REVIEWED);
         long totalUsers = userRepository.countByEnabled(true);
         long waitlistCount = waitlistRepository.count();
+        long totalSigns = signRepository.count();
         return new AdminStatsResponse(
-                activeOrgs, pendingOrgs, openReports, totalUsers, 0, waitlistCount);
+                activeOrgs, pendingOrgs, openReports, totalUsers, 0, waitlistCount, totalSigns);
     }
 
     // ── Organizations ────────────────────────────────────────────────────────
@@ -302,7 +306,8 @@ public class AdminService {
                                     .filter(m -> m.getStatus() == MemberStatus.ACTIVE)
                                     .map(m -> m.getOrganization().getName())
                                     .orElse(null);
-                    return AdminUserResponse.from(u, orgName);
+                    UserStats stats = userStatsRepository.findByUserId(u.getId()).orElse(null);
+                    return AdminUserResponse.from(u, orgName, stats);
                 });
     }
 
@@ -315,7 +320,8 @@ public class AdminService {
                         .filter(m -> m.getStatus() == MemberStatus.ACTIVE)
                         .map(m -> m.getOrganization().getName())
                         .orElse(null);
-        return AdminUserResponse.from(user, orgName);
+        UserStats stats = userStatsRepository.findByUserId(userId).orElse(null);
+        return AdminUserResponse.from(user, orgName, stats);
     }
 
     @Transactional
@@ -333,7 +339,12 @@ public class AdminService {
     public List<AdminUserResponse> getAdmins() {
         return userRepository.findByRole(Role.ADMIN).stream()
                 .filter(User::isEnabled)
-                .map(u -> AdminUserResponse.from(u, null))
+                .map(
+                        u ->
+                                AdminUserResponse.from(
+                                        u,
+                                        null,
+                                        userStatsRepository.findByUserId(u.getId()).orElse(null)))
                 .toList();
     }
 
@@ -365,7 +376,7 @@ public class AdminService {
                         .build();
         userRepository.save(admin);
         userSettingsRepository.save(UserSettings.builder().user(admin).build());
-        return AdminUserResponse.from(admin, null);
+        return AdminUserResponse.from(admin, null, null);
     }
 
     // ── Waitlist ─────────────────────────────────────────────────────────────

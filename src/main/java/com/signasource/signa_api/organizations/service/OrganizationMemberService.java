@@ -75,15 +75,6 @@ public class OrganizationMemberService {
         }
     }
 
-    /** A deleted account must stop counting as a participant or admin of its organization. */
-    @Transactional
-    public void handleAccountDeletion(User user) {
-        memberRepository
-                .findByUserId(user.getId())
-                .filter(m -> m.getStatus() == MemberStatus.ACTIVE)
-                .ifPresent(this::remove);
-    }
-
     private OrganizationMember findActive(UUID organizationId, UUID userId) {
         return memberRepository
                 .findByOrganizationIdAndUserId(organizationId, userId)

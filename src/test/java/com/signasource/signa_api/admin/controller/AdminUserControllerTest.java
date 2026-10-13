@@ -30,7 +30,18 @@ class AdminUserControllerTest {
 
     private AdminUserResponse makeUser(UUID id) {
         return new AdminUserResponse(
-                id, "user@test.com", "user", "Name", "Last", Role.USER, true, true, null);
+                id,
+                "user@test.com",
+                "user",
+                "Name",
+                "Last",
+                Role.USER,
+                true,
+                true,
+                null,
+                "EMAIL",
+                0,
+                null);
     }
 
     @Test
@@ -60,7 +71,18 @@ class AdminUserControllerTest {
         UpdateUserRequest req = new UpdateUserRequest(Role.ADMIN, true);
         AdminUserResponse updated =
                 new AdminUserResponse(
-                        id, "user@test.com", "user", "Name", "Last", Role.ADMIN, true, true, null);
+                        id,
+                        "user@test.com",
+                        "user",
+                        "Name",
+                        "Last",
+                        Role.ADMIN,
+                        true,
+                        true,
+                        null,
+                        "EMAIL",
+                        0,
+                        null);
         when(adminService.updateUser(eq(id), any())).thenReturn(updated);
 
         ResponseEntity<AdminUserResponse> resp = controller.updateUser(id, req);
@@ -93,6 +115,9 @@ class AdminUserControllerTest {
                         Role.ADMIN,
                         true,
                         true,
+                        null,
+                        "EMAIL",
+                        0,
                         null);
         when(adminService.createAdmin(any())).thenReturn(created);
 
