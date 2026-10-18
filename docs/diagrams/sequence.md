@@ -334,6 +334,13 @@ Registra el intento del usuario y propaga la finalización hacia arriba en la je
 del camino principal. El progreso de lección y tema se crea de forma diferida en la primera
 interacción.
 
+**Bloques requeridos para completar la lección:** todos salvo `INTRODUCE_SIGN` e `INVISIBLE_SIGNS`,
+que el reproductor de la app nunca reporta (el primero solo presenta la seña, el segundo no se
+muestra). `INFO` y los de cámara (`PERFORM_SIGN`, `SPELL_NAME`) cuentan con cualquier intento; el
+resto pide un acierto. La finalización se evalúa en **cada** interacción (no solo en el primer
+hito), así una lección que quedó en progreso se completa al volver a responder cualquiera de sus
+bloques.
+
 ```mermaid
 sequenceDiagram
     autonumber
@@ -352,15 +359,15 @@ sequenceDiagram
         else válida
             API->>DB: Registrar el intento
             API->>DB: Marcar lección y tema en progreso (si estaban bloqueados)
-            alt primer hito (primer acierto / primera vista)
+            opt primer hito (primer acierto / primera vista)
                 API-)Gam: XP ganado
                 API-)Gam: Señas aprendidas (bloques de ejercicio)
-                API->>DB: ¿Todos los bloques de la lección resueltos?
-                opt lección completa
-                    API->>DB: Completar lección (con XP acumulado)
-                    opt todos los temas... completos
-                        API->>DB: Completar tema y, si corresponde, la inscripción
-                    end
+            end
+            API->>DB: ¿Todos los bloques requeridos de la lección resueltos?
+            opt lección completa (y no lo estaba)
+                API->>DB: Completar lección (con XP acumulado)
+                opt todos los temas... completos
+                    API->>DB: Completar tema y, si corresponde, la inscripción
                 end
             end
             API-->>C: Intento registrado (201)

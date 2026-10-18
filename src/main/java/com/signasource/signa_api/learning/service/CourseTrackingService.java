@@ -336,11 +336,10 @@ public class CourseTrackingService {
             }
         }
 
-        // Outside the milestone branch: a milestone requires a correct answer, but a skipped
-        // camera exercise still completes the lesson.
-        if (isNewMilestone || countsAsDoneWhenAttempted(block)) {
-            checkLessonCompletion(user, block.getLesson());
-        }
+        // On every interaction, not just milestones: a lesson left IN_PROGRESS (e.g. by the
+        // non-interactive blocks bug, see isRequiredForCompletion) completes as soon as the user
+        // answers any of its blocks again. Idempotent once COMPLETED.
+        checkLessonCompletion(user, block.getLesson());
 
         return attempt;
     }
@@ -403,6 +402,16 @@ public class CourseTrackingService {
                 || block.getType() == BlockType.SPELL_NAME;
     }
 
+    /**
+     * Blocks the mobile player never reports: INTRODUCE_SIGN only presents a sign (the player just
+     * moves on) and INVISIBLE_SIGNS is not shown at all. Requiring an attempt on them left every
+     * lesson containing one permanently IN_PROGRESS.
+     */
+    private boolean isRequiredForCompletion(LessonBlock block) {
+        return block.getType() != BlockType.INTRODUCE_SIGN
+                && block.getType() != BlockType.INVISIBLE_SIGNS;
+    }
+
     private boolean isCompletedByUser(User user, LessonBlock block) {
         if (countsAsDoneWhenAttempted(block)) {
             return attemptRepository.existsByUserIdAndLessonBlockId(user.getId(), block.getId());
@@ -413,9 +422,10 @@ public class CourseTrackingService {
 
     private void checkLessonCompletion(User user, Lesson lesson) {
         List<LessonBlock> blocks = lesson.getLessonBlocks();
+        List<LessonBlock> required = blocks.stream().filter(this::isRequiredForCompletion).toList();
 
         boolean allCompleted =
-                !blocks.isEmpty() && blocks.stream().allMatch(b -> isCompletedByUser(user, b));
+                !required.isEmpty() && required.stream().allMatch(b -> isCompletedByUser(user, b));
 
         if (!allCompleted) {
             return;
