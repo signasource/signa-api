@@ -129,6 +129,11 @@ public class ChallengeService {
         if (row.getRewardClaimedAt() != null) {
             throw new InvalidInputException("Reward already claimed");
         }
+        // Daily/weekly rewards left unclaimed are gone once their period rolls over.
+        if (row.getChallenge().getChallengeType() != ChallengeType.FIRST_STEPS
+                && row.getPeriodEnd().isBefore(ArgentinaTime.today())) {
+            throw new InvalidInputException("Challenge has expired");
+        }
 
         UserStats stats =
                 userStatsRepository

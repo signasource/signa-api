@@ -137,6 +137,44 @@ class UserStatsEventListenerTest {
     }
 
     @Test
+    void handleXpEarnedEvent_AppliesActiveXpMultiplier() {
+        UserStats stats =
+                UserStats.builder()
+                        .user(mockUser)
+                        .xpMultiplier(3.0)
+                        .xpMultiplierExpiresAt(Instant.now().plusSeconds(600))
+                        .updatedAt(startOfCurrentWeek())
+                        .build();
+        when(userStatsRepository.findByUserId(userId)).thenReturn(Optional.of(stats));
+        when(userDailyXpRepository.findByUserAndXpDate(eq(mockUser), any(LocalDate.class)))
+                .thenReturn(Optional.empty());
+
+        userStatsEventListener.handleXpEarnedEvent(new XpEarnedEvent(this, mockUser, 20));
+
+        assertEquals(60L, stats.getTotalXp());
+        assertEquals(60, stats.getWeeklyXp());
+        verify(challengeService).record(mockUser, ChallengeCriteriaType.EARN_XP, 60);
+    }
+
+    @Test
+    void handleXpEarnedEvent_IgnoresExpiredXpMultiplier() {
+        UserStats stats =
+                UserStats.builder()
+                        .user(mockUser)
+                        .xpMultiplier(3.0)
+                        .xpMultiplierExpiresAt(Instant.now().minusSeconds(1))
+                        .updatedAt(startOfCurrentWeek())
+                        .build();
+        when(userStatsRepository.findByUserId(userId)).thenReturn(Optional.of(stats));
+        when(userDailyXpRepository.findByUserAndXpDate(eq(mockUser), any(LocalDate.class)))
+                .thenReturn(Optional.empty());
+
+        userStatsEventListener.handleXpEarnedEvent(new XpEarnedEvent(this, mockUser, 20));
+
+        assertEquals(20L, stats.getTotalXp());
+    }
+
+    @Test
     void shouldSaveRowsAndIncrementCount_WhenSignsAreNewToCourseAndGlobally() {
         UserStats stats =
                 UserStats.builder()
