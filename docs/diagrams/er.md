@@ -324,6 +324,7 @@ erDiagram
         int rewardDurationMinutes
         double rewardMultiplierValue
         boolean active
+        int displayOrder
     }
     USER_CHALLENGE {
         uuid id PK

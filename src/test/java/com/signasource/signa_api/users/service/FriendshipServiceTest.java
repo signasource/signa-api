@@ -15,9 +15,11 @@ import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.gamification.entity.AchievementCriteriaType;
+import com.signasource.signa_api.gamification.entity.ChallengeCriteriaType;
 import com.signasource.signa_api.gamification.entity.UserStats;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
 import com.signasource.signa_api.gamification.service.AchievementService;
+import com.signasource.signa_api.gamification.service.ChallengeService;
 import com.signasource.signa_api.notification.entity.NotificationCode;
 import com.signasource.signa_api.notification.service.NotificationService;
 import com.signasource.signa_api.users.entity.Friendship;
@@ -48,6 +50,7 @@ class FriendshipServiceTest {
     @Mock private NotificationService notificationService;
 
     @Mock private AchievementService achievementService;
+    @Mock private ChallengeService challengeService;
 
     @InjectMocks private FriendshipService friendshipService;
 
@@ -695,5 +698,31 @@ class FriendshipServiceTest {
 
         assertEquals(FriendshipStatus.ACCEPTED, pending.getStatus());
         verify(friendshipRepository).save(pending);
+    }
+
+    @Test
+    void sendFriendRequest_ReportsTheRequestToChallenges() {
+        when(userRepository.findById(addresseeId)).thenReturn(Optional.of(addressee));
+        when(friendshipRepository.findFriendshipBetween(requester, addressee))
+                .thenReturn(Optional.empty());
+
+        friendshipService.sendFriendRequest(requester, addresseeId);
+
+        verify(challengeService).record(requester, ChallengeCriteriaType.FRIEND_REQUESTS_SENT, 1);
+    }
+
+    @Test
+    void sendFriendRequest_AfterARejection_ReportsTheRequestToChallenges() {
+        Friendship rejected = new Friendship();
+        rejected.setRequester(addressee);
+        rejected.setAddressee(requester);
+        rejected.setStatus(FriendshipStatus.REJECTED);
+        when(userRepository.findById(addresseeId)).thenReturn(Optional.of(addressee));
+        when(friendshipRepository.findFriendshipBetween(requester, addressee))
+                .thenReturn(Optional.of(rejected));
+
+        friendshipService.sendFriendRequest(requester, addresseeId);
+
+        verify(challengeService).record(requester, ChallengeCriteriaType.FRIEND_REQUESTS_SENT, 1);
     }
 }

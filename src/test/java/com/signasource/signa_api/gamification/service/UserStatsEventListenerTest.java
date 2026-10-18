@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 import com.signasource.signa_api.common.ArgentinaTime;
 import com.signasource.signa_api.common.MetricsService;
 import com.signasource.signa_api.gamification.entity.AchievementCriteriaType;
+import com.signasource.signa_api.gamification.entity.ChallengeCriteriaType;
 import com.signasource.signa_api.gamification.entity.LivesMode;
 import com.signasource.signa_api.gamification.entity.UserDailyXp;
 import com.signasource.signa_api.gamification.entity.UserLearnedSign;
@@ -45,6 +46,7 @@ class UserStatsEventListenerTest {
     @Mock private UserLearnedSignRepository userLearnedSignRepository;
     @Mock private AchievementService achievementService;
     @Mock private MetricsService metricsService;
+    @Mock private ChallengeService challengeService;
 
     @InjectMocks private UserStatsEventListener userStatsEventListener;
 
@@ -339,5 +341,21 @@ class UserStatsEventListenerTest {
 
         assertEquals(0, stats.getCurrentLives());
         verify(userStatsRepository, never()).save(any(UserStats.class));
+    }
+
+    @Test
+    void handleXpEarnedEvent_ReportsXpAndStreakToChallenges() {
+        when(userStatsRepository.findByUserId(userId)).thenReturn(Optional.empty());
+        when(userStatsRepository.save(any(UserStats.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(userDailyXpRepository.findByUserAndXpDate(eq(mockUser), any(LocalDate.class)))
+                .thenReturn(Optional.empty());
+        when(userDailyXpRepository.save(any(UserDailyXp.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        userStatsEventListener.handleXpEarnedEvent(new XpEarnedEvent(this, mockUser, 50));
+
+        verify(challengeService).record(mockUser, ChallengeCriteriaType.EARN_XP, 50);
+        verify(challengeService).record(mockUser, ChallengeCriteriaType.STREAK_DAYS, 1);
     }
 }

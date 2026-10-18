@@ -4,9 +4,11 @@ import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.gamification.entity.AchievementCriteriaType;
+import com.signasource.signa_api.gamification.entity.ChallengeCriteriaType;
 import com.signasource.signa_api.gamification.entity.UserStats;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
 import com.signasource.signa_api.gamification.service.AchievementService;
+import com.signasource.signa_api.gamification.service.ChallengeService;
 import com.signasource.signa_api.notification.entity.NotificationCode;
 import com.signasource.signa_api.notification.service.NotificationService;
 import com.signasource.signa_api.users.dto.FriendResponse;
@@ -35,6 +37,7 @@ public class FriendshipService {
     private final UserStatsRepository userStatsRepository;
     private final NotificationService notificationService;
     private final AchievementService achievementService;
+    private final ChallengeService challengeService;
 
     @Transactional
     public void sendFriendRequest(User requester, UUID addresseeId) {
@@ -58,6 +61,7 @@ public class FriendshipService {
                 friendship.setAddressee(addressee);
                 friendship.setStatus(FriendshipStatus.PENDING);
                 friendshipRepository.save(friendship);
+                challengeService.record(requester, ChallengeCriteriaType.FRIEND_REQUESTS_SENT, 1);
                 notifyRequestReceived(addressee, requester);
                 return;
             }
@@ -78,6 +82,7 @@ public class FriendshipService {
                         .build();
 
         friendshipRepository.save(newFriendship);
+        challengeService.record(requester, ChallengeCriteriaType.FRIEND_REQUESTS_SENT, 1);
         notifyRequestReceived(addressee, requester);
     }
 

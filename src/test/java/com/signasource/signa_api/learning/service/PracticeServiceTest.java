@@ -4,16 +4,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
+import com.signasource.signa_api.gamification.entity.ChallengeCriteriaType;
 import com.signasource.signa_api.gamification.entity.UserLearnedSign;
 import com.signasource.signa_api.gamification.entity.UserStats;
 import com.signasource.signa_api.gamification.repository.UserLearnedSignRepository;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
+import com.signasource.signa_api.gamification.service.ChallengeService;
 import com.signasource.signa_api.learning.dto.LearnedSignResponse;
 import com.signasource.signa_api.learning.dto.LessonBlockResponse;
 import com.signasource.signa_api.learning.dto.PracticeMistakeResponse;
@@ -61,6 +64,7 @@ class PracticeServiceTest {
     @Mock private UserStatsRepository userStatsRepository;
     @Mock private BlockSignExtractor blockSignExtractor;
     @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private ChallengeService challengeService;
 
     @InjectMocks private PracticeService practiceService;
 
@@ -438,5 +442,29 @@ class PracticeServiceTest {
 
         assertEquals(0, practiceService.completeMistakeReview(mockUser));
         verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    void recordAttempt_CountsACorrectCameraAnswerTowardsChallenges() {
+        LessonBlock lessonBlock = block(BlockType.VISUAL_RECOGNITION);
+        when(lessonBlockRepository.findById(lessonBlock.getId()))
+                .thenReturn(Optional.of(lessonBlock));
+
+        practiceService.recordAttempt(mockUser, lessonBlock.getId(), true);
+
+        verify(challengeService).record(mockUser, ChallengeCriteriaType.CAMERA_PRACTICES, 1);
+    }
+
+    @Test
+    void recordAttempt_DoesNotCountWrongOrNonCameraAnswers() {
+        LessonBlock camera = block(BlockType.VISUAL_RECOGNITION);
+        LessonBlock match = block(BlockType.MATCH);
+        when(lessonBlockRepository.findById(camera.getId())).thenReturn(Optional.of(camera));
+        when(lessonBlockRepository.findById(match.getId())).thenReturn(Optional.of(match));
+
+        practiceService.recordAttempt(mockUser, camera.getId(), false);
+        practiceService.recordAttempt(mockUser, match.getId(), true);
+
+        verify(challengeService, never()).record(any(), any(), anyLong());
     }
 }
