@@ -636,6 +636,85 @@ class ChallengeServiceTest {
     }
 
     @Test
+    void claim_RejectsADailyFromAPastDay() {
+        Challenge daily =
+                challenge(
+                        ChallengeType.DAILY,
+                        ChallengeCriteriaType.EARN_XP,
+                        500,
+                        ChallengeRewardType.GEMS,
+                        60);
+        UserChallenge yesterdays = row(daily, 500, true, false);
+        yesterdays.setPeriodStart(today.minusDays(1));
+        yesterdays.setPeriodEnd(today.minusDays(1));
+        when(userChallengeRepository.findByIdAndUser(yesterdays.getId(), user))
+                .thenReturn(Optional.of(yesterdays));
+
+        assertThrows(
+                InvalidInputException.class,
+                () -> challengeService.claim(yesterdays.getId(), user));
+        verify(userStatsRepository, never()).save(any());
+    }
+
+    @Test
+    void claim_RejectsAWeeklyFromAPastWeek() {
+        Challenge weekly =
+                challenge(
+                        ChallengeType.WEEKLY,
+                        ChallengeCriteriaType.COMPLETE_LESSONS,
+                        15,
+                        ChallengeRewardType.GEMS,
+                        150);
+        LocalDate lastWeek = ArgentinaTime.startOfCurrentWeekDate().minusWeeks(1);
+        UserChallenge expired = row(weekly, 15, true, false);
+        expired.setPeriodStart(lastWeek);
+        expired.setPeriodEnd(lastWeek.plusDays(6));
+        when(userChallengeRepository.findByIdAndUser(expired.getId(), user))
+                .thenReturn(Optional.of(expired));
+
+        assertThrows(
+                InvalidInputException.class, () -> challengeService.claim(expired.getId(), user));
+    }
+
+    @Test
+    void claim_WeeklyIsClaimableAllWeek() {
+        Challenge weekly =
+                challenge(
+                        ChallengeType.WEEKLY,
+                        ChallengeCriteriaType.COMPLETE_LESSONS,
+                        15,
+                        ChallengeRewardType.GEMS,
+                        150);
+        LocalDate weekStart = ArgentinaTime.startOfCurrentWeekDate();
+        UserChallenge current = row(weekly, 15, true, false);
+        current.setPeriodEnd(weekStart.plusDays(6));
+        when(userChallengeRepository.findByIdAndUser(current.getId(), user))
+                .thenReturn(Optional.of(current));
+        when(userStatsRepository.findByUser(user))
+                .thenReturn(Optional.of(UserStats.builder().user(user).build()));
+
+        assertEquals(150, challengeService.claim(current.getId(), user).gems());
+    }
+
+    @Test
+    void claim_FirstStepsNeverExpire() {
+        Challenge step =
+                challenge(
+                        ChallengeType.FIRST_STEPS,
+                        ChallengeCriteriaType.COMPLETE_LESSONS,
+                        1,
+                        ChallengeRewardType.GEMS,
+                        20);
+        UserChallenge completed = row(step, 1, true, false);
+        when(userChallengeRepository.findByIdAndUser(completed.getId(), user))
+                .thenReturn(Optional.of(completed));
+        when(userStatsRepository.findByUser(user))
+                .thenReturn(Optional.of(UserStats.builder().user(user).build()));
+
+        assertEquals(20, challengeService.claim(completed.getId(), user).gems());
+    }
+
+    @Test
     void claim_UnknownOrForeignChallengeIsNotFound() {
         UUID id = UUID.randomUUID();
         when(userChallengeRepository.findByIdAndUser(id, user)).thenReturn(Optional.empty());

@@ -40,7 +40,6 @@ public class UserStatsEventListener {
     @EventListener
     @Transactional
     public void handleXpEarnedEvent(XpEarnedEvent event) {
-        int xpToAdd = event.getXpAmount();
         User user = event.getUser();
 
         UserStats stats =
@@ -53,6 +52,9 @@ public class UserStatsEventListener {
                                                 .totalXp(0)
                                                 .weeklyXp(0)
                                                 .build());
+
+        // An active XP booster (challenge reward or shop item) scales every XP source.
+        int xpToAdd = (int) Math.round(event.getXpAmount() * stats.getEffectiveXpMultiplier());
 
         if (isBeforeCurrentWeek(stats.getUpdatedAt())) {
             stats.setWeeklyXp(0);
