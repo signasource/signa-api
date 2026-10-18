@@ -37,12 +37,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * First steps and daily challenges.
+ * First steps, daily and weekly challenges.
  *
  * <p>Each user gets one {@link UserChallenge} row per challenge: the first-steps rows live forever
- * under {@link #FIRST_STEPS_PERIOD}, the daily ones are created per {@link ArgentinaTime} day. Rows
- * are created lazily, on the first read or progress report of the period. Progress only touches
- * those rows; the reward (mostly gems) is credited when the user claims it.
+ * under {@link #FIRST_STEPS_PERIOD}, the daily ones are created per {@link ArgentinaTime} day and
+ * the weekly ones per week (Monday to Sunday). Rows are created lazily, on the first read or
+ * progress report of the period. Progress only touches those rows; the reward (mostly gems) is
+ * credited when the user claims it.
  */
 @Service
 @RequiredArgsConstructor
@@ -80,7 +81,12 @@ public class ChallengeService {
                 firstSteps,
                 firstStepsDone,
                 firstStepsDone ? responsesOf(rows, ChallengeType.DAILY) : List.of(),
-                ArgentinaTime.today().plusDays(1).atStartOfDay(ArgentinaTime.ZONE).toInstant());
+                ArgentinaTime.today().plusDays(1).atStartOfDay(ArgentinaTime.ZONE).toInstant(),
+                firstStepsDone ? responsesOf(rows, ChallengeType.WEEKLY) : List.of(),
+                ArgentinaTime.startOfCurrentWeekDate()
+                        .plusWeeks(1)
+                        .atStartOfDay(ArgentinaTime.ZONE)
+                        .toInstant());
     }
 
     /**
@@ -168,41 +174,58 @@ public class ChallengeService {
     }
 
     /**
-     * Returns the user's rows for the first steps and today, creating the ones that are missing.
+     * Returns the user's rows for the first steps, today and this week, creating the ones that are
+     * missing.
      */
     private List<UserChallenge> ensureRows(User user) {
         LocalDate today = ArgentinaTime.today();
+        LocalDate weekStart = ArgentinaTime.startOfCurrentWeekDate();
         Map<UUID, UserChallenge> existing = new HashMap<>();
         userChallengeRepository
-                .findByUserAndPeriodStartIn(user, List.of(FIRST_STEPS_PERIOD, today))
+                .findByUserAndPeriodStartIn(user, List.of(FIRST_STEPS_PERIOD, today, weekStart))
                 .forEach(row -> existing.put(row.getChallenge().getId(), row));
 
         List<UserChallenge> rows = new ArrayList<>();
         UserStats stats = null;
         for (Challenge challenge :
                 challengeRepository.findByActiveTrueAndChallengeTypeIn(
-                        List.of(ChallengeType.FIRST_STEPS, ChallengeType.DAILY))) {
+                        List.of(
+                                ChallengeType.FIRST_STEPS,
+                                ChallengeType.DAILY,
+                                ChallengeType.WEEKLY))) {
             UserChallenge row = existing.get(challenge.getId());
             if (row == null) {
                 if (stats == null) {
                     stats = userStatsRepository.findByUser(user).orElse(null);
                 }
-                row = userChallengeRepository.save(newRow(user, challenge, today, stats));
+                row =
+                        userChallengeRepository.save(
+                                newRow(user, challenge, today, weekStart, stats));
             }
             rows.add(row);
         }
         return rows;
     }
 
-    private UserChallenge newRow(User user, Challenge challenge, LocalDate today, UserStats stats) {
+    private UserChallenge newRow(
+            User user, Challenge challenge, LocalDate today, LocalDate weekStart, UserStats stats) {
         boolean firstSteps = challenge.getChallengeType() == ChallengeType.FIRST_STEPS;
-        LocalDate period = firstSteps ? FIRST_STEPS_PERIOD : today;
+        LocalDate periodStart =
+                switch (challenge.getChallengeType()) {
+                    case FIRST_STEPS -> FIRST_STEPS_PERIOD;
+                    case DAILY -> today;
+                    case WEEKLY -> weekStart;
+                };
+        LocalDate periodEnd =
+                challenge.getChallengeType() == ChallengeType.WEEKLY
+                        ? weekStart.plusDays(6)
+                        : periodStart;
         UserChallenge row =
                 UserChallenge.builder()
                         .user(user)
                         .challenge(challenge)
-                        .periodStart(period)
-                        .periodEnd(period)
+                        .periodStart(periodStart)
+                        .periodEnd(periodEnd)
                         .startedAt(Instant.now())
                         .build();
         if (firstSteps) {

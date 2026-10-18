@@ -51,7 +51,8 @@ class ChallengeControllerTest {
     @Test
     void getChallenges_ReturnsTheUsersChallenges() {
         ChallengesResponse body =
-                new ChallengesResponse(List.of(), false, List.of(), Instant.now());
+                new ChallengesResponse(
+                        List.of(), false, List.of(), Instant.now(), List.of(), Instant.now());
         when(challengeService.getChallenges(user)).thenReturn(body);
 
         ResponseEntity<ChallengesResponse> response =

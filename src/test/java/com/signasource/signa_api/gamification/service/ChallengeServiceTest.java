@@ -99,9 +99,11 @@ class ChallengeServiceTest {
     private UserChallenge row(
             Challenge challenge, int progress, boolean completed, boolean claimed) {
         LocalDate period =
-                challenge.getChallengeType() == ChallengeType.FIRST_STEPS
-                        ? ChallengeService.FIRST_STEPS_PERIOD
-                        : today;
+                switch (challenge.getChallengeType()) {
+                    case FIRST_STEPS -> ChallengeService.FIRST_STEPS_PERIOD;
+                    case DAILY -> today;
+                    case WEEKLY -> ArgentinaTime.startOfCurrentWeekDate();
+                };
         return UserChallenge.builder()
                 .id(UUID.randomUUID())
                 .user(user)
@@ -152,6 +154,55 @@ class ChallengeServiceTest {
         assertFalse(response.firstStepsDone());
         assertTrue(response.daily().isEmpty());
         assertNotNull(response.resetsAt());
+    }
+
+    @Test
+    void getChallenges_ShowsWeeklyOnceFirstStepsAreClaimed() {
+        Challenge step =
+                challenge(
+                        ChallengeType.FIRST_STEPS,
+                        ChallengeCriteriaType.COMPLETE_LESSONS,
+                        1,
+                        ChallengeRewardType.GEMS,
+                        20);
+        Challenge weekly =
+                challenge(
+                        ChallengeType.WEEKLY,
+                        ChallengeCriteriaType.COMPLETE_LESSONS,
+                        15,
+                        ChallengeRewardType.GEMS,
+                        150);
+        catalog(step, weekly);
+        existingRows(row(step, 1, true, true), row(weekly, 4, false, false));
+
+        ChallengesResponse response = challengeService.getChallenges(user);
+
+        assertEquals(1, response.weekly().size());
+        assertEquals(4, response.weekly().get(0).progress());
+        assertTrue(response.daily().isEmpty());
+        assertTrue(response.weeklyResetsAt().isAfter(Instant.now()));
+    }
+
+    @Test
+    void getChallenges_HidesWeeklyUntilEveryFirstStepIsClaimed() {
+        Challenge step =
+                challenge(
+                        ChallengeType.FIRST_STEPS,
+                        ChallengeCriteriaType.COMPLETE_LESSONS,
+                        1,
+                        ChallengeRewardType.GEMS,
+                        20);
+        Challenge weekly =
+                challenge(
+                        ChallengeType.WEEKLY,
+                        ChallengeCriteriaType.COMPLETE_LESSONS,
+                        15,
+                        ChallengeRewardType.GEMS,
+                        150);
+        catalog(step, weekly);
+        existingRows(row(step, 1, true, false), row(weekly, 0, false, false));
+
+        assertTrue(challengeService.getChallenges(user).weekly().isEmpty());
     }
 
     @Test
