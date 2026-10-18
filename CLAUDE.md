@@ -236,6 +236,8 @@ Corren en CI (`.github/workflows/ci.yml`) y localmente:
 
 **Todo código nuevo con lógica debe venir con tests** (la barra de cobertura del 90% es dura).
 
+**Nunca dejes pasar un error, warning o check fallando**, aunque sea anterior a tu cambio: o lo arreglás en el mismo PR o lo anotás como deuda pendiente en la documentación, y lo aclarás en tu reporte.
+
 Notas:
 - La cobertura excluye `config`, `dto`, `entity`, `exceptions` y `*Application*` (ver `build.gradle`).
 - **SpotBugs** usa `config/spotbugs-exclude.xml` como filtro. Para silenciar un hallazgo puntual y
