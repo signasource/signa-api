@@ -62,4 +62,9 @@ public class Challenge {
     @Column(nullable = false)
     @Builder.Default
     private boolean active = true;
+
+    /** Position inside its set (first steps / daily), ascending. */
+    @Column(nullable = false)
+    @Builder.Default
+    private int displayOrder = 0;
 }

@@ -6,8 +6,10 @@ import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.gamification.entity.AchievementCriteriaType;
+import com.signasource.signa_api.gamification.entity.ChallengeCriteriaType;
 import com.signasource.signa_api.gamification.repository.UserLearnedSignRepository;
 import com.signasource.signa_api.gamification.service.AchievementService;
+import com.signasource.signa_api.gamification.service.ChallengeService;
 import com.signasource.signa_api.learning.dto.CourseProgressResponse;
 import com.signasource.signa_api.learning.dto.EnrollmentSummaryResponse;
 import com.signasource.signa_api.learning.dto.TopicProgressResponse;
@@ -70,6 +72,7 @@ public class CourseTrackingService {
     private final UserLearnedSignRepository userLearnedSignRepository;
     private final AchievementService achievementService;
     private final MetricsService metricsService;
+    private final ChallengeService challengeService;
 
     @Transactional
     public UserCourseEnrollment enrollUserInCourse(User user, UUID courseVersionId) {
@@ -314,6 +317,10 @@ public class CourseTrackingService {
             eventPublisher.publishEvent(new LifeLostEvent(this, user));
         }
 
+        if (Boolean.TRUE.equals(isCorrect) && ChallengeService.isCameraBlock(block.getType())) {
+            challengeService.record(user, ChallengeCriteriaType.CAMERA_PRACTICES, 1);
+        }
+
         if (isNewMilestone) {
             // Content may leave xpReward empty (e.g. INTRODUCE_SIGN): such a block awards no XP.
             if (block.getXpReward() != null) {
@@ -436,6 +443,7 @@ public class CourseTrackingService {
         progress.setXpEarned(xpEarned);
         lessonProgressRepository.save(progress);
         metricsService.recordLessonCompletion();
+        recordLessonChallenges(user, lesson);
         achievementService.awardReached(
                 user,
                 AchievementCriteriaType.LESSONS_COMPLETED,
@@ -443,6 +451,15 @@ public class CourseTrackingService {
                         user.getId(), ProgressStatus.COMPLETED));
 
         checkTopicCompletion(user, lesson.getTopic());
+    }
+
+    /** A lesson is perfect when the user never answered one of its blocks wrong. */
+    private void recordLessonChallenges(User user, Lesson lesson) {
+        challengeService.record(user, ChallengeCriteriaType.COMPLETE_LESSONS, 1);
+        if (!attemptRepository.existsByUserIdAndLessonBlockLessonIdAndIsCorrectFalse(
+                user.getId(), lesson.getId())) {
+            challengeService.record(user, ChallengeCriteriaType.PERFECT_LESSONS, 1);
+        }
     }
 
     private void checkTopicCompletion(User user, Topic topic) {
