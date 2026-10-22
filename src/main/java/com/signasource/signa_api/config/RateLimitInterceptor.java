@@ -21,7 +21,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
     static final Duration AUTH_REFILL_DURATION = Duration.ofMinutes(15);
     static final int TOO_MANY_REQUESTS = 429;
     private static final int TOKENS_PER_REQUEST = 1;
-    private static final String X_FORWARDED_FOR = "X-Forwarded-For";
+    private static final String X_REAL_IP = "X-Real-IP";
     private static final String TOO_MANY_REQUESTS_MESSAGE = "Too many requests";
 
     private final ObjectMapper objectMapper;
@@ -80,10 +80,13 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         return Bucket.builder().addLimit(limit).build();
     }
 
+    // X-Real-IP is always overwritten by nginx with the client IP it resolved from Cloudflare
+    // (nginx/templates/app.conf.template). X-Forwarded-For is never read: its first value is
+    // whatever the client sent, so trusting it let anyone pick their own bucket.
     private String getClientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader(X_FORWARDED_FOR);
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
+        String realIp = request.getHeader(X_REAL_IP);
+        if (realIp != null && !realIp.isBlank()) {
+            return realIp.trim();
         }
         return request.getRemoteAddr();
     }

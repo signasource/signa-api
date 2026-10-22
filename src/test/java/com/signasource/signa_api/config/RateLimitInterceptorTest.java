@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 class RateLimitInterceptorTest {
 
     private static final String CLIENT_IP = "192.168.1.1";
-    private static final String FORWARDED_IP = "10.0.0.1";
+    private static final String REAL_IP = "10.0.0.1";
 
     private RateLimitInterceptor interceptor;
     private HttpServletRequest request;
@@ -55,12 +55,32 @@ class RateLimitInterceptorTest {
     }
 
     @Test
-    void preHandle_usesXForwardedForHeader_whenPresent() throws Exception {
-        when(request.getHeader("X-Forwarded-For")).thenReturn(FORWARDED_IP + ", 172.16.0.1");
+    void preHandle_keysOnXRealIp_whenPresent() throws Exception {
+        HttpServletRequest sameClientOtherProxy = mock(HttpServletRequest.class);
+        when(sameClientOtherProxy.getRemoteAddr()).thenReturn("172.16.0.9");
+        when(sameClientOtherProxy.getHeader("X-Real-IP")).thenReturn(REAL_IP);
+        when(request.getHeader("X-Real-IP")).thenReturn(REAL_IP);
+
+        for (int i = 0; i < RateLimitInterceptor.BUCKET_CAPACITY; i++) {
+            interceptor.preHandle(request, response, handler);
+        }
+
+        boolean result = interceptor.preHandle(sameClientOtherProxy, response, handler);
+
+        assertFalse(result);
+    }
+
+    @Test
+    void preHandle_ignoresSpoofedXForwardedFor() throws Exception {
+        for (int i = 0; i < RateLimitInterceptor.BUCKET_CAPACITY; i++) {
+            when(request.getHeader("X-Forwarded-For")).thenReturn("10.0.0." + i);
+            interceptor.preHandle(request, response, handler);
+        }
+        when(request.getHeader("X-Forwarded-For")).thenReturn("10.0.0.250");
 
         boolean result = interceptor.preHandle(request, response, handler);
 
-        assertTrue(result);
+        assertFalse(result);
     }
 
     @Test
