@@ -37,6 +37,9 @@ public class EmailService {
                 buildVerificationHtml(buildUrl(VERIFICATION_PATH, token)));
     }
 
+    // Async so /auth/forgot-password answers in the same time (and status) whether or not the
+    // email belongs to an account; sending inline made registered emails measurably slower.
+    @Async
     public void sendPasswordResetEmail(String to, String token) {
         sendEmail(
                 to,

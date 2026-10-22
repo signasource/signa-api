@@ -76,4 +76,19 @@ class RateLimitInterceptorTest {
 
         assertTrue(result);
     }
+
+    @Test
+    void preHandle_authEmailLimit_isStricterThanDefault() throws Exception {
+        RateLimitInterceptor authInterceptor =
+                RateLimitInterceptor.forAuthEmail(new ObjectMapper(), mock(MetricsService.class));
+
+        for (int i = 0; i < RateLimitInterceptor.AUTH_BUCKET_CAPACITY; i++) {
+            assertTrue(authInterceptor.preHandle(request, response, handler));
+        }
+
+        boolean result = authInterceptor.preHandle(request, response, handler);
+
+        assertFalse(result);
+        verify(response).setStatus(RateLimitInterceptor.TOO_MANY_REQUESTS);
+    }
 }
