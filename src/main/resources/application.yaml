@@ -9,7 +9,16 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      # Flyway owns the schema; Hibernate only validates its mappings against it.
+      ddl-auto: validate
+
+  flyway:
+    enabled: true
+    # Existing databases (prod) are stamped at V1 without running the baseline;
+    # fresh databases get the schema by running V1 and every later migration.
+    baseline-on-migrate: true
+    baseline-version: 1
+    baseline-description: baseline
 
   mail:
     host: smtp.gmail.com
