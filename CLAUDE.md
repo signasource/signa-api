@@ -227,6 +227,12 @@ Resumen de alta prioridad; el detalle y los ejemplos están en los bloques sigui
   `/auth/reset-password` y `/auth/resend-verification-email` (mandan mails o validan el token de
   reset). Un endpoint nuevo que mande mails sin autenticación va en ese segundo grupo. El límite de
   `/waitlist` y del resto del tráfico público lo aplica Cloudflare, delante de la API.
+- **IP del cliente:** sólo `X-Real-IP`, que nginx **pisa** siempre con la IP que resolvió
+  (`nginx/templates/app.conf.template`: `real_ip_header CF-Connecting-IP` confiando únicamente en los
+  rangos de Cloudflare). **Nunca** leer `X-Forwarded-For` ni `CF-Connecting-IP` en la app: los manda
+  el cliente y con ellos cualquiera elige su propio bucket. Si Cloudflare publica rangos nuevos
+  (<https://www.cloudflare.com/ips/>), actualizar los `set_real_ip_from`; si no, esos pedidos quedan
+  agrupados por IP de Cloudflare y comparten límite.
 - **Enumeración de usuarios:** `forgotPassword` / `resendVerificationEmail` responden igual exista
   o no el email (no filtrar existencia de cuentas) — **también en tiempo y en status**: todo mail
   que dependa de que la cuenta exista se manda con `@Async` en `EmailService`, para que ni la
