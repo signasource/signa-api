@@ -221,11 +221,16 @@ Resumen de alta prioridad; el detalle y los ejemplos están en los bloques sigui
   refrescan el access token ante un 401). Token válido sin el rol requerido → 403 (`AccessDeniedHandler` por defecto).
 - **Perfil `local`** desactiva la seguridad (`app.security.enabled=false`, cadena que permite todo)
   para desarrollo. **Nunca** activar ese comportamiento en prod.
-- **Rate limiting** con Bucket4j (`RateLimitInterceptor`) en endpoints sensibles a abuso
-  (`/users/username-availability`, `/store/gem-purchases`). El límite de `/waitlist` y del resto del
-  tráfico público lo aplica Cloudflare, delante de la API.
+- **Rate limiting** con Bucket4j (`RateLimitInterceptor`, por IP, registrado en `WebConfig`) en
+  endpoints sensibles a abuso: 30/min en `/users/username-availability` y `/store/gem-purchases`;
+  **10 cada 15 min** (`RateLimitInterceptor.forAuthEmail`) en `/auth/forgot-password`,
+  `/auth/reset-password` y `/auth/resend-verification-email` (mandan mails o validan el token de
+  reset). Un endpoint nuevo que mande mails sin autenticación va en ese segundo grupo. El límite de
+  `/waitlist` y del resto del tráfico público lo aplica Cloudflare, delante de la API.
 - **Enumeración de usuarios:** `forgotPassword` / `resendVerificationEmail` responden igual exista
-  o no el email (no filtrar existencia de cuentas). Mantener este comportamiento.
+  o no el email (no filtrar existencia de cuentas) — **también en tiempo y en status**: todo mail
+  que dependa de que la cuenta exista se manda con `@Async` en `EmailService`, para que ni la
+  demora del SMTP ni un fallo de envío (500) delaten la cuenta. Mantener este comportamiento.
 - **Secretos** por variables de entorno (`.env`, ver `.env.example`): `JWT_SECRET`,
   `GOOGLE_CLIENT_ID`, credenciales de DB y mail, service account de Firebase, credenciales de
   Cloudflare R2 (`R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY`), service account de Google Play
