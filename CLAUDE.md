@@ -317,7 +317,11 @@ Conventions** porque alimenta el versionado automático (SemVer). Formato `tipo(
 con tipos `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `build`, `ci`, `perf`, `style`
 (`feat` → *minor*, `fix` → *patch*, un footer `BREAKING CHANGE:` → *major*).
 
-**Integración:** a `develop` siempre con **squash merge**. A `master` solo desde `release/*` o `hotfix/*`.
+**Integración:** a `develop` siempre con **squash merge**. A `master` solo desde `release/*` o `hotfix/*`,
+y siempre con **merge commit** (nunca squash ni rebase): un squash deja un único commit no convencional
+en `master` (semantic-release no publica nada) y desconecta las historias, así que la release siguiente
+tiene conflictos. Después de cada release, sincronizar `master` → `develop` con una PR desde
+`chore/sync-master-AAAA-MM-DD`, también con merge commit.
 
 **Gates automáticos:**
 - `ci.yml` corre en **toda rama** (`push: '**'`): spotless → validación de contenido → tests + cobertura
@@ -326,7 +330,7 @@ con tipos `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `build`, `ci`, `pe
   sólo admite `release/*` o `hotfix/*`. Un nombre inválido **falla el PR**.
 
 **Release (automático):** al pushear a `master`, `release.yml` corre **`semantic-release`** (preset
-Angular, sin `.releaserc`): analiza los commits desde el último release, calcula la versión SemVer, crea
+Angular, config en `.release.config.mjs`, rama `master`): analiza los commits desde el último release, calcula la versión SemVer, crea
 el **tag** y publica el **GitHub Release**. Por eso el mensaje del squash —que termina llegando a `master`
 vía `release/*`— tiene que respetar la convención. **Nunca se taggea a mano.**
 
