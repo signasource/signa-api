@@ -41,4 +41,9 @@ public class Token {
 
     @Column(nullable = false)
     private Instant expiryDate;
+
+    /** Failed redemption attempts; only password reset codes use it. */
+    @Column(nullable = false)
+    @Builder.Default
+    private int attempts = 0;
 }
