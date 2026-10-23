@@ -5,9 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.learning.dto.LessonBlockResponse;
 import com.signasource.signa_api.learning.dto.LessonDetailResponse;
 import com.signasource.signa_api.learning.service.LessonService;
+import com.signasource.signa_api.users.entity.User;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -29,7 +31,9 @@ class LessonControllerTest {
 
     @Test
     void testGetLessonContent() {
-        // Arrange
+        User user = new User();
+        CustomUserDetails userDetails = new CustomUserDetails(user);
+
         LessonBlockResponse blockResponse =
                 new LessonBlockResponse(
                         UUID.randomUUID(), "INFO", 1, "{\"text\":\"Aprende la letra A\"}", 20);
@@ -38,13 +42,12 @@ class LessonControllerTest {
                 new LessonDetailResponse(
                         lessonId, "Aprende la letra A", "Desc", 1, List.of(blockResponse));
 
-        when(lessonService.getLessonContent(lessonId)).thenReturn(mockDetail);
+        when(lessonService.getLessonContent(user, lessonId)).thenReturn(mockDetail);
 
-        // Act
-        ResponseEntity<LessonDetailResponse> response = lessonController.getLessonContent(lessonId);
+        ResponseEntity<LessonDetailResponse> response =
+                lessonController.getLessonContent(userDetails, lessonId);
 
-        // Assert
-        verify(lessonService).getLessonContent(lessonId);
+        verify(lessonService).getLessonContent(user, lessonId);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
         assertEquals(lessonId, response.getBody().id());

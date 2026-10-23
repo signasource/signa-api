@@ -10,6 +10,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface PurchaseRepository extends JpaRepository<Purchase, UUID> {
 
+    long countByUser(User user);
+
     Optional<Purchase> findFirstByUserAndShopItem_ItemTypeAndStatusOrderByPurchasedAtAsc(
             User user, ShopItemType itemType, PurchaseStatus status);
 }

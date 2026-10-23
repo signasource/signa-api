@@ -93,6 +93,44 @@ sequenceDiagram
     end
 ```
 
+## Restablecimiento de contraseña con código
+
+El correo trae un código de 6 dígitos que vence a los 15 minutos; se guarda cifrado (BCrypt) y se
+descarta tras 5 intentos fallidos. Pedirlo responde igual exista o no la cuenta, y cualquier código
+inválido, vencido o agotado devuelve el mismo error.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant API as API
+    participant DB as Base de datos
+    participant Mail as Servicio de correo
+
+    C->>API: Pedir código (correo)
+    API->>API: Generar código y cifrarlo (también si la cuenta no existe)
+    API->>DB: Buscar cuenta por correo
+    opt la cuenta existe
+        API->>DB: Reemplazar el código pendiente (vence en 15 min, 0 intentos)
+        API-)Mail: Enviar código (asíncrono)
+    end
+    API-->>C: OK (200) siempre
+
+    C->>API: Restablecer (correo, código, contraseña nueva)
+    API->>DB: Buscar cuenta y código pendiente
+    alt sin cuenta, sin código o vencido
+        API->>DB: Eliminar el código si estaba vencido
+        API-->>C: Código inválido o vencido (400)
+    else código incorrecto
+        API->>DB: Sumar un intento (al 5.º se elimina el código)
+        API-->>C: Código inválido o vencido (400)
+    else código correcto
+        API->>DB: Guardar la contraseña nueva cifrada
+        API->>DB: Eliminar el código y los tokens de renovación
+        API-->>C: OK (200)
+    end
+```
+
 ## Inicio de sesión con proveedor externo
 
 ```mermaid
@@ -334,6 +372,13 @@ Registra el intento del usuario y propaga la finalización hacia arriba en la je
 del camino principal. El progreso de lección y tema se crea de forma diferida en la primera
 interacción.
 
+**Bloques requeridos para completar la lección:** todos salvo `INTRODUCE_SIGN` e `INVISIBLE_SIGNS`,
+que el reproductor de la app nunca reporta (el primero solo presenta la seña, el segundo no se
+muestra). `INFO` y los de cámara (`PERFORM_SIGN`, `SPELL_NAME`) cuentan con cualquier intento; el
+resto pide un acierto. La finalización se evalúa en **cada** interacción (no solo en el primer
+hito), así una lección que quedó en progreso se completa al volver a responder cualquiera de sus
+bloques.
+
 ```mermaid
 sequenceDiagram
     autonumber
@@ -352,19 +397,69 @@ sequenceDiagram
         else válida
             API->>DB: Registrar el intento
             API->>DB: Marcar lección y tema en progreso (si estaban bloqueados)
-            alt primer hito (primer acierto / primera vista)
+            opt primer hito (primer acierto / primera vista)
                 API-)Gam: XP ganado
                 API-)Gam: Señas aprendidas (bloques de ejercicio)
-                API->>DB: ¿Todos los bloques de la lección resueltos?
-                opt lección completa
-                    API->>DB: Completar lección (con XP acumulado)
-                    opt todos los temas... completos
-                        API->>DB: Completar tema y, si corresponde, la inscripción
-                    end
+            end
+            API->>DB: ¿Todos los bloques requeridos de la lección resueltos?
+            opt lección completa (y no lo estaba)
+                API->>DB: Completar lección (con XP acumulado)
+                opt todos los temas... completos
+                    API->>DB: Completar tema y, si corresponde, la inscripción
                 end
             end
             API-->>C: Intento registrado (201)
         end
+    end
+```
+
+## Práctica libre
+
+Sesiones sueltas de repaso (por tipo de ejercicio, por seña aprendida, o de errores pendientes),
+fuera del camino de una lección real. Reutiliza los mismos `LESSON_BLOCK` de las lecciones en las
+que el usuario está inscripto, pero el intento se guarda en `PRACTICE_ATTEMPT`, no en
+`LESSON_BLOCK_ATTEMPT` — no dispara XP, no cuesta vidas y no toca el progreso de lección/tema/curso
+(contraste con [Interacción con un bloque de lección](#interaccion-con-un-bloque-de-leccion)). El
+repaso de errores combina ambas tablas: un bloque es un "error pendiente" si su intento más
+reciente, en cualquiera de las dos, fue incorrecto.
+
+Solo se practican bloques evaluables (se excluyen `INFO`, `INTRODUCE_SIGN`, `INVISIBLE_SIGNS`,
+`PERFORM_SIGN` y `SPELL_NAME`) y solo de lecciones que el usuario ya empezó (`USER_LESSON_PROGRESS`).
+
+**Excepción:** terminar un lote de repaso de errores puede otorgar una recompensa de XP fija
+(`PracticeService.completeMistakeReview`, evento `XpEarnedEvent`). Se otorga solo si, desde el último
+cobro (`USER_STATS.last_mistake_review_at`), el usuario respondió bien un bloque que antes había fallado;
+si no, devuelve 0 XP. Así no se puede farmear contestando mal a propósito.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant API as API
+    participant DB as Base de datos
+
+    alt práctica por tipo de ejercicio
+        C->>API: Pedir ejercicios de un tipo
+        API->>DB: Bloques de ese tipo en los cursos inscriptos
+    else práctica por seña aprendida
+        C->>API: Pedir ejercicios de una seña
+        API->>DB: Bloques de los cursos inscriptos que enseñan esa seña
+    else repaso de errores
+        C->>API: Pedir bloques con errores pendientes
+        API->>DB: Últimos intentos (lección + práctica) por bloque
+    end
+    API-->>C: Lote de bloques (mezclado, acotado a un límite)
+
+    loop por cada bloque respondido
+        C->>API: Registrar intento de práctica (correcto/incorrecto)
+        API->>DB: Guardar en PRACTICE_ATTEMPT
+        API-->>C: Intento registrado (201)
+    end
+
+    opt lote de repaso de errores completado
+        C->>API: Completar repaso de errores
+        API->>API: Publicar XpEarnedEvent (recompensa fija)
+        API-->>C: XP otorgado
     end
 ```
 
@@ -408,6 +503,149 @@ sequenceDiagram
             end
         end
     end
+```
+
+## Ingreso a una organización con código o invitación
+
+La organización (o un admin de SIGNA) genera un código compartido o invita por email; en ese caso
+se crea un código de un solo uso atado al correo y se le envía. Canjearlo une a la persona a la
+organización y la inscribe en todos los cursos que la organización contrató.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as Admin de la organización
+    participant C as Usuario (app)
+    participant API as API
+    participant M as Correo
+    participant DB as Base de datos
+
+    A->>API: Invitar por email (o generar código compartido)
+    API->>DB: Guardar código (atado al email, un solo uso)
+    API-)M: Enviar el código por correo
+    C->>API: Canjear código
+    API->>DB: Buscar código
+    alt inexistente, inactivo, vencido, agotado o de otro correo
+        API-->>C: Solicitud inválida (400)
+    else organización pendiente de aprobación o sin cupo
+        API-->>C: Solicitud inválida (400)
+    else pertenece a otra organización
+        API-->>C: Conflicto (409)
+    else válido
+        API->>DB: Crear o reactivar la membresía
+        API->>DB: Inscribir en cada curso contratado (conserva progreso previo)
+        API-->>C: Organización y cursos habilitados
+    end
+    A->>API: Quitar participante (o el participante sale por su cuenta)
+    API->>DB: Marcar membresía como removida y bajar sus inscripciones
+    Note over API,DB: El progreso queda guardado por si se reincorpora
+```
+
+## Alta autogestionada de una organización
+
+Una empresa se registra desde la web: se crean en un solo paso la cuenta de su administrador y la
+organización, pendiente de aprobación. SIGNA la revisa desde su panel y la aprueba eligiendo qué
+cursos contrata (o la rechaza); recién ahí la organización puede sumar participantes.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant W as Web (empresa)
+    participant S as Admin de SIGNA
+    participant API as API
+    participant DB as Base de datos
+
+    W->>API: Consultar precio por persona
+    W->>API: Registrar organización (nombre, CUIT, contacto, cupo, admin)
+    alt nombre, CUIT o email ya usados
+        API-->>W: Conflicto (409)
+    else CUIT mal formado
+        API-->>W: Solicitud inválida (400)
+    else válido
+        API->>DB: Crear cuenta del administrador y organización pendiente
+        API-->>W: Organización pendiente (201)
+    end
+    S->>API: Listar organizaciones pendientes (panel de SIGNA)
+    S->>API: Aprobar eligiendo los cursos
+    API->>DB: Organización activa y cursos contratados
+    W->>API: El administrador de la empresa inicia sesión en su panel
+    W->>API: Invitar participantes (código, email o planilla)
+```
+
+## Invitación de un administrador al panel de la organización
+
+Un admin de SIGNA invita por email a quien va a administrar la organización desde el panel web. El
+correo lleva al panel; la persona crea su cuenta o inicia sesión y acepta la invitación, con lo que
+pasa a administrar esa organización (y solo esa).
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant S as Admin de SIGNA
+    participant API as API
+    participant M as Correo
+    participant P as Panel web
+    participant DB as Base de datos
+
+    S->>API: Invitar administrador (email)
+    API->>DB: Guardar invitación de un solo uso atada al email, con rol administrador
+    API-)M: Enviar enlace al panel con el código
+    M-->>P: La persona abre el enlace
+    P->>API: Registrarse o iniciar sesión
+    P->>API: Aceptar invitación (código)
+    API->>DB: Buscar código
+    alt inexistente, vencido, usado o de otro correo
+        API-->>P: Solicitud inválida (400)
+    else pertenece a otra organización
+        API-->>P: Conflicto (409)
+    else válido
+        API->>DB: Crear o promover la membresía como administradora
+        API-->>P: Organización y rol
+    end
+```
+
+## Tienda: compra de gemas con dinero real (Google Play)
+
+La app nunca acredita gemas por su cuenta: paga en Google Play, le pasa el comprobante a la API y
+sólo cuando la API confirma la acreditación le avisa a Google que el producto fue consumido. Si la
+app se cierra entre el pago y la acreditación, al volver a abrir la tienda reintenta con el mismo
+comprobante y la API responde lo mismo sin acreditar de nuevo.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant GP as Google Play
+    participant API as API
+    participant G as Google Play Developer API
+    participant DB as Base de datos
+
+    C->>API: Listar packs de gemas
+    API->>DB: Traer packs activos
+    API-->>C: Packs (id de producto + cantidad de gemas)
+    C->>GP: Precio localizado de cada producto y compra
+    GP-->>C: Compra completada (token de compra)
+    C->>API: Canjear compra (producto + token)
+    API->>DB: ¿Ya existe una compra con ese token?
+    alt ya canjeado por este usuario
+        API-->>C: Compra ya acreditada (sin acreditar de nuevo) + inventario
+    else canjeado por otro usuario
+        API-->>C: Conflicto (409)
+    else token nuevo
+        API->>G: Consultar el estado de la compra
+        alt token inválido o de otro producto
+            API-->>C: Solicitud inválida (400)
+        else pago pendiente o cancelado
+            API-->>C: Solicitud inválida (400)
+        else ya consumido sin haberse acreditado
+            API-->>C: Conflicto (409)
+        else pagado y sin consumir
+            API->>DB: Acreditar gemas y registrar la compra (token único)
+            Note over API,DB: Si dos requests con el mismo token corren a la vez,<br/>la restricción de unicidad hace ganar a una sola;<br/>la otra devuelve la compra ya acreditada
+            API-->>C: Compra acreditada + inventario actualizado
+        end
+    end
+    C->>GP: Marcar el producto como consumido
 ```
 
 ## Obtención de la animación de una seña

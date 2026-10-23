@@ -23,6 +23,22 @@ Backend de **SignaSource**, plataforma de aprendizaje de lenguas de señas (Spri
 docker compose up --build
 ```
 
+### Correr la API fuera de Docker (`./gradlew bootRun`)
+
+Con un Postgres 17 propio (alcanza `docker run -d -p 55432:5432 -e POSTGRES_DB=signa -e POSTGRES_USER=signa -e POSTGRES_PASSWORD=signa postgres:17`),
+además de las variables de `.env.example` (`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET`, `MAIL_*`) hacen falta:
+
+| Variable | Valor | Por qué |
+|---|---|---|
+| `SPRING_PROFILES_ACTIVE` | `local` | Seguridad desactivada y Google Play en modo falso. |
+| `SPRING_DOCKER_COMPOSE_ENABLED` | `false` | Si no, `spring-boot-docker-compose` intenta levantar todo `docker-compose.yml` (API, nginx, alloy). |
+| `JAVA_TOOL_OPTIONS` | `-Duser.timezone=America/Argentina/Buenos_Aires` | La JVM de Windows usa por defecto `America/Buenos_Aires`, que Postgres 17 rechaza al conectar. |
+| `FIREBASE_CREDENTIALS_JSON` | base64 de un JSON de service account | `FirebaseService` necesita el bean aunque no mandes push. Sirve uno falso generado localmente (con cualquier clave RSA): arranca y no envía nada. |
+
+Usá una base **vacía**: una creada antes de Flyway (con el viejo `ddl-auto: update`) queda marcada
+como baseline V1 sin correr esa migración, y `validate` falla al arrancar (p. ej. `missing column
+[reward_gems]`). Recreala o creá otra con `createdb`.
+
 ### Checks de calidad
 
 Los mismos 5 que corre el CI (`.github/workflows/ci.yml`). Fuente de verdad y detalle: **[`CLAUDE.md` §6](CLAUDE.md)**.

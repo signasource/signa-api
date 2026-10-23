@@ -7,6 +7,7 @@ import java.time.Instant;
 public record UserStatsResponse(
         long totalXp,
         int weeklyXp,
+        int weeklyRank,
         int currentStreak,
         int longestStreak,
         int gems,
@@ -20,10 +21,11 @@ public record UserStatsResponse(
         Instant xpMultiplierExpiresAt,
         Instant unlimitedLivesExpiresAt) {
 
-    public static UserStatsResponse from(UserStats stats) {
+    public static UserStatsResponse from(UserStats stats, int weeklyRank) {
         return new UserStatsResponse(
                 stats.getTotalXp(),
                 stats.getWeeklyXp(),
+                weeklyRank,
                 stats.getCurrentStreak(),
                 stats.getLongestStreak(),
                 stats.getGems(),

@@ -47,7 +47,7 @@ public class SignService {
 
     @Transactional
     public SignSummaryResponse createSign(CreateSignRequest request) {
-        if (signRepository.existsByMeaning(request.meaning())) {
+        if (signRepository.existsByMeaningIgnoreCase(request.meaning())) {
             throw new ResourceAlreadyInUseException("Sign meaning already in use");
         }
 
@@ -61,6 +61,7 @@ public class SignService {
                         .meaning(request.meaning())
                         .handedness(request.handedness())
                         .animationUrl(request.animationUrl())
+                        .youtubeUrl(request.youtubeUrl())
                         .signLanguage(signLanguage)
                         .build();
 
@@ -72,7 +73,7 @@ public class SignService {
     public SignAnimationResponse getSignAnimation(String meaning) {
         Sign sign =
                 signRepository
-                        .findByMeaning(meaning)
+                        .findByMeaningIgnoreCase(meaning)
                         .orElseThrow(() -> new NotFoundException("Sign not found"));
 
         String objectKey = sign.getAnimationUrl();

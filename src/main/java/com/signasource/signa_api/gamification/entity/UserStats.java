@@ -1,5 +1,6 @@
 package com.signasource.signa_api.gamification.entity;
 
+import com.signasource.signa_api.common.ArgentinaTime;
 import com.signasource.signa_api.users.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -13,6 +14,8 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -46,6 +49,9 @@ public class UserStats {
     @Column(nullable = false)
     @Builder.Default
     private int longestStreak = 0;
+
+    /** Streak day ({@link ArgentinaTime}) of the last activity that counted towards the streak. */
+    @Column private LocalDate lastStreakDate;
 
     @Column(nullable = false)
     @Builder.Default
@@ -86,6 +92,15 @@ public class UserStats {
 
     @Column(nullable = false)
     private Instant updatedAt;
+
+    /**
+     * When the user last claimed the mistake-review XP bonus. A new claim requires a mistake
+     * resolved after this moment, so the bonus can't be farmed (see PracticeService).
+     */
+    @Column private Instant lastMistakeReviewAt;
+
+    /** Rank at the end of the previous weekly cycle. Null until the first reset runs. */
+    @Column private Integer previousWeeklyRank;
 
     public double getEffectiveXpMultiplier() {
         if (xpMultiplierExpiresAt != null && xpMultiplierExpiresAt.isAfter(Instant.now())) {
@@ -133,6 +148,32 @@ public class UserStats {
             return false;
         }
         currentLives = lives - 1;
+        return true;
+    }
+
+    /**
+     * Counts {@code today} as a day of activity. Consecutive days extend the streak; each missed
+     * day burns one streak shield, and without enough shields the streak restarts at 1.
+     *
+     * @return {@code true} when the streak advanced (first activity of the day)
+     */
+    public boolean registerStreakActivity(LocalDate today) {
+        if (lastStreakDate != null && !today.isAfter(lastStreakDate)) {
+            return false;
+        }
+        if (lastStreakDate == null) {
+            currentStreak = 1;
+        } else {
+            long missedDays = ChronoUnit.DAYS.between(lastStreakDate, today) - 1;
+            if (missedDays <= streakShields) {
+                streakShields -= (int) missedDays;
+                currentStreak += 1;
+            } else {
+                currentStreak = 1;
+            }
+        }
+        longestStreak = Math.max(longestStreak, currentStreak);
+        lastStreakDate = today;
         return true;
     }
 }

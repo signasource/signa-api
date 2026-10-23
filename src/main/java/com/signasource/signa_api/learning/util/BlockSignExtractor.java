@@ -17,7 +17,7 @@ public class BlockSignExtractor {
 
     public List<String> extract(LessonBlock block) {
         return switch (block.getType()) {
-            case INFO -> List.of();
+            case INFO, INVISIBLE_SIGNS -> List.of();
             default -> {
                 try {
                     JsonNode config = objectMapper.readTree(block.getConfig());
@@ -32,12 +32,14 @@ public class BlockSignExtractor {
     private List<String> extractFromConfig(
             com.signasource.signa_api.learning.entity.BlockType type, JsonNode config) {
         return switch (type) {
+            case INTRODUCE_SIGN -> singleText(config, "meaning");
             case SELECT_MEANING -> singleText(config, "sign");
             case SELECT_SIGN -> singleText(config, "word");
             case CONTEXT_RESPONSE -> singleText(config, "answer");
             case MATCH -> arrayTexts(config, "concepts");
             case VISUAL_RECOGNITION -> arrayTexts(config, "sign_sequence");
-            case INFO -> List.of();
+            // Ver SignCatalogExtractor: son etiquetas del modelo, no señas del catálogo.
+            case INFO, INVISIBLE_SIGNS, PERFORM_SIGN, SPELL_NAME -> List.of();
         };
     }
 

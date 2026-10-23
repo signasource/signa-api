@@ -169,12 +169,21 @@ aprendidas. `USER` es la vista [Usuarios](#usuarios); `COURSE_VERSION`, `TOPIC`,
 `LESSON_BLOCK`, la vista [Contenido / aprendizaje](#contenido-aprendizaje). `USER_LEARNED_SIGN.sign`
 guarda la seña como texto (no es FK a `SIGN`).
 
+`PRACTICE_ATTEMPT` registra los intentos de la práctica libre (por tipo de ejercicio, por seña
+aprendida o repaso de errores) — mismo shape que `LESSON_BLOCK_ATTEMPT` pero deliberadamente
+separada: guardarla **no** dispara XP, pérdida de vidas ni avance de `USER_LESSON_PROGRESS`/
+`USER_TOPIC_PROGRESS` (ver [`PracticeService`](../../src/main/java/com/signasource/signa_api/learning/service/PracticeService.java)).
+El repaso de errores lee de ambas tablas: un bloque es un "error pendiente" si su intento más
+reciente (en cualquiera de las dos) fue incorrecto. `USER_STATS.lastMistakeReviewAt` marca el último
+cobro del XP del repaso de errores: un nuevo cobro exige un error resuelto después de esa fecha.
+
 ```mermaid
 erDiagram
     USER ||--o{ USER_COURSE_ENROLLMENT : "se inscribe"
     USER ||--o{ USER_TOPIC_PROGRESS : "avanza"
     USER ||--o{ USER_LESSON_PROGRESS : "avanza"
     USER ||--o{ LESSON_BLOCK_ATTEMPT : "intenta"
+    USER ||--o{ PRACTICE_ATTEMPT : "practica"
     USER ||--o{ USER_DAILY_XP : "acumula"
     USER ||--o{ USER_LEARNED_SIGN : "aprende"
     COURSE_VERSION ||--o{ USER_COURSE_ENROLLMENT : "referida por"
@@ -182,14 +191,17 @@ erDiagram
     TOPIC ||--o{ USER_TOPIC_PROGRESS : "referido por"
     LESSON ||--o{ USER_LESSON_PROGRESS : "referida por"
     LESSON_BLOCK ||--o{ LESSON_BLOCK_ATTEMPT : "referido por"
+    LESSON_BLOCK ||--o{ PRACTICE_ATTEMPT : "referido por"
 
     USER_COURSE_ENROLLMENT {
         uuid id PK
         uuid user_id FK
         uuid course_version_id FK
+        uuid organization_id FK "nulo si es autoinscripción"
         enum status
         instant startedAt
         instant completedAt
+        instant accessExpiresAt
     }
     USER_TOPIC_PROGRESS {
         uuid id PK
@@ -209,6 +221,13 @@ erDiagram
         int xpEarned
     }
     LESSON_BLOCK_ATTEMPT {
+        uuid id PK
+        uuid user_id FK
+        uuid lesson_block_id FK
+        boolean isCorrect
+        instant attemptedAt
+    }
+    PRACTICE_ATTEMPT {
         uuid id PK
         uuid user_id FK
         uuid lesson_block_id FK
@@ -237,7 +256,10 @@ rachas y XP). `ACHIEVEMENT` es el catálogo de logros; `USER_ACHIEVEMENT` regist
 desbloqueó (con `earnedAt`). `SHOP_ITEM` es el catálogo de la tienda (multiplicadores de XP, vidas
 ilimitadas por tiempo, recargas de vida, escudos de racha y el cofre sorpresa); `PURCHASE` es el
 historial de compras (para uno mismo o al comprar un regalo) y `GIFT` el regalo enviado a un amigo,
-pendiente de reclamar.
+pendiente de reclamar. `GEM_PACK` es el catálogo de packs de gemas que se compran con dinero real a
+través de la tienda de Google Play (cada uno referencia el producto in-app de Play y cuánta gema
+entrega); `GEM_PURCHASE` es el registro de cada compra verificada con Google y ya acreditada — su
+token de compra es único, y eso es lo que impide acreditar dos veces la misma compra.
 
 ```mermaid
 erDiagram
@@ -251,6 +273,8 @@ erDiagram
     CHALLENGE ||--o{ USER_CHALLENGE : "referido por"
     SHOP_ITEM ||--o{ PURCHASE : "referido por"
     SHOP_ITEM ||--o{ GIFT : "referido por"
+    USER ||--o{ GEM_PURCHASE : "compra con dinero real"
+    GEM_PACK ||--o{ GEM_PURCHASE : "referido por"
 
     USER_STATS {
         uuid id PK
@@ -268,6 +292,7 @@ erDiagram
         instant unlimitedLivesExpiresAt
         instant nextLifeAt
         int learnedSignsCount
+        instant lastMistakeReviewAt
         instant updatedAt
     }
     ACHIEVEMENT {
@@ -299,6 +324,7 @@ erDiagram
         int rewardDurationMinutes
         double rewardMultiplierValue
         boolean active
+        int displayOrder
     }
     USER_CHALLENGE {
         uuid id PK
@@ -344,6 +370,24 @@ erDiagram
         instant claimedAt
         instant expiresAt
     }
+    GEM_PACK {
+        uuid id PK
+        string productId UK "producto in-app de Google Play"
+        int gems
+        int sortOrder
+        boolean active
+    }
+    GEM_PURCHASE {
+        uuid id PK
+        uuid user_id FK
+        uuid gem_pack_id FK
+        string productId
+        text purchaseToken UK
+        string orderId
+        int gemsGranted
+        instant purchasedAt
+        instant verifiedAt
+    }
 ```
 
 ## Notificaciones
@@ -381,5 +425,97 @@ erDiagram
         instant readAt
         boolean read "col is_read"
         map metadata
+    }
+```
+
+## Organizaciones
+
+Una organización contrata cursos y todos sus miembros activos acceden al mismo conjunto; el
+progreso es individual. Un usuario pertenece a una sola organización: al salir la membresía queda
+como `REMOVED` (no se borra) y sus inscripciones a cursos pagos pasan a `DROPPED`, así el progreso
+se conserva si vuelve (los cursos gratuitos sólo se desvinculan de la organización). Un código de
+invitación con `email` es una invitación nominal de un solo uso. Los intentos de ejercicio hechos
+sobre cursos de la organización se etiquetan con ella para separar esa actividad de la propia del
+usuario. `memberLimit` es el cupo de participantes activos (nulo = sin límite) y los datos de
+contacto/CUIT vienen del alta autogestionada.
+
+```mermaid
+erDiagram
+    ORGANIZATION ||--o{ ORGANIZATION_MEMBER : "tiene"
+    ORGANIZATION ||--o{ ORGANIZATION_COURSE : "contrata"
+    ORGANIZATION ||--o{ INVITE_CODE : "emite"
+    ORGANIZATION ||--o{ USER_COURSE_ENROLLMENT : "habilita"
+    ORGANIZATION ||--o{ LESSON_BLOCK_ATTEMPT : "contexto de"
+    USER ||--o| ORGANIZATION_MEMBER : "pertenece"
+    COURSE ||--o{ ORGANIZATION_COURSE : "contratado en"
+
+    ORGANIZATION {
+        uuid id PK
+        string name UK
+        enum status "PENDING | ACTIVE | REJECTED | SUSPENDED"
+        string cuit UK "11 dígitos, nulo si la creó SIGNA"
+        string contactEmail
+        string contactPhone
+        int memberLimit "nulo = sin límite"
+        instant createdAt
+    }
+    ORGANIZATION_MEMBER {
+        uuid id PK
+        uuid organization_id FK
+        uuid user_id FK,UK
+        enum role "ADMIN | MEMBER"
+        enum status "ACTIVE | REMOVED"
+        instant joinedAt
+        instant removedAt
+    }
+    ORGANIZATION_COURSE {
+        uuid id PK
+        uuid organization_id FK
+        uuid course_id FK
+        instant contractedAt
+    }
+    INVITE_CODE {
+        uuid id PK
+        string code UK
+        uuid organization_id FK
+        string email "nulo si es un código compartido"
+        enum memberRole "MEMBER | ADMIN"
+        instant expiresAt
+        int maxUses
+        int useCount
+        boolean active
+    }
+```
+
+## Lista de espera
+
+```mermaid
+erDiagram
+    WAITLIST_ENTRY {
+        long id PK
+        string email UK "minúsculas, sin espacios"
+        instant createdAt
+    }
+```
+
+## Importación de contenido
+
+Bitácora de cada corrida del pipeline de importación de contenido (al arrancar o a demanda desde el
+panel). No tiene relaciones: es un registro de auditoría independiente.
+
+```mermaid
+erDiagram
+    CONTENT_IMPORT_RUN {
+        uuid id PK
+        instant startedAt
+        instant finishedAt
+        enum trigger "STARTUP | MANUAL"
+        enum status "SUCCESS | FAILED"
+        string triggeredBy "email del admin; null si fue al arrancar"
+        int coursesProcessed
+        int created
+        int updated
+        int unchanged
+        text details "líneas por curso, o el error si falló"
     }
 ```

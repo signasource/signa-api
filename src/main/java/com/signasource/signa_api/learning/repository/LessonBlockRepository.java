@@ -31,4 +31,10 @@ public interface LessonBlockRepository extends JpaRepository<LessonBlock, UUID> 
             "SELECT b FROM LessonBlock b JOIN FETCH b.lesson "
                     + "WHERE b.lesson.topic.courseVersion.id = :versionId")
     List<LessonBlock> findByCourseVersionId(@Param("versionId") UUID versionId);
+
+    @Query(
+            "SELECT b FROM LessonBlock b JOIN FETCH b.lesson "
+                    + "WHERE b.lesson.topic.courseVersion.id IN :versionIds")
+    List<LessonBlock> findByLessonTopicCourseVersionIdIn(
+            @Param("versionIds") List<UUID> versionIds);
 }

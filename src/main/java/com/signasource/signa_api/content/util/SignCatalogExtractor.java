@@ -1,6 +1,8 @@
 package com.signasource.signa_api.content.util;
 
 import com.signasource.signa_api.content.dto.config.ContextResponseConfig;
+import com.signasource.signa_api.content.dto.config.IntroduceSignConfig;
+import com.signasource.signa_api.content.dto.config.InvisibleSignsConfig;
 import com.signasource.signa_api.content.dto.config.MatchConfig;
 import com.signasource.signa_api.content.dto.config.SelectMeaningConfig;
 import com.signasource.signa_api.content.dto.config.SelectSignConfig;
@@ -20,6 +22,10 @@ public class SignCatalogExtractor {
     public List<String> extract(LessonBlockDto block) {
         return switch (block.type()) {
             case INFO -> List.of();
+            case INTRODUCE_SIGN ->
+                    parser.parse(block.config(), IntroduceSignConfig.class)
+                            .map(config -> single(config.meaning()))
+                            .orElseGet(List::of);
             case SELECT_MEANING ->
                     parser.parse(block.config(), SelectMeaningConfig.class)
                             .map(config -> single(config.sign()))
@@ -39,6 +45,13 @@ public class SignCatalogExtractor {
             case VISUAL_RECOGNITION ->
                     parser.parse(block.config(), VisualRecognitionConfig.class)
                             .map(config -> many(config.signSequence()))
+                            .orElseGet(List::of);
+            // Sus signs son etiquetas del modelo de reconocimiento, no del
+            // catálogo: no tienen animación propia ni definen una seña nueva.
+            case PERFORM_SIGN, SPELL_NAME -> List.of();
+            case INVISIBLE_SIGNS ->
+                    parser.parse(block.config(), InvisibleSignsConfig.class)
+                            .map(config -> many(config.signs()))
                             .orElseGet(List::of);
         };
     }

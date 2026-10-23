@@ -18,9 +18,14 @@ notificaciones push y un catálogo de señas.
 - **Lenguaje / runtime:** Java 21 (toolchain), Spring Boot 3.5.x
 - **Build:** Gradle (wrapper `./gradlew`)
 - **Base de datos:** PostgreSQL (prod/local), H2 en memoria (tests)
+- **Esquema de la base:** versionado con **Flyway** (`src/main/resources/db/migration/`). Flyway es
+  el dueño del esquema; Hibernate corre en `ddl-auto: validate`. Ya **no** hay que hacer
+  `docker compose down -v` para cambios estructurales — se escribe una migración. Ver §3 · Versionado de esquema.
 - **Paquete raíz:** `com.signasource.signa_api`
 - **Contenido:** los cursos son **YAML versionado en el repo** (`src/main/resources/content/`),
-  importado a la base por un pipeline idempotente. El YAML es la fuente de verdad, no la DB.
+  importado a la base por un pipeline idempotente. El YAML es la fuente de verdad, no la DB. El
+  import corre al arrancar y también **a demanda desde el panel** (`POST /admin/content/import`),
+  y cada corrida queda registrada en `ContentImportRun` (§2 · content).
 
 ## 2. Arquitectura en una pantalla
 
@@ -58,9 +63,11 @@ la frontera HTTP; se mapean a/desde DTOs mediante factories estáticas (`Dto.fro
 |---|---|
 | `auth` | Registro (auto-login + verificación de email por flag `verified`), login, JWT, refresh, reset de password, Google OAuth2 |
 | `users` | Perfil propio y **perfil público de otra persona** (`PublicProfileService`: compone stats, XP semanal, logros y cursos; respeta `AccountVisibility`), settings, búsqueda de usuarios (`GET /users/search`, resuelve relación + amigos en común), amistades (`Friendship`: request/accept/reject/cancel/remove/block/unblock), feed de actividad de amigos y sus "me gusta" (`FriendEventLike`), username, daily goal, color de header |
-| `learning` | Cursos, versiones, temas, lecciones, bloques, señas y reportes de señas; seguimiento de progreso (inscripciones, progreso de tema/lección, intentos de bloque); animación de seña vía presigned URL de R2 (`GET /signs/{meaning}/animation`; `meaning` es único) y su variante batch (`POST /signs/animations`, usada por el lesson player para precargar todas las animaciones de una lección en un solo request) |
-| `content` | Pipeline de importación de contenido YAML (load → validate → persist), idempotente; además **upserta el catálogo de señas** a partir de los bloques: crea una `Sign` por cada _meaning_ que un bloque renderiza como animación, con `animationUrl = lsa/{meaning}.glb` y `handedness = ONE_HANDED` (`SignCatalogExtractor` + `SignCatalogImporter`) |
-| `gamification` | Stats de usuario, logros, desafíos, tienda, compras, regalos; XP diario/semanal, señas aprendidas y mecánica de vidas/racha |
+| `learning` | Cursos, versiones, temas, lecciones, bloques, señas y reportes de señas; seguimiento de progreso (inscripciones, progreso de tema/lección, intentos de bloque); animación de seña vía presigned URL de R2 (`GET /signs/{meaning}/animation`; `meaning` es único) y su variante batch (`POST /signs/animations`, usada por el lesson player para precargar todas las animaciones de una lección en un solo request). **Tipos de bloque:** `INFO` (contenido textual, opcionalmente con `myths`), `INTRODUCE_SIGN` (presenta una seña nueva; campos `meaning` + `word`), `SELECT_MEANING`, `SELECT_SIGN`, `CONTEXT_RESPONSE`, `MATCH`, `VISUAL_RECOGNITION`, `INVISIBLE_SIGNS` (no se muestra al usuario; campo `signs`: lista de meanings que se insertan en el catálogo de señas durante el import — útil para precargar señas de lecciones que no usan `INTRODUCE_SIGN`). **Práctica libre** (`PracticeController`/`PracticeService`, `/practice/*`): sesiones sueltas de repaso por tipo de ejercicio, por seña aprendida (`UserLearnedSign`) o de errores pendientes, reutilizando los `LessonBlock` evaluables (no `INFO`/`INTRODUCE_SIGN`/`INVISIBLE_SIGNS`/`PERFORM_SIGN`/`SPELL_NAME`) de las lecciones ya empezadas de los cursos en los que el usuario está inscripto. Los intentos se guardan en `PracticeAttempt` — deliberadamente separada de `LessonBlockAttempt`: no dispara XP, vidas ni progreso de lección/tema/curso. El repaso de errores combina ambas tablas (ver [docs/diagrams/sequence.md](docs/diagrams/sequence.md#practica-libre)). Excepción: completar un lote de repaso de errores (`POST /practice/mistakes/complete`) puede otorgar una recompensa de XP fija (`PracticeService.completeMistakeReview`, publica `XpEarnedEvent`) — solo si desde el último cobro (`UserStats.lastMistakeReviewAt`) el usuario resolvió un error; si no, devuelve 0 |
+| `content` | Pipeline de importación de contenido YAML (load → validate → persist), idempotente; además **upserta el catálogo de señas** a partir de los bloques: crea una `Sign` por cada _meaning_ que un bloque renderiza como animación, con `animationUrl = lsa/{meaning}.glb` y `handedness = ONE_HANDED` (`SignCatalogExtractor` + `SignCatalogImporter`). **Historial de imports:** `ContentImportHistoryService` corre el pipeline (al arrancar vía `ContentImportRunner`, o a demanda desde el panel) y registra cada corrida en `ContentImportRun` (trigger `STARTUP`/`MANUAL`, status `SUCCESS`/`FAILED`, contadores created/updated/unchanged, `details`). **Las fallas se registran y loguean, nunca se relanzan:** un commit de contenido roto no tira abajo la API al arrancar; el panel muestra el `FAILED`. Expuesto en `admin`: `POST /admin/content/import` (dispara, devuelve la corrida) y `GET /admin/content/import-runs` (historial paginado), solo `ADMIN` |
+| `gamification` | Stats de usuario, logros, desafíos, tienda, compras, regalos; XP diario/semanal, señas aprendidas y mecánica de vidas/racha. **El catálogo de la tienda se siembra en un único lugar:** `resources/db/seed/store_items.sql` (lo corre `common/DataLoader`), que hace upsert por `code` — así editar un precio o un texto se aplica al reiniciar. No agregues un `CommandLineRunner` que siembre `shop_items`: hubo uno y duplicaba el catálogo. Los textos de ese seed son user-facing, así que van **en español** (única excepción a la regla de §3). **Packs de gemas con dinero real** vía Google Play (`GemPack` = producto in-app de Play + cantidad de gemas, sembrado por `GemPackSeeder`; `GET /store/gem-packs`). El cliente compra en Play y manda `{productId, purchaseToken}` a `POST /store/gem-purchases`: `GemPurchaseService` verifica el token contra la Google Play Developer API (`GooglePlayPurchaseVerifier`, fuera de la transacción) y `GemCreditService` acredita las gemas y persiste `GemPurchase` con `purchaseToken` **único** (idempotente: repetir el token del mismo usuario devuelve `alreadyGranted=true`; de otro usuario o ya consumido → 409). Los ítems `GEMS` del catálogo con precio en gemas quedan inactivos (`store_items.sql`). Las gemas **nunca** se acreditan sin verificación del servidor. **Desafíos** (`ChallengeService`, `GET /challenges` + `POST /challenges/{id}/claim`, seed `challenges.sql`): tres sets, `FIRST_STEPS` ("Primeros pasos", único), `DAILY` (una fila `UserChallenge` por día argentino) y `WEEKLY` (una por semana lunes–domingo argentina, `weeklyResetsAt`), todas creadas perezosamente; `daily` y `weekly` no se devuelven hasta que todos los primeros pasos estén reclamados. El progreso lo reportan los puntos donde ya ocurre la actividad vía `ChallengeService.record` (lección completada y camara en `CourseTrackingService`, camara en `PracticeService.recordAttempt`, XP y racha en `UserStatsEventListener`, solicitud de amistad en `FriendshipService`) y **no toca `UserStats`**: la recompensa (gemas, multiplicador de XP, vida, escudo) se acredita recién al reclamar. Una recompensa diaria/semanal no reclamada **vence con su período** (`claim` de una fila con `periodEnd` pasado → 400); los primeros pasos no vencen. El multiplicador de XP activo (`UserStats.getEffectiveXpMultiplier`, por desafío o por la tienda) se aplica en `UserStatsEventListener.handleXpEarnedEvent` a **todo** XP ganado (total, semanal, diario y desafíos `EARN_XP`). Criterios absolutos (`isAbsolute`, p. ej. racha) toman el total; el resto suma. Las filas de primeros pasos se siembran con el historial del usuario |
+| `organizations` | Modelo organizacional (capacitación de empresas/instituciones). Una `Organization` **contrata cursos completos** (`OrganizationCourse`) y todos sus miembros activos acceden al mismo conjunto; el progreso es individual. Un usuario pertenece a **una sola** org (`OrganizationMember`, único por `user_id`; `MemberRole` ADMIN/MEMBER, `MemberStatus` ACTIVE/REMOVED — quitar a alguien marca REMOVED y no borra su progreso). Se ingresa con `InviteCode` (código compartido, con `maxUses`/`expiresAt`, o **invitación por email**: código de un solo uso con `email`, enviado por `EmailService`); canjearlo (`POST /organizations/invite-codes/redeem`) crea/reactiva la membresía y `OrganizationEnrollmentService` inscribe al usuario en todos los cursos contratados (`UserCourseEnrollment.organization`). Contratar un curso después inscribe a los miembros activos; descontratarlo o quitar un miembro pasa las inscripciones a `DROPPED` y limpia `currentCourse` si apuntaba ahí — salvo en cursos **gratuitos**, que sólo se desvinculan de la org (`organization = null`, sin vencimiento) para no dejar al usuario afuera de algo abierto a todos. `UserCourseEnrollment.grantsAccess(now)` (no `DROPPED` y acceso no vencido) es el único chequeo de acceso: lo usan `activeEnrollments`, `LessonService.getLessonContent` y `recordBlockInteraction`. **A los cursos pagos sólo se llega por una org:** la autoinscripción (`POST /courses/{versionId}/enroll`, `joinFreeCourse`) exige `Course.isFree`. **Ciclo de vida de la org** (`OrganizationStatus`): `POST /organizations` (SIGNA) la crea `ACTIVE`; el **alta autogestionada** `POST /organizations/register` (pública, CUIT normalizado a 11 dígitos, email en minúsculas) crea la cuenta `ORG_ADMIN` + la org `PENDING`; mientras no esté `ACTIVE` (`PENDING`, `REJECTED`, `SUSPENDED`) no se pueden crear códigos/invitaciones de participantes ni canjearlos (los de admin sí). `memberLimit` (nulo = sin límite) es el cupo de participantes `MEMBER` activos, validado al canjear. **Back-office SIGNA (`ADMIN`):** listar, ver y cambiar el estado de las orgs vive en el módulo `admin` (`/admin/organizations`, `AdminService.updateOrganizationStatus`: `PENDING → ACTIVE` contrata en el mismo paso los `courseIds` elegidos; `REJECTED`/`SUSPENDED`). En `organizations` quedan `PATCH /organizations/{id}` (renombrar y cupo — no por debajo de los activos; el estado no se toca acá) y `DELETE /organizations/{id}/admins/{userId}` (membresía `REMOVED` y `ORG_ADMIN` → `USER`). `GET /organizations/{id}` y `GET .../admins` también para el `ORG_ADMIN` de esa org. `GET /organizations/pricing` (público) expone `organizations.price-per-person`. **Salidas:** `DELETE /organizations/me` deja la org (solo `MEMBER`; un admin no puede auto-quitarse) (la baja de cuenta borra la membresía y las inscripciones vía `AccountErasureRepository`). Cada `LessonBlockAttempt` de un curso de la org se etiqueta con `organization` para distinguir la actividad organizacional de la propia. **Roles:** `ADMIN` de SIGNA crea orgs, asigna admins (`POST /organizations/{id}/admins` → `Role.ORG_ADMIN` + membresía ADMIN) y contrata cursos; `ORG_ADMIN` gestiona **solo su org** (códigos, invitaciones, quitar miembros, ver admins) — el alcance lo valida `OrganizationAccessService.requireManage` (403 vía `ForbiddenException`) además de `SecurityConfig`. `GET /organizations/me` le dice a la app a qué org pertenece el usuario (incluye `status`, para que el panel muestre "pendiente de aprobación"). **Admins del panel:** `POST /organizations/{id}/admin-invitations` (solo `ADMIN` de SIGNA) crea un `InviteCode` con `memberRole = ADMIN` atado a un email y manda un link al panel (`app.panel-url` + `/accept-invite?code=...`); la persona se registra o inicia sesión en el panel y canjea el código con el mismo `POST /organizations/invite-codes/redeem`, que la hace `ADMIN` de la org y `Role.ORG_ADMIN` sin inscribirla en cursos (un admin que canjea un código de participante no se degrada). **Panel de seguimiento (solo lectura, mismo alcance de `requireManage`):** `GET /organizations/{id}/members` (filtros `query`/`status`/`activity`, orden `sort=name|progress|lastActivity|joinedAt,asc|desc`; progreso + última actividad + módulo actual + `activityStatus`), `GET .../members/{userId}` (progreso individual), `GET .../overview` (participación / progreso / desempeño, con evolución semanal), `GET .../modules` (desempeño por tema) y `GET .../activity?from&to` (actividad día por día en hora de Argentina, ≤ 93 días; `totals.activeParticipants` son personas distintas en el período). Overview, modules, members y activity aceptan `courseId` para medir contra un solo curso contratado (`OrganizationContentScope.resolve(orgId, courseId)`, 404 si no está contratado); los intentos se filtran por **curso** (no por versión) para que cuenten los hechos sobre versiones anteriores. `ContentScope.courseIds()/versionIds()` nunca vuelven vacíos (un id que no matchea nada) para no generar `IN ()`. El listado de participantes calcula progreso y estado **antes** de ordenar y paginar en memoria (`OrganizationMemberQueryService`): el orden y el filtro por estado dependen de métricas calculadas, y el roster está acotado por el cupo. `MemberActivityStatus` (ACTIVE/INACTIVE/NOT_STARTED/COMPLETED/REMOVED) es la única fuente del estado que muestra el panel y usa la misma ventana de 7 días que el overview. Las consultas agregadas viven en `OrganizationMetricsRepository` (`Repository<>` con `@Query` JPQL — ojo: un `@EntityGraph` ahí se resolvería contra `LessonBlockAttempt`, usá `JOIN FETCH`) y están verificadas contra H2 en `OrganizationMetricsRepositoryTest`. Los participantes son los miembros `MEMBER` activos (los admins no cuentan); "activo" = algún intento sobre contenido contratado en los últimos 7 días. El progreso se mide contra la versión publicada de los cursos contratados. Minutos de aprendizaje y días activos salen de `UserDailyActivity`, que **no** distingue organización |
+| `waitlist` | Lista de espera de la web (`POST /waitlist`, público): guarda el email normalizado (minúsculas, sin espacios) en `WaitlistEntry` con índice único. Responde **202 siempre**, exista o no el email, para no revelar quién está anotado; un duplicado simultáneo lo resuelve el índice único |
 | `notification` | Tokens de dispositivo, plantillas, historial y envío push vía Firebase (FCM). El historial se expone como bandeja de entrada (`NotificationController`: listar, no leídas, contador, marcar leída/todas); **el lado de escritura es interno**: las notificaciones las producen los servicios que las disparan |
 | `config` | Seguridad, rate limiting, Jackson, Google, MVC |
 | `exceptions` | Excepciones de dominio + `@RestControllerAdvice` global |
@@ -159,6 +166,21 @@ Resumen de alta prioridad; el detalle y los ejemplos están en los bloques sigui
 - El importador calcula un `contentHash` SHA-256 y produce `CREATED / UPDATED / UNCHANGED`.
   Cualquier cambio en el pipeline debe preservar esta idempotencia (ver `content/service/*`).
 
+**Versionado de esquema (Flyway)**
+- El esquema lo versiona **Flyway**; las migraciones viven en `src/main/resources/db/migration/`
+  con el naming `V<n>__descripcion.sql` (p. ej. `V2__content_import_runs.sql`). `V1__baseline.sql`
+  es un snapshot del esquema de prod al adoptar Flyway (generado con `pg_dump --schema-only`).
+- `baseline-on-migrate: true` + `baseline-version: 1`: en bases **existentes** (prod) Flyway marca
+  V1 como baseline y **no lo ejecuta**; solo corre V2 en adelante. En bases **vacías** (local nuevo,
+  CI con Postgres) corre V1 y todo lo demás, construyendo el esquema desde cero.
+- Hibernate corre en `ddl-auto: validate` (prod/local/default): **no** crea ni altera tablas, solo
+  valida que las entidades matcheen el esquema. **Agregar/cambiar una entidad ⇒ escribir una migración
+  en el mismo PR**, o `validate` falla al arrancar. Confirmá que el tipo de columna coincide con cómo
+  Hibernate mapea el campo (p. ej. `Instant` → `timestamp(6) with time zone`).
+- **Tests:** H2 con `ddl-auto: create-drop` y `spring.flyway.enabled: false` (las migraciones son
+  específicas de Postgres). No escribas migraciones pensando en H2.
+- Nunca edites una migración ya aplicada: agregá una nueva. Nunca se taggea/baseline a mano en prod.
+
 **Gotchas / lecciones de code review** (recurrentes en las PRs del repo — evitalas de entrada)
 - **N+1:** si vas a necesitar relaciones, traelas en una sola query con
   `@EntityGraph(attributePaths = {...})` en el método del repositorio (ver `CourseVersionRepository`,
@@ -167,11 +189,20 @@ Resumen de alta prioridad; el detalle y los ejemplos están en los bloques sigui
   (`deleteAccount`) pone `enabled = false` y Spring (`DaoAuthenticationProvider`) bloquea su login.
   El estado del correo va en `verified` (registro nace `enabled=true, verified=false`; `verifyAccount`
   lo pone `true`). Una cuenta sin verificar **sí** puede iniciar sesión.
-- **Soft-delete de cuenta** (`enabled = false`): al dar de baja hay que limpiar los tokens del usuario
-  (`TokenRepository`) y sus device tokens (`DeviceTokenRepository`); y **toda lectura de perfil debe
-  filtrar `enabled = true`** (más la visibilidad pública/amigos) para no exponer cuentas dadas de baja.
+- **Baja de cuenta** (`UserService.deleteAccount`, `DELETE /users/me`): borra los tokens, los device
+  tokens y **todos los datos personales y de actividad** (`AccountErasureRepository`: progreso, intentos,
+  stats, logros, desafíos, amistades, likes, notificaciones, settings, membresía de org y los
+  `InviteCode` atados al email del usuario, que no tienen FK y se buscan por email antes de anonimizarlo) y **anonimiza** la
+  fila de `users` (`enabled = false`, email/username `deleted_<id>`, nombre "Usuario eliminado", hash
+  inválido, visibilidad `PRIVATE`). La fila queda solo para que `Purchase`, `GemPurchase` y `Gift`
+  (registros financieros) conserven su FK. **Si agregás una entidad con FK a `User`, sumala a
+  `AccountErasureRepository`** (salvo que sea un registro financiero); `AccountErasureRepositoryTest`
+  valida el JPQL contra H2. Además, **toda lectura de perfil debe filtrar `enabled = true`** (más la
+  visibilidad pública/amigos) para no exponer cuentas dadas de baja.
 - **Comentarios sobrantes:** es el hallazgo #1 en los reviews. No dejes comentarios autoexplicativos ni
   “colados” del scaffold; borralos antes de pushear (ver **Comentarios**).
+- **Migración faltante:** con `ddl-auto: validate`, una entidad/columna nueva sin su migración Flyway
+  hace fallar el arranque. Si tocás entidades, agregá el `V<n>__…sql` en el mismo PR (ver **Versionado de esquema**).
 - **Antes de pushear:** `./gradlew spotlessApply`. Es fácil olvidarlo y que CI falle sólo por formato.
 
 ## 4. Seguridad (invariantes)
@@ -180,23 +211,55 @@ Resumen de alta prioridad; el detalle y los ejemplos están en los bloques sigui
   se valida en `JwtAuthFilter` (se agrega antes de `UsernamePasswordAuthenticationFilter`).
 - **Passwords** hasheadas con **BCrypt** (`PasswordEncoder`). Nunca almacenar ni loguear
   passwords en claro; el campo persistido es `passwordHash`.
-- **Autorización por rol:** `POST /signs` requiere rol `ADMIN`. Regla en `SecurityConfig`.
-- **Rutas públicas:** `/auth/**`, `/users/username-availability`, `/actuator/health`, `/actuator/info`.
-  El resto requiere autenticación.
+- **Autorización por rol:** `POST /signs` requiere rol `ADMIN`. `/organizations/**` requiere `ADMIN` u `ORG_ADMIN`
+  (crear orgs, `PATCH` de una org, asignar/quitar admins, invitar admins y contratar cursos: solo `ADMIN`; el back-office de orgs además vive en `/admin/**`, solo `ADMIN`);
+  `POST /organizations/invite-codes/redeem` y `GET`/`DELETE /organizations/me` solo autenticación. Un `ORG_ADMIN` queda acotado a su organización en el service. Reglas en `SecurityConfig`.
+- **CORS:** `CorsConfig` habilita solo los orígenes de `app.cors.allowed-origins` (`CORS_ALLOWED_ORIGINS`, separados por coma; el panel web). Vacío = sin headers CORS, la API queda cerrada a navegadores. Sin credenciales: la auth es bearer en header. `PANEL_URL` es la URL base del panel para los links de los emails.
+- **Rutas públicas:** `/auth/**`, `/users/username-availability`, `POST /waitlist`, `POST /organizations/register`,
+  `GET /organizations/pricing`, `/actuator/health`, `/actuator/info`, `/actuator/prometheus`, `GET /signs/{meaning}/animation`. El resto requiere autenticación.
+- **401 vs 403:** token ausente, inválido o vencido → **401** (`HttpStatusEntryPoint` en `SecurityConfig`; los clientes
+  refrescan el access token ante un 401). Token válido sin el rol requerido → 403 (`AccessDeniedHandler` por defecto).
 - **Perfil `local`** desactiva la seguridad (`app.security.enabled=false`, cadena que permite todo)
   para desarrollo. **Nunca** activar ese comportamiento en prod.
-- **Rate limiting** con Bucket4j (`RateLimitInterceptor`) en endpoints sensibles a abuso.
+- **Rate limiting** con Bucket4j (`RateLimitInterceptor`, por IP, registrado en `WebConfig`) en
+  endpoints sensibles a abuso: 30/min en `/users/username-availability` y `/store/gem-purchases`;
+  **10 cada 15 min** (`RateLimitInterceptor.forAuthEmail`) en `/auth/forgot-password`,
+  `/auth/reset-password` y `/auth/resend-verification-email` (mandan mails o validan el código de
+  reset). Un endpoint nuevo que mande mails sin autenticación va en ese segundo grupo. El límite de
+  `/waitlist` y del resto del tráfico público lo aplica Cloudflare, delante de la API.
+- **IP del cliente:** sólo `X-Real-IP`, que nginx **pisa** siempre con la IP que resolvió
+  (`nginx/templates/app.conf.template`: `real_ip_header CF-Connecting-IP` confiando únicamente en los
+  rangos de Cloudflare). **Nunca** leer `X-Forwarded-For` ni `CF-Connecting-IP` en la app: los manda
+  el cliente y con ellos cualquiera elige su propio bucket. Si Cloudflare publica rangos nuevos
+  (<https://www.cloudflare.com/ips/>), actualizar los `set_real_ip_from`; si no, esos pedidos quedan
+  agrupados por IP de Cloudflare y comparten límite.
 - **Enumeración de usuarios:** `forgotPassword` / `resendVerificationEmail` responden igual exista
-  o no el email (no filtrar existencia de cuentas). Mantener este comportamiento.
+  o no el email (no filtrar existencia de cuentas) — **también en tiempo y en status**: todo mail
+  que dependa de que la cuenta exista se manda con `@Async` en `EmailService`, para que ni la
+  demora del SMTP ni un fallo de envío (500) delaten la cuenta. Mantener este comportamiento.
 - **Secretos** por variables de entorno (`.env`, ver `.env.example`): `JWT_SECRET`,
   `GOOGLE_CLIENT_ID`, credenciales de DB y mail, service account de Firebase, credenciales de
-  Cloudflare R2 (`R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY`). Nunca commitear secretos.
+  Cloudflare R2 (`R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY`), service account de Google Play
+  (`GOOGLE_PLAY_CREDENTIALS_JSON`, base64 del JSON, con permisos *View financial data* + *Manage
+  orders* en Play Console). Nunca commitear secretos.
+- **Compras in-app:** el servidor es la única fuente de verdad. Un `purchaseToken` sólo acredita
+  gemas si Google lo confirma como pagado (`purchaseState = purchased`) y no fue consumido ni
+  acreditado antes. `google-play.enabled=false` (perfiles `local`/`test`) reemplaza el verificador
+  por uno que acepta cualquier token; con el perfil `prod` activo la app **se niega a arrancar** en ese estado. El verificador real además cruza el `productId` que devuelve Google con el que mandó el cliente (un token de un pack barato no canjea uno caro).
 - **R2 (animaciones):** las credenciales viven **sólo** en el backend; el cliente nunca las recibe.
   `Sign.animationUrl` guarda el *object key* (p. ej. `lsa/hola.glb`), y `GET /signs/{meaning}/animation`
   (la seña se direcciona por su `meaning`, que es único) devuelve una **presigned URL** de descarga con
   expiración corta (`r2.presign-expiry-minutes`, 15 min por defecto). No hacer público el bucket ni
   exponer el key como URL directa.
 - Tokens de un solo uso (reset/verificación/refresh) se borran tras usarse; el refresh se rota.
+- **Reset de contraseña por código:** `forgot-password` manda un código de 6 dígitos (`SecureRandom`)
+  que vence a los 15 min (`auth.token-expirations.password-reset`) y se guarda **hasheado con BCrypt**
+  en `tokens.token` (no SHA-256 sin sal: códigos iguales de dos usuarios chocarían con el `unique`). El
+  hash se calcula **antes** de buscar al usuario, para no reabrir la diferencia de tiempo. `reset-password`
+  recibe `{email, code, newPassword}`; cada código incorrecto suma `tokens.attempts` y al 5.º se borra.
+  Inválido, vencido, agotado o email inexistente → siempre `InvalidResetCodeException` (400 "Invalid or
+  expired code"). Ese método usa `@Transactional(dontRollbackOn = InvalidResetCodeException.class)`
+  para que el intento fallido no se pierda en el rollback (`PasswordResetIntegrationTest`).
 
 Detalle: `config/SecurityConfig.java`, `config/WebConfig.java` y `JwtAuthFilter`.
 
@@ -222,6 +285,8 @@ Corren en CI (`.github/workflows/ci.yml`) y localmente:
 | Build | `./gradlew build` | Compila y empaqueta |
 
 **Todo código nuevo con lógica debe venir con tests** (la barra de cobertura del 90% es dura).
+
+**Nunca dejes pasar un error, warning o check fallando**, aunque sea anterior a tu cambio: o lo arreglás en el mismo PR o lo anotás como deuda pendiente en la documentación, y lo aclarás en tu reporte.
 
 Notas:
 - La cobertura excluye `config`, `dto`, `entity`, `exceptions` y `*Application*` (ver `build.gradle`).

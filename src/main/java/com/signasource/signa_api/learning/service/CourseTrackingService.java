@@ -1,12 +1,20 @@
 package com.signasource.signa_api.learning.service;
 
+import com.signasource.signa_api.common.MetricsService;
+import com.signasource.signa_api.exceptions.ForbiddenException;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
+import com.signasource.signa_api.gamification.entity.AchievementCriteriaType;
+import com.signasource.signa_api.gamification.entity.ChallengeCriteriaType;
 import com.signasource.signa_api.gamification.repository.UserLearnedSignRepository;
+import com.signasource.signa_api.gamification.service.AchievementService;
+import com.signasource.signa_api.gamification.service.ChallengeService;
 import com.signasource.signa_api.learning.dto.CourseProgressResponse;
+import com.signasource.signa_api.learning.dto.EnrollmentSummaryResponse;
 import com.signasource.signa_api.learning.dto.TopicProgressResponse;
 import com.signasource.signa_api.learning.entity.BlockType;
+import com.signasource.signa_api.learning.entity.Course;
 import com.signasource.signa_api.learning.entity.CourseVersion;
 import com.signasource.signa_api.learning.entity.EnrollmentStatus;
 import com.signasource.signa_api.learning.entity.Lesson;
@@ -17,6 +25,7 @@ import com.signasource.signa_api.learning.entity.Topic;
 import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import com.signasource.signa_api.learning.entity.UserLessonProgress;
 import com.signasource.signa_api.learning.entity.UserTopicProgress;
+import com.signasource.signa_api.learning.entity.VersionStatus;
 import com.signasource.signa_api.learning.event.LifeLostEvent;
 import com.signasource.signa_api.learning.event.SignsLearnedEvent;
 import com.signasource.signa_api.learning.event.XpEarnedEvent;
@@ -31,6 +40,7 @@ import com.signasource.signa_api.learning.repository.projection.TopicCompletedCo
 import com.signasource.signa_api.learning.repository.projection.TopicLessonTotalView;
 import com.signasource.signa_api.learning.util.BlockSignExtractor;
 import com.signasource.signa_api.users.entity.User;
+import com.signasource.signa_api.users.repository.UserRepository;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -55,10 +65,14 @@ public class CourseTrackingService {
     private final CourseVersionRepository courseVersionRepository;
     private final LessonBlockRepository lessonBlockRepository;
     private final TopicRepository topicRepository;
+    private final UserRepository userRepository;
 
     private final ApplicationEventPublisher eventPublisher;
     private final BlockSignExtractor blockSignExtractor;
     private final UserLearnedSignRepository userLearnedSignRepository;
+    private final AchievementService achievementService;
+    private final MetricsService metricsService;
+    private final ChallengeService challengeService;
 
     @Transactional
     public UserCourseEnrollment enrollUserInCourse(User user, UUID courseVersionId) {
@@ -71,19 +85,99 @@ public class CourseTrackingService {
                 courseVersionRepository
                         .findById(courseVersionId)
                         .orElseThrow(() -> new NotFoundException("Course version not found"));
+        // Paid courses are only reachable through an organization's invite code.
+        if (!courseVersion.getCourse().isFree()) {
+            throw new ForbiddenException("This course requires an invitation");
+        }
 
         UserCourseEnrollment enrollment = new UserCourseEnrollment();
         enrollment.setUser(user);
         enrollment.setCourseVersion(courseVersion);
         enrollment.setStatus(EnrollmentStatus.ENROLLED);
 
-        return enrollmentRepository.save(enrollment);
+        UserCourseEnrollment saved = enrollmentRepository.save(enrollment);
+
+        user.setCurrentCourse(courseVersion.getCourse());
+        userRepository.save(user);
+
+        metricsService.recordCourseEnrollment();
+        return saved;
+    }
+
+    /**
+     * Idempotently enrolls the user in the published version of a free course, so the learner
+     * doesn't need to know the version id. A no-op if they already have an enrollment for it.
+     * Doesn't touch the current course: the caller already picked it.
+     */
+    @Transactional
+    public void joinFreeCourse(User user, UUID courseId) {
+        CourseVersion version =
+                courseVersionRepository
+                        .findByCourseIdAndStatus(courseId, VersionStatus.PUBLISHED)
+                        .orElseThrow(() -> new NotFoundException("Course not found"));
+
+        if (!version.getCourse().isFree()) {
+            throw new ForbiddenException("This course requires an invitation");
+        }
+        if (enrollmentRepository.existsByUserIdAndCourseVersionId(user.getId(), version.getId())) {
+            return;
+        }
+
+        UserCourseEnrollment enrollment = new UserCourseEnrollment();
+        enrollment.setUser(user);
+        enrollment.setCourseVersion(version);
+        enrollment.setStatus(EnrollmentStatus.ENROLLED);
+        enrollmentRepository.save(enrollment);
+
+        if (user.getCurrentCourse() == null) {
+            user.setCurrentCourse(version.getCourse());
+            userRepository.save(user);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public List<EnrollmentSummaryResponse> getUserEnrollments(User user) {
+        UUID currentCourseId =
+                user.getCurrentCourse() == null ? null : user.getCurrentCourse().getId();
+
+        return activeEnrollments(user).stream()
+                .map(
+                        enrollment ->
+                                EnrollmentSummaryResponse.from(
+                                        enrollment,
+                                        enrollment
+                                                .getCourseVersion()
+                                                .getCourse()
+                                                .getId()
+                                                .equals(currentCourseId)))
+                .toList();
+    }
+
+    @Transactional
+    public void setCurrentCourse(User user, UUID courseId) {
+        Course course =
+                activeEnrollments(user).stream()
+                        .map(enrollment -> enrollment.getCourseVersion().getCourse())
+                        .filter(c -> c.getId().equals(courseId))
+                        .findFirst()
+                        .orElseThrow(
+                                () -> new NotFoundException("User is not enrolled in this course"));
+
+        user.setCurrentCourse(course);
+        userRepository.save(user);
+    }
+
+    /** Drops enrollments an organization revoked and those whose granted access has lapsed. */
+    private List<UserCourseEnrollment> activeEnrollments(User user) {
+        Instant now = Instant.now();
+        return enrollmentRepository.findWithCourseByUserId(user.getId()).stream()
+                .filter(e -> e.grantsAccess(now))
+                .toList();
     }
 
     @Transactional(readOnly = true)
     public List<CourseProgressResponse> getUserCourseProgress(User user) {
-        List<UserCourseEnrollment> enrollments =
-                enrollmentRepository.findWithCourseByUserId(user.getId());
+        List<UserCourseEnrollment> enrollments = activeEnrollments(user);
         if (enrollments.isEmpty()) {
             return List.of();
         }
@@ -191,6 +285,13 @@ public class CourseTrackingService {
             throw new InvalidInputException("This lesson block requires a correctness value");
         }
 
+        UUID versionId = block.getLesson().getTopic().getCourseVersion().getId();
+        UserCourseEnrollment enrollment =
+                enrollmentRepository
+                        .findByUserIdAndCourseVersionId(user.getId(), versionId)
+                        .filter(e -> e.grantsAccess(Instant.now()))
+                        .orElseThrow(() -> new ForbiddenException("Not enrolled in this course"));
+
         boolean isNewMilestone =
                 isInfo
                         ? !attemptRepository.existsByUserIdAndLessonBlockId(
@@ -206,16 +307,23 @@ public class CourseTrackingService {
                                 .user(user)
                                 .lessonBlock(block)
                                 .isCorrect(isCorrect)
+                                .organization(enrollment.getOrganization())
                                 .build());
 
+        metricsService.recordBlockAttempt(block.getType(), isCorrect);
         markInProgress(user, block.getLesson());
 
         if (!isInfo && !isCorrect) {
             eventPublisher.publishEvent(new LifeLostEvent(this, user));
         }
 
+        if (Boolean.TRUE.equals(isCorrect) && ChallengeService.isCameraBlock(block.getType())) {
+            challengeService.record(user, ChallengeCriteriaType.CAMERA_PRACTICES, 1);
+        }
+
         if (isNewMilestone) {
-            if (!isInfo || block.getXpReward() != null) {
+            // Content may leave xpReward empty (e.g. INTRODUCE_SIGN): such a block awards no XP.
+            if (block.getXpReward() != null) {
                 eventPublisher.publishEvent(new XpEarnedEvent(this, user, block.getXpReward()));
             }
             if (!isInfo) {
@@ -226,8 +334,12 @@ public class CourseTrackingService {
                             new SignsLearnedEvent(this, user, signs, courseVersion));
                 }
             }
-            checkLessonCompletion(user, block.getLesson());
         }
+
+        // On every interaction, not just milestones: a lesson left IN_PROGRESS (e.g. by the
+        // non-interactive blocks bug, see isRequiredForCompletion) completes as soon as the user
+        // answers any of its blocks again. Idempotent once COMPLETED.
+        checkLessonCompletion(user, block.getLesson());
 
         return attempt;
     }
@@ -277,8 +389,31 @@ public class CourseTrackingService {
         topicProgressRepository.save(topicProgress);
     }
 
+    /**
+     * Blocks that count as done once attempted, with no correct answer required.
+     *
+     * <p>INFO blocks have no answer at all. Camera blocks do, but recognition can fail because of
+     * lighting, framing or the model itself, and the exercise offers a way out. Requiring a correct
+     * attempt left the lesson permanently unfinishable. XP is still only awarded on success.
+     */
+    private boolean countsAsDoneWhenAttempted(LessonBlock block) {
+        return block.getType() == BlockType.INFO
+                || block.getType() == BlockType.PERFORM_SIGN
+                || block.getType() == BlockType.SPELL_NAME;
+    }
+
+    /**
+     * Blocks the mobile player never reports: INTRODUCE_SIGN only presents a sign (the player just
+     * moves on) and INVISIBLE_SIGNS is not shown at all. Requiring an attempt on them left every
+     * lesson containing one permanently IN_PROGRESS.
+     */
+    private boolean isRequiredForCompletion(LessonBlock block) {
+        return block.getType() != BlockType.INTRODUCE_SIGN
+                && block.getType() != BlockType.INVISIBLE_SIGNS;
+    }
+
     private boolean isCompletedByUser(User user, LessonBlock block) {
-        if (block.getType() == BlockType.INFO) {
+        if (countsAsDoneWhenAttempted(block)) {
             return attemptRepository.existsByUserIdAndLessonBlockId(user.getId(), block.getId());
         }
         return attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(
@@ -287,9 +422,10 @@ public class CourseTrackingService {
 
     private void checkLessonCompletion(User user, Lesson lesson) {
         List<LessonBlock> blocks = lesson.getLessonBlocks();
+        List<LessonBlock> required = blocks.stream().filter(this::isRequiredForCompletion).toList();
 
         boolean allCompleted =
-                !blocks.isEmpty() && blocks.stream().allMatch(b -> isCompletedByUser(user, b));
+                !required.isEmpty() && required.stream().allMatch(b -> isCompletedByUser(user, b));
 
         if (!allCompleted) {
             return;
@@ -316,8 +452,24 @@ public class CourseTrackingService {
         progress.setCompletedAt(Instant.now());
         progress.setXpEarned(xpEarned);
         lessonProgressRepository.save(progress);
+        metricsService.recordLessonCompletion();
+        recordLessonChallenges(user, lesson);
+        achievementService.awardReached(
+                user,
+                AchievementCriteriaType.LESSONS_COMPLETED,
+                lessonProgressRepository.countByUserIdAndStatus(
+                        user.getId(), ProgressStatus.COMPLETED));
 
         checkTopicCompletion(user, lesson.getTopic());
+    }
+
+    /** A lesson is perfect when the user never answered one of its blocks wrong. */
+    private void recordLessonChallenges(User user, Lesson lesson) {
+        challengeService.record(user, ChallengeCriteriaType.COMPLETE_LESSONS, 1);
+        if (!attemptRepository.existsByUserIdAndLessonBlockLessonIdAndIsCorrectFalse(
+                user.getId(), lesson.getId())) {
+            challengeService.record(user, ChallengeCriteriaType.PERFECT_LESSONS, 1);
+        }
     }
 
     private void checkTopicCompletion(User user, Topic topic) {
@@ -352,6 +504,7 @@ public class CourseTrackingService {
         topicProgress.setStatus(ProgressStatus.COMPLETED);
         topicProgress.setCompletedAt(Instant.now());
         topicProgressRepository.save(topicProgress);
+        metricsService.recordTopicCompletion();
 
         checkCourseCompletion(user, topic.getCourseVersion());
     }
@@ -383,6 +536,12 @@ public class CourseTrackingService {
                             enrollment.setStatus(EnrollmentStatus.COMPLETED);
                             enrollment.setCompletedAt(Instant.now());
                             enrollmentRepository.save(enrollment);
+                            metricsService.recordCourseCompletion();
+                            achievementService.awardReached(
+                                    user,
+                                    AchievementCriteriaType.COURSES_COMPLETED,
+                                    enrollmentRepository.countByUserIdAndStatus(
+                                            user.getId(), EnrollmentStatus.COMPLETED));
                         });
     }
 }

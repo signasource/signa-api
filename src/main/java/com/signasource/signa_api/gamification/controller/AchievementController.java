@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -28,6 +29,19 @@ public class AchievementController {
             @RequestParam(required = false) Boolean active) {
         return ResponseEntity.ok(
                 achievementService.getAchievements(userDetails.getUser(), unlocked, active));
+    }
+
+    @GetMapping("/unseen")
+    public ResponseEntity<List<AchievementResponse>> getUnseenAchievements(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(achievementService.getUnseen(userDetails.getUser()));
+    }
+
+    @PostMapping("/{id}/seen")
+    public ResponseEntity<Void> markSeen(
+            @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails userDetails) {
+        achievementService.markSeen(id, userDetails.getUser());
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}")

@@ -9,4 +9,5 @@ public record CreateSignRequest(
         @NotBlank(message = "The meaning is mandatory") String meaning,
         @NotNull(message = "Sign language ID is mandatory") UUID signLanguageId,
         @NotNull(message = "Must specify if one or two handed") Handedness handedness,
-        String animationUrl) {}
+        String animationUrl,
+        String youtubeUrl) {}

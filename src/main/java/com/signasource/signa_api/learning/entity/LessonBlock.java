@@ -29,8 +29,11 @@ public class LessonBlock {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    // columnDefinition instead of length: it stops Hibernate from generating a CHECK that lists
+    // every enum value one by one. ddl-auto=update creates such a constraint but never widens it,
+    // so adding a block type would leave existing databases rejecting it. See BlockTypeCheckPatch.
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
+    @Column(nullable = false, columnDefinition = "varchar(30) not null")
     private BlockType type;
 
     @Column(name = "\"order\"", nullable = false)

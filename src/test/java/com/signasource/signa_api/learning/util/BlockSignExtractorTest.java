@@ -67,6 +67,13 @@ class BlockSignExtractorTest {
     }
 
     @Test
+    void shouldExtractMeaningFromIntroduceSign() {
+        LessonBlock block =
+                block(BlockType.INTRODUCE_SIGN, "{\"meaning\":\"hola\",\"word\":\"hola\"}");
+        assertEquals(List.of("hola"), extractor.extract(block));
+    }
+
+    @Test
     void shouldReturnEmptyForInfoBlock() {
         LessonBlock block = block(BlockType.INFO, "{\"text\":\"Hello\"}");
         assertTrue(extractor.extract(block).isEmpty());

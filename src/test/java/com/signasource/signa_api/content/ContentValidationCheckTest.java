@@ -12,9 +12,13 @@ import com.signasource.signa_api.content.validator.ContentValidator;
 import com.signasource.signa_api.content.validator.block.BlockValidator;
 import com.signasource.signa_api.content.validator.block.ContextResponseValidator;
 import com.signasource.signa_api.content.validator.block.InfoValidator;
+import com.signasource.signa_api.content.validator.block.IntroduceSignValidator;
+import com.signasource.signa_api.content.validator.block.InvisibleSignsValidator;
 import com.signasource.signa_api.content.validator.block.MatchValidator;
+import com.signasource.signa_api.content.validator.block.PerformSignValidator;
 import com.signasource.signa_api.content.validator.block.SelectMeaningValidator;
 import com.signasource.signa_api.content.validator.block.SelectSignValidator;
+import com.signasource.signa_api.content.validator.block.SpellNameValidator;
 import com.signasource.signa_api.content.validator.block.VisualRecognitionValidator;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -43,11 +47,15 @@ class ContentValidationCheckTest {
         List<BlockValidator> blockValidators =
                 List.of(
                         new InfoValidator(configParser),
+                        new IntroduceSignValidator(configParser),
                         new SelectMeaningValidator(configParser),
                         new SelectSignValidator(configParser),
                         new MatchValidator(configParser),
                         new VisualRecognitionValidator(configParser),
-                        new ContextResponseValidator(configParser));
+                        new ContextResponseValidator(configParser),
+                        new InvisibleSignsValidator(configParser),
+                        new PerformSignValidator(configParser),
+                        new SpellNameValidator(configParser));
         this.validator = new ContentValidator(blockValidators);
     }
 

@@ -1,5 +1,6 @@
 package com.signasource.signa_api.users.entity;
 
+import com.signasource.signa_api.learning.entity.Course;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
@@ -11,6 +12,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.util.HashSet;
 import java.util.Set;
@@ -66,4 +68,9 @@ public class User {
     @Column(name = "provider", nullable = false)
     @Builder.Default
     private Set<AuthProvider> providers = new HashSet<>(Set.of(AuthProvider.LOCAL));
+
+    /** Which of the user's enrolled courses Home currently shows the roadmap for. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "current_course_id")
+    private Course currentCourse;
 }

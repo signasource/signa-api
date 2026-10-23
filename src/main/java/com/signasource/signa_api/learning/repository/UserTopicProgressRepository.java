@@ -12,6 +12,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface UserTopicProgressRepository extends JpaRepository<UserTopicProgress, UUID> {
 
+    void deleteByTopicId(UUID topicId);
+
     List<UserTopicProgress> findByUserId(UUID userId);
 
     Optional<UserTopicProgress> findByUserIdAndTopicId(UUID userId, UUID topicId);

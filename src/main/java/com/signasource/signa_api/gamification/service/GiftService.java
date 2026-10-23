@@ -7,6 +7,7 @@ import com.signasource.signa_api.gamification.dto.AppliedEffectResponse;
 import com.signasource.signa_api.gamification.dto.GiftClaimResponse;
 import com.signasource.signa_api.gamification.dto.GiftResponse;
 import com.signasource.signa_api.gamification.dto.UserInventoryResponse;
+import com.signasource.signa_api.gamification.entity.AchievementCriteriaType;
 import com.signasource.signa_api.gamification.entity.Gift;
 import com.signasource.signa_api.gamification.entity.GiftStatus;
 import com.signasource.signa_api.gamification.entity.Purchase;
@@ -39,6 +40,7 @@ public class GiftService {
     private final FriendshipRepository friendshipRepository;
     private final UserRepository userRepository;
     private final PurchaseService purchaseService;
+    private final AchievementService achievementService;
 
     @Transactional
     public GiftResponse sendGift(User sender, UUID shopItemId, UUID recipientId, String message) {
@@ -82,6 +84,13 @@ public class GiftService {
                                 .sentAt(now)
                                 .expiresAt(now.plus(GIFT_EXPIRY_DAYS, ChronoUnit.DAYS))
                                 .build());
+
+        achievementService.awardReached(
+                sender, AchievementCriteriaType.GIFTS_SENT, giftRepository.countBySender(sender));
+        achievementService.awardReached(
+                sender,
+                AchievementCriteriaType.SHOP_PURCHASES,
+                purchaseRepository.countByUser(sender));
 
         return GiftResponse.from(gift);
     }

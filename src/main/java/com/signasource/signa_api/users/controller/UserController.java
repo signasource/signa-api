@@ -9,6 +9,7 @@ import com.signasource.signa_api.gamification.dto.UserStatsResponse;
 import com.signasource.signa_api.gamification.service.UserStatsService;
 import com.signasource.signa_api.users.dto.DailyGoalResponse;
 import com.signasource.signa_api.users.dto.PublicUserProfileResponse;
+import com.signasource.signa_api.users.dto.RecordActivityRequest;
 import com.signasource.signa_api.users.dto.UpdateDailyGoalRequest;
 import com.signasource.signa_api.users.dto.UpdateUserSettingsRequest;
 import com.signasource.signa_api.users.dto.UpdateUsernameRequest;
@@ -18,6 +19,7 @@ import com.signasource.signa_api.users.dto.UserSettingsResponse;
 import com.signasource.signa_api.users.dto.UsernameAvailabilityResponse;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.service.PublicProfileService;
+import com.signasource.signa_api.users.service.UserActivityService;
 import com.signasource.signa_api.users.service.UserService;
 import com.signasource.signa_api.users.service.UserSettingsService;
 import jakarta.validation.Valid;
@@ -51,6 +53,7 @@ public class UserController {
     private final PublicProfileService publicProfileService;
     private final UserService userService;
     private final UserStatsService userStatsService;
+    private final UserActivityService userActivityService;
 
     @PutMapping("/password")
     public ResponseEntity<AuthResponse> changePassword(
@@ -142,6 +145,14 @@ public class UserController {
     public ResponseEntity<UserStatsResponse> getMeStats(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(userStatsService.getStats(userDetails.getUser()));
+    }
+
+    @PostMapping("/me/activity")
+    public ResponseEntity<Void> recordActivity(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody RecordActivityRequest request) {
+        userActivityService.recordActivity(userDetails.getUser(), request.minutes());
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/me/weekly-xp")

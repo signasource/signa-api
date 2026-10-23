@@ -13,6 +13,10 @@ spring:
       ddl-auto: create-drop
     database-platform: org.hibernate.dialect.H2Dialect
 
+  # Tests run on H2 with Hibernate-managed schema; Flyway migrations are Postgres-specific.
+  flyway:
+    enabled: false
+
   mail:
     host: smtp.gmail.com
     port: 587
@@ -36,6 +40,9 @@ auth:
     email-verification: 86400000
 
 firebase:
+  enabled: false
+
+google-play:
   enabled: false
   global-topic: test-global
 

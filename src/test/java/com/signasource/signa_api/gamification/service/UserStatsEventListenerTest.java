@@ -9,6 +9,10 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.signasource.signa_api.common.ArgentinaTime;
+import com.signasource.signa_api.common.MetricsService;
+import com.signasource.signa_api.gamification.entity.AchievementCriteriaType;
+import com.signasource.signa_api.gamification.entity.ChallengeCriteriaType;
 import com.signasource.signa_api.gamification.entity.LivesMode;
 import com.signasource.signa_api.gamification.entity.UserDailyXp;
 import com.signasource.signa_api.gamification.entity.UserLearnedSign;
@@ -21,12 +25,8 @@ import com.signasource.signa_api.learning.event.LifeLostEvent;
 import com.signasource.signa_api.learning.event.SignsLearnedEvent;
 import com.signasource.signa_api.learning.event.XpEarnedEvent;
 import com.signasource.signa_api.users.entity.User;
-import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
-import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -44,6 +44,9 @@ class UserStatsEventListenerTest {
     @Mock private UserStatsRepository userStatsRepository;
     @Mock private UserDailyXpRepository userDailyXpRepository;
     @Mock private UserLearnedSignRepository userLearnedSignRepository;
+    @Mock private AchievementService achievementService;
+    @Mock private MetricsService metricsService;
+    @Mock private ChallengeService challengeService;
 
     @InjectMocks private UserStatsEventListener userStatsEventListener;
 
@@ -67,11 +70,27 @@ class UserStatsEventListenerTest {
     }
 
     private static Instant startOfCurrentWeek() {
-        return ZonedDateTime.now(ZoneOffset.UTC)
-                .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-                .toLocalDate()
-                .atStartOfDay(ZoneOffset.UTC)
-                .toInstant();
+        return ArgentinaTime.startOfCurrentWeek();
+    }
+
+    @Test
+    void handleXpEarnedEvent_AwardsXpAndStreakAchievements() {
+        when(userStatsRepository.findByUserId(userId)).thenReturn(Optional.empty());
+        when(userStatsRepository.save(any(UserStats.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(userDailyXpRepository.findByUserAndXpDate(eq(mockUser), any(LocalDate.class)))
+                .thenReturn(Optional.empty());
+        when(userDailyXpRepository.save(any(UserDailyXp.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        userStatsEventListener.handleXpEarnedEvent(new XpEarnedEvent(this, mockUser, 50));
+
+        verify(achievementService)
+                .awardReached(eq(mockUser), eq(AchievementCriteriaType.STREAK_DAYS), eq(1L), any());
+        verify(achievementService)
+                .awardReached(eq(mockUser), eq(AchievementCriteriaType.TOTAL_XP), eq(50L), any());
+        verify(achievementService)
+                .awardReached(eq(mockUser), eq(AchievementCriteriaType.WEEKLY_XP), eq(50L), any());
     }
 
     @Test
@@ -115,6 +134,44 @@ class UserStatsEventListenerTest {
 
         assertEquals(120L, stats.getTotalXp());
         assertEquals(50, stats.getWeeklyXp());
+    }
+
+    @Test
+    void handleXpEarnedEvent_AppliesActiveXpMultiplier() {
+        UserStats stats =
+                UserStats.builder()
+                        .user(mockUser)
+                        .xpMultiplier(3.0)
+                        .xpMultiplierExpiresAt(Instant.now().plusSeconds(600))
+                        .updatedAt(startOfCurrentWeek())
+                        .build();
+        when(userStatsRepository.findByUserId(userId)).thenReturn(Optional.of(stats));
+        when(userDailyXpRepository.findByUserAndXpDate(eq(mockUser), any(LocalDate.class)))
+                .thenReturn(Optional.empty());
+
+        userStatsEventListener.handleXpEarnedEvent(new XpEarnedEvent(this, mockUser, 20));
+
+        assertEquals(60L, stats.getTotalXp());
+        assertEquals(60, stats.getWeeklyXp());
+        verify(challengeService).record(mockUser, ChallengeCriteriaType.EARN_XP, 60);
+    }
+
+    @Test
+    void handleXpEarnedEvent_IgnoresExpiredXpMultiplier() {
+        UserStats stats =
+                UserStats.builder()
+                        .user(mockUser)
+                        .xpMultiplier(3.0)
+                        .xpMultiplierExpiresAt(Instant.now().minusSeconds(1))
+                        .updatedAt(startOfCurrentWeek())
+                        .build();
+        when(userStatsRepository.findByUserId(userId)).thenReturn(Optional.of(stats));
+        when(userDailyXpRepository.findByUserAndXpDate(eq(mockUser), any(LocalDate.class)))
+                .thenReturn(Optional.empty());
+
+        userStatsEventListener.handleXpEarnedEvent(new XpEarnedEvent(this, mockUser, 20));
+
+        assertEquals(20L, stats.getTotalXp());
     }
 
     @Test
@@ -236,7 +293,7 @@ class UserStatsEventListenerTest {
         verify(userDailyXpRepository).save(captor.capture());
         UserDailyXp saved = captor.getValue();
         assertEquals(75, saved.getXpEarned());
-        assertEquals(LocalDate.now(ZoneOffset.UTC), saved.getXpDate());
+        assertEquals(ArgentinaTime.today(), saved.getXpDate());
         assertEquals(mockUser, saved.getUser());
     }
 
@@ -249,7 +306,7 @@ class UserStatsEventListenerTest {
         UserDailyXp existing =
                 UserDailyXp.builder()
                         .user(mockUser)
-                        .xpDate(LocalDate.now(ZoneOffset.UTC))
+                        .xpDate(ArgentinaTime.today())
                         .xpEarned(40)
                         .build();
         when(userDailyXpRepository.findByUserAndXpDate(eq(mockUser), any(LocalDate.class)))
@@ -322,5 +379,21 @@ class UserStatsEventListenerTest {
 
         assertEquals(0, stats.getCurrentLives());
         verify(userStatsRepository, never()).save(any(UserStats.class));
+    }
+
+    @Test
+    void handleXpEarnedEvent_ReportsXpAndStreakToChallenges() {
+        when(userStatsRepository.findByUserId(userId)).thenReturn(Optional.empty());
+        when(userStatsRepository.save(any(UserStats.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(userDailyXpRepository.findByUserAndXpDate(eq(mockUser), any(LocalDate.class)))
+                .thenReturn(Optional.empty());
+        when(userDailyXpRepository.save(any(UserDailyXp.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        userStatsEventListener.handleXpEarnedEvent(new XpEarnedEvent(this, mockUser, 50));
+
+        verify(challengeService).record(mockUser, ChallengeCriteriaType.EARN_XP, 50);
+        verify(challengeService).record(mockUser, ChallengeCriteriaType.STREAK_DAYS, 1);
     }
 }

@@ -1,0 +1,13 @@
+course:
+  code: education-course
+  name: Curso Educación
+  description: Aprende vocabulario útil en entornos educativos.
+  free: true
+  cover: "mock-cover"
+
+version:
+  version: "0.1.0"
+  status: PUBLISHED
+
+topics:
+  - topic-01.yml

@@ -2,7 +2,6 @@ package com.signasource.signa_api.auth.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -91,13 +90,13 @@ class AuthControllerTest {
 
     @Test
     void testResetPassword() {
-        String token = "reset-token";
-        ResetPasswordRequest request = new ResetPasswordRequest("new-password");
-        doNothing().when(authService).resetPassword(any(ResetPasswordRequest.class), eq(token));
+        ResetPasswordRequest request =
+                new ResetPasswordRequest("test@example.com", "123456", "new-password");
+        doNothing().when(authService).resetPassword(request);
 
-        ResponseEntity<Void> response = authController.resetPassword(request, token);
+        ResponseEntity<Void> response = authController.resetPassword(request);
 
-        verify(authService).resetPassword(any(ResetPasswordRequest.class), eq(token));
+        verify(authService).resetPassword(request);
         assertEquals(HttpStatus.OK, response.getStatusCode());
     }
 

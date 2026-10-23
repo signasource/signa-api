@@ -1,5 +1,6 @@
 package com.signasource.signa_api.learning.repository;
 
+import com.signasource.signa_api.learning.entity.EnrollmentStatus;
 import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import java.util.List;
 import java.util.Optional;
@@ -11,6 +12,8 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface UserCourseEnrollmentRepository extends JpaRepository<UserCourseEnrollment, UUID> {
 
+    long countByUserIdAndStatus(UUID userId, EnrollmentStatus status);
+
     List<UserCourseEnrollment> findByUserId(UUID userId);
 
     Optional<UserCourseEnrollment> findByUserIdAndCourseVersionId(
@@ -20,4 +23,11 @@ public interface UserCourseEnrollmentRepository extends JpaRepository<UserCourse
 
     @EntityGraph(attributePaths = {"courseVersion", "courseVersion.course"})
     List<UserCourseEnrollment> findWithCourseByUserId(UUID userId);
+
+    @EntityGraph(attributePaths = {"courseVersion", "courseVersion.course"})
+    List<UserCourseEnrollment> findByUserIdAndOrganizationId(UUID userId, UUID organizationId);
+
+    @EntityGraph(attributePaths = {"user", "courseVersion", "courseVersion.course"})
+    List<UserCourseEnrollment> findByOrganizationIdAndCourseVersionCourseId(
+            UUID organizationId, UUID courseId);
 }

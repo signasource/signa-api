@@ -1,5 +1,9 @@
 package com.signasource.signa_api.gamification.service;
 
+import com.signasource.signa_api.common.ArgentinaTime;
+import com.signasource.signa_api.common.MetricsService;
+import com.signasource.signa_api.gamification.entity.AchievementCriteriaType;
+import com.signasource.signa_api.gamification.entity.ChallengeCriteriaType;
 import com.signasource.signa_api.gamification.entity.UserDailyXp;
 import com.signasource.signa_api.gamification.entity.UserLearnedSign;
 import com.signasource.signa_api.gamification.entity.UserStats;
@@ -10,12 +14,8 @@ import com.signasource.signa_api.learning.event.LifeLostEvent;
 import com.signasource.signa_api.learning.event.SignsLearnedEvent;
 import com.signasource.signa_api.learning.event.XpEarnedEvent;
 import com.signasource.signa_api.users.entity.User;
-import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
-import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -33,11 +33,13 @@ public class UserStatsEventListener {
     private final UserStatsRepository userStatsRepository;
     private final UserDailyXpRepository userDailyXpRepository;
     private final UserLearnedSignRepository userLearnedSignRepository;
+    private final AchievementService achievementService;
+    private final MetricsService metricsService;
+    private final ChallengeService challengeService;
 
     @EventListener
     @Transactional
     public void handleXpEarnedEvent(XpEarnedEvent event) {
-        int xpToAdd = event.getXpAmount();
         User user = event.getUser();
 
         UserStats stats =
@@ -51,6 +53,9 @@ public class UserStatsEventListener {
                                                 .weeklyXp(0)
                                                 .build());
 
+        // An active XP booster (challenge reward or shop item) scales every XP source.
+        int xpToAdd = (int) Math.round(event.getXpAmount() * stats.getEffectiveXpMultiplier());
+
         if (isBeforeCurrentWeek(stats.getUpdatedAt())) {
             stats.setWeeklyXp(0);
         }
@@ -59,9 +64,22 @@ public class UserStatsEventListener {
         stats.setWeeklyXp(stats.getWeeklyXp() + xpToAdd);
         stats.setUpdatedAt(Instant.now());
 
+        if (stats.registerStreakActivity(ArgentinaTime.today())) {
+            achievementService.awardReached(
+                    user, AchievementCriteriaType.STREAK_DAYS, stats.getCurrentStreak(), stats);
+            challengeService.record(
+                    user, ChallengeCriteriaType.STREAK_DAYS, stats.getCurrentStreak());
+        }
+        achievementService.awardReached(
+                user, AchievementCriteriaType.TOTAL_XP, stats.getTotalXp(), stats);
+        achievementService.awardReached(
+                user, AchievementCriteriaType.WEEKLY_XP, stats.getWeeklyXp(), stats);
+
         userStatsRepository.save(stats);
+        metricsService.recordXpEarned(xpToAdd);
 
         upsertDailyXp(user, xpToAdd);
+        challengeService.record(user, ChallengeCriteriaType.EARN_XP, xpToAdd);
     }
 
     @EventListener
@@ -77,11 +95,12 @@ public class UserStatsEventListener {
         if (stats.loseLife()) {
             stats.setUpdatedAt(Instant.now());
             userStatsRepository.save(stats);
+            metricsService.recordLifeLost();
         }
     }
 
     private void upsertDailyXp(User user, int xpToAdd) {
-        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        LocalDate today = ArgentinaTime.today();
         UserDailyXp daily =
                 userDailyXpRepository
                         .findByUserAndXpDate(user, today)
@@ -140,6 +159,7 @@ public class UserStatsEventListener {
         stats.setLearnedSignsCount(stats.getLearnedSignsCount() + newGlobally.size());
         stats.setUpdatedAt(now);
         userStatsRepository.save(stats);
+        metricsService.recordSignsLearned(newGlobally.size());
     }
 
     private boolean isBeforeCurrentWeek(Instant updatedAt) {
@@ -147,12 +167,7 @@ public class UserStatsEventListener {
             return false;
         }
 
-        Instant startOfWeek =
-                ZonedDateTime.now(ZoneOffset.UTC)
-                        .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-                        .toLocalDate()
-                        .atStartOfDay(ZoneOffset.UTC)
-                        .toInstant();
+        Instant startOfWeek = ArgentinaTime.startOfCurrentWeek();
 
         return updatedAt.isBefore(startOfWeek);
     }

@@ -5,6 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.exceptions.NotFoundException;
@@ -12,7 +15,10 @@ import com.signasource.signa_api.gamification.dto.AchievementResponse;
 import com.signasource.signa_api.gamification.entity.Achievement;
 import com.signasource.signa_api.gamification.entity.AchievementCriteriaType;
 import com.signasource.signa_api.gamification.entity.UserAchievement;
+import com.signasource.signa_api.gamification.entity.UserStats;
 import com.signasource.signa_api.gamification.repository.AchievementRepository;
+import com.signasource.signa_api.gamification.repository.UserAchievementRepository;
+import com.signasource.signa_api.gamification.repository.UserStatsRepository;
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
 import java.time.Instant;
@@ -30,6 +36,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class AchievementServiceTest {
 
     @Mock private AchievementRepository achievementRepository;
+    @Mock private UserAchievementRepository userAchievementRepository;
+    @Mock private UserStatsRepository userStatsRepository;
 
     @InjectMocks private AchievementService achievementService;
 
@@ -205,5 +213,141 @@ class AchievementServiceTest {
 
         assertThrows(
                 NotFoundException.class, () -> achievementService.getAchievementById(id, user));
+    }
+
+    @Test
+    void awardReached_grantsReachedAchievementsAndCreditsShields() {
+        Achievement streak3 =
+                Achievement.builder()
+                        .id(UUID.randomUUID())
+                        .code("STREAK_3")
+                        .criteriaType(AchievementCriteriaType.STREAK_DAYS)
+                        .criteriaValue(3)
+                        .rewardStreakShields(2)
+                        .build();
+        UserStats stats = UserStats.builder().user(user).currentStreak(3).streakShields(1).build();
+        when(achievementRepository.findUnearnedReached(
+                        user, AchievementCriteriaType.STREAK_DAYS, 3))
+                .thenReturn(List.of(streak3));
+        when(userAchievementRepository.save(any(UserAchievement.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        List<UserAchievement> granted =
+                achievementService.awardReached(
+                        user, AchievementCriteriaType.STREAK_DAYS, 3, stats);
+
+        assertEquals(1, granted.size());
+        assertEquals(streak3, granted.get(0).getAchievement());
+        assertNull(granted.get(0).getSeenAt());
+        assertEquals(3, stats.getStreakShields());
+    }
+
+    @Test
+    void awardReached_whenNothingReached_changesNothing() {
+        UserStats stats = UserStats.builder().user(user).currentStreak(1).streakShields(1).build();
+        when(achievementRepository.findUnearnedReached(
+                        user, AchievementCriteriaType.STREAK_DAYS, 1))
+                .thenReturn(List.of());
+
+        assertTrue(
+                achievementService
+                        .awardReached(user, AchievementCriteriaType.STREAK_DAYS, 1, stats)
+                        .isEmpty());
+
+        assertEquals(1, stats.getStreakShields());
+        verify(userAchievementRepository, never()).save(any());
+    }
+
+    @Test
+    void getUnseen_returnsPendingEarnedAchievements() {
+        when(userAchievementRepository.findByUserAndSeenAtIsNullOrderByEarnedAtAsc(user))
+                .thenReturn(List.of(userAchievement));
+
+        List<AchievementResponse> responses = achievementService.getUnseen(user);
+
+        assertEquals(1, responses.size());
+        assertTrue(responses.get(0).earned());
+        assertEquals(earnedAchievement.getId(), responses.get(0).id());
+    }
+
+    @Test
+    void markSeen_stampsSeenAtOnce() {
+        when(userAchievementRepository.findByUserAndAchievementId(user, earnedAchievement.getId()))
+                .thenReturn(Optional.of(userAchievement));
+
+        achievementService.markSeen(earnedAchievement.getId(), user);
+
+        assertTrue(userAchievement.getSeenAt() != null);
+        verify(userAchievementRepository).save(userAchievement);
+    }
+
+    @Test
+    void markSeen_whenNotEarned_throwsNotFound() {
+        UUID id = UUID.randomUUID();
+        when(userAchievementRepository.findByUserAndAchievementId(user, id))
+                .thenReturn(Optional.empty());
+
+        assertThrows(NotFoundException.class, () -> achievementService.markSeen(id, user));
+    }
+
+    @Test
+    void awardReached_creditsGemsAndStartsUnseenForAnyCriteria() {
+        Achievement firstFriend =
+                Achievement.builder()
+                        .id(UUID.randomUUID())
+                        .code("FIRST_FRIEND")
+                        .criteriaType(AchievementCriteriaType.FRIENDS_COUNT)
+                        .criteriaValue(1)
+                        .rewardGems(20)
+                        .build();
+        UserStats stats = UserStats.builder().user(user).gems(5).build();
+        when(achievementRepository.findUnearnedReached(
+                        user, AchievementCriteriaType.FRIENDS_COUNT, 1))
+                .thenReturn(List.of(firstFriend));
+        when(userAchievementRepository.save(any(UserAchievement.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        List<UserAchievement> granted =
+                achievementService.awardReached(
+                        user, AchievementCriteriaType.FRIENDS_COUNT, 1, stats);
+
+        assertEquals(25, stats.getGems());
+        assertNull(granted.get(0).getSeenAt());
+    }
+
+    @Test
+    void awardReached_withoutStats_loadsAndSavesThem() {
+        Achievement firstGift =
+                Achievement.builder()
+                        .id(UUID.randomUUID())
+                        .code("FIRST_GIFT")
+                        .criteriaType(AchievementCriteriaType.GIFTS_SENT)
+                        .criteriaValue(1)
+                        .rewardGems(10)
+                        .build();
+        UserStats stats = UserStats.builder().user(user).gems(0).build();
+        when(userStatsRepository.findByUserId(user.getId())).thenReturn(Optional.of(stats));
+        when(achievementRepository.findUnearnedReached(user, AchievementCriteriaType.GIFTS_SENT, 1))
+                .thenReturn(List.of(firstGift));
+        when(userAchievementRepository.save(any(UserAchievement.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        achievementService.awardReached(user, AchievementCriteriaType.GIFTS_SENT, 1);
+
+        assertEquals(10, stats.getGems());
+        verify(userStatsRepository).save(stats);
+    }
+
+    @Test
+    void awardReached_withoutStats_doesNotSaveWhenNothingGranted() {
+        when(userStatsRepository.findByUserId(user.getId()))
+                .thenReturn(Optional.of(UserStats.builder().user(user).build()));
+        when(achievementRepository.findUnearnedReached(
+                        user, AchievementCriteriaType.SHOP_PURCHASES, 1))
+                .thenReturn(List.of());
+
+        achievementService.awardReached(user, AchievementCriteriaType.SHOP_PURCHASES, 1);
+
+        verify(userStatsRepository, never()).save(any());
     }
 }

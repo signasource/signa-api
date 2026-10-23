@@ -1,0 +1,184 @@
+topic:
+  code: unidad-3
+  title: "Unidad 3"
+  subtitle: "Lugares"
+  description: Aprendé a señar los lugares más comunes de la ciudad.
+
+lessons:
+  - code: leccion-8
+    name: "Educación y cultura"
+    description: "Aprendé las señas de escuela, universidad, museo y jardín de infantes."
+
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: escuela
+          word: escuela
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: universidad
+          word: universidad
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: museo
+          word: museo
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: "jardín de infantes"
+          word: "jardín de infantes"
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: escuela
+          options:
+            - escuela
+            - universidad
+            - museo
+            - "jardín de infantes"
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: universidad
+          options:
+            - escuela
+            - universidad
+            - museo
+            - "jardín de infantes"
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿A qué lugar van los niños muy pequeños a aprender?"
+          answer: "jardín de infantes"
+          options:
+            - escuela
+            - universidad
+            - museo
+            - "jardín de infantes"
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: museo
+          options:
+            - escuela
+            - universidad
+            - museo
+            - "jardín de infantes"
+
+      - type: MATCH
+        xp: 10
+        config:
+          concepts:
+            - escuela
+            - universidad
+            - museo
+            - "jardín de infantes"
+
+      - type: VISUAL_RECOGNITION
+        xp: 15
+        config:
+          sign_sequence:
+            - escuela
+            - museo
+            - "jardín de infantes"
+          options:
+            - escuela
+            - universidad
+            - museo
+            - "jardín de infantes"
+          keep_order: false
+
+  - code: leccion-9
+    name: "En la ciudad"
+    description: "Aprendé las señas de comercio, plaza, comisaría y hospital."
+
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: comercio
+          word: comercio
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: plaza
+          word: plaza
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: "comisaría"
+          word: "comisaría"
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: hospital
+          word: hospital
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: comercio
+          options:
+            - comercio
+            - plaza
+            - "comisaría"
+            - hospital
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: plaza
+          options:
+            - comercio
+            - plaza
+            - "comisaría"
+            - hospital
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿A qué lugar vas cuando estás enfermo?"
+          answer: hospital
+          options:
+            - comercio
+            - plaza
+            - "comisaría"
+            - hospital
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: "comisaría"
+          options:
+            - comercio
+            - plaza
+            - "comisaría"
+            - hospital
+
+      - type: MATCH
+        xp: 10
+        config:
+          concepts:
+            - comercio
+            - plaza
+            - "comisaría"
+            - hospital
+
+      - type: VISUAL_RECOGNITION
+        xp: 15
+        config:
+          sign_sequence:
+            - plaza
+            - hospital
+            - comercio
+          options:
+            - comercio
+            - plaza
+            - "comisaría"
+            - hospital
+          keep_order: false

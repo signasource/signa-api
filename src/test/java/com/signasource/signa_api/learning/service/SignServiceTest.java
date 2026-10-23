@@ -66,7 +66,8 @@ class SignServiceTest {
                         .build();
 
         createRequest =
-                new CreateSignRequest("Hola", signLanguageId, Handedness.ONE_HANDED, "url.mp4");
+                new CreateSignRequest(
+                        "Hola", signLanguageId, Handedness.ONE_HANDED, "url.mp4", null);
 
         r2Properties = new R2Properties(null, null, null, "signa-animations", 15);
         signService =
@@ -116,7 +117,7 @@ class SignServiceTest {
 
     @Test
     void shouldCreateSignSuccessfully() {
-        when(signRepository.existsByMeaning("Hola")).thenReturn(false);
+        when(signRepository.existsByMeaningIgnoreCase("Hola")).thenReturn(false);
         when(signLanguageRepository.findById(signLanguageId)).thenReturn(Optional.of(signLanguage));
         when(signRepository.save(any(Sign.class))).thenReturn(sign);
 
@@ -132,7 +133,7 @@ class SignServiceTest {
 
     @Test
     void shouldThrowExceptionWhenCreatingSignWithInvalidLanguage() {
-        when(signRepository.existsByMeaning("Hola")).thenReturn(false);
+        when(signRepository.existsByMeaningIgnoreCase("Hola")).thenReturn(false);
         when(signLanguageRepository.findById(signLanguageId)).thenReturn(Optional.empty());
 
         assertThrows(NotFoundException.class, () -> signService.createSign(createRequest));
@@ -143,7 +144,7 @@ class SignServiceTest {
 
     @Test
     void shouldThrowWhenCreatingSignWithDuplicateMeaning() {
-        when(signRepository.existsByMeaning("Hola")).thenReturn(true);
+        when(signRepository.existsByMeaningIgnoreCase("Hola")).thenReturn(true);
 
         assertThrows(
                 ResourceAlreadyInUseException.class, () -> signService.createSign(createRequest));
@@ -163,7 +164,7 @@ class SignServiceTest {
                         .animationUrl("lsa/test.glb")
                         .signLanguage(signLanguage)
                         .build();
-        when(signRepository.findByMeaning("test")).thenReturn(Optional.of(animatedSign));
+        when(signRepository.findByMeaningIgnoreCase("test")).thenReturn(Optional.of(animatedSign));
         when(signAnimationService.presignedGetUrl("lsa/test.glb"))
                 .thenReturn("https://r2.example/signed");
 
@@ -177,7 +178,7 @@ class SignServiceTest {
 
     @Test
     void shouldThrowNotFoundWhenSignDoesNotExistForAnimation() {
-        when(signRepository.findByMeaning("missing")).thenReturn(Optional.empty());
+        when(signRepository.findByMeaningIgnoreCase("missing")).thenReturn(Optional.empty());
 
         assertThrows(NotFoundException.class, () -> signService.getSignAnimation("missing"));
 
@@ -194,7 +195,8 @@ class SignServiceTest {
                         .animationUrl("   ")
                         .signLanguage(signLanguage)
                         .build();
-        when(signRepository.findByMeaning("Hola")).thenReturn(Optional.of(withoutAnimation));
+        when(signRepository.findByMeaningIgnoreCase("Hola"))
+                .thenReturn(Optional.of(withoutAnimation));
 
         assertThrows(NotFoundException.class, () -> signService.getSignAnimation("Hola"));
 

@@ -8,15 +8,19 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.util.HtmlUtils;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class EmailService {
     private static final String VERIFICATION_PATH = "/auth/verify";
-    private static final String PASSWORD_RESET_PATH = "/auth/reset-password";
+    private static final String ADMIN_INVITE_PATH = "/accept-invite";
 
     private final JavaMailSender mailSender;
+
+    @Value("${app.panel-url:}")
+    private String panelUrl;
 
     @Value("${app.base-url}")
     private String baseUrl;
@@ -32,11 +36,26 @@ public class EmailService {
                 buildVerificationHtml(buildUrl(VERIFICATION_PATH, token)));
     }
 
-    public void sendPasswordResetEmail(String to, String token) {
+    // Async so /auth/forgot-password answers in the same time (and status) whether or not the
+    // email belongs to an account; sending inline made registered emails measurably slower.
+    @Async
+    public void sendPasswordResetEmail(String to, String code) {
+        sendEmail(to, "Tu código para restablecer la contraseña", buildPasswordResetHtml(code));
+    }
+
+    @Async
+    public void sendOrganizationInviteEmail(String to, String organizationName, String code) {
+        sendEmail(to, "Te invitaron a SIGNA", buildOrganizationInviteHtml(organizationName, code));
+    }
+
+    @Async
+    public void sendOrganizationAdminInviteEmail(String to, String organizationName, String code) {
         sendEmail(
                 to,
-                "Reseta tu contraseña",
-                buildPasswordResetHtml(buildUrl(PASSWORD_RESET_PATH, token)));
+                "Te invitaron a administrar una organización en SIGNA",
+                buildOrganizationAdminInviteHtml(
+                        organizationName,
+                        String.format("%s%s?code=%s", panelUrl, ADMIN_INVITE_PATH, code)));
     }
 
     private void sendEmail(String to, String subject, String html) {
@@ -79,21 +98,46 @@ public class EmailService {
                 .formatted(link);
     }
 
-    private String buildPasswordResetHtml(String link) {
+    private String buildPasswordResetHtml(String code) {
         return """
 				<div style="font-family: Arial;">
 				    <h2>¡Hola!</h2>
-				    <p>Podés resetear tu contraseña acá:</p>
+				    <p>Ingresá este código en la app para restablecer tu contraseña:</p>
+				    <p style="font-size:32px; font-weight:bold; letter-spacing:8px;">%s</p>
+				    <p>Vence en 15 minutos. Si no lo pediste, ignorá este correo.</p>
+				</div>
+				"""
+                .formatted(code);
+    }
+
+    private String buildOrganizationInviteHtml(String organizationName, String code) {
+        return """
+				<div style="font-family: Arial;">
+				    <h2>¡Hola!</h2>
+				    <p>%s te invitó a aprender Lengua de Señas Argentina en SIGNA.</p>
+				    <p>Ingresá este código en la app para sumarte:</p>
+				    <p style="font-size:24px; font-weight:bold; letter-spacing:4px;">%s</p>
+				</div>
+				"""
+                .formatted(HtmlUtils.htmlEscape(organizationName), code);
+    }
+
+    private String buildOrganizationAdminInviteHtml(String organizationName, String link) {
+        return """
+				<div style="font-family: Arial;">
+				    <h2>¡Hola!</h2>
+				    <p>%s te invitó a administrar su organización en SIGNA.</p>
+				    <p>Creá tu cuenta o iniciá sesión en el panel y aceptá la invitación:</p>
 				    <a href="%s" style="
 				        background-color:#4CAF50;
 				        color:white;
 				        padding:10px 20px;
 				        text-decoration:none;
 				        border-radius:5px;">
-				        Resetear contraseña
+				        Aceptar invitación
 				    </a>
 				</div>
 				"""
-                .formatted(link);
+                .formatted(HtmlUtils.htmlEscape(organizationName), link);
     }
 }

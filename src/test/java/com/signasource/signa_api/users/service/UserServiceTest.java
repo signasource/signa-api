@@ -2,6 +2,8 @@ package com.signasource.signa_api.users.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -23,6 +25,7 @@ import com.signasource.signa_api.users.entity.Friendship;
 import com.signasource.signa_api.users.entity.FriendshipStatus;
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
+import com.signasource.signa_api.users.repository.AccountErasureRepository;
 import com.signasource.signa_api.users.repository.FriendshipRepository;
 import com.signasource.signa_api.users.repository.UserRepository;
 import java.util.List;
@@ -46,6 +49,7 @@ class UserServiceTest {
     @Mock private TokenRepository tokenRepository;
     @Mock private DeviceTokenRepository deviceTokenRepository;
     @Mock private FriendshipRepository friendshipRepository;
+    @Mock private AccountErasureRepository accountErasureRepository;
 
     @InjectMocks private UserService userService;
 
@@ -104,6 +108,25 @@ class UserServiceTest {
     }
 
     @Test
+    void updateUsername_whenNameAndLastNameChange_updatesAndSavesWithSameUsername() {
+        userService.updateUsername(
+                new UpdateUsernameRequest(CURRENT_USERNAME, " Nuevo ", " Apellido "), user);
+
+        assertEquals("Nuevo", user.getName());
+        assertEquals("Apellido", user.getLastName());
+        assertEquals(CURRENT_USERNAME, user.getUsername());
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void updateUsername_whenNameBlank_keepsCurrentName() {
+        userService.updateUsername(new UpdateUsernameRequest(CURRENT_USERNAME, "  ", null), user);
+
+        assertEquals("Test User", user.getName());
+        verify(userRepository, never()).save(user);
+    }
+
+    @Test
     void updateUsername_whenUsernameTaken_throwsConflict() {
         when(userRepository.existsByUsername(TAKEN_USERNAME)).thenReturn(true);
 
@@ -115,7 +138,7 @@ class UserServiceTest {
     }
 
     @Test
-    void deleteAccount_disablesUserObfuscatesEmailAndRevokesTokens() {
+    void shouldAnonymiseUserAndEraseTheirDataWhenAccountIsDeleted() {
         UUID userId = UUID.randomUUID();
         user =
                 User.builder()
@@ -123,18 +146,29 @@ class UserServiceTest {
                         .email("user@example.com")
                         .username(CURRENT_USERNAME)
                         .name("Test User")
+                        .lastName("Tester")
                         .passwordHash("hashed")
                         .role(Role.USER)
                         .enabled(true)
+                        .verified(true)
+                        .accountVisibility(AccountVisibility.PUBLIC)
                         .build();
 
         userService.deleteAccount(user);
 
         assertFalse(user.isEnabled());
-        assertTrue(user.getEmail().startsWith("deleted_" + userId));
+        assertFalse(user.isVerified());
+        assertEquals("deleted_" + userId + "@signa.invalid", user.getEmail());
+        assertEquals("deleted_" + userId, user.getUsername());
+        assertEquals("Usuario", user.getName());
+        assertEquals("eliminado", user.getLastName());
+        assertNotEquals("hashed", user.getPasswordHash());
+        assertEquals(AccountVisibility.PRIVATE, user.getAccountVisibility());
+        assertNull(user.getCurrentCourse());
         verify(userRepository).save(user);
         verify(tokenRepository).deleteByUser(user);
         verify(deviceTokenRepository).deleteByUser(user);
+        verify(accountErasureRepository).deleteUserData(user);
     }
 
     private User user(String username, String name) {

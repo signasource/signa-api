@@ -15,6 +15,9 @@ public interface TopicRepository extends JpaRepository<Topic, UUID> {
 
     List<Topic> findByCourseVersionIdOrderByOrderAsc(UUID courseVersionId);
 
+    List<Topic> findByCourseVersionIdInOrderByCourseVersionIdAscOrderAsc(
+            Collection<UUID> courseVersionIds);
+
     @Query(
             "SELECT DISTINCT t FROM Topic t LEFT JOIN FETCH t.lessons "
                     + "WHERE t.courseVersion.id = :versionId "
@@ -26,6 +29,10 @@ public interface TopicRepository extends JpaRepository<Topic, UUID> {
                     + "COUNT(l.id) AS totalLessons "
                     + "FROM Topic t LEFT JOIN t.lessons l "
                     + "WHERE t.courseVersion.id IN :versionIds "
+                    + "AND (l IS NULL OR EXISTS ("
+                    + "  SELECT 1 FROM LessonBlock b WHERE b.lesson = l"
+                    + "  AND b.type != com.signasource.signa_api.learning.entity.BlockType.INVISIBLE_SIGNS"
+                    + ")) "
                     + "GROUP BY t.courseVersion.id, t.id")
     List<TopicLessonTotalView> findTopicLessonTotals(
             @Param("versionIds") Collection<UUID> versionIds);

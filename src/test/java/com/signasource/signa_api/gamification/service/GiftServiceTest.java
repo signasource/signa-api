@@ -48,6 +48,7 @@ class GiftServiceTest {
     @Mock private FriendshipRepository friendshipRepository;
     @Mock private UserRepository userRepository;
     @Mock private PurchaseService purchaseService;
+    @Mock private AchievementService achievementService;
 
     @InjectMocks private GiftService giftService;
 

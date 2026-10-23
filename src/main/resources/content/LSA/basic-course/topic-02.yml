@@ -1,0 +1,306 @@
+topic:
+  code: unidad-2
+  title: "Unidad 2"
+  subtitle: "Las personas a nuestro alrededor"
+  description: Aprendé a señar personas de tu entorno cercano.
+
+lessons:
+  - code: leccion-5
+    name: "La familia"
+    description: "Aprendé las señas de los miembros de la familia."
+
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: familia
+          word: familia
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: mama
+          word: mama
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: papa
+          word: papa
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: hermano
+          word: hermano
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: hijo
+          word: hijo
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: abuelo
+          word: abuelo
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: mama
+          options:
+            - mama
+            - papa
+            - hermano
+            - familia
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: papa
+          options:
+            - mama
+            - papa
+            - abuelo
+            - familia
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Cómo llamás al padre de tu papá?"
+          answer: abuelo
+          options:
+            - papa
+            - hermano
+            - hijo
+            - abuelo
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: hermano
+          options:
+            - hermano
+            - hijo
+            - abuelo
+            - familia
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Cómo llamás al conjunto de tus parientes más cercanos?"
+          answer: familia
+          options:
+            - familia
+            - mama
+            - papa
+            - hermano
+
+      - type: MATCH
+        xp: 10
+        config:
+          concepts:
+            - familia
+            - mama
+            - papa
+            - hermano
+            - hijo
+
+      - type: VISUAL_RECOGNITION
+        xp: 15
+        config:
+          sign_sequence:
+            - mama
+            - hijo
+            - abuelo
+            - papa
+          options:
+            - familia
+            - mama
+            - papa
+            - hermano
+            - hijo
+            - abuelo
+          keep_order: false
+
+  - code: leccion-6
+    name: "Relaciones cercanas"
+    description: "Aprendé las señas de amigo, novio, esposo y compañero."
+
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: amigo
+          word: amigo
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: novio
+          word: novio
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: esposo
+          word: esposo
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: "compañero"
+          word: "compañero"
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: amigo
+          options:
+            - amigo
+            - novio
+            - esposo
+            - "compañero"
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: novio
+          options:
+            - amigo
+            - novio
+            - esposo
+            - "compañero"
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Cómo llamás a la persona con quien te casaste?"
+          answer: esposo
+          options:
+            - amigo
+            - novio
+            - esposo
+            - "compañero"
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: "compañero"
+          options:
+            - amigo
+            - novio
+            - esposo
+            - "compañero"
+
+      - type: MATCH
+        xp: 10
+        config:
+          concepts:
+            - amigo
+            - novio
+            - esposo
+            - "compañero"
+
+      - type: VISUAL_RECOGNITION
+        xp: 15
+        config:
+          sign_sequence:
+            - amigo
+            - esposo
+            - novio
+          options:
+            - amigo
+            - novio
+            - esposo
+            - "compañero"
+          keep_order: false
+
+  - code: leccion-7
+    name: "Tipos de personas"
+    description: "Aprendé las señas de hombre, mujer, niño, niña y bebé."
+
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: hombre
+          word: hombre
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: mujer
+          word: mujer
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: "niño"
+          word: "niño"
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: "niña"
+          word: "niña"
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: "bebé"
+          word: "bebé"
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: hombre
+          options:
+            - hombre
+            - mujer
+            - "niño"
+            - "niña"
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: mujer
+          options:
+            - hombre
+            - mujer
+            - "niño"
+            - "bebé"
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Cómo llamás a una persona muy pequeña que todavía no camina?"
+          answer: "bebé"
+          options:
+            - "niño"
+            - "niña"
+            - "bebé"
+            - mujer
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: "niña"
+          options:
+            - hombre
+            - mujer
+            - "niño"
+            - "niña"
+
+      - type: MATCH
+        xp: 10
+        config:
+          concepts:
+            - hombre
+            - mujer
+            - "niño"
+            - "niña"
+            - "bebé"
+
+      - type: VISUAL_RECOGNITION
+        xp: 15
+        config:
+          sign_sequence:
+            - "niña"
+            - "bebé"
+            - hombre
+            - mujer
+          options:
+            - hombre
+            - mujer
+            - "niño"
+            - "niña"
+            - "bebé"
+          keep_order: false

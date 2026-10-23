@@ -41,7 +41,7 @@ class SignControllerTest {
     void testGetSigns() {
         Pageable pageable = PageRequest.of(0, 10);
         SignSummaryResponse summary =
-                new SignSummaryResponse(UUID.randomUUID(), "Hola", "ONE_HANDED", "url");
+                new SignSummaryResponse(UUID.randomUUID(), "Hola", "ONE_HANDED", "url", null);
         Page<SignSummaryResponse> mockPage = new PageImpl<>(List.of(summary));
 
         when(signService.getSignsCatalog(eq(signLanguageId), eq("Hola"), any(Pageable.class)))
@@ -59,9 +59,9 @@ class SignControllerTest {
     @Test
     void testCreateSign() {
         CreateSignRequest request =
-                new CreateSignRequest("Hola", signLanguageId, Handedness.ONE_HANDED, "url");
+                new CreateSignRequest("Hola", signLanguageId, Handedness.ONE_HANDED, "url", null);
         SignSummaryResponse summary =
-                new SignSummaryResponse(UUID.randomUUID(), "Hola", "ONE_HANDED", "url");
+                new SignSummaryResponse(UUID.randomUUID(), "Hola", "ONE_HANDED", "url", null);
 
         when(signService.createSign(any(CreateSignRequest.class))).thenReturn(summary);
 

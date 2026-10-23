@@ -11,6 +11,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface GiftRepository extends JpaRepository<Gift, UUID> {
 
+    long countBySender(User sender);
+
     @EntityGraph(attributePaths = {"sender", "recipient", "shopItem"})
     List<Gift> findByRecipientOrderBySentAtDesc(User recipient);
 

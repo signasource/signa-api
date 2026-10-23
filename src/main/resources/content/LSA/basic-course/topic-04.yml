@@ -1,0 +1,184 @@
+topic:
+  code: unidad-4
+  title: "Unidad 4"
+  subtitle: "El tiempo"
+  description: Aprendé a señar expresiones temporales y los momentos del día.
+
+lessons:
+  - code: leccion-10
+    name: "Ayer, hoy y mañana"
+    description: "Aprendé las señas de ayer, hoy, mañana y todos los días."
+
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: ayer
+          word: ayer
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: hoy
+          word: hoy
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: "mañana"
+          word: "mañana"
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: todos los días
+          word: todos los días
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: ayer
+          options:
+            - ayer
+            - hoy
+            - "mañana"
+            - todos los días
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: hoy
+          options:
+            - ayer
+            - hoy
+            - "mañana"
+            - todos los días
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Qué palabra usás para referirte al día que viene?"
+          answer: "mañana"
+          options:
+            - ayer
+            - hoy
+            - "mañana"
+            - todos los días
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: todos los días
+          options:
+            - ayer
+            - hoy
+            - "mañana"
+            - todos los días
+
+      - type: MATCH
+        xp: 10
+        config:
+          concepts:
+            - ayer
+            - hoy
+            - "mañana"
+            - todos los días
+
+      - type: VISUAL_RECOGNITION
+        xp: 15
+        config:
+          sign_sequence:
+            - hoy
+            - ayer
+            - "mañana"
+          options:
+            - ayer
+            - hoy
+            - "mañana"
+            - todos los días
+          keep_order: false
+
+  - code: leccion-11
+    name: "Momentos del día"
+    description: "Aprendé las señas de la mañana, el mediodía, la tarde y la noche."
+
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: la mañana
+          word: la mañana
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: "mediodía"
+          word: "mediodía"
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: tarde
+          word: tarde
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: noche
+          word: noche
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: la mañana
+          options:
+            - la mañana
+            - "mediodía"
+            - tarde
+            - noche
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: tarde
+          options:
+            - la mañana
+            - "mediodía"
+            - tarde
+            - noche
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Cómo llamás al momento del día cuando el sol está en el punto más alto?"
+          answer: "mediodía"
+          options:
+            - la mañana
+            - "mediodía"
+            - tarde
+            - noche
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: noche
+          options:
+            - la mañana
+            - "mediodía"
+            - tarde
+            - noche
+
+      - type: MATCH
+        xp: 10
+        config:
+          concepts:
+            - la mañana
+            - "mediodía"
+            - tarde
+            - noche
+
+      - type: VISUAL_RECOGNITION
+        xp: 15
+        config:
+          sign_sequence:
+            - noche
+            - "mediodía"
+            - tarde
+          options:
+            - la mañana
+            - "mediodía"
+            - tarde
+            - noche
+          keep_order: false

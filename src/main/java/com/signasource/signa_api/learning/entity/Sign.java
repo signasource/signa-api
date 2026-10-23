@@ -38,6 +38,8 @@ public class Sign {
 
     @Column private String animationUrl;
 
+    @Column private String youtubeUrl;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sign_language_id", nullable = false)
     private SignLanguage signLanguage;

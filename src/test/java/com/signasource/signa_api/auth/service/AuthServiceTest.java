@@ -28,8 +28,10 @@ import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.entity.Token;
 import com.signasource.signa_api.auth.entity.TokenType;
 import com.signasource.signa_api.auth.repository.TokenRepository;
+import com.signasource.signa_api.common.MetricsService;
 import com.signasource.signa_api.exceptions.InvalidCredentialsException;
 import com.signasource.signa_api.exceptions.InvalidInputException;
+import com.signasource.signa_api.exceptions.InvalidResetCodeException;
 import com.signasource.signa_api.exceptions.InvalidTokenException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.gamification.entity.UserStats;
@@ -78,6 +80,7 @@ class AuthServiceTest {
     private static final String NEW_PASSWORD = "new-password";
     private static final String ENCODED_PASSWORD = "hashed_password";
     private static final String VALID_TOKEN_STRING = "valid.google.token";
+    private static final String RESET_CODE = "123456";
 
     @Mock private UserRepository userRepository;
     @Mock private UserSettingsRepository userSettingsRepository;
@@ -88,6 +91,7 @@ class AuthServiceTest {
     @Mock private TokenRepository tokenRepository;
 
     @Mock private EmailService emailService;
+    @Mock private MetricsService metricsService;
 
     @InjectMocks private AuthService authService;
 
@@ -132,7 +136,9 @@ class AuthServiceTest {
         verify(passwordEncoder).encode(PASSWORD);
         verify(userRepository).save(any(User.class));
         verify(userSettingsRepository).save(any(UserSettings.class));
-        verify(userStatsRepository).save(any(UserStats.class));
+        ArgumentCaptor<UserStats> statsCaptor = ArgumentCaptor.forClass(UserStats.class);
+        verify(userStatsRepository).save(statsCaptor.capture());
+        assertEquals(100, statsCaptor.getValue().getGems());
         verify(jwtService).generateToken(any(CustomUserDetails.class));
         verify(emailService).sendVerificationEmail(eq(EMAIL), any(String.class));
     }
@@ -399,45 +405,50 @@ class AuthServiceTest {
     }
 
     @Test
-    void shouldGeneratePasswordResetToken() {
-        ForgotPasswordRequest request = new ForgotPasswordRequest(EMAIL);
+    void shouldSendPasswordResetCode() {
+        when(passwordEncoder.encode(any(String.class))).thenReturn("hashed-code");
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(testUser));
-        when(tokenRepository.save(any(Token.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
 
-        authService.forgotPassword(request);
+        authService.forgotPassword(new ForgotPasswordRequest(EMAIL));
 
-        verify(userRepository).findByEmail(EMAIL);
+        ArgumentCaptor<String> codeCaptor = ArgumentCaptor.forClass(String.class);
+        verify(passwordEncoder).encode(codeCaptor.capture());
+        String code = codeCaptor.getValue();
+        assertTrue(code.matches("\\d{6}"));
+
+        ArgumentCaptor<Token> tokenCaptor = ArgumentCaptor.forClass(Token.class);
         verify(tokenRepository).deleteByUserAndType(testUser, TokenType.PASSWORD_RESET);
-        verify(tokenRepository).save(any());
-        verify(emailService).sendPasswordResetEmail(eq(EMAIL), any(String.class));
+        verify(tokenRepository).save(tokenCaptor.capture());
+        Token saved = tokenCaptor.getValue();
+        assertEquals("hashed-code", saved.getToken());
+        assertEquals(TokenType.PASSWORD_RESET, saved.getType());
+        assertEquals(0, saved.getAttempts());
+        assertTrue(saved.getExpiryDate().isAfter(Instant.now()));
+        verify(emailService).sendPasswordResetEmail(EMAIL, code);
     }
 
     @Test
-    void shouldIgnoreForgotPasswordForUnknownEmail() {
+    void shouldHashResetCodeEvenForUnknownEmail() {
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
 
         authService.forgotPassword(new ForgotPasswordRequest(EMAIL));
 
-        verify(userRepository).findByEmail(EMAIL);
+        // Same BCrypt work as for an existing account, so timing does not reveal it.
+        verify(passwordEncoder).encode(any(String.class));
         verifyNoInteractions(tokenRepository);
         verify(emailService, never()).sendPasswordResetEmail(any(), any());
     }
 
     @Test
-    void shouldResetPasswordSuccessfully() {
-        String token = "reset-token";
-        Token resetToken =
-                Token.builder()
-                        .token(token)
-                        .user(testUser)
-                        .expiryDate(Instant.now().plusSeconds(3600))
-                        .build();
-        when(tokenRepository.findByTokenAndType(token, TokenType.PASSWORD_RESET))
+    void shouldResetPasswordWithValidCode() {
+        Token resetToken = resetToken(Instant.now().plusSeconds(900));
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(testUser));
+        when(tokenRepository.findByUserAndType(testUser, TokenType.PASSWORD_RESET))
                 .thenReturn(Optional.of(resetToken));
+        when(passwordEncoder.matches(RESET_CODE, "hashed-code")).thenReturn(true);
         when(passwordEncoder.encode(PASSWORD)).thenReturn("new-hashed-password");
 
-        authService.resetPassword(new ResetPasswordRequest(PASSWORD), token);
+        authService.resetPassword(new ResetPasswordRequest(EMAIL, RESET_CODE, PASSWORD));
 
         assertEquals("new-hashed-password", testUser.getPasswordHash());
         verify(userRepository).save(testUser);
@@ -446,17 +457,99 @@ class AuthServiceTest {
     }
 
     @Test
-    void shouldFailWhenResetTokenDoesNotExist() {
-        String token = "invalid-token";
-        when(tokenRepository.findByTokenAndType(token, TokenType.PASSWORD_RESET))
+    void shouldCountFailedAttemptOnWrongCode() {
+        Token resetToken = resetToken(Instant.now().plusSeconds(900));
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(testUser));
+        when(tokenRepository.findByUserAndType(testUser, TokenType.PASSWORD_RESET))
+                .thenReturn(Optional.of(resetToken));
+        when(passwordEncoder.matches(RESET_CODE, "hashed-code")).thenReturn(false);
+
+        assertThrows(
+                InvalidResetCodeException.class,
+                () ->
+                        authService.resetPassword(
+                                new ResetPasswordRequest(EMAIL, RESET_CODE, PASSWORD)));
+
+        assertEquals(1, resetToken.getAttempts());
+        verify(tokenRepository).save(resetToken);
+        verify(tokenRepository, never()).delete(any(Token.class));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldDiscardCodeAfterMaxFailedAttempts() {
+        Token resetToken = resetToken(Instant.now().plusSeconds(900));
+        resetToken.setAttempts(AuthService.MAX_RESET_CODE_ATTEMPTS - 1);
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(testUser));
+        when(tokenRepository.findByUserAndType(testUser, TokenType.PASSWORD_RESET))
+                .thenReturn(Optional.of(resetToken));
+        when(passwordEncoder.matches(RESET_CODE, "hashed-code")).thenReturn(false);
+
+        assertThrows(
+                InvalidResetCodeException.class,
+                () ->
+                        authService.resetPassword(
+                                new ResetPasswordRequest(EMAIL, RESET_CODE, PASSWORD)));
+
+        verify(tokenRepository).delete(resetToken);
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldRejectExpiredResetCode() {
+        Token resetToken = resetToken(Instant.now().minusSeconds(1));
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(testUser));
+        when(tokenRepository.findByUserAndType(testUser, TokenType.PASSWORD_RESET))
+                .thenReturn(Optional.of(resetToken));
+
+        assertThrows(
+                InvalidResetCodeException.class,
+                () ->
+                        authService.resetPassword(
+                                new ResetPasswordRequest(EMAIL, RESET_CODE, PASSWORD)));
+
+        verify(tokenRepository).delete(resetToken);
+        verify(passwordEncoder, never()).matches(any(), any());
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldRejectResetForUnknownEmailWithSameError() {
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
+
+        InvalidResetCodeException ex =
+                assertThrows(
+                        InvalidResetCodeException.class,
+                        () ->
+                                authService.resetPassword(
+                                        new ResetPasswordRequest(EMAIL, RESET_CODE, PASSWORD)));
+
+        assertEquals("Invalid or expired code", ex.getMessage());
+        verifyNoInteractions(tokenRepository);
+    }
+
+    @Test
+    void shouldRejectResetWithoutPendingCode() {
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(testUser));
+        when(tokenRepository.findByUserAndType(testUser, TokenType.PASSWORD_RESET))
                 .thenReturn(Optional.empty());
 
         assertThrows(
-                InvalidTokenException.class,
-                () -> authService.resetPassword(new ResetPasswordRequest(PASSWORD), token));
+                InvalidResetCodeException.class,
+                () ->
+                        authService.resetPassword(
+                                new ResetPasswordRequest(EMAIL, RESET_CODE, PASSWORD)));
 
-        verify(tokenRepository).findByTokenAndType(token, TokenType.PASSWORD_RESET);
-        verifyNoInteractions(userRepository);
+        verify(userRepository, never()).save(any());
+    }
+
+    private Token resetToken(Instant expiryDate) {
+        return Token.builder()
+                .token("hashed-code")
+                .user(testUser)
+                .type(TokenType.PASSWORD_RESET)
+                .expiryDate(expiryDate)
+                .build();
     }
 
     @Test
@@ -523,7 +616,9 @@ class AuthServiceTest {
         assertTrue(savedUser.isVerified());
 
         verify(userSettingsRepository).save(any(UserSettings.class));
-        verify(userStatsRepository).save(any(UserStats.class));
+        ArgumentCaptor<UserStats> statsCaptor = ArgumentCaptor.forClass(UserStats.class);
+        verify(userStatsRepository).save(statsCaptor.capture());
+        assertEquals(100, statsCaptor.getValue().getGems());
     }
 
     @Test
@@ -605,7 +700,7 @@ class AuthServiceTest {
                         InvalidCredentialsException.class,
                         () -> authService.authenticateWithGoogle(VALID_TOKEN_STRING));
 
-        assertTrue(exception.getMessage().contains("Error authenticating with Google"));
+        assertEquals("Authentication failed", exception.getMessage());
         verifyNoInteractions(userRepository);
     }
 

@@ -14,8 +14,10 @@ import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.entity.Token;
 import com.signasource.signa_api.auth.entity.TokenType;
 import com.signasource.signa_api.auth.repository.TokenRepository;
+import com.signasource.signa_api.common.MetricsService;
 import com.signasource.signa_api.exceptions.InvalidCredentialsException;
 import com.signasource.signa_api.exceptions.InvalidInputException;
+import com.signasource.signa_api.exceptions.InvalidResetCodeException;
 import com.signasource.signa_api.exceptions.InvalidTokenException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.gamification.entity.UserStats;
@@ -27,6 +29,7 @@ import com.signasource.signa_api.users.entity.UserSettings;
 import com.signasource.signa_api.users.repository.UserRepository;
 import com.signasource.signa_api.users.repository.UserSettingsRepository;
 import jakarta.transaction.Transactional;
+import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashSet;
@@ -35,6 +38,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -43,9 +47,15 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
+
+    /** Failed attempts after which a password reset code is discarded. */
+    static final int MAX_RESET_CODE_ATTEMPTS = 5;
+
+    private final SecureRandom secureRandom = new SecureRandom();
 
     private final UserRepository userRepository;
     private final UserSettingsRepository userSettingsRepository;
@@ -56,6 +66,7 @@ public class AuthService {
     private final TokenRepository tokenRepository;
     private final EmailService emailService;
     private final GoogleIdTokenVerifier googleIdTokenVerifier;
+    private final MetricsService metricsService;
 
     @Value("${auth.token-expirations.refresh}")
     private Long refreshTokenExpiration;
@@ -92,7 +103,8 @@ public class AuthService {
         userRepository.save(user);
 
         userSettingsRepository.save(UserSettings.builder().user(user).build());
-        userStatsRepository.save(UserStats.builder().user(user).updatedAt(Instant.now()).build());
+        userStatsRepository.save(
+                UserStats.builder().user(user).gems(100).updatedAt(Instant.now()).build());
 
         Token token =
                 createToken(
@@ -102,6 +114,7 @@ public class AuthService {
 
         emailService.sendVerificationEmail(user.getEmail(), token.getToken());
 
+        metricsService.recordUserRegistration("local");
         return generateTokens(user);
     }
 
@@ -114,6 +127,7 @@ public class AuthService {
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         User user = userDetails.getUser();
 
+        metricsService.recordUserLogin("local");
         return generateTokens(user);
     }
 
@@ -158,6 +172,11 @@ public class AuthService {
 
     @Transactional
     public void forgotPassword(ForgotPasswordRequest request) {
+        // Hash before looking the user up: BCrypt takes ~100 ms, and doing it only for existing
+        // accounts would make them answer measurably slower than unknown emails.
+        String code = String.format("%06d", secureRandom.nextInt(1_000_000));
+        String codeHash = passwordEncoder.encode(code);
+
         User user = userRepository.findByEmail(request.email()).orElse(null);
 
         if (user == null) {
@@ -166,20 +185,47 @@ public class AuthService {
 
         tokenRepository.deleteByUserAndType(user, TokenType.PASSWORD_RESET);
 
-        Token token =
-                createToken(
-                        user,
-                        TokenType.PASSWORD_RESET,
-                        Duration.ofMillis(passwordResetTokenExpiration));
-        emailService.sendPasswordResetEmail(user.getEmail(), token.getToken());
+        // Stored as a BCrypt hash (salted): a plain or unsalted hash of a 6-digit code would
+        // collide
+        // across users on the unique token column, and would be trivial to reverse.
+        tokenRepository.save(
+                Token.builder()
+                        .token(codeHash)
+                        .user(user)
+                        .type(TokenType.PASSWORD_RESET)
+                        .expiryDate(
+                                Instant.now().plus(Duration.ofMillis(passwordResetTokenExpiration)))
+                        .build());
+        emailService.sendPasswordResetEmail(user.getEmail(), code);
     }
 
-    @Transactional
-    public void resetPassword(ResetPasswordRequest request, String token) {
-        Token resetToken = getToken(token, TokenType.PASSWORD_RESET);
-        validateExpiration(resetToken);
+    // Not rolling back on a bad code keeps the failed attempt (or the deleted token) persisted.
+    @Transactional(dontRollbackOn = InvalidResetCodeException.class)
+    public void resetPassword(ResetPasswordRequest request) {
+        User user =
+                userRepository
+                        .findByEmail(request.email())
+                        .orElseThrow(InvalidResetCodeException::new);
+        Token resetToken =
+                tokenRepository
+                        .findByUserAndType(user, TokenType.PASSWORD_RESET)
+                        .orElseThrow(InvalidResetCodeException::new);
 
-        User user = resetToken.getUser();
+        if (resetToken.getExpiryDate().isBefore(Instant.now())) {
+            tokenRepository.delete(resetToken);
+            throw new InvalidResetCodeException();
+        }
+
+        if (!passwordEncoder.matches(request.code(), resetToken.getToken())) {
+            resetToken.setAttempts(resetToken.getAttempts() + 1);
+            if (resetToken.getAttempts() >= MAX_RESET_CODE_ATTEMPTS) {
+                tokenRepository.delete(resetToken);
+            } else {
+                tokenRepository.save(resetToken);
+            }
+            throw new InvalidResetCodeException();
+        }
+
         if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
             throw new InvalidInputException("New password must be different from current password");
         }
@@ -240,6 +286,7 @@ public class AuthService {
 
             Optional<User> userOptional = userRepository.findByEmail(email);
             User user;
+            boolean isNewUser = userOptional.isEmpty();
 
             if (userOptional.isPresent()) {
                 user = userOptional.get();
@@ -280,15 +327,20 @@ public class AuthService {
 
                 userSettingsRepository.save(UserSettings.builder().user(user).build());
                 userStatsRepository.save(
-                        UserStats.builder().user(user).updatedAt(Instant.now()).build());
+                        UserStats.builder().user(user).gems(100).updatedAt(Instant.now()).build());
             }
 
+            if (isNewUser) {
+                metricsService.recordUserRegistration("google");
+            } else {
+                metricsService.recordUserLogin("google");
+            }
             return generateTokens(user);
         } catch (InvalidCredentialsException e) {
             throw e;
         } catch (Exception e) {
-            throw new InvalidCredentialsException(
-                    "Error authenticating with Google: " + e.getMessage());
+            log.error("Unexpected error during Google authentication", e);
+            throw new InvalidCredentialsException("Authentication failed");
         }
     }
 
