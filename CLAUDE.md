@@ -224,7 +224,7 @@ Resumen de alta prioridad; el detalle y los ejemplos están en los bloques sigui
 - **Rate limiting** con Bucket4j (`RateLimitInterceptor`, por IP, registrado en `WebConfig`) en
   endpoints sensibles a abuso: 30/min en `/users/username-availability` y `/store/gem-purchases`;
   **10 cada 15 min** (`RateLimitInterceptor.forAuthEmail`) en `/auth/forgot-password`,
-  `/auth/reset-password` y `/auth/resend-verification-email` (mandan mails o validan el token de
+  `/auth/reset-password` y `/auth/resend-verification-email` (mandan mails o validan el código de
   reset). Un endpoint nuevo que mande mails sin autenticación va en ese segundo grupo. El límite de
   `/waitlist` y del resto del tráfico público lo aplica Cloudflare, delante de la API.
 - **IP del cliente:** sólo `X-Real-IP`, que nginx **pisa** siempre con la IP que resolvió
@@ -252,6 +252,14 @@ Resumen de alta prioridad; el detalle y los ejemplos están en los bloques sigui
   expiración corta (`r2.presign-expiry-minutes`, 15 min por defecto). No hacer público el bucket ni
   exponer el key como URL directa.
 - Tokens de un solo uso (reset/verificación/refresh) se borran tras usarse; el refresh se rota.
+- **Reset de contraseña por código:** `forgot-password` manda un código de 6 dígitos (`SecureRandom`)
+  que vence a los 15 min (`auth.token-expirations.password-reset`) y se guarda **hasheado con BCrypt**
+  en `tokens.token` (no SHA-256 sin sal: códigos iguales de dos usuarios chocarían con el `unique`). El
+  hash se calcula **antes** de buscar al usuario, para no reabrir la diferencia de tiempo. `reset-password`
+  recibe `{email, code, newPassword}`; cada código incorrecto suma `tokens.attempts` y al 5.º se borra.
+  Inválido, vencido, agotado o email inexistente → siempre `InvalidResetCodeException` (400 "Invalid or
+  expired code"). Ese método usa `@Transactional(dontRollbackOn = InvalidResetCodeException.class)`
+  para que el intento fallido no se pierda en el rollback (`PasswordResetIntegrationTest`).
 
 Detalle: `config/SecurityConfig.java`, `config/WebConfig.java` y `JwtAuthFilter`.
 
