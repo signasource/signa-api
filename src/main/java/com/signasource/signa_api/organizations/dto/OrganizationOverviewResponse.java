@@ -4,7 +4,8 @@ import java.util.List;
 
 /**
  * Dashboard figures over the organization's active participants (admins excluded). A participant is
- * "active" when they made an attempt on contracted content in the last {@code activeWindowDays}.
+ * "active" when they made an attempt on contracted content in the period, or in the last {@code
+ * activeWindowDays} for the whole history (see {@code MetricsPeriod}).
  */
 public record OrganizationOverviewResponse(
         Participation participation, Progress progress, Performance performance) {

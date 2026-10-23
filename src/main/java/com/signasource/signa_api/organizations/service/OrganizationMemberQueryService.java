@@ -6,7 +6,6 @@ import com.signasource.signa_api.gamification.entity.UserStats;
 import com.signasource.signa_api.gamification.repository.UserLearnedSignRepository;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
 import com.signasource.signa_api.learning.entity.CourseVersion;
-import com.signasource.signa_api.learning.entity.ProgressStatus;
 import com.signasource.signa_api.learning.entity.Topic;
 import com.signasource.signa_api.learning.entity.UserTopicProgress;
 import com.signasource.signa_api.learning.repository.TopicRepository;
@@ -20,7 +19,7 @@ import com.signasource.signa_api.organizations.entity.OrganizationMember;
 import com.signasource.signa_api.organizations.repository.OrganizationMemberRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationMetricsRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationRepository;
-import com.signasource.signa_api.organizations.repository.projection.TopicStatusCountView;
+import com.signasource.signa_api.organizations.repository.projection.TopicProgressCountView;
 import com.signasource.signa_api.organizations.repository.projection.UserAttemptStatsView;
 import com.signasource.signa_api.organizations.repository.projection.UserCompletedLessonsView;
 import com.signasource.signa_api.organizations.repository.projection.UserCountView;
@@ -29,8 +28,6 @@ import com.signasource.signa_api.organizations.repository.projection.VersionCoun
 import com.signasource.signa_api.organizations.service.OrganizationContentScope.ContentScope;
 import com.signasource.signa_api.users.entity.User;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -51,8 +48,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class OrganizationMemberQueryService {
-
-    private static final int ACTIVE_DAYS_WINDOW = 30;
 
     private static final Map<String, Comparator<OrganizationMemberSummaryResponse>> SORTS =
             Map.of(
@@ -84,6 +79,8 @@ public class OrganizationMemberQueryService {
      *
      * @param courseId measures progress against that course only; {@code null} for every course
      * @param activity keeps only participants in that state; {@code null} keeps everyone
+     * @param period progress and state as of its end, activity within it; people who joined after
+     *     it ended are left out
      */
     @Transactional(readOnly = true)
     public Page<OrganizationMemberSummaryResponse> getMembers(
@@ -93,6 +90,7 @@ public class OrganizationMemberQueryService {
             MemberStatus status,
             MemberActivityStatus activity,
             UUID courseId,
+            MetricsPeriod period,
             Pageable pageable) {
         accessService.requireManage(actor, organizationId);
         requireOrganization(organizationId);
@@ -104,11 +102,14 @@ public class OrganizationMemberQueryService {
                         ? List.of(MemberStatus.ACTIVE, MemberStatus.REMOVED)
                         : List.of(status);
         List<OrganizationMember> members =
-                memberRepository.search(
-                        organizationId, MemberRole.MEMBER, statuses, toPattern(query));
+                memberRepository
+                        .search(organizationId, MemberRole.MEMBER, statuses, toPattern(query))
+                        .stream()
+                        .filter(m -> joinedBefore(m, period.end()))
+                        .toList();
 
         List<OrganizationMemberSummaryResponse> rows =
-                summaries(organizationId, members, scope).stream()
+                summaries(organizationId, members, scope, period).stream()
                         .filter(m -> activity == null || m.activityStatus() == activity)
                         .sorted(order)
                         .toList();
@@ -118,8 +119,10 @@ public class OrganizationMemberQueryService {
         return new PageImpl<>(rows.subList(from, to), pageable, rows.size());
     }
 
+    /** Attempts, minutes and active days within the period; progress and modules as of its end. */
     @Transactional(readOnly = true)
-    public MemberProgressResponse getMemberProgress(User actor, UUID organizationId, UUID userId) {
+    public MemberProgressResponse getMemberProgress(
+            User actor, UUID organizationId, UUID userId, MetricsPeriod period) {
         accessService.requireManage(actor, organizationId);
 
         OrganizationMember member =
@@ -130,10 +133,12 @@ public class OrganizationMemberQueryService {
         User user = member.getUser();
         List<UUID> userIds = List.of(userId);
         ContentScope scope = contentScope.resolve(organizationId);
+        Instant end = period.end();
 
         UserAttemptStatsView attempts =
                 metricsRepository
-                        .findAttemptStatsByUser(organizationId, userIds, scope.courseIds())
+                        .findAttemptStatsByUser(
+                                organizationId, userIds, scope.courseIds(), period.start(), end)
                         .stream()
                         .findFirst()
                         .orElse(null);
@@ -149,7 +154,7 @@ public class OrganizationMemberQueryService {
         if (!scope.isEmpty()) {
             Map<UUID, Long> completedByVersion =
                     metricsRepository
-                            .findCompletedLessonCountsByVersion(userId, scope.versionIds())
+                            .findCompletedLessonCountsByVersion(userId, scope.versionIds(), end)
                             .stream()
                             .collect(
                                     Collectors.toMap(
@@ -159,26 +164,28 @@ public class OrganizationMemberQueryService {
             completedLessons =
                     completedByVersion.values().stream().mapToLong(Long::longValue).sum();
             modulesCompleted =
-                    metricsRepository.findTopicStatusCounts(userIds, scope.versionIds()).stream()
-                            .filter(c -> c.getStatus() == ProgressStatus.COMPLETED)
-                            .mapToLong(TopicStatusCountView::getUsers)
+                    metricsRepository
+                            .findTopicProgressCounts(userIds, scope.versionIds(), end)
+                            .stream()
+                            .mapToLong(TopicProgressCountView::getCompleted)
                             .sum();
             for (CourseVersion version : scope.versions()) {
                 signsLearned +=
-                        userLearnedSignRepository.countByUserIdAndCourseVersionId(
-                                userId, version.getId());
+                        userLearnedSignRepository.countByUserIdAndCourseVersionIdAndLearnedAtBefore(
+                                userId, version.getId(), end);
             }
-            currentModule = currentModules(userIds, scope).get(userId);
+            currentModule = currentModules(userIds, scope, end).get(userId);
         }
 
         long minutes =
-                metricsRepository.findLearningMinutesByUser(userIds).stream()
+                metricsRepository
+                        .findLearningMinutesByUser(userIds, period.firstDay(), period.lastDay())
+                        .stream()
                         .mapToLong(UserCountView::getTotal)
                         .sum();
         long activeDays =
                 metricsRepository
-                        .findActiveDaysByUser(
-                                userIds, LocalDate.now().minusDays(ACTIVE_DAYS_WINDOW))
+                        .findActiveDaysByUser(userIds, period.activeDaysSince(), period.lastDay())
                         .stream()
                         .mapToLong(UserCountView::getTotal)
                         .sum();
@@ -192,7 +199,7 @@ public class OrganizationMemberQueryService {
                 user.getLastName(),
                 user.getEmail(),
                 member.getStatus(),
-                activityStatus(member.getStatus(), progress, lastActivity),
+                activityStatus(member.getStatus(), progress, lastActivity, period.activeSince()),
                 member.getJoinedAt(),
                 lastActivity,
                 progress,
@@ -211,11 +218,15 @@ public class OrganizationMemberQueryService {
     }
 
     /**
-     * Same rule the overview uses for "active": an attempt within the last {@link
-     * OrganizationMetricsService#ACTIVE_WINDOW_DAYS} days.
+     * Same rule the overview uses for "active": an attempt since {@link
+     * MetricsPeriod#activeSince()} (the period, or the last {@link
+     * OrganizationMetricsService#ACTIVE_WINDOW_DAYS} days for the whole history).
      */
     static MemberActivityStatus activityStatus(
-            MemberStatus status, int progressPercentage, Instant lastActivity) {
+            MemberStatus status,
+            int progressPercentage,
+            Instant lastActivity,
+            Instant activeSince) {
         if (status == MemberStatus.REMOVED) {
             return MemberActivityStatus.REMOVED;
         }
@@ -225,26 +236,29 @@ public class OrganizationMemberQueryService {
         if (lastActivity == null) {
             return MemberActivityStatus.NOT_STARTED;
         }
-        Instant activeSince =
-                Instant.now().minus(OrganizationMetricsService.ACTIVE_WINDOW_DAYS, ChronoUnit.DAYS);
-        return lastActivity.isAfter(activeSince)
+        return !lastActivity.isBefore(activeSince)
                 ? MemberActivityStatus.ACTIVE
                 : MemberActivityStatus.INACTIVE;
     }
 
     private List<OrganizationMemberSummaryResponse> summaries(
-            UUID organizationId, List<OrganizationMember> members, ContentScope scope) {
+            UUID organizationId,
+            List<OrganizationMember> members,
+            ContentScope scope,
+            MetricsPeriod period) {
         if (members.isEmpty()) {
             return List.of();
         }
         List<UUID> userIds = members.stream().map(m -> m.getUser().getId()).toList();
+        Instant end = period.end();
+        Instant activeSince = period.activeSince();
         Map<UUID, UserAttemptStatsView> attempts =
                 indexBy(
                         metricsRepository.findAttemptStatsByUser(
-                                organizationId, userIds, scope.courseIds()),
+                                organizationId, userIds, scope.courseIds(), period.start(), end),
                         UserAttemptStatsView::getUserId);
-        Map<UUID, Long> completed = completedLessons(userIds, scope);
-        Map<UUID, CurrentModule> currentModules = currentModules(userIds, scope);
+        Map<UUID, Long> completed = completedLessons(userIds, scope, end);
+        Map<UUID, CurrentModule> currentModules = currentModules(userIds, scope, end);
 
         return members.stream()
                 .map(
@@ -268,7 +282,11 @@ public class OrganizationMemberQueryService {
                                     progress,
                                     current == null ? null : current.module(),
                                     current == null ? null : current.course(),
-                                    activityStatus(member.getStatus(), progress, lastActivity));
+                                    activityStatus(
+                                            member.getStatus(),
+                                            progress,
+                                            lastActivity,
+                                            activeSince));
                         })
                 .toList();
     }
@@ -301,12 +319,12 @@ public class OrganizationMemberQueryService {
                 .toList();
     }
 
-    private Map<UUID, Long> completedLessons(List<UUID> userIds, ContentScope scope) {
+    private Map<UUID, Long> completedLessons(List<UUID> userIds, ContentScope scope, Instant end) {
         if (scope.isEmpty()) {
             return Map.of();
         }
         return metricsRepository
-                .findCompletedLessonCountsByUser(userIds, scope.versionIds())
+                .findCompletedLessonCountsByUser(userIds, scope.versionIds(), end)
                 .stream()
                 .collect(
                         Collectors.toMap(
@@ -315,10 +333,12 @@ public class OrganizationMemberQueryService {
     }
 
     /**
-     * The most recently started topic each user still has in progress, and its course. Someone who
-     * finished a module and hasn't opened the next one yet gets that next module instead of none.
+     * The most recently started topic each user had in progress at {@code end}, and its course.
+     * Someone who finished a module and hasn't opened the next one yet gets that next module
+     * instead of none.
      */
-    private Map<UUID, CurrentModule> currentModules(List<UUID> userIds, ContentScope scope) {
+    private Map<UUID, CurrentModule> currentModules(
+            List<UUID> userIds, ContentScope scope, Instant end) {
         Map<UUID, CurrentModule> result = new HashMap<>();
         if (scope.isEmpty()) {
             return result;
@@ -329,7 +349,7 @@ public class OrganizationMemberQueryService {
                                 Collectors.toMap(
                                         CourseVersion::getId, v -> v.getCourse().getName()));
         for (UserTopicProgress progress :
-                metricsRepository.findInProgressTopics(userIds, scope.versionIds())) {
+                metricsRepository.findInProgressTopics(userIds, scope.versionIds(), end)) {
             result.putIfAbsent(
                     progress.getUser().getId(), module(progress.getTopic(), courseNames));
         }
@@ -339,7 +359,9 @@ public class OrganizationMemberQueryService {
             return result;
         }
         Map<UUID, Set<UUID>> completedTopics =
-                metricsRepository.findCompletedTopics(betweenModules, scope.versionIds()).stream()
+                metricsRepository
+                        .findCompletedTopics(betweenModules, scope.versionIds(), end)
+                        .stream()
                         .collect(
                                 Collectors.groupingBy(
                                         UserTopicView::getUserId,
@@ -373,6 +395,10 @@ public class OrganizationMemberQueryService {
 
     private static <T> Map<UUID, T> indexBy(List<T> values, Function<T, UUID> key) {
         return values.stream().collect(Collectors.toMap(key, Function.identity()));
+    }
+
+    private static boolean joinedBefore(OrganizationMember member, Instant end) {
+        return member.getJoinedAt() == null || member.getJoinedAt().isBefore(end);
     }
 
     /** Wildcards are stripped so user input can't widen the LIKE match. */

@@ -2,13 +2,17 @@ package com.signasource.signa_api.organizations.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
+import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.organizations.dto.ModuleStatsResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationActivityResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationOverviewResponse;
+import com.signasource.signa_api.organizations.service.MetricsPeriod;
 import com.signasource.signa_api.organizations.service.OrganizationMetricsService;
 import com.signasource.signa_api.users.entity.User;
 import java.time.LocalDate;
@@ -46,10 +50,14 @@ class OrganizationMetricsControllerTest {
     void shouldReturnTheOverview() {
         OrganizationOverviewResponse response = new OrganizationOverviewResponse(null, null, null);
         UUID courseId = UUID.randomUUID();
-        when(metricsService.getOverview(actor, organizationId, courseId)).thenReturn(response);
+        LocalDate from = LocalDate.of(2026, 9, 1);
+        LocalDate to = LocalDate.of(2026, 9, 30);
+        when(metricsService.getOverview(
+                        actor, organizationId, courseId, MetricsPeriod.of(from, to)))
+                .thenReturn(response);
 
         ResponseEntity<OrganizationOverviewResponse> result =
-                metricsController.getOverview(organizationId, courseId, userDetails);
+                metricsController.getOverview(organizationId, courseId, from, to, userDetails);
 
         assertEquals(HttpStatus.OK, result.getStatusCode());
         assertSame(response, result.getBody());
@@ -58,10 +66,11 @@ class OrganizationMetricsControllerTest {
     @Test
     void shouldReturnTheModuleStats() {
         List<ModuleStatsResponse> response = List.of();
-        when(metricsService.getModuleStats(actor, organizationId, null)).thenReturn(response);
+        when(metricsService.getModuleStats(actor, organizationId, null, MetricsPeriod.ALL_TIME))
+                .thenReturn(response);
 
         ResponseEntity<List<ModuleStatsResponse>> result =
-                metricsController.getModuleStats(organizationId, null, userDetails);
+                metricsController.getModuleStats(organizationId, null, null, null, userDetails);
 
         assertEquals(HttpStatus.OK, result.getStatusCode());
         assertSame(response, result.getBody());
@@ -73,7 +82,7 @@ class OrganizationMetricsControllerTest {
         LocalDate to = LocalDate.of(2026, 10, 12);
         OrganizationActivityResponse response =
                 new OrganizationActivityResponse(from, to, null, List.of());
-        when(metricsService.getActivity(actor, organizationId, null, from, to))
+        when(metricsService.getActivity(actor, organizationId, null, MetricsPeriod.of(from, to)))
                 .thenReturn(response);
 
         ResponseEntity<OrganizationActivityResponse> result =
@@ -81,5 +90,15 @@ class OrganizationMetricsControllerTest {
 
         assertEquals(HttpStatus.OK, result.getStatusCode());
         assertSame(response, result.getBody());
+    }
+
+    @Test
+    void shouldRejectAPeriodWithOnlyOneDate() {
+        LocalDate from = LocalDate.of(2026, 9, 1);
+
+        assertThrows(
+                InvalidInputException.class,
+                () -> metricsController.getOverview(organizationId, null, from, null, userDetails));
+        verifyNoInteractions(metricsService);
     }
 }
