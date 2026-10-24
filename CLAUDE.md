@@ -245,7 +245,9 @@ Resumen de alta prioridad; el detalle y los ejemplos están en los bloques sigui
 - **Compras in-app:** el servidor es la única fuente de verdad. Un `purchaseToken` sólo acredita
   gemas si Google lo confirma como pagado (`purchaseState = purchased`) y no fue consumido ni
   acreditado antes. `google-play.enabled=false` (perfiles `local`/`test`) reemplaza el verificador
-  por uno que acepta cualquier token; con el perfil `prod` activo la app **se niega a arrancar** en ese estado. El verificador real además cruza el `productId` que devuelve Google con el que mandó el cliente (un token de un pack barato no canjea uno caro).
+  por uno que acepta cualquier token (`DisabledGooglePlayPurchaseVerifier`, que solo loguea un `WARN`
+  al arrancar). **Hoy nada impide que `prod` arranque así, y producción está en ese estado** — ver
+  §10 · D3. El verificador real además cruza el `productId` que devuelve Google con el que mandó el cliente (un token de un pack barato no canjea uno caro).
 - **R2 (animaciones):** las credenciales viven **sólo** en el backend; el cliente nunca las recibe.
   `Sign.animationUrl` guarda el *object key* (p. ej. `lsa/hola.glb`), y `GET /signs/{meaning}/animation`
   (la seña se direcciona por su `meaning`, que es único) devuelve una **presigned URL** de descarga con
@@ -286,7 +288,7 @@ Corren en CI (`.github/workflows/ci.yml`) y localmente:
 
 **Todo código nuevo con lógica debe venir con tests** (la barra de cobertura del 90% es dura).
 
-**Nunca dejes pasar un error, warning o check fallando**, aunque sea anterior a tu cambio: o lo arreglás en el mismo PR o lo anotás como deuda pendiente en la documentación, y lo aclarás en tu reporte.
+**Nunca dejes pasar un error, warning o check fallando**, aunque sea anterior a tu cambio: o lo arreglás en el mismo PR o lo anotás como deuda pendiente en §10, y lo aclarás en tu reporte.
 
 Notas:
 - La cobertura excluye `config`, `dto`, `entity`, `exceptions` y `*Application*` (ver `build.gradle`).
@@ -306,6 +308,9 @@ mkdocs serve                   # Servir la doc humana (requiere requirements-doc
 
 - Swagger UI: `http://localhost:8080/swagger-ui/index.html`
 - OpenAPI JSON: `http://localhost:8080/v3/api-docs`
+
+**Deploy a producción:** manual, por ssh, procedimiento en el `README.md` (§ Deploy a producción).
+No hay pipeline de CD: `release.yml` solo taggea y publica el GitHub Release.
 
 ## 8. Git / ramas y release
 
@@ -362,6 +367,8 @@ Diferencia clave entre las dos capas:
 | Un enum con ciclo de vida | `docs/diagrams/state.md` |
 | Comandos, build, checks | `CLAUDE.md` §6–§7 · `README.md` raíz |
 | Una página nueva en el sitio | `mkdocs.yml` (`nav:`) · `docs/README.md` (mapa) |
+| Encontraste una falla que no arreglás en el PR / resolviste una deuda | `CLAUDE.md` §10 (agregar, o borrar la entrada al resolverla) |
+| El procedimiento de deploy o la infra del servidor | `README.md` (§ Deploy a producción) |
 
 ### Fuentes de verdad a cotejar (no confiar en memoria ni en la doc)
 
@@ -382,3 +389,85 @@ python -m pip install -r requirements-docs.txt
 mkdocs serve      # http://127.0.0.1:8000 (recarga en caliente)
 mkdocs build      # genera build/docs-site/ ; falla si hay nav/enlaces rotos
 ```
+
+## 10. Deuda técnica conocida
+
+Fallas detectadas y **todavía no resueltas**, ordenadas por gravedad. Al resolver una, borrá su
+entrada en el mismo PR. Detectadas el 2026-10-24 durante un deploy a producción salvo que se indique.
+
+### D1 · Crítico — Producción no envía ningún mail
+
+- **Síntoma:** `EmailService` falla con `MailConnectException: Couldn't connect to host, port:
+  smtp.gmail.com, 587 ... Connect timed out`. La conexión ni siquiera se establece (no es un problema
+  de credenciales).
+- **Causa probable:** el servidor es un droplet de DigitalOcean, que bloquea por defecto la salida
+  SMTP (25/465/587). Pendiente confirmar desde el servidor:
+  `timeout 5 bash -c '</dev/tcp/smtp.gmail.com/587'` (bloqueado) vs. el mismo contra un relay en el
+  puerto 2525 (abierto).
+- **Impacto:** no llegan la verificación de cuenta, el **código de reset de contraseña** (nadie puede
+  recuperar su cuenta), ni las invitaciones a organizaciones / admins del panel. La mitigación de
+  enumeración (§4) sigue intacta porque el envío es `@Async`, pero justamente por eso la falla es
+  silenciosa (ver D4).
+- **Fix:** proveedor de mail transaccional con SMTP en el puerto 2525 (Brevo, SendGrid, Mailgun) o
+  con API HTTP. En código: `spring.mail.host`/`port` están **hardcodeados** en `application.yaml`
+  (`smtp.gmail.com:587`); pasarlos a `MAIL_HOST`/`MAIL_PORT` y sumarlos al `environment` de
+  `signa-api` en `docker-compose.yml` (la lista es explícita: una variable que solo está en `.env` no
+  llega al contenedor). Además documentarlas en `.env.example`.
+
+### D2 · Alto — Un JSON mal formado responde 500 en vez de 400
+
+- `GlobalExceptionHandler` no maneja `HttpMessageNotReadableException`: cae en el handler genérico
+  `Exception` → 500 y un `ERROR` con stacktrace en el log. Reproducible con un body que no es UTF-8
+  válido (p. ej. PowerShell 5.1 manda Latin-1 por defecto) o con JSON roto.
+- **Fix:** handler para `HttpMessageNotReadableException` → `ErrorResponse.of("Malformed request
+  body", BAD_REQUEST)`, con test.
+
+### D3 · Alto — La verificación de Google Play está desactivada en producción
+
+- El `.env` del servidor no define `GOOGLE_PLAY_ENABLED` ni `GOOGLE_PLAY_CREDENTIALS_JSON`, así que
+  corre `DisabledGooglePlayPurchaseVerifier`: **cualquier `purchaseToken` inventado acredita gemas**
+  en `POST /store/gem-purchases` (hasta 2000 por request; el rate limit de 30/min no lo frena). Al
+  2026-10-24 la app todavía no vende gemas, así que el riesgo es latente.
+- La doc afirmaba que con `prod` la app "se niega a arrancar" en ese estado; **ese chequeo no existe**.
+- **Fix:** (a) un guard al arrancar (p. ej. un `@Profile("prod")` que falle si
+  `google-play.enabled=false`), con test; (b) cargar las credenciales de Play en el servidor **antes**
+  de desplegar el guard, o la API no levanta.
+
+### D4 · Medio — Las fallas de envío de mail son invisibles
+
+- `EmailService.sendEmail` loguea y relanza `RuntimeException`; como corre `@Async`, termina en
+  `SimpleAsyncUncaughtExceptionHandler` y solo queda en el log. No hay métrica ni alerta: D1 pasó
+  desapercibido hasta que alguien buscó un mail que no llegó.
+- **Fix:** contador de envíos fallidos en `MetricsService` (ya se exporta a Grafana vía Alloy/
+  Prometheus) y una alerta sobre él.
+
+### D5 · Medio — El deploy es manual y producción sigue `develop`
+
+- No hay CD: se actualiza por ssh (`README.md` § Deploy a producción). El clon del servidor
+  (`/opt/signa-api`) está en **`develop`**, mientras que GitFlow (§8) define `master` como
+  producción: lo que corre en prod puede no corresponder a ningún release taggeado.
+- **Fix:** que el servidor siga `master` (o un tag de release) y, idealmente, un workflow de deploy
+  disparado por `release.yml`.
+
+### D6 · Bajo — Warnings al arrancar en producción
+
+- `spring.jpa.open-in-view` habilitado por defecto: deja la sesión de Hibernate abierta durante toda
+  la request (lazy loading fuera del service, conexiones retenidas más tiempo). Fijarlo en `false`
+  exige revisar que ningún controller/DTO dependa de cargas lazy fuera de la transacción.
+- Swagger UI y `/v3/api-docs` habilitados en prod (SpringDoc lo avisa). No son públicos (requieren
+  token), pero cualquier usuario registrado ve el contrato completo, incluidos los endpoints de
+  `admin`. Decidir si se exponen; si no, `springdoc.api-docs.enabled=false` y
+  `springdoc.swagger-ui.enabled=false` en `application-prod.yml`.
+- `/actuator/prometheus` es público (§4) y nginx lo publica a internet, aunque solo lo necesita Alloy,
+  que scrapea por la red interna de Docker (`signa-api:8080`). Expone métricas internas (rutas,
+  volúmenes, registros). Fix: bloquearlo en `nginx/templates/app.conf.template`
+  (`location /actuator/prometheus { return 404; }`).
+- `commons-logging.jar` en el classpath (aviso de spring-jcl): excluir la dependencia transitiva.
+- `docker compose` avisa que `GOOGLE_PLAY_CREDENTIALS_JSON` no está definida (se resuelve con D3).
+
+### D7 · Bajo — Mantenimiento del servidor
+
+- Al 2026-10-24: 40 actualizaciones de Ubuntu pendientes, **reinicio requerido** y disco al ~79 %
+  (`docker system df` / `docker image prune` para ver y liberar imágenes viejas de cada build).
+- Los contenedores tienen `restart: unless-stopped`; verificar que el servicio `docker` arranque con
+  el sistema antes de reiniciar.
