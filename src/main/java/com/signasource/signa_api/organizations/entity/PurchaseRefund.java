@@ -1,5 +1,6 @@
 package com.signasource.signa_api.organizations.entity;
 
+import com.signasource.signa_api.users.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -63,6 +64,17 @@ public class PurchaseRefund {
 
     @Column(length = 50)
     private String mercadoPagoRefundId;
+
+    /** Why the organization cancelled, when it said (withdrawals only). */
+    @Column(length = 500)
+    private String note;
+
+    /** Who cancelled from the panel (withdrawals only). A financial record: kept on erasure. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "requested_by_id")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private User requestedBy;
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt;

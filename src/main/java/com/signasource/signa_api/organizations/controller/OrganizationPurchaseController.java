@@ -10,6 +10,7 @@ import com.signasource.signa_api.organizations.dto.PurchaseQuoteResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseResponse;
 import com.signasource.signa_api.organizations.dto.SyncPaymentRequest;
 import com.signasource.signa_api.organizations.dto.UpdateSeatEmailRequest;
+import com.signasource.signa_api.organizations.dto.WithdrawPurchaseRequest;
 import com.signasource.signa_api.organizations.service.CoursePurchaseService;
 import com.signasource.signa_api.organizations.service.MercadoPagoCheckoutService;
 import jakarta.validation.Valid;
@@ -88,6 +89,21 @@ public class OrganizationPurchaseController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(
                 checkoutService.startCheckout(userDetails.getUser(), organizationId, purchaseId));
+    }
+
+    /** The organization cancels a paid purchase within the withdrawal period, for a full refund. */
+    @PostMapping("/{organizationId}/purchases/{purchaseId}/refund")
+    public ResponseEntity<PurchaseDetailResponse> withdrawPurchase(
+            @PathVariable UUID organizationId,
+            @PathVariable UUID purchaseId,
+            @Valid @RequestBody(required = false) WithdrawPurchaseRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(
+                checkoutService.withdraw(
+                        userDetails.getUser(),
+                        organizationId,
+                        purchaseId,
+                        request == null ? null : request.reason()));
     }
 
     @PostMapping("/{organizationId}/purchases/{purchaseId}/payments/sync")

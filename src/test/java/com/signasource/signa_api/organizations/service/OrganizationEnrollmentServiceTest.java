@@ -1,6 +1,7 @@
 package com.signasource.signa_api.organizations.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -215,5 +216,67 @@ class OrganizationEnrollmentServiceTest {
         verify(enrollmentRepository).save(captor.capture());
         assertNull(captor.getValue().getAccessExpiresAt());
         assertEquals(organization, captor.getValue().getOrganization());
+    }
+
+    @Test
+    void shouldEndAccessToAPaidCourseNowKeepingTheEnrollment() {
+        Instant now = Instant.now();
+        UserCourseEnrollment enrollment =
+                UserCourseEnrollment.builder()
+                        .user(user)
+                        .courseVersion(version)
+                        .organization(organization)
+                        .status(EnrollmentStatus.ENROLLED)
+                        .accessExpiresAt(now.plus(20, ChronoUnit.DAYS))
+                        .build();
+        when(enrollmentRepository.findByUserIdAndOrganizationId(user.getId(), organization.getId()))
+                .thenReturn(List.of(enrollment));
+
+        enrollmentService.endCourseAccess(user, organization.getId(), course.getId(), now);
+
+        assertEquals(now, enrollment.getAccessExpiresAt());
+        assertEquals(EnrollmentStatus.ENROLLED, enrollment.getStatus());
+        assertFalse(enrollment.grantsAccess(now));
+        verify(enrollmentRepository).save(enrollment);
+    }
+
+    @Test
+    void shouldNotTouchOtherCoursesFreeCoursesOrAccessesThatAlreadyEnded() {
+        Instant now = Instant.now();
+        Course other = Course.builder().id(UUID.randomUUID()).name("LSA Educación").build();
+        Course free = Course.builder().id(course.getId()).name("Base").isFree(true).build();
+        UserCourseEnrollment otherCourse =
+                UserCourseEnrollment.builder()
+                        .courseVersion(CourseVersion.builder().course(other).build())
+                        .accessExpiresAt(now.plus(5, ChronoUnit.DAYS))
+                        .build();
+        UserCourseEnrollment freeCourse =
+                UserCourseEnrollment.builder()
+                        .courseVersion(CourseVersion.builder().course(free).build())
+                        .build();
+        UserCourseEnrollment ended =
+                UserCourseEnrollment.builder()
+                        .courseVersion(version)
+                        .accessExpiresAt(now.minus(1, ChronoUnit.DAYS))
+                        .build();
+        when(enrollmentRepository.findByUserIdAndOrganizationId(user.getId(), organization.getId()))
+                .thenReturn(List.of(otherCourse, freeCourse, ended));
+
+        enrollmentService.endCourseAccess(user, organization.getId(), course.getId(), now);
+
+        verify(enrollmentRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldEndAnOpenEndedAccessToAPaidCourse() {
+        Instant now = Instant.now();
+        UserCourseEnrollment openEnded =
+                UserCourseEnrollment.builder().courseVersion(version).build();
+        when(enrollmentRepository.findByUserIdAndOrganizationId(user.getId(), organization.getId()))
+                .thenReturn(List.of(openEnded));
+
+        enrollmentService.endCourseAccess(user, organization.getId(), course.getId(), now);
+
+        assertEquals(now, openEnded.getAccessExpiresAt());
     }
 }

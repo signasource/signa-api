@@ -69,4 +69,36 @@ class EmailServiceTest {
 
         verify(mailSender, times(2)).send(mimeMessage);
     }
+
+    @Test
+    void testSendSeatAccessEndedEmail() {
+        emailService.sendSeatAccessEndedEmail(TO_EMAIL, "Hospital <San Martin>", "LSA Salud", true);
+        emailService.sendSeatAccessEndedEmail(
+                TO_EMAIL, "Hospital <San Martin>", "LSA Salud", false);
+
+        verify(mailSender, times(2)).send(mimeMessage);
+    }
+
+    @Test
+    void testSendPurchaseRefundedEmail() {
+        emailService.sendPurchaseRefundedEmail(
+                TO_EMAIL,
+                "Hospital <San Martin>",
+                "LSA Salud",
+                java.util.UUID.randomUUID(),
+                "$ 243.000",
+                "La anularon desde el panel.",
+                3,
+                2);
+
+        verify(mailSender).send(mimeMessage);
+    }
+
+    @Test
+    void testSendOpsAlertEmail() {
+        emailService.sendOpsAlertEmail(
+                TO_EMAIL, "Contracargo: Hospital", java.util.List.of("Compra: <1>", "Pago: 987"));
+
+        verify(mailSender).send(mimeMessage);
+    }
 }

@@ -12,7 +12,8 @@ public record PurchaseRefundResponse(
         RefundReason reason,
         RefundStatus status,
         Instant createdAt,
-        Instant refundedAt) {
+        Instant refundedAt,
+        String note) {
 
     public static PurchaseRefundResponse from(PurchaseRefund refund) {
         return new PurchaseRefundResponse(
@@ -21,6 +22,7 @@ public record PurchaseRefundResponse(
                 refund.getReason(),
                 refund.getStatus(),
                 refund.getCreatedAt(),
-                refund.getRefundedAt());
+                refund.getRefundedAt(),
+                refund.getNote());
     }
 }

@@ -73,7 +73,7 @@ class CoursePurchaseServiceTest {
 
     @BeforeEach
     void setUp() {
-        PurchasePolicy policy = new PurchasePolicy(15, 60, 10, 5, 24, 3);
+        PurchasePolicy policy = new PurchasePolicy(15, 60, 10, 5, 24, 3, 10);
         service =
                 new CoursePurchaseService(
                         purchaseRepository,
@@ -185,7 +185,7 @@ class CoursePurchaseServiceTest {
     @Test
     void shouldDiscountTheQuoteByVolume() {
         stubCourse();
-        PurchasePolicy roomy = new PurchasePolicy(15, 60, 10, 5, 24, 500);
+        PurchasePolicy roomy = new PurchasePolicy(15, 60, 10, 5, 24, 500, 10);
         service =
                 new CoursePurchaseService(
                         purchaseRepository,

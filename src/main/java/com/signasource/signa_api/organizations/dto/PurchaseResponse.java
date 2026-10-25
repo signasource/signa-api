@@ -24,7 +24,9 @@ public record PurchaseResponse(
         Instant createdAt,
         Instant paidAt,
         Instant invitationDeadline,
+        Instant refundableUntil,
         Instant cancelledAt,
+        Instant refundedAt,
         SeatCountsResponse seatCounts) {
 
     public static PurchaseResponse from(
@@ -45,7 +47,10 @@ public record PurchaseResponse(
                 purchase.getCreatedAt(),
                 purchase.getPaidAt(),
                 purchase.getInvitationDeadline(),
+                // Only a paid purchase can still be withdrawn.
+                purchase.getStatus() == PurchaseStatus.PAID ? purchase.getRefundableUntil() : null,
                 purchase.getCancelledAt(),
+                purchase.getRefundedAt(),
                 SeatCountsResponse.of(seats, now));
     }
 }

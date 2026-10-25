@@ -15,6 +15,7 @@ import com.signasource.signa_api.organizations.dto.PurchaseQuoteResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseResponse;
 import com.signasource.signa_api.organizations.dto.SyncPaymentRequest;
 import com.signasource.signa_api.organizations.dto.UpdateSeatEmailRequest;
+import com.signasource.signa_api.organizations.dto.WithdrawPurchaseRequest;
 import com.signasource.signa_api.organizations.service.CoursePurchaseService;
 import com.signasource.signa_api.organizations.service.MercadoPagoCheckoutService;
 import com.signasource.signa_api.users.entity.User;
@@ -166,5 +167,32 @@ class OrganizationPurchaseControllerTest {
                                 new SyncPaymentRequest("987"),
                                 principal)
                         .getBody());
+    }
+
+    @Test
+    void shouldWithdrawAPurchaseWithItsReason() {
+        when(principal.getUser()).thenReturn(user);
+        when(checkoutService.withdraw(user, organizationId, purchaseId, "Cambio de planes"))
+                .thenReturn(detail);
+
+        assertSame(
+                detail,
+                controller
+                        .withdrawPurchase(
+                                organizationId,
+                                purchaseId,
+                                new WithdrawPurchaseRequest("Cambio de planes"),
+                                principal)
+                        .getBody());
+    }
+
+    @Test
+    void shouldWithdrawAPurchaseWithoutABody() {
+        when(principal.getUser()).thenReturn(user);
+        when(checkoutService.withdraw(user, organizationId, purchaseId, null)).thenReturn(detail);
+
+        assertSame(
+                detail,
+                controller.withdrawPurchase(organizationId, purchaseId, null, principal).getBody());
     }
 }

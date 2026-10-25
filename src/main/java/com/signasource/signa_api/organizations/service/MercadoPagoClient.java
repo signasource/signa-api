@@ -11,6 +11,15 @@ public interface MercadoPagoClient {
     /** Mercado Pago's {@code status} of a payment given back in full. */
     String STATUS_REFUNDED = "refunded";
 
+    /** Mercado Pago's {@code status} of a payment the buyer disputed and won with their bank. */
+    String STATUS_CHARGED_BACK = "charged_back";
+
+    /** Mercado Pago's {@code status} while a dispute (claim or chargeback) is open. */
+    String STATUS_IN_MEDIATION = "in_mediation";
+
+    /** Mercado Pago's {@code status_detail} of an approved payment partly given back. */
+    String DETAIL_PARTIALLY_REFUNDED = "partially_refunded";
+
     /**
      * @throws com.signasource.signa_api.exceptions.PaymentProviderException if Mercado Pago is not
      *     configured or rejects the preference
@@ -55,6 +64,7 @@ public interface MercadoPagoClient {
     record Payment(
             String id,
             String status,
+            String statusDetail,
             String externalReference,
             BigDecimal transactionAmount,
             String currency) {
@@ -65,6 +75,18 @@ public interface MercadoPagoClient {
 
         public boolean isRefunded() {
             return STATUS_REFUNDED.equals(status);
+        }
+
+        public boolean isChargedBack() {
+            return STATUS_CHARGED_BACK.equals(status);
+        }
+
+        public boolean isInMediation() {
+            return STATUS_IN_MEDIATION.equals(status);
+        }
+
+        public boolean isPartiallyRefunded() {
+            return isApproved() && DETAIL_PARTIALLY_REFUNDED.equals(statusDetail);
         }
     }
 }

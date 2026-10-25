@@ -1,6 +1,7 @@
 package com.signasource.signa_api.organizations.repository;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.signasource.signa_api.learning.entity.BlockType;
@@ -229,5 +230,42 @@ class PurchaseSeatRepositoryTest {
                         .map(PurchaseRefund::getId)
                         .toList());
         assertEquals(RefundStatus.PENDING, refund.getStatus());
+    }
+
+    @Test
+    void shouldLockTheSeatsOfAPurchaseAndASeatByItsToken() {
+        CoursePurchase paid = purchase(now);
+        PurchaseSeat ana = seat(paid, "ana@x.com", SeatStatus.INVITED);
+        ana.setInvitationToken("tok-ana");
+        seatRepository.save(ana);
+        seat(paid, "bruno@x.com", SeatStatus.ACTIVE);
+
+        assertEquals(
+                List.of("ana@x.com", "bruno@x.com"),
+                seatRepository.findForUpdateByPurchaseId(paid.getId()).stream()
+                        .map(PurchaseSeat::getEmail)
+                        .toList());
+        assertEquals(
+                "ana@x.com",
+                seatRepository.findForUpdateByInvitationToken("tok-ana").orElseThrow().getEmail());
+        assertTrue(seatRepository.findForUpdateByInvitationToken("nope").isEmpty());
+    }
+
+    @Test
+    void shouldFindThePurchaseAPaymentPaid() {
+        CoursePurchase paid = purchase(now);
+        paid.setPaymentReference("mercadopago:987");
+        purchaseRepository.save(paid);
+
+        assertEquals(
+                paid.getId(),
+                purchaseRepository
+                        .findForUpdateByPaymentReference("mercadopago:987")
+                        .orElseThrow()
+                        .getId());
+        assertEquals(
+                paid.getId(),
+                purchaseRepository.findByPaymentReference("mercadopago:987").orElseThrow().getId());
+        assertTrue(purchaseRepository.findByPaymentReference("mercadopago:1").isEmpty());
     }
 }

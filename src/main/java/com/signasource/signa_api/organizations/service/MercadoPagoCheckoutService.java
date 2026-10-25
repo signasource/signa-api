@@ -15,6 +15,8 @@ import com.signasource.signa_api.organizations.service.MercadoPagoClient.Checkou
 import com.signasource.signa_api.organizations.service.MercadoPagoClient.Payment;
 import com.signasource.signa_api.organizations.service.MercadoPagoClient.PreferenceRequest;
 import com.signasource.signa_api.users.entity.User;
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +45,7 @@ public class MercadoPagoCheckoutService {
     private final CoursePurchaseService purchaseService;
     private final MercadoPagoClient mercadoPago;
     private final MercadoPagoSignatureVerifier signatureVerifier;
+    private final PurchaseNotificationService notifications;
     private final String panelUrl;
 
     public MercadoPagoCheckoutService(
@@ -52,6 +55,7 @@ public class MercadoPagoCheckoutService {
             CoursePurchaseService purchaseService,
             MercadoPagoClient mercadoPago,
             MercadoPagoSignatureVerifier signatureVerifier,
+            PurchaseNotificationService notifications,
             @Value("${app.panel-url:}") String panelUrl) {
         this.purchaseRepository = purchaseRepository;
         this.accessService = accessService;
@@ -59,6 +63,7 @@ public class MercadoPagoCheckoutService {
         this.purchaseService = purchaseService;
         this.mercadoPago = mercadoPago;
         this.signatureVerifier = signatureVerifier;
+        this.notifications = notifications;
         this.panelUrl = panelUrl;
     }
 
@@ -114,6 +119,22 @@ public class MercadoPagoCheckoutService {
         return cancelled;
     }
 
+    /**
+     * The organization cancels a paid purchase within the withdrawal period. The refund is recorded
+     * first, then made in Mercado Pago, and only then the purchase is revoked, so a failure in
+     * between leaves a pending refund that a retry (or Mercado Pago's own notification) completes,
+     * never a revoked purchase that was not refunded.
+     */
+    public PurchaseDetailResponse withdraw(
+            User actor, UUID organizationId, UUID purchaseId, String reason) {
+        accessService.requireManage(actor, organizationId);
+        String paymentId =
+                paymentService.startWithdrawal(
+                        organizationId, purchaseId, actor, reason, Instant.now());
+        refund(paymentId);
+        return purchaseService.get(actor, organizationId, purchaseId);
+    }
+
     /** The panel reports the {@code payment_id} Mercado Pago appended to the return URL. */
     public PaymentSyncResponse syncPayment(
             User actor, UUID organizationId, UUID purchaseId, String paymentId) {
@@ -145,13 +166,32 @@ public class MercadoPagoCheckoutService {
     }
 
     /**
-     * Credits an approved payment, or gives it back when it cannot pay its purchase. The refund
-     * happens after {@link PurchasePaymentService#settle} commits; if Mercado Pago fails, the
-     * refund stays pending and the exception (503) makes Mercado Pago retry the notification.
+     * Applies what Mercado Pago says about a payment. Approved: credit it, or give it back when it
+     * cannot pay its purchase. Refunded or charged back: complete a refund Signa started, or revoke
+     * the purchase it had paid. A dispute or a partial refund needs a person, so it only alerts.
+     * Refunds run after {@link PurchasePaymentService} commits; if Mercado Pago fails, the refund
+     * stays pending and the exception (503) makes Mercado Pago retry the notification.
      */
     private void apply(Payment payment) {
-        if (payment.isRefunded()) {
-            paymentService.markRefunded(payment.id(), null);
+        if (payment.isRefunded() || payment.isChargedBack()) {
+            paymentService.reverse(
+                    payment.id(), payment.isChargedBack(), payment.transactionAmount());
+            return;
+        }
+        if (payment.isInMediation()) {
+            alertAboutPaidPurchase(
+                    payment,
+                    "Disputa abierta en Mercado Pago",
+                    "El comprador abrió un reclamo o contracargo. Si lo gana, la compra se anula"
+                            + " sola; mientras tanto no cambia nada.");
+            return;
+        }
+        if (payment.isPartiallyRefunded()) {
+            alertAboutPaidPurchase(
+                    payment,
+                    "Reembolso parcial en Mercado Pago",
+                    "Se devolvió parte del pago desde Mercado Pago. Signa no sabe qué cupos"
+                            + " corresponden: la compra sigue activa y hay que resolverlo a mano.");
             return;
         }
         if (!payment.isApproved()) {
@@ -174,12 +214,45 @@ public class MercadoPagoCheckoutService {
                         "Refunding Mercado Pago payment {}: it cannot pay purchase {}",
                         payment.id(),
                         purchaseId.get());
-                paymentService.markRefunded(payment.id(), mercadoPago.refund(payment.id()));
+                refund(payment.id());
             }
             case UNKNOWN_PURCHASE ->
                     log.warn("Approved Mercado Pago payment {} matches no purchase", payment.id());
             case CONFIRMED, ALREADY_CONFIRMED, ALREADY_REFUNDED -> {}
         }
+    }
+
+    /**
+     * Refunds a payment whose refund is recorded as pending and marks it done. If Mercado Pago
+     * rejects the refund because someone already gave the money back, that counts as done too.
+     */
+    private void refund(String paymentId) {
+        String refundId;
+        try {
+            refundId = mercadoPago.refund(paymentId);
+        } catch (PaymentProviderException e) {
+            if (!mercadoPago.getPayment(paymentId).isRefunded()) {
+                throw e;
+            }
+            refundId = null;
+        }
+        paymentService.markRefunded(paymentId, refundId);
+    }
+
+    private void alertAboutPaidPurchase(Payment payment, String subject, String detail) {
+        paymentService
+                .findPaidBy(payment.id())
+                .ifPresent(
+                        purchase ->
+                                notifications.alertOps(
+                                        subject + ": " + purchase.getOrganization().getName(),
+                                        List.of(
+                                                detail,
+                                                "Organización: "
+                                                        + purchase.getOrganization().getName(),
+                                                "Curso: " + purchase.getCourse().getName(),
+                                                "Compra: " + purchase.getId(),
+                                                "Pago: " + payment.id())));
     }
 
     private static Optional<UUID> parseUuid(String value) {

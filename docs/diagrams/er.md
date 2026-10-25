@@ -499,11 +499,13 @@ erDiagram
         decimal pricePerSeat
         decimal totalAmount
         string currency
-        enum status "PENDING_PAYMENT | PAID | CANCELLED"
+        enum status "PENDING_PAYMENT | PAID | CANCELLED | REFUNDED"
         string paymentReference "mercadopago:<id> o la del back-office"
         string mercadoPagoPreferenceId "última preferencia de Checkout Pro"
         instant paidAt
         instant invitationDeadline "paidAt + 10 días"
+        instant refundableUntil "fin del arrepentimiento; solo pagos de Mercado Pago"
+        instant refundedAt
         instant cancelledAt
         instant createdAt
     }
@@ -513,9 +515,11 @@ erDiagram
         string paymentId UK "pago de Mercado Pago devuelto"
         decimal amount
         string currency
-        enum reason "PURCHASE_CANCELLED | ALREADY_PAID | AMOUNT_MISMATCH"
+        enum reason "PURCHASE_CANCELLED | ALREADY_PAID | AMOUNT_MISMATCH | BUYER_REQUESTED | EXTERNAL_REFUND | CHARGEBACK"
         enum status "PENDING | REFUNDED"
         string mercadoPagoRefundId
+        string note "motivo del arrepentimiento"
+        uuid requested_by_id FK "quien anuló desde el panel"
         instant createdAt
         instant refundedAt
     }

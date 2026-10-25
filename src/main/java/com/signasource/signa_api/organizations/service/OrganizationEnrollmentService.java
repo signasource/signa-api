@@ -87,6 +87,27 @@ public class OrganizationEnrollmentService {
     }
 
     /**
+     * Ends a member's access to a paid course now, the way an expiration does: the enrollment stays
+     * (so the progress is kept and readable) but no longer grants access. Free courses are left
+     * alone, since anyone can take them.
+     */
+    @Transactional
+    public void endCourseAccess(User user, UUID organizationId, UUID courseId, Instant now) {
+        for (UserCourseEnrollment enrollment :
+                enrollmentRepository.findByUserIdAndOrganizationId(user.getId(), organizationId)) {
+            Course course = enrollment.getCourseVersion().getCourse();
+            if (!course.getId().equals(courseId) || course.isFree()) {
+                continue;
+            }
+            if (enrollment.getAccessExpiresAt() == null
+                    || enrollment.getAccessExpiresAt().isAfter(now)) {
+                enrollment.setAccessExpiresAt(now);
+                enrollmentRepository.save(enrollment);
+            }
+        }
+    }
+
+    /**
      * Free courses are only detached from the organization: the learner could have joined them on
      * their own, and dropping one would lock them out of a course that is open to everyone.
      */

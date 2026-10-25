@@ -4,8 +4,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -37,6 +42,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -51,6 +57,7 @@ class MercadoPagoCheckoutServiceTest {
     @Mock private CoursePurchaseService purchaseService;
     @Mock private MercadoPagoClient mercadoPago;
     @Mock private MercadoPagoSignatureVerifier signatureVerifier;
+    @Mock private PurchaseNotificationService notifications;
 
     private MercadoPagoCheckoutService service;
     private User actor;
@@ -90,6 +97,7 @@ class MercadoPagoCheckoutServiceTest {
                 purchaseService,
                 mercadoPago,
                 signatureVerifier,
+                notifications,
                 panelUrl);
     }
 
@@ -100,7 +108,12 @@ class MercadoPagoCheckoutServiceTest {
 
     private Payment payment(String status, String reference, String amount, String currency) {
         return new Payment(
-                "987", status, reference, amount == null ? null : new BigDecimal(amount), currency);
+                "987",
+                status,
+                "",
+                reference,
+                amount == null ? null : new BigDecimal(amount),
+                currency);
     }
 
     private Payment approved() {
@@ -270,7 +283,7 @@ class MercadoPagoCheckoutServiceTest {
 
         service.handleNotification("payment", "987", null, null);
 
-        verify(paymentService).markRefunded("987", null);
+        verify(paymentService).reverse("987", false, new BigDecimal("243000"));
         verify(paymentService, never()).settle(any(), anyString(), any(), any());
     }
 
@@ -354,5 +367,121 @@ class MercadoPagoCheckoutServiceTest {
         service.cancel(actor, organization.getId(), purchase.getId());
 
         verifyNoInteractions(mercadoPago);
+    }
+
+    private Payment detailed(String status, String detail) {
+        return new Payment(
+                "987",
+                status,
+                detail,
+                purchase.getId().toString(),
+                new BigDecimal("243000"),
+                "ARS");
+    }
+
+    @Test
+    void shouldWithdrawByRefundingInMercadoPagoBeforeRevoking() {
+        when(paymentService.startWithdrawal(
+                        eq(organization.getId()),
+                        eq(purchase.getId()),
+                        eq(actor),
+                        eq("Cambio de planes"),
+                        any()))
+                .thenReturn("987");
+        when(mercadoPago.refund("987")).thenReturn("r-1");
+        PurchaseDetailResponse detail = new PurchaseDetailResponse(null, List.of(), List.of());
+        when(purchaseService.get(actor, organization.getId(), purchase.getId())).thenReturn(detail);
+
+        assertSame(
+                detail,
+                service.withdraw(
+                        actor, organization.getId(), purchase.getId(), "Cambio de planes"));
+
+        InOrder order = inOrder(accessService, paymentService, mercadoPago);
+        order.verify(accessService).requireManage(actor, organization.getId());
+        order.verify(paymentService).startWithdrawal(any(), any(), any(), any(), any());
+        order.verify(mercadoPago).refund("987");
+        order.verify(paymentService).markRefunded("987", "r-1");
+    }
+
+    @Test
+    void shouldLeaveTheWithdrawalPendingWhenMercadoPagoFails() {
+        when(paymentService.startWithdrawal(any(), any(), any(), any(), any())).thenReturn("987");
+        when(mercadoPago.refund("987")).thenThrow(new PaymentProviderException("down"));
+        when(mercadoPago.getPayment("987")).thenReturn(detailed("approved", "accredited"));
+
+        assertThrows(
+                PaymentProviderException.class,
+                () -> service.withdraw(actor, organization.getId(), purchase.getId(), null));
+        verify(paymentService, never()).markRefunded(anyString(), any());
+    }
+
+    @Test
+    void shouldCountARefundAlreadyMadeInMercadoPagoAsDone() {
+        when(paymentService.startWithdrawal(any(), any(), any(), any(), any())).thenReturn("987");
+        when(mercadoPago.refund("987")).thenThrow(new PaymentProviderException("already refunded"));
+        when(mercadoPago.getPayment("987")).thenReturn(detailed("refunded", "refunded"));
+        when(purchaseService.get(actor, organization.getId(), purchase.getId()))
+                .thenReturn(new PurchaseDetailResponse(null, List.of(), List.of()));
+
+        service.withdraw(actor, organization.getId(), purchase.getId(), null);
+
+        verify(paymentService).markRefunded("987", null);
+    }
+
+    @Test
+    void shouldNotWithdrawWhenTheActorCannotManageTheOrganization() {
+        doThrow(new ForbiddenException("no"))
+                .when(accessService)
+                .requireManage(actor, organization.getId());
+
+        assertThrows(
+                ForbiddenException.class,
+                () -> service.withdraw(actor, organization.getId(), purchase.getId(), null));
+        verifyNoInteractions(paymentService, mercadoPago);
+    }
+
+    @Test
+    void shouldRevokeThePurchaseOnAChargeback() {
+        when(mercadoPago.getPayment("987")).thenReturn(detailed("charged_back", "settled"));
+
+        service.handleNotification("payment", "987", null, null);
+
+        verify(paymentService).reverse("987", true, new BigDecimal("243000"));
+    }
+
+    @Test
+    void shouldAlertWithoutChangesWhenADisputeOpens() {
+        purchase.setStatus(PurchaseStatus.PAID);
+        when(mercadoPago.getPayment("987")).thenReturn(detailed("in_mediation", "pending"));
+        when(paymentService.findPaidBy("987")).thenReturn(Optional.of(purchase));
+
+        service.handleNotification("payment", "987", null, null);
+
+        verify(notifications).alertOps(contains("Disputa abierta"), anyList());
+        verify(paymentService, never()).reverse(anyString(), anyBoolean(), any());
+        verify(paymentService, never()).settle(any(), anyString(), any(), any());
+    }
+
+    @Test
+    void shouldAlertWithoutChangesOnAPartialRefund() {
+        purchase.setStatus(PurchaseStatus.PAID);
+        when(mercadoPago.getPayment("987")).thenReturn(detailed("approved", "partially_refunded"));
+        when(paymentService.findPaidBy("987")).thenReturn(Optional.of(purchase));
+
+        service.handleNotification("payment", "987", null, null);
+
+        verify(notifications).alertOps(contains("Reembolso parcial"), anyList());
+        verify(paymentService, never()).settle(any(), anyString(), any(), any());
+    }
+
+    @Test
+    void shouldStayQuietAboutDisputesOfPaymentsThatPaidNothing() {
+        when(mercadoPago.getPayment("987")).thenReturn(detailed("in_mediation", "pending"));
+        when(paymentService.findPaidBy("987")).thenReturn(Optional.empty());
+
+        service.handleNotification("payment", "987", null, null);
+
+        verifyNoInteractions(notifications);
     }
 }

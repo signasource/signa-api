@@ -4,6 +4,8 @@ import jakarta.mail.internet.MimeMessage;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,6 +22,7 @@ public class EmailService {
     private static final String VERIFICATION_PATH = "/auth/verify";
     private static final String ADMIN_INVITE_PATH = "/accept-invite";
     private static final String SEAT_INVITATION_PATH = "/invitacion";
+    private static final String PURCHASE_PATH = "/dashboard/purchases/";
     private static final DateTimeFormatter DEADLINE_FORMAT =
             DateTimeFormatter.ofPattern("dd/MM/yyyy")
                     .withZone(ZoneId.of("America/Argentina/Buenos_Aires"));
@@ -82,6 +85,45 @@ public class EmailService {
                 buildOrganizationAdminInviteHtml(
                         organizationName,
                         String.format("%s%s?code=%s", panelUrl, ADMIN_INVITE_PATH, code)));
+    }
+
+    @Async
+    public void sendSeatAccessEndedEmail(
+            String to, String organizationName, String courseName, boolean hadAccess) {
+        sendEmail(
+                to,
+                hadAccess
+                        ? "Terminó tu acceso a " + courseName
+                        : "Tu invitación a SIGNA fue anulada",
+                buildSeatAccessEndedHtml(organizationName, courseName, hadAccess));
+    }
+
+    @Async
+    public void sendPurchaseRefundedEmail(
+            String to,
+            String organizationName,
+            String courseName,
+            UUID purchaseId,
+            String amount,
+            String reasonText,
+            int cancelledInvitations,
+            int endedAccesses) {
+        sendEmail(
+                to,
+                "Compra anulada: " + courseName,
+                buildPurchaseRefundedHtml(
+                        organizationName,
+                        courseName,
+                        String.format("%s%s%s", panelUrl, PURCHASE_PATH, purchaseId),
+                        amount,
+                        reasonText,
+                        cancelledInvitations,
+                        endedAccesses));
+    }
+
+    @Async
+    public void sendOpsAlertEmail(String to, String subject, List<String> lines) {
+        sendEmail(to, "[SIGNA] " + subject, buildOpsAlertHtml(lines));
     }
 
     private void sendEmail(String to, String subject, String html) {
@@ -171,6 +213,77 @@ public class EmailService {
                         durationDays,
                         deadline,
                         link);
+    }
+
+    private String buildSeatAccessEndedHtml(
+            String organizationName, String courseName, boolean hadAccess) {
+        String body =
+                hadAccess
+                        ? "%s anuló la compra del curso <b>%s</b>, así que tu acceso terminó."
+                                + " Tu progreso se conserva y lo podés seguir viendo en la app."
+                        : "%s anuló la compra del curso <b>%s</b>, así que tu invitación ya no es"
+                                + " válida. No tenés que hacer nada.";
+        return """
+				<div style="font-family: Arial;">
+				    <h2>¡Hola!</h2>
+				    <p>%s</p>
+				    <p style="color:#666; font-size:12px;">Si tenés dudas, consultá con quien administra SIGNA en tu organización.</p>
+				</div>
+				"""
+                .formatted(
+                        body.formatted(
+                                HtmlUtils.htmlEscape(organizationName),
+                                HtmlUtils.htmlEscape(courseName)));
+    }
+
+    private String buildPurchaseRefundedHtml(
+            String organizationName,
+            String courseName,
+            String link,
+            String amount,
+            String reasonText,
+            int cancelledInvitations,
+            int endedAccesses) {
+        return """
+				<div style="font-family: Arial;">
+				    <h2>Compra anulada</h2>
+				    <p>La compra del curso <b>%s</b> para %s quedó anulada. %s</p>
+				    <p>Monto devuelto: <b>%s</b>. Mercado Pago lo acredita en el medio de pago original; según el medio puede tardar unos días.</p>
+				    <ul>
+				        <li>Invitaciones pendientes anuladas: %d</li>
+				        <li>Personas que perdieron el acceso al curso: %d (su progreso se conserva)</li>
+				    </ul>
+				    <a href="%s" style="
+				        background-color:#4CAF50;
+				        color:white;
+				        padding:10px 20px;
+				        text-decoration:none;
+				        border-radius:5px;">
+				        Ver la compra
+				    </a>
+				</div>
+				"""
+                .formatted(
+                        HtmlUtils.htmlEscape(courseName),
+                        HtmlUtils.htmlEscape(organizationName),
+                        HtmlUtils.htmlEscape(reasonText),
+                        HtmlUtils.htmlEscape(amount),
+                        cancelledInvitations,
+                        endedAccesses,
+                        link);
+    }
+
+    private String buildOpsAlertHtml(List<String> lines) {
+        StringBuilder items = new StringBuilder();
+        for (String line : lines) {
+            items.append("<li>").append(HtmlUtils.htmlEscape(line)).append("</li>");
+        }
+        return """
+				<div style="font-family: Arial;">
+				    <ul>%s</ul>
+				</div>
+				"""
+                .formatted(items);
     }
 
     private String buildOrganizationAdminInviteHtml(String organizationName, String link) {

@@ -98,6 +98,15 @@ public class CoursePurchase {
 
     @Column private Instant invitationDeadline;
 
+    /**
+     * Last moment the organization can cancel the purchase for a full refund (withdrawal period).
+     * Set when a Mercado Pago payment confirms it; null for purchases confirmed by hand, which have
+     * no payment to refund from the panel.
+     */
+    @Column private Instant refundableUntil;
+
+    @Column private Instant refundedAt;
+
     @Column private Instant cancelledAt;
 
     @Column(nullable = false, updatable = false)

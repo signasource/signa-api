@@ -31,6 +31,7 @@ import com.signasource.signa_api.organizations.entity.Organization;
 import com.signasource.signa_api.organizations.entity.OrganizationMember;
 import com.signasource.signa_api.organizations.entity.OrganizationStatus;
 import com.signasource.signa_api.organizations.entity.PurchaseSeat;
+import com.signasource.signa_api.organizations.entity.PurchaseStatus;
 import com.signasource.signa_api.organizations.entity.SeatStatus;
 import com.signasource.signa_api.organizations.repository.OrganizationMemberRepository;
 import com.signasource.signa_api.organizations.repository.PurchaseSeatRepository;
@@ -67,7 +68,7 @@ class SeatInvitationServiceTest {
 
     @BeforeEach
     void setUp() {
-        PurchasePolicy policy = new PurchasePolicy(15, 60, 10, 5, 24, 500);
+        PurchasePolicy policy = new PurchasePolicy(15, 60, 10, 5, 24, 500, 10);
         service =
                 new SeatInvitationService(
                         seatRepository,
@@ -90,6 +91,7 @@ class SeatInvitationServiceTest {
                         .organization(organization)
                         .course(course)
                         .durationDays(30)
+                        .status(PurchaseStatus.PAID)
                         .paidAt(paidAt)
                         .invitationDeadline(paidAt.plus(10, ChronoUnit.DAYS))
                         .build();
@@ -237,7 +239,7 @@ class SeatInvitationServiceTest {
 
     @Test
     void shouldActivateTheSeatAndStartTheDaysOnAccept() {
-        when(seatRepository.findByInvitationToken("tok")).thenReturn(Optional.of(seat));
+        when(seatRepository.findForUpdateByInvitationToken("tok")).thenReturn(Optional.of(seat));
         when(memberRepository.findByUserId(user.getId())).thenReturn(Optional.empty());
 
         AcceptInvitationResponse response = service.accept(user, "tok");
@@ -271,7 +273,7 @@ class SeatInvitationServiceTest {
                         .build();
         user.setVerified(true);
         user.setCurrentCourse(Course.builder().id(UUID.randomUUID()).build());
-        when(seatRepository.findByInvitationToken("tok")).thenReturn(Optional.of(seat));
+        when(seatRepository.findForUpdateByInvitationToken("tok")).thenReturn(Optional.of(seat));
         when(memberRepository.findByUserId(user.getId())).thenReturn(Optional.of(admin));
 
         service.accept(user, "tok");
@@ -291,7 +293,7 @@ class SeatInvitationServiceTest {
                         .status(MemberStatus.REMOVED)
                         .removedAt(Instant.now())
                         .build();
-        when(seatRepository.findByInvitationToken("tok")).thenReturn(Optional.of(seat));
+        when(seatRepository.findForUpdateByInvitationToken("tok")).thenReturn(Optional.of(seat));
         when(memberRepository.findByUserId(user.getId())).thenReturn(Optional.of(removed));
 
         service.accept(user, "tok");
@@ -310,7 +312,7 @@ class SeatInvitationServiceTest {
                         .role(MemberRole.MEMBER)
                         .status(MemberStatus.ACTIVE)
                         .build();
-        when(seatRepository.findByInvitationToken("tok")).thenReturn(Optional.of(seat));
+        when(seatRepository.findForUpdateByInvitationToken("tok")).thenReturn(Optional.of(seat));
         when(memberRepository.findByUserId(user.getId())).thenReturn(Optional.of(other));
 
         assertThrows(ResourceAlreadyInUseException.class, () -> service.accept(user, "tok"));
@@ -320,7 +322,7 @@ class SeatInvitationServiceTest {
     @Test
     void shouldRejectAnotherEmail() {
         user.setEmail("intruso@gmail.com");
-        when(seatRepository.findByInvitationToken("tok")).thenReturn(Optional.of(seat));
+        when(seatRepository.findForUpdateByInvitationToken("tok")).thenReturn(Optional.of(seat));
 
         assertThrows(ForbiddenException.class, () -> service.accept(user, "tok"));
         verify(seatRepository, never()).save(any());
@@ -329,7 +331,7 @@ class SeatInvitationServiceTest {
     @Test
     void shouldRejectAnExpiredInvitation() {
         purchase.setInvitationDeadline(Instant.now().minusSeconds(1));
-        when(seatRepository.findByInvitationToken("tok")).thenReturn(Optional.of(seat));
+        when(seatRepository.findForUpdateByInvitationToken("tok")).thenReturn(Optional.of(seat));
 
         assertThrows(InvalidInputException.class, () -> service.accept(user, "tok"));
         verify(enrollmentService, never()).grantCourse(any(), any(), any(), any());
@@ -338,7 +340,7 @@ class SeatInvitationServiceTest {
     @Test
     void shouldRejectARevokedSeat() {
         seat.setStatus(SeatStatus.REVOKED);
-        when(seatRepository.findByInvitationToken("tok")).thenReturn(Optional.of(seat));
+        when(seatRepository.findForUpdateByInvitationToken("tok")).thenReturn(Optional.of(seat));
 
         assertThrows(InvalidInputException.class, () -> service.accept(user, "tok"));
     }
@@ -346,7 +348,7 @@ class SeatInvitationServiceTest {
     @Test
     void shouldRejectWhenTheOrganizationIsNoLongerActive() {
         organization.setStatus(OrganizationStatus.SUSPENDED);
-        when(seatRepository.findByInvitationToken("tok")).thenReturn(Optional.of(seat));
+        when(seatRepository.findForUpdateByInvitationToken("tok")).thenReturn(Optional.of(seat));
 
         assertThrows(InvalidInputException.class, () -> service.accept(user, "tok"));
     }
@@ -358,7 +360,7 @@ class SeatInvitationServiceTest {
         seat.setUser(user);
         seat.setActivatedAt(activated);
         seat.setAccessExpiresAt(activated.plus(30, ChronoUnit.DAYS));
-        when(seatRepository.findByInvitationToken("tok")).thenReturn(Optional.of(seat));
+        when(seatRepository.findForUpdateByInvitationToken("tok")).thenReturn(Optional.of(seat));
 
         AcceptInvitationResponse response = service.accept(user, "tok");
 
@@ -393,5 +395,21 @@ class SeatInvitationServiceTest {
         assertEquals("Ana Gómez", active.userName());
         assertEquals(false, active.canEditEmail());
         assertNull(active.nextReminderAvailableAt());
+    }
+
+    @Test
+    void shouldRejectAnInvitationOfARefundedPurchase() {
+        purchase.setStatus(PurchaseStatus.REFUNDED);
+        when(seatRepository.findForUpdateByInvitationToken("tok")).thenReturn(Optional.of(seat));
+
+        assertThrows(InvalidInputException.class, () -> service.accept(user, "tok"));
+        verify(enrollmentService, never()).grantCourse(any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldReturnNotFoundForACancelledInvitationLink() {
+        when(seatRepository.findForUpdateByInvitationToken("tok")).thenReturn(Optional.empty());
+
+        assertThrows(NotFoundException.class, () -> service.accept(user, "tok"));
     }
 }

@@ -2,11 +2,15 @@ package com.signasource.signa_api.organizations.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.admin.dto.AdminPurchaseResponse;
@@ -25,9 +29,12 @@ import com.signasource.signa_api.organizations.repository.CoursePurchaseReposito
 import com.signasource.signa_api.organizations.repository.OrganizationCourseRepository;
 import com.signasource.signa_api.organizations.repository.PurchaseRefundRepository;
 import com.signasource.signa_api.organizations.repository.PurchaseSeatRepository;
+import com.signasource.signa_api.organizations.service.PurchasePaymentService.Reversal;
 import com.signasource.signa_api.organizations.service.PurchasePaymentService.Settlement;
+import com.signasource.signa_api.users.entity.User;
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -47,6 +54,7 @@ class PurchasePaymentServiceTest {
     @Mock private OrganizationCourseRepository organizationCourseRepository;
     @Mock private SeatInvitationService invitationService;
     @Mock private CoursePurchaseService purchaseService;
+    @Mock private PurchaseRevocationService revocationService;
 
     private PurchasePaymentService service;
     private CoursePurchase purchase;
@@ -55,7 +63,7 @@ class PurchasePaymentServiceTest {
 
     @BeforeEach
     void setUp() {
-        PurchasePolicy policy = new PurchasePolicy(15, 60, 10, 5, 24, 500);
+        PurchasePolicy policy = new PurchasePolicy(15, 60, 10, 5, 24, 500, 10);
         service =
                 new PurchasePaymentService(
                         purchaseRepository,
@@ -64,6 +72,7 @@ class PurchasePaymentServiceTest {
                         organizationCourseRepository,
                         invitationService,
                         purchaseService,
+                        revocationService,
                         policy);
         organization = Organization.builder().id(UUID.randomUUID()).name("Hospital").build();
         course = Course.builder().id(UUID.randomUUID()).name("LSA Salud").build();
@@ -277,7 +286,12 @@ class PurchasePaymentServiceTest {
 
     @Test
     void shouldMarkAPendingRefundAsDone() {
-        PurchaseRefund pending = PurchaseRefund.builder().paymentId("987").build();
+        PurchaseRefund pending =
+                PurchaseRefund.builder()
+                        .paymentId("987")
+                        .reason(RefundReason.ALREADY_PAID)
+                        .purchase(purchase)
+                        .build();
         when(refundRepository.findByPaymentId("987")).thenReturn(Optional.of(pending));
 
         service.markRefunded("987", "r-1");
@@ -291,7 +305,12 @@ class PurchasePaymentServiceTest {
     @Test
     void shouldKeepTheRefundIdWhenMarkedFromANotification() {
         PurchaseRefund pending =
-                PurchaseRefund.builder().paymentId("987").mercadoPagoRefundId("r-1").build();
+                PurchaseRefund.builder()
+                        .paymentId("987")
+                        .reason(RefundReason.ALREADY_PAID)
+                        .purchase(purchase)
+                        .mercadoPagoRefundId("r-1")
+                        .build();
         when(refundRepository.findByPaymentId("987")).thenReturn(Optional.of(pending));
 
         service.markRefunded("987", null);
@@ -310,5 +329,285 @@ class PurchasePaymentServiceTest {
         service.markRefunded("555", "r-2");
 
         verify(refundRepository, never()).save(any());
+    }
+
+    private User actor() {
+        User actor = new User();
+        actor.setId(UUID.randomUUID());
+        return actor;
+    }
+
+    private void paidWithMercadoPago(Instant refundableUntil) {
+        purchase.setStatus(PurchaseStatus.PAID);
+        purchase.setPaymentReference("mercadopago:987");
+        purchase.setRefundableUntil(refundableUntil);
+        when(purchaseRepository.findForUpdateById(purchase.getId()))
+                .thenReturn(Optional.of(purchase));
+    }
+
+    @Test
+    void shouldOpenTheWithdrawalPeriodWhenMercadoPagoConfirmsThePayment() {
+        stubLockedPurchase();
+        when(seatRepository.findByPurchaseIdOrderByEmailAsc(purchase.getId()))
+                .thenReturn(List.of());
+        Instant before = Instant.now();
+
+        service.settle(purchase.getId(), "987", BigDecimal.TEN, "ARS");
+
+        assertNotNull(purchase.getRefundableUntil());
+        assertTrue(!purchase.getRefundableUntil().isBefore(before.plus(Duration.ofDays(10))));
+    }
+
+    @Test
+    void shouldNotOfferAWithdrawalForAPurchaseConfirmedByHand() {
+        when(purchaseRepository.findForUpdateById(purchase.getId()))
+                .thenReturn(Optional.of(purchase));
+        when(seatRepository.findByPurchaseIdOrderByEmailAsc(purchase.getId()))
+                .thenReturn(List.of());
+
+        service.confirmPayment(purchase.getId(), "TRANSFERENCIA-12");
+
+        assertNull(purchase.getRefundableUntil());
+    }
+
+    @Test
+    void shouldNotConfirmARefundedPurchaseByHand() {
+        purchase.setStatus(PurchaseStatus.REFUNDED);
+        when(purchaseRepository.findForUpdateById(purchase.getId()))
+                .thenReturn(Optional.of(purchase));
+
+        assertThrows(
+                InvalidInputException.class, () -> service.confirmPayment(purchase.getId(), "x"));
+    }
+
+    @Test
+    void shouldRefundAPaymentForARefundedPurchase() {
+        stubLockedPurchase();
+        purchase.setStatus(PurchaseStatus.REFUNDED);
+
+        assertEquals(
+                Settlement.REFUND, service.settle(purchase.getId(), "987", BigDecimal.TEN, "ARS"));
+        assertEquals(RefundReason.PURCHASE_CANCELLED, recordedReason());
+    }
+
+    @Test
+    void shouldRecordAWithdrawalAsAPendingRefundOfTheWholePayment() {
+        Instant now = Instant.now();
+        paidWithMercadoPago(now.plus(Duration.ofDays(3)));
+        when(refundRepository.findByPaymentId("987")).thenReturn(Optional.empty());
+        User actor = actor();
+
+        String paymentId =
+                service.startWithdrawal(
+                        organization.getId(), purchase.getId(), actor, "  Nos equivocamos  ", now);
+
+        assertEquals("987", paymentId);
+        ArgumentCaptor<PurchaseRefund> refund = ArgumentCaptor.forClass(PurchaseRefund.class);
+        verify(refundRepository).save(refund.capture());
+        assertEquals(RefundReason.BUYER_REQUESTED, refund.getValue().getReason());
+        assertEquals(RefundStatus.PENDING, refund.getValue().getStatus());
+        assertEquals(BigDecimal.TEN, refund.getValue().getAmount());
+        assertEquals("Nos equivocamos", refund.getValue().getNote());
+        assertSame(actor, refund.getValue().getRequestedBy());
+        assertEquals(PurchaseStatus.PAID, purchase.getStatus());
+    }
+
+    @Test
+    void shouldStoreNoNoteWhenTheReasonIsBlank() {
+        Instant now = Instant.now();
+        paidWithMercadoPago(now.plus(Duration.ofDays(3)));
+        when(refundRepository.findByPaymentId("987")).thenReturn(Optional.empty());
+
+        service.startWithdrawal(organization.getId(), purchase.getId(), actor(), " ", now);
+
+        ArgumentCaptor<PurchaseRefund> refund = ArgumentCaptor.forClass(PurchaseRefund.class);
+        verify(refundRepository).save(refund.capture());
+        assertNull(refund.getValue().getNote());
+    }
+
+    @Test
+    void shouldRejectAWithdrawalAfterThePeriod() {
+        Instant now = Instant.now();
+        paidWithMercadoPago(now);
+        when(refundRepository.findByPaymentId("987")).thenReturn(Optional.empty());
+
+        assertThrows(
+                InvalidInputException.class,
+                () ->
+                        service.startWithdrawal(
+                                organization.getId(), purchase.getId(), actor(), null, now));
+        verify(refundRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldRejectAWithdrawalOfAnUnpaidOrHandConfirmedPurchase() {
+        Instant now = Instant.now();
+        when(purchaseRepository.findForUpdateById(purchase.getId()))
+                .thenReturn(Optional.of(purchase));
+        assertThrows(
+                InvalidInputException.class,
+                () ->
+                        service.startWithdrawal(
+                                organization.getId(), purchase.getId(), actor(), null, now));
+
+        purchase.setStatus(PurchaseStatus.PAID);
+        purchase.setPaymentReference("TRANSFERENCIA-12");
+        assertThrows(
+                InvalidInputException.class,
+                () ->
+                        service.startWithdrawal(
+                                organization.getId(), purchase.getId(), actor(), null, now));
+        verify(refundRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldNotWithdrawAPurchaseOfAnotherOrganization() {
+        paidWithMercadoPago(Instant.now().plus(Duration.ofDays(3)));
+
+        assertThrows(
+                NotFoundException.class,
+                () ->
+                        service.startWithdrawal(
+                                UUID.randomUUID(), purchase.getId(), actor(), null, Instant.now()));
+    }
+
+    @Test
+    void shouldResumeAWithdrawalAlreadyStartedEvenAfterThePeriod() {
+        Instant now = Instant.now();
+        paidWithMercadoPago(now.minus(Duration.ofDays(1)));
+        PurchaseRefund started =
+                PurchaseRefund.builder()
+                        .paymentId("987")
+                        .reason(RefundReason.BUYER_REQUESTED)
+                        .build();
+        when(refundRepository.findByPaymentId("987")).thenReturn(Optional.of(started));
+
+        assertEquals(
+                "987",
+                service.startWithdrawal(
+                        organization.getId(), purchase.getId(), actor(), null, now));
+        verify(refundRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldRevokeThePurchaseWhenItsWithdrawalRefundIsDone() {
+        purchase.setStatus(PurchaseStatus.PAID);
+        PurchaseRefund pending =
+                PurchaseRefund.builder()
+                        .paymentId("987")
+                        .reason(RefundReason.BUYER_REQUESTED)
+                        .amount(BigDecimal.TEN)
+                        .purchase(purchase)
+                        .build();
+        when(refundRepository.findByPaymentId("987")).thenReturn(Optional.of(pending));
+        when(purchaseRepository.findForUpdateById(purchase.getId()))
+                .thenReturn(Optional.of(purchase));
+
+        service.markRefunded("987", "r-1");
+
+        assertEquals(RefundStatus.REFUNDED, pending.getStatus());
+        verify(revocationService)
+                .revoke(eq(purchase), eq(RefundReason.BUYER_REQUESTED), eq(BigDecimal.TEN), any());
+    }
+
+    @Test
+    void shouldNotRevokeTwiceOrRevokeForAPaymentThatNeverPaidThePurchase() {
+        purchase.setStatus(PurchaseStatus.REFUNDED);
+        PurchaseRefund withdrawal =
+                PurchaseRefund.builder()
+                        .paymentId("987")
+                        .reason(RefundReason.BUYER_REQUESTED)
+                        .purchase(purchase)
+                        .build();
+        PurchaseRefund duplicate =
+                PurchaseRefund.builder()
+                        .paymentId("555")
+                        .reason(RefundReason.ALREADY_PAID)
+                        .purchase(purchase)
+                        .build();
+        when(refundRepository.findByPaymentId("987")).thenReturn(Optional.of(withdrawal));
+        when(refundRepository.findByPaymentId("555")).thenReturn(Optional.of(duplicate));
+        when(purchaseRepository.findForUpdateById(purchase.getId()))
+                .thenReturn(Optional.of(purchase));
+
+        service.markRefunded("987", null);
+        service.markRefunded("555", null);
+
+        verifyNoInteractions(revocationService);
+    }
+
+    @Test
+    void shouldCompleteARefundSignaStartedWhenMercadoPagoReportsIt() {
+        purchase.setStatus(PurchaseStatus.PAID);
+        PurchaseRefund pending =
+                PurchaseRefund.builder()
+                        .paymentId("987")
+                        .reason(RefundReason.BUYER_REQUESTED)
+                        .amount(BigDecimal.TEN)
+                        .purchase(purchase)
+                        .build();
+        when(refundRepository.findByPaymentId("987")).thenReturn(Optional.of(pending));
+        when(purchaseRepository.findForUpdateById(purchase.getId()))
+                .thenReturn(Optional.of(purchase));
+
+        assertEquals(Reversal.REFUND_COMPLETED, service.reverse("987", false, BigDecimal.TEN));
+        assertEquals(RefundStatus.REFUNDED, pending.getStatus());
+        verify(revocationService).revoke(eq(purchase), any(), any(), any());
+
+        assertEquals(Reversal.IGNORED, service.reverse("987", false, BigDecimal.TEN));
+    }
+
+    @Test
+    void shouldRevokeAPurchaseWhoseMoneyWasTakenBackByAChargeback() {
+        purchase.setStatus(PurchaseStatus.PAID);
+        purchase.setPaymentReference("mercadopago:987");
+        when(refundRepository.findByPaymentId("987")).thenReturn(Optional.empty());
+        when(purchaseRepository.findForUpdateByPaymentReference("mercadopago:987"))
+                .thenReturn(Optional.of(purchase));
+
+        assertEquals(Reversal.PURCHASE_REVOKED, service.reverse("987", true, BigDecimal.TEN));
+
+        ArgumentCaptor<PurchaseRefund> refund = ArgumentCaptor.forClass(PurchaseRefund.class);
+        verify(refundRepository).save(refund.capture());
+        assertEquals(RefundReason.CHARGEBACK, refund.getValue().getReason());
+        assertEquals(RefundStatus.REFUNDED, refund.getValue().getStatus());
+        assertNotNull(refund.getValue().getRefundedAt());
+        verify(revocationService)
+                .revoke(eq(purchase), eq(RefundReason.CHARGEBACK), eq(BigDecimal.TEN), any());
+    }
+
+    @Test
+    void shouldRevokeAPurchaseRefundedFromMercadoPagoWithItsTotalWhenNoAmountIsGiven() {
+        purchase.setStatus(PurchaseStatus.PAID);
+        when(refundRepository.findByPaymentId("987")).thenReturn(Optional.empty());
+        when(purchaseRepository.findForUpdateByPaymentReference("mercadopago:987"))
+                .thenReturn(Optional.of(purchase));
+
+        service.reverse("987", false, null);
+
+        verify(revocationService)
+                .revoke(eq(purchase), eq(RefundReason.EXTERNAL_REFUND), eq(BigDecimal.TEN), any());
+    }
+
+    @Test
+    void shouldIgnoreAReversalOfAPaymentThatPaidNothing() {
+        when(refundRepository.findByPaymentId("987")).thenReturn(Optional.empty());
+        when(purchaseRepository.findForUpdateByPaymentReference("mercadopago:987"))
+                .thenReturn(Optional.empty());
+
+        assertEquals(Reversal.IGNORED, service.reverse("987", true, BigDecimal.TEN));
+        verify(refundRepository, never()).save(any());
+        verifyNoInteractions(revocationService);
+    }
+
+    @Test
+    void shouldFindOnlyAPaidPurchaseByItsPayment() {
+        purchase.setStatus(PurchaseStatus.PAID);
+        when(purchaseRepository.findByPaymentReference("mercadopago:987"))
+                .thenReturn(Optional.of(purchase));
+        assertEquals(Optional.of(purchase), service.findPaidBy("987"));
+
+        purchase.setStatus(PurchaseStatus.REFUNDED);
+        assertTrue(service.findPaidBy("987").isEmpty());
     }
 }
