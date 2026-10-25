@@ -36,7 +36,6 @@ import com.signasource.signa_api.organizations.repository.OrganizationMemberRepo
 import com.signasource.signa_api.organizations.repository.PurchaseSeatRepository;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.repository.UserRepository;
-import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -68,8 +67,7 @@ class SeatInvitationServiceTest {
 
     @BeforeEach
     void setUp() {
-        PurchasePolicy policy =
-                new PurchasePolicy("ARS", BigDecimal.ONE, BigDecimal.ONE, 15, 60, 10, 5, 24, 500);
+        PurchasePolicy policy = new PurchasePolicy(15, 60, 10, 5, 24, 500);
         service =
                 new SeatInvitationService(
                         seatRepository,

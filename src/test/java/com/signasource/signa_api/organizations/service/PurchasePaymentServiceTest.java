@@ -47,8 +47,7 @@ class PurchasePaymentServiceTest {
 
     @BeforeEach
     void setUp() {
-        PurchasePolicy policy =
-                new PurchasePolicy("ARS", BigDecimal.ONE, BigDecimal.ONE, 15, 60, 10, 5, 24, 500);
+        PurchasePolicy policy = new PurchasePolicy(15, 60, 10, 5, 24, 500);
         service =
                 new PurchasePaymentService(
                         purchaseRepository,
@@ -66,6 +65,7 @@ class PurchasePaymentServiceTest {
                         .course(course)
                         .seats(1)
                         .durationDays(30)
+                        .listPricePerSeat(BigDecimal.TEN)
                         .pricePerSeat(BigDecimal.TEN)
                         .totalAmount(BigDecimal.TEN)
                         .currency("ARS")
@@ -75,7 +75,7 @@ class PurchasePaymentServiceTest {
     @Test
     void shouldMarkPaidOpenTheWindowContractTheCourseAndInvite() {
         PurchaseSeat seat = PurchaseSeat.builder().purchase(purchase).email("a@x.com").build();
-        when(purchaseRepository.findWithDetailsById(purchase.getId()))
+        when(purchaseRepository.findForUpdateById(purchase.getId()))
                 .thenReturn(Optional.of(purchase));
         when(organizationCourseRepository.existsByOrganizationIdAndCourseId(
                         organization.getId(), course.getId()))
@@ -97,7 +97,7 @@ class PurchasePaymentServiceTest {
 
     @Test
     void shouldNotContractTheCourseTwice() {
-        when(purchaseRepository.findWithDetailsById(purchase.getId()))
+        when(purchaseRepository.findForUpdateById(purchase.getId()))
                 .thenReturn(Optional.of(purchase));
         when(organizationCourseRepository.existsByOrganizationIdAndCourseId(
                         organization.getId(), course.getId()))
@@ -113,7 +113,7 @@ class PurchasePaymentServiceTest {
     @Test
     void shouldBeIdempotentForAPaidPurchase() {
         purchase.setStatus(PurchaseStatus.PAID);
-        when(purchaseRepository.findWithDetailsById(purchase.getId()))
+        when(purchaseRepository.findForUpdateById(purchase.getId()))
                 .thenReturn(Optional.of(purchase));
 
         service.confirmPayment(purchase.getId(), "mp-123");
@@ -125,7 +125,7 @@ class PurchasePaymentServiceTest {
     @Test
     void shouldRejectACancelledPurchase() {
         purchase.setStatus(PurchaseStatus.CANCELLED);
-        when(purchaseRepository.findWithDetailsById(purchase.getId()))
+        when(purchaseRepository.findForUpdateById(purchase.getId()))
                 .thenReturn(Optional.of(purchase));
 
         assertThrows(
@@ -135,7 +135,7 @@ class PurchasePaymentServiceTest {
     @Test
     void shouldReturnNotFoundForAnUnknownPurchase() {
         UUID unknown = UUID.randomUUID();
-        when(purchaseRepository.findWithDetailsById(unknown)).thenReturn(Optional.empty());
+        when(purchaseRepository.findForUpdateById(unknown)).thenReturn(Optional.empty());
 
         assertThrows(NotFoundException.class, () -> service.confirmPayment(unknown, null));
     }

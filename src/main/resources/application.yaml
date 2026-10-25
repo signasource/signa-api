@@ -90,10 +90,16 @@ r2:
   presign-expiry-minutes: ${R2_PRESIGN_EXPIRY_MINUTES:15}
 
 organizations:
+  # Price per seat = (base-price-per-seat + price-per-sign x signs) x (days / reference-days)^duration-exponent,
+  # rounded to round-to, minus the best volume discount reached (<minSeats>:<percent>).
   pricing:
     currency: ARS
-    price-per-sign-per-day: ${ORG_PRICE_PER_SIGN_PER_DAY:5}
-    min-price-per-seat: ${ORG_MIN_PRICE_PER_SEAT:5000}
+    base-price-per-seat: ${ORG_BASE_PRICE_PER_SEAT:6000}
+    price-per-sign: ${ORG_PRICE_PER_SIGN:400}
+    reference-days: 30
+    duration-exponent: 0.85
+    round-to: 10
+    volume-discounts: ${ORG_VOLUME_DISCOUNTS:10:10,25:15,50:20,100:25}
   purchases:
     min-days: 15
     max-days: 60
@@ -101,6 +107,12 @@ organizations:
     auto-reminder-after-days: 5
     manual-reminder-cooldown-hours: 24
     max-seats: 500
+
+mercado-pago:
+  api-url: https://api.mercadopago.com
+  access-token: ${MERCADO_PAGO_ACCESS_TOKEN:}
+  webhook-secret: ${MERCADO_PAGO_WEBHOOK_SECRET:}
+  notification-url: ${MERCADO_PAGO_NOTIFICATION_URL:}
 
 admin:
   seed:

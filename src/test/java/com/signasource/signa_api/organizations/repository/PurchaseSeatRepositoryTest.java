@@ -94,6 +94,7 @@ class PurchaseSeatRepositoryTest {
                         .seats(1)
                         .durationDays(30)
                         .signCount(10)
+                        .listPricePerSeat(BigDecimal.TEN)
                         .pricePerSeat(BigDecimal.TEN)
                         .totalAmount(BigDecimal.TEN)
                         .currency("ARS")
@@ -153,8 +154,16 @@ class PurchaseSeatRepositoryTest {
     }
 
     @Test
-    void shouldCountTheSignsIntroducedByAVersion() {
-        Topic topic =
+    void shouldListTheSignsIntroducedByAVersionInLearningOrder() {
+        Topic second =
+                topicRepository.save(
+                        Topic.builder()
+                                .code("t2")
+                                .title("Emergencies")
+                                .order(2)
+                                .courseVersion(version)
+                                .build());
+        Topic first =
                 topicRepository.save(
                         Topic.builder()
                                 .code("t1")
@@ -162,28 +171,37 @@ class PurchaseSeatRepositoryTest {
                                 .order(1)
                                 .courseVersion(version)
                                 .build());
-        Lesson lesson =
+        Lesson pain =
                 lessonRepository.save(
-                        Lesson.builder().code("l1").name("Hello").order(1).topic(topic).build());
-        lessonBlockRepository.save(
-                LessonBlock.builder()
-                        .type(BlockType.INTRODUCE_SIGN)
-                        .order(1)
-                        .lesson(lesson)
-                        .build());
-        lessonBlockRepository.save(
-                LessonBlock.builder()
-                        .type(BlockType.INTRODUCE_SIGN)
-                        .order(2)
-                        .lesson(lesson)
-                        .build());
+                        Lesson.builder().code("l2").name("Pain").order(1).topic(second).build());
+        Lesson hello =
+                lessonRepository.save(
+                        Lesson.builder().code("l1").name("Hello").order(1).topic(first).build());
+        LessonBlock dolor = introduce(pain, 1, "Dolor");
+        LessonBlock gracias = introduce(hello, 2, "Gracias");
+        LessonBlock hola = introduce(hello, 1, "Hola");
         lessonBlockRepository.save(
                 LessonBlock.builder()
                         .type(BlockType.SELECT_MEANING)
                         .order(3)
-                        .lesson(lesson)
+                        .lesson(hello)
                         .build());
 
-        assertEquals(2, lessonBlockRepository.countIntroducedSigns(version.getId()));
+        List<LessonBlock> signs = lessonBlockRepository.findIntroducedSigns(version.getId());
+
+        assertEquals(
+                List.of(hola.getId(), gracias.getId(), dolor.getId()),
+                signs.stream().map(LessonBlock::getId).toList());
+        assertEquals("Greetings", signs.get(0).getLesson().getTopic().getTitle());
+    }
+
+    private LessonBlock introduce(Lesson lesson, int order, String word) {
+        return lessonBlockRepository.save(
+                LessonBlock.builder()
+                        .type(BlockType.INTRODUCE_SIGN)
+                        .order(order)
+                        .lesson(lesson)
+                        .config("{\"word\":\"" + word + "\"}")
+                        .build());
     }
 }

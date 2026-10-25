@@ -535,22 +535,27 @@ sequenceDiagram
 
 ## Compra de cupos
 
-La organización elige un curso, la duración (15 a 60 días) y carga un email por cupo. La compra
-queda pendiente de pago; la confirmación del pago (`PurchasePaymentService.confirmPayment`, que va a
-llamar el webhook de Mercado Pago y hoy dispara el back-office) abre la ventana de 10 días y manda una
-invitación personal a cada email.
+La organización elige un curso (viendo las señas que incluye, por módulo), la duración (15 a 60
+días) y carga un email por cupo. El panel le muestra un resumen (curso, señas, cupos, días, precio de
+lista, descuento por volumen y total) y, al confirmar, crea la compra pendiente de pago y la manda a
+Mercado Pago Checkout Pro. El pago se acredita solo después de releerlo en la API de Mercado Pago, por
+el webhook o por el sync que hace el panel al volver (lo que llegue primero; la confirmación es
+idempotente). `PurchasePaymentService.confirmPayment` abre la ventana de 10 días y manda una
+invitación personal a cada email. El back-office puede confirmar a mano igual que antes.
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant A as Admin de la organización
-    participant P as Pago (Mercado Pago / back-office)
+    participant MP as Mercado Pago
     participant API as API
     participant M as Correo
     participant DB as Base de datos
 
+    A->>API: Catálogo
+    API-->>A: Cursos con sus señas por módulo y descuentos por volumen
     A->>API: Cotizar (curso, cupos, días)
-    API-->>A: Precio por cupo y total
+    API-->>A: Precio de lista, descuento, precio por cupo y total
     A->>API: Comprar (curso, días, emails)
     alt organización sin validar, curso gratuito, duración fuera de rango o email repetido
         API-->>A: Solicitud inválida (400)
@@ -560,8 +565,26 @@ sequenceDiagram
         API->>DB: Compra pendiente de pago + un cupo por email
         API-->>A: Compra creada (201)
     end
-    P->>API: Confirmar pago (referencia)
-    API->>DB: Compra pagada, vence la invitación a los 10 días
+    A->>API: Pagar la compra
+    API->>MP: Crear preferencia (external_reference = compra, cupos × precio por cupo)
+    MP-->>API: checkoutUrl
+    API-->>A: checkoutUrl
+    A->>MP: Paga en Checkout Pro
+    par webhook
+        MP->>API: Notificación de pago (x-signature)
+        API->>API: Verificar firma (403 si no coincide)
+    and vuelta al panel
+        MP-->>A: Redirige a /dashboard/purchases/{id}?pago=…&payment_id=…
+        A->>API: Sincronizar pago (payment_id)
+    end
+    API->>MP: Leer el pago
+    MP-->>API: Estado, external_reference, monto, moneda
+    alt aprobado y coincide con la compra
+        API->>DB: Lock de la compra; si sigue pendiente, pagada (mercadopago:<id>)
+    else rechazado, pendiente o no coincide
+        API-->>A: Estado del pago, la compra sigue pendiente
+    end
+    API->>DB: Vence la invitación a los 10 días
     API->>DB: Registrar el curso como contratado (si es el primero)
     API->>DB: Token nuevo por cupo
     API-)M: Invitación personal a cada email (al confirmar la transacción)

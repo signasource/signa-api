@@ -8,14 +8,15 @@ import com.signasource.signa_api.learning.entity.CourseVersion;
 import com.signasource.signa_api.learning.entity.VersionStatus;
 import com.signasource.signa_api.learning.repository.CourseRepository;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
-import com.signasource.signa_api.learning.repository.LessonBlockRepository;
 import com.signasource.signa_api.organizations.dto.CatalogCourseResponse;
+import com.signasource.signa_api.organizations.dto.CatalogModuleResponse;
 import com.signasource.signa_api.organizations.dto.CreatePurchaseRequest;
 import com.signasource.signa_api.organizations.dto.PurchaseCatalogResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseDetailResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseQuoteResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseResponse;
 import com.signasource.signa_api.organizations.dto.UpdateSeatEmailRequest;
+import com.signasource.signa_api.organizations.dto.VolumeDiscountResponse;
 import com.signasource.signa_api.organizations.entity.CoursePurchase;
 import com.signasource.signa_api.organizations.entity.Organization;
 import com.signasource.signa_api.organizations.entity.OrganizationStatus;
@@ -26,7 +27,6 @@ import com.signasource.signa_api.organizations.repository.CoursePurchaseReposito
 import com.signasource.signa_api.organizations.repository.OrganizationRepository;
 import com.signasource.signa_api.organizations.repository.PurchaseSeatRepository;
 import com.signasource.signa_api.users.entity.User;
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
@@ -52,10 +52,11 @@ public class CoursePurchaseService {
     private final OrganizationRepository organizationRepository;
     private final CourseRepository courseRepository;
     private final CourseVersionRepository courseVersionRepository;
-    private final LessonBlockRepository lessonBlockRepository;
+    private final CourseSignCatalog signCatalog;
     private final OrganizationAccessService accessService;
     private final SeatInvitationService invitationService;
     private final PurchasePolicy policy;
+    private final PurchasePricing pricing;
 
     @Transactional(readOnly = true)
     public PurchaseCatalogResponse catalog() {
@@ -66,21 +67,12 @@ public class CoursePurchaseService {
                         .flatMap(
                                 course ->
                                         publishedVersion(course.getId()).stream()
-                                                .map(
-                                                        version ->
-                                                                new CatalogCourseResponse(
-                                                                        course.getId(),
-                                                                        course.getCode(),
-                                                                        course.getName(),
-                                                                        course.getDescription(),
-                                                                        course.getCoverUrl(),
-                                                                        signCount(version))))
+                                                .map(version -> catalogCourse(course, version)))
                         .toList();
         return new PurchaseCatalogResponse(
                 courses,
-                policy.getCurrency(),
-                policy.getPricePerSignPerDay(),
-                policy.getMinPricePerSeat(),
+                pricing.getCurrency(),
+                pricing.getVolumeDiscounts().stream().map(VolumeDiscountResponse::from).toList(),
                 policy.getMinDays(),
                 policy.getMaxDays(),
                 policy.getInvitationDays(),
@@ -92,16 +84,20 @@ public class CoursePurchaseService {
         validateSize(seats, durationDays);
         Course course = findPurchasableCourse(courseId);
         int signCount = signCount(requirePublishedVersion(courseId));
-        BigDecimal pricePerSeat = policy.pricePerSeat(signCount, durationDays);
+        PurchasePricing.Quote quote = pricing.quote(signCount, durationDays, seats);
         return new PurchaseQuoteResponse(
                 course.getId(),
                 course.getName(),
                 signCount,
                 seats,
                 durationDays,
-                pricePerSeat,
-                policy.total(pricePerSeat, seats),
-                policy.getCurrency());
+                quote.listPricePerSeat(),
+                quote.discountPercent(),
+                quote.pricePerSeat(),
+                quote.subtotal(),
+                quote.discountAmount(),
+                quote.totalAmount(),
+                pricing.getCurrency());
     }
 
     @Transactional
@@ -119,7 +115,8 @@ public class CoursePurchaseService {
         int signCount = signCount(requirePublishedVersion(course.getId()));
         requireNoLiveSeats(organizationId, course.getId(), emails, Instant.now());
 
-        BigDecimal pricePerSeat = policy.pricePerSeat(signCount, request.durationDays());
+        PurchasePricing.Quote quote =
+                pricing.quote(signCount, request.durationDays(), emails.size());
         CoursePurchase purchase =
                 purchaseRepository.save(
                         CoursePurchase.builder()
@@ -129,9 +126,11 @@ public class CoursePurchaseService {
                                 .seats(emails.size())
                                 .durationDays(request.durationDays())
                                 .signCount(signCount)
-                                .pricePerSeat(pricePerSeat)
-                                .totalAmount(policy.total(pricePerSeat, emails.size()))
-                                .currency(policy.getCurrency())
+                                .listPricePerSeat(quote.listPricePerSeat())
+                                .discountPercent(quote.discountPercent())
+                                .pricePerSeat(quote.pricePerSeat())
+                                .totalAmount(quote.totalAmount())
+                                .currency(pricing.getCurrency())
                                 .build());
         seatRepository.saveAll(
                 emails.stream()
@@ -320,8 +319,21 @@ public class CoursePurchaseService {
                                                 + courseId));
     }
 
+    private CatalogCourseResponse catalogCourse(Course course, CourseVersion version) {
+        List<CatalogModuleResponse> modules = signCatalog.modules(version.getId());
+        return new CatalogCourseResponse(
+                course.getId(),
+                course.getCode(),
+                course.getName(),
+                course.getDescription(),
+                course.getCoverUrl(),
+                CourseSignCatalog.signCount(modules),
+                modules);
+    }
+
+    /** The same count the catalog shows, so the price matches the list the admin checked. */
     private int signCount(CourseVersion version) {
-        return (int) lessonBlockRepository.countIntroducedSigns(version.getId());
+        return CourseSignCatalog.signCount(signCatalog.modules(version.getId()));
     }
 
     private Organization findOrganization(UUID organizationId) {

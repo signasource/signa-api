@@ -34,7 +34,7 @@ public class PurchasePaymentService {
     public PurchaseDetailResponse confirmPayment(UUID purchaseId, String paymentReference) {
         CoursePurchase purchase =
                 purchaseRepository
-                        .findWithDetailsById(purchaseId)
+                        .findForUpdateById(purchaseId)
                         .orElseThrow(() -> new NotFoundException("Purchase not found"));
         if (purchase.getStatus() == PurchaseStatus.PAID) {
             return purchaseService.describe(purchase);

@@ -188,6 +188,7 @@ class AccountErasureRepositoryTest {
                 .seats(2)
                 .durationDays(30)
                 .signCount(1)
+                .listPricePerSeat(BigDecimal.ONE)
                 .pricePerSeat(BigDecimal.ONE)
                 .totalAmount(BigDecimal.TWO)
                 .currency("ARS")
