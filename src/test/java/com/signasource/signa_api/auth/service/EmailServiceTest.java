@@ -1,9 +1,11 @@
 package com.signasource.signa_api.auth.service;
 
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import jakarta.mail.internet.MimeMessage;
+import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -59,9 +61,12 @@ class EmailServiceTest {
     }
 
     @Test
-    void testSendOrganizationInviteEmail() {
-        emailService.sendOrganizationInviteEmail(TO_EMAIL, "Hospital <San Martin>", "ABCD2345");
+    void testSendSeatInvitationEmail() {
+        emailService.sendSeatInvitationEmail(
+                TO_EMAIL, "Hospital <San Martin>", "LSA Salud", "tok", Instant.now(), 30, false);
+        emailService.sendSeatInvitationEmail(
+                TO_EMAIL, "Hospital <San Martin>", "LSA Salud", "tok", Instant.now(), 30, true);
 
-        verify(mailSender).send(mimeMessage);
+        verify(mailSender, times(2)).send(mimeMessage);
     }
 }

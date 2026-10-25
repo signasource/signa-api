@@ -16,7 +16,6 @@ import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.gamification.entity.UserStats;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
-import com.signasource.signa_api.learning.entity.Course;
 import com.signasource.signa_api.learning.entity.ReportReason;
 import com.signasource.signa_api.learning.entity.ReportStatus;
 import com.signasource.signa_api.learning.entity.Sign;
@@ -27,13 +26,10 @@ import com.signasource.signa_api.learning.repository.SignRepository;
 import com.signasource.signa_api.organizations.entity.MemberRole;
 import com.signasource.signa_api.organizations.entity.MemberStatus;
 import com.signasource.signa_api.organizations.entity.Organization;
-import com.signasource.signa_api.organizations.entity.OrganizationCourse;
 import com.signasource.signa_api.organizations.entity.OrganizationMember;
 import com.signasource.signa_api.organizations.entity.OrganizationStatus;
-import com.signasource.signa_api.organizations.repository.OrganizationCourseRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationMemberRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationRepository;
-import com.signasource.signa_api.organizations.service.OrganizationEnrollmentService;
 import com.signasource.signa_api.users.entity.AuthProvider;
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
@@ -62,8 +58,6 @@ public class AdminService {
 
     private final OrganizationRepository organizationRepository;
     private final OrganizationMemberRepository memberRepository;
-    private final OrganizationCourseRepository organizationCourseRepository;
-    private final OrganizationEnrollmentService enrollmentService;
     private final SignReportRepository signReportRepository;
     private final UserRepository userRepository;
     private final UserSettingsRepository userSettingsRepository;
@@ -163,26 +157,6 @@ public class AdminService {
                 && org.getStatus() == OrganizationStatus.PENDING) {
             org.setStatus(OrganizationStatus.ACTIVE);
             organizationRepository.save(org);
-            if (request.courseIds() != null) {
-                for (UUID courseId : request.courseIds()) {
-                    if (!organizationCourseRepository.existsByOrganizationIdAndCourseId(
-                            id, courseId)) {
-                        Course course =
-                                courseRepository
-                                        .findById(courseId)
-                                        .orElseThrow(
-                                                () ->
-                                                        new NotFoundException(
-                                                                "Course not found: " + courseId));
-                        organizationCourseRepository.save(
-                                OrganizationCourse.builder()
-                                        .organization(org)
-                                        .course(course)
-                                        .build());
-                        enrollmentService.grantCourseToActiveMembers(org, course);
-                    }
-                }
-            }
         } else if (newStatus == OrganizationStatus.REJECTED
                 || newStatus == OrganizationStatus.SUSPENDED) {
             org.setStatus(newStatus);

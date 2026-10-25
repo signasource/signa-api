@@ -2,20 +2,31 @@ package com.signasource.signa_api.users.repository;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.signasource.signa_api.gamification.entity.UserStats;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
+import com.signasource.signa_api.learning.entity.Course;
+import com.signasource.signa_api.learning.entity.SignLanguage;
+import com.signasource.signa_api.learning.repository.CourseRepository;
+import com.signasource.signa_api.learning.repository.SignLanguageRepository;
+import com.signasource.signa_api.organizations.entity.CoursePurchase;
 import com.signasource.signa_api.organizations.entity.InviteCode;
 import com.signasource.signa_api.organizations.entity.Organization;
+import com.signasource.signa_api.organizations.entity.PurchaseSeat;
+import com.signasource.signa_api.organizations.entity.SeatStatus;
+import com.signasource.signa_api.organizations.repository.CoursePurchaseRepository;
 import com.signasource.signa_api.organizations.repository.InviteCodeRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationRepository;
+import com.signasource.signa_api.organizations.repository.PurchaseSeatRepository;
 import com.signasource.signa_api.users.entity.Friendship;
 import com.signasource.signa_api.users.entity.FriendshipStatus;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.entity.UserDailyActivity;
 import jakarta.persistence.EntityManager;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
@@ -43,6 +54,10 @@ class AccountErasureRepositoryTest {
     @Autowired private InviteCodeRepository inviteCodeRepository;
     @Autowired private OrganizationRepository organizationRepository;
     @Autowired private EntityManager entityManager;
+    @Autowired private CoursePurchaseRepository purchaseRepository;
+    @Autowired private PurchaseSeatRepository seatRepository;
+    @Autowired private SignLanguageRepository signLanguageRepository;
+    @Autowired private CourseRepository courseRepository;
 
     private User leaving;
     private User staying;
@@ -89,6 +104,41 @@ class AccountErasureRepositoryTest {
     }
 
     @Test
+    void shouldAnonymizeTheLeavingUsersSeatsButKeepThePurchase() {
+        Organization org =
+                organizationRepository.save(Organization.builder().name("Seats").build());
+        CoursePurchase purchase = purchaseRepository.save(purchase(org));
+        PurchaseSeat mine =
+                seatRepository.save(
+                        PurchaseSeat.builder()
+                                .purchase(purchase)
+                                .email(leaving.getEmail().toUpperCase())
+                                .status(SeatStatus.INVITED)
+                                .invitationToken("leaving-token")
+                                .build());
+        PurchaseSeat other =
+                seatRepository.save(
+                        PurchaseSeat.builder()
+                                .purchase(purchase)
+                                .email(staying.getEmail())
+                                .status(SeatStatus.INVITED)
+                                .invitationToken("staying-token")
+                                .build());
+
+        accountErasureRepository.deleteUserData(leaving);
+        entityManager.flush();
+        entityManager.clear();
+
+        PurchaseSeat erased = seatRepository.findById(mine.getId()).orElseThrow();
+        assertEquals("erased-" + mine.getId() + "@invalid", erased.getEmail());
+        assertNull(erased.getInvitationToken());
+        assertEquals(
+                staying.getEmail(),
+                seatRepository.findById(other.getId()).orElseThrow().getEmail());
+        assertTrue(purchaseRepository.existsById(purchase.getId()));
+    }
+
+    @Test
     void shouldRunWithoutErrorsWhenTheUserHasNoData() {
         accountErasureRepository.deleteUserData(leaving);
         entityManager.flush();
@@ -115,6 +165,33 @@ class AccountErasureRepositoryTest {
                         .enabled(true)
                         .verified(true)
                         .build());
+    }
+
+    private CoursePurchase purchase(Organization org) {
+        SignLanguage language =
+                signLanguageRepository.save(
+                        SignLanguage.builder()
+                                .code("E" + UUID.randomUUID().toString().substring(0, 8))
+                                .name("Erasure language")
+                                .countryCode("AR")
+                                .build());
+        Course course =
+                courseRepository.save(
+                        Course.builder()
+                                .code("erasure-" + UUID.randomUUID())
+                                .name("Erasure course")
+                                .signLanguage(language)
+                                .build());
+        return CoursePurchase.builder()
+                .organization(org)
+                .course(course)
+                .seats(2)
+                .durationDays(30)
+                .signCount(1)
+                .pricePerSeat(BigDecimal.ONE)
+                .totalAmount(BigDecimal.TWO)
+                .currency("ARS")
+                .build();
     }
 
     private InviteCode code(Organization org, String value, String email) {

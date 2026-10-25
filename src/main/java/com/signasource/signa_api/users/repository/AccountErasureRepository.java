@@ -47,6 +47,14 @@ public class AccountErasureRepository {
                 .setParameter("email", user.getEmail().toLowerCase())
                 .executeUpdate();
         entityManager
+                .createNativeQuery(
+                        "update purchase_seats set email = concat('erased-', cast(id as varchar(36)), '@invalid'), "
+                                + "invitation_token = null "
+                                + "where user_id = :id or lower(email) = :email")
+                .setParameter("id", user.getId())
+                .setParameter("email", user.getEmail().toLowerCase())
+                .executeUpdate();
+        entityManager
                 .createQuery(
                         "delete from Friendship f where f.requester = :user or f.addressee = :user")
                 .setParameter("user", user)

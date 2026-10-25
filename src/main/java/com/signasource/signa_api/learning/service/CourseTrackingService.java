@@ -177,7 +177,11 @@ public class CourseTrackingService {
 
     @Transactional(readOnly = true)
     public List<CourseProgressResponse> getUserCourseProgress(User user) {
-        List<UserCourseEnrollment> enrollments = activeEnrollments(user);
+        Instant now = Instant.now();
+        List<UserCourseEnrollment> enrollments =
+                enrollmentRepository.findWithCourseByUserId(user.getId()).stream()
+                        .filter(e -> e.getStatus() != EnrollmentStatus.DROPPED)
+                        .toList();
         if (enrollments.isEmpty()) {
             return List.of();
         }
@@ -233,7 +237,9 @@ public class CourseTrackingService {
                             (int) counts[1],
                             percentage(counts[1], counts[0]),
                             (int) signsLearned,
-                            currentTopic));
+                            currentTopic,
+                            enrollment.getAccessExpiresAt(),
+                            !enrollment.grantsAccess(now)));
         }
         return result;
     }

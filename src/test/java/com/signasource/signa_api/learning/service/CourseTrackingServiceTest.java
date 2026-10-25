@@ -1035,6 +1035,45 @@ class CourseTrackingServiceTest {
     }
 
     @Test
+    void getUserCourseProgress_KeepsExpiredCoursesFlaggedAndHidesDroppedOnes() {
+        CourseVersion expiredVersion =
+                CourseVersion.builder()
+                        .id(UUID.randomUUID())
+                        .course(Course.builder().name("LSA Salud").build())
+                        .build();
+        CourseVersion droppedVersion =
+                CourseVersion.builder()
+                        .id(UUID.randomUUID())
+                        .course(Course.builder().name("LSA Educación").build())
+                        .build();
+        Instant expiredAt = Instant.now().minusSeconds(60);
+        when(enrollmentRepository.findWithCourseByUserId(userId))
+                .thenReturn(
+                        List.of(
+                                UserCourseEnrollment.builder()
+                                        .courseVersion(expiredVersion)
+                                        .status(EnrollmentStatus.ENROLLED)
+                                        .accessExpiresAt(expiredAt)
+                                        .build(),
+                                UserCourseEnrollment.builder()
+                                        .courseVersion(droppedVersion)
+                                        .status(EnrollmentStatus.DROPPED)
+                                        .build()));
+        when(lessonProgressRepository.findCompletedLessonCountsByTopic(eq(userId), anyCollection()))
+                .thenReturn(List.of());
+        when(topicRepository.findTopicLessonTotals(anyCollection())).thenReturn(List.of());
+        when(topicProgressRepository.findInProgressTopics(eq(userId), anyCollection()))
+                .thenReturn(List.of());
+
+        List<CourseProgressResponse> result = courseTrackingService.getUserCourseProgress(mockUser);
+
+        assertEquals(1, result.size());
+        assertEquals("LSA Salud", result.get(0).courseName());
+        assertTrue(result.get(0).accessExpired());
+        assertEquals(expiredAt, result.get(0).accessExpiresAt());
+    }
+
+    @Test
     void getUserEnrollments_FlagsTheUsersCurrentCourse() {
         Course basic = Course.builder().id(UUID.randomUUID()).name("Curso básico").build();
         Course health = Course.builder().id(UUID.randomUUID()).name("LSA para Salud").build();
