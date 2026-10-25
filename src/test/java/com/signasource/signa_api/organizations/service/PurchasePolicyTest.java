@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 
 class PurchasePolicyTest {
 
-    private final PurchasePolicy policy = new PurchasePolicy(15, 60, 10, 5, 24, 500);
+    private final PurchasePolicy policy = new PurchasePolicy(15, 60, 10, 5, 24, 500, 10);
 
     @Test
     void shouldAcceptOnlyDurationsInsideTheRange() {

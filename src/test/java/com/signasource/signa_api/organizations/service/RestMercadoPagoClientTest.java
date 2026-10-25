@@ -120,6 +120,7 @@ class RestMercadoPagoClientTest {
                 .andRespond(
                         withSuccess(
                                 "{\"id\":987,\"status\":\"approved\","
+                                        + "\"status_detail\":\"partially_refunded\","
                                         + "\"external_reference\":\"purchase-1\","
                                         + "\"transaction_amount\":243000.0,\"currency_id\":\"ARS\"}",
                                 MediaType.APPLICATION_JSON));
@@ -131,6 +132,8 @@ class RestMercadoPagoClientTest {
         assertEquals("purchase-1", payment.externalReference());
         assertEquals(0, new BigDecimal("243000").compareTo(payment.transactionAmount()));
         assertEquals("ARS", payment.currency());
+        assertEquals("partially_refunded", payment.statusDetail());
+        assertTrue(payment.isPartiallyRefunded());
     }
 
     @Test

@@ -1,6 +1,7 @@
 package com.signasource.signa_api.organizations.service;
 
 import com.signasource.signa_api.auth.service.EmailService;
+import com.signasource.signa_api.common.AfterCommit;
 import com.signasource.signa_api.exceptions.ForbiddenException;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
@@ -16,6 +17,7 @@ import com.signasource.signa_api.organizations.entity.Organization;
 import com.signasource.signa_api.organizations.entity.OrganizationMember;
 import com.signasource.signa_api.organizations.entity.OrganizationStatus;
 import com.signasource.signa_api.organizations.entity.PurchaseSeat;
+import com.signasource.signa_api.organizations.entity.PurchaseStatus;
 import com.signasource.signa_api.organizations.entity.SeatStatus;
 import com.signasource.signa_api.organizations.repository.OrganizationMemberRepository;
 import com.signasource.signa_api.organizations.repository.PurchaseSeatRepository;
@@ -30,8 +32,6 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 @RequiredArgsConstructor
@@ -107,7 +107,10 @@ public class SeatInvitationService {
 
     @Transactional
     public AcceptInvitationResponse accept(User user, String token) {
-        PurchaseSeat seat = findByToken(token);
+        PurchaseSeat seat =
+                seatRepository
+                        .findForUpdateByInvitationToken(token)
+                        .orElseThrow(() -> new NotFoundException("Invitation not found"));
         CoursePurchase purchase = seat.getPurchase();
         Organization organization = purchase.getOrganization();
         Course course = purchase.getCourse();
@@ -125,7 +128,7 @@ public class SeatInvitationService {
         if (status == SeatStatus.INVITATION_EXPIRED) {
             throw new InvalidInputException("This invitation expired");
         }
-        if (status != SeatStatus.INVITED) {
+        if (status != SeatStatus.INVITED || purchase.getStatus() != PurchaseStatus.PAID) {
             throw new InvalidInputException("This invitation is no longer valid");
         }
         if (organization.getStatus() != OrganizationStatus.ACTIVE) {
@@ -215,24 +218,10 @@ public class SeatInvitationService {
         String token = seat.getInvitationToken();
         Instant deadline = purchase.getInvitationDeadline();
         int days = purchase.getDurationDays();
-        afterCommit(
+        AfterCommit.run(
                 () ->
                         emailService.sendSeatInvitationEmail(
                                 to, organizationName, courseName, token, deadline, days, reminder));
-    }
-
-    private static void afterCommit(Runnable action) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            action.run();
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(
-                new TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        action.run();
-                    }
-                });
     }
 
     private String generateUniqueToken() {

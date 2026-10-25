@@ -26,6 +26,14 @@ public interface CoursePurchaseRepository extends JpaRepository<CoursePurchase, 
     Optional<CoursePurchase> findForUpdateById(UUID id);
 
     @EntityGraph(attributePaths = {"course", "organization"})
+    Optional<CoursePurchase> findByPaymentReference(String paymentReference);
+
+    /** The purchase a payment paid, locked (see {@link #findForUpdateById}). */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @EntityGraph(attributePaths = {"course", "organization"})
+    Optional<CoursePurchase> findForUpdateByPaymentReference(String paymentReference);
+
+    @EntityGraph(attributePaths = {"course", "organization"})
     List<CoursePurchase> findByStatusOrderByCreatedAtAsc(PurchaseStatus status);
 
     @EntityGraph(attributePaths = {"course", "organization"})

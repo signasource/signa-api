@@ -115,6 +115,7 @@ public class RestMercadoPagoClient implements MercadoPagoClient {
         return new Payment(
                 response.path("id").asText(paymentId),
                 response.path("status").asText(""),
+                response.path("status_detail").asText(""),
                 response.path("external_reference").asText(""),
                 response.path("transaction_amount").decimalValue(),
                 response.path("currency_id").asText(""));

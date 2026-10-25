@@ -596,6 +596,53 @@ sequenceDiagram
     API-)M: Invitación personal a cada email (al confirmar la transacción)
 ```
 
+## Anulación de una compra pagada
+
+Dentro de los 10 días del pago (arrepentimiento) la organización puede anular una compra pagada con
+Mercado Pago. Primero se registra el reembolso como pendiente, después se devuelve en Mercado Pago y
+recién entonces se revoca la compra; si Mercado Pago falla, el reembolso queda pendiente y se
+completa al reintentar o cuando llega la notificación del pago devuelto. Un reembolso hecho desde
+Mercado Pago o un contracargo revocan la compra en cualquier momento.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as Admin de la organización
+    participant MP as Mercado Pago
+    participant API as API
+    participant M as Correo
+    participant DB as Base de datos
+
+    A->>API: Anular compra (motivo opcional)
+    API->>DB: Lock de la compra
+    alt no está pagada, no se pagó con Mercado Pago o pasó el plazo
+        API-->>A: Solicitud inválida (400)
+    else dentro del plazo
+        API->>DB: Reembolso BUYER_REQUESTED pendiente
+        API->>MP: Reembolsar el pago completo (idempotente)
+        alt Mercado Pago falla
+            API-->>A: 503, el reembolso queda pendiente (reintentar lo completa)
+        else reembolsado
+            API->>DB: Reembolso REFUNDED, compra REFUNDED
+            API->>DB: Invitaciones pendientes CANCELLED (el link deja de servir)
+            API->>DB: Accesos activos REVOKED, inscripción vence ahora (el progreso queda)
+            API-)M: Aviso a cada persona, a los admins y al equipo
+            API-->>A: Compra anulada
+        end
+    end
+
+    Note over MP,API: Más tarde, en cualquier momento
+    MP->>API: Pago refunded / charged_back (webhook)
+    alt reembolso que empezó Signa
+        API->>DB: Completar el reembolso pendiente (y revocar si era el arrepentimiento)
+    else el pago había pagado una compra activa
+        API->>DB: Reembolso EXTERNAL_REFUND / CHARGEBACK y revocar la compra
+        API-)M: Avisos
+    else reembolso parcial o disputa abierta
+        API-)M: Solo alerta al equipo, no cambia nada
+    end
+```
+
 ## Aceptación de una invitación
 
 El link del correo lleva a la web. La persona crea su cuenta o inicia sesión **con el mismo email** y

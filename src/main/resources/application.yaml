@@ -107,6 +107,10 @@ organizations:
     auto-reminder-after-days: 5
     manual-reminder-cooldown-hours: 24
     max-seats: 500
+    # Days after paying in which an organization can cancel a purchase for a full refund.
+    withdrawal-days: 10
+    # Where Signa is told about refunds, chargebacks and disputes; empty = only logged.
+    ops-alert-email: ${ORG_OPS_ALERT_EMAIL:}
 
 mercado-pago:
   api-url: https://api.mercadopago.com
