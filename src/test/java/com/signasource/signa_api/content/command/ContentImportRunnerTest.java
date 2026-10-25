@@ -4,10 +4,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.signasource.signa_api.content.dto.result.ContentImportOutcome;
-import com.signasource.signa_api.content.dto.result.ImportResult;
-import com.signasource.signa_api.content.service.ContentImportService;
-import java.util.List;
+import com.signasource.signa_api.content.entity.ContentImportRun;
+import com.signasource.signa_api.content.entity.ContentImportStatus;
+import com.signasource.signa_api.content.entity.ContentImportTrigger;
+import com.signasource.signa_api.content.service.ContentImportHistoryService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -17,28 +17,25 @@ import org.springframework.boot.DefaultApplicationArguments;
 @ExtendWith(MockitoExtension.class)
 class ContentImportRunnerTest {
 
-    @Mock private ContentImportService importService;
+    @Mock private ContentImportHistoryService historyService;
 
     @Test
     void shouldNotImportWhenDisabled() {
-        ContentImportRunner runner = new ContentImportRunner(importService, false);
+        ContentImportRunner runner = new ContentImportRunner(historyService, false);
 
         runner.run(new DefaultApplicationArguments());
 
-        verifyNoInteractions(importService);
+        verifyNoInteractions(historyService);
     }
 
     @Test
-    void shouldImportAllOnStartupWhenEnabled() {
-        when(importService.importAll())
-                .thenReturn(
-                        List.of(
-                                new ContentImportOutcome(
-                                        "LSA", "basic-course", ImportResult.CREATED)));
-        ContentImportRunner runner = new ContentImportRunner(importService, true);
+    void shouldRunStartupImportWhenEnabled() {
+        when(historyService.run(ContentImportTrigger.STARTUP, null))
+                .thenReturn(ContentImportRun.builder().status(ContentImportStatus.SUCCESS).build());
+        ContentImportRunner runner = new ContentImportRunner(historyService, true);
 
         runner.run(new DefaultApplicationArguments());
 
-        verify(importService).importAll();
+        verify(historyService).run(ContentImportTrigger.STARTUP, null);
     }
 }

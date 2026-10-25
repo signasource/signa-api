@@ -59,6 +59,11 @@ dependencies {
 
 	runtimeOnly 'org.postgresql:postgresql'
 
+	// Flyway — versioned schema migrations (PostgreSQL). Owns the schema in every
+	// real environment; Hibernate runs in validate mode against it.
+	implementation 'org.flywaydb:flyway-core'
+	implementation 'org.flywaydb:flyway-database-postgresql'
+
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'com.h2database:h2'
 }

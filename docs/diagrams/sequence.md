@@ -93,6 +93,44 @@ sequenceDiagram
     end
 ```
 
+## Restablecimiento de contraseña con código
+
+El correo trae un código de 6 dígitos que vence a los 15 minutos; se guarda cifrado (BCrypt) y se
+descarta tras 5 intentos fallidos. Pedirlo responde igual exista o no la cuenta, y cualquier código
+inválido, vencido o agotado devuelve el mismo error.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant API as API
+    participant DB as Base de datos
+    participant Mail as Servicio de correo
+
+    C->>API: Pedir código (correo)
+    API->>API: Generar código y cifrarlo (también si la cuenta no existe)
+    API->>DB: Buscar cuenta por correo
+    opt la cuenta existe
+        API->>DB: Reemplazar el código pendiente (vence en 15 min, 0 intentos)
+        API-)Mail: Enviar código (asíncrono)
+    end
+    API-->>C: OK (200) siempre
+
+    C->>API: Restablecer (correo, código, contraseña nueva)
+    API->>DB: Buscar cuenta y código pendiente
+    alt sin cuenta, sin código o vencido
+        API->>DB: Eliminar el código si estaba vencido
+        API-->>C: Código inválido o vencido (400)
+    else código incorrecto
+        API->>DB: Sumar un intento (al 5.º se elimina el código)
+        API-->>C: Código inválido o vencido (400)
+    else código correcto
+        API->>DB: Guardar la contraseña nueva cifrada
+        API->>DB: Eliminar el código y los tokens de renovación
+        API-->>C: OK (200)
+    end
+```
+
 ## Inicio de sesión con proveedor externo
 
 ```mermaid
@@ -334,6 +372,13 @@ Registra el intento del usuario y propaga la finalización hacia arriba en la je
 del camino principal. El progreso de lección y tema se crea de forma diferida en la primera
 interacción.
 
+**Bloques requeridos para completar la lección:** todos salvo `INTRODUCE_SIGN` e `INVISIBLE_SIGNS`,
+que el reproductor de la app nunca reporta (el primero solo presenta la seña, el segundo no se
+muestra). `INFO` y los de cámara (`PERFORM_SIGN`, `SPELL_NAME`) cuentan con cualquier intento; el
+resto pide un acierto. La finalización se evalúa en **cada** interacción (no solo en el primer
+hito), así una lección que quedó en progreso se completa al volver a responder cualquiera de sus
+bloques.
+
 ```mermaid
 sequenceDiagram
     autonumber
@@ -352,15 +397,15 @@ sequenceDiagram
         else válida
             API->>DB: Registrar el intento
             API->>DB: Marcar lección y tema en progreso (si estaban bloqueados)
-            alt primer hito (primer acierto / primera vista)
+            opt primer hito (primer acierto / primera vista)
                 API-)Gam: XP ganado
                 API-)Gam: Señas aprendidas (bloques de ejercicio)
-                API->>DB: ¿Todos los bloques de la lección resueltos?
-                opt lección completa
-                    API->>DB: Completar lección (con XP acumulado)
-                    opt todos los temas... completos
-                        API->>DB: Completar tema y, si corresponde, la inscripción
-                    end
+            end
+            API->>DB: ¿Todos los bloques requeridos de la lección resueltos?
+            opt lección completa (y no lo estaba)
+                API->>DB: Completar lección (con XP acumulado)
+                opt todos los temas... completos
+                    API->>DB: Completar tema y, si corresponde, la inscripción
                 end
             end
             API-->>C: Intento registrado (201)

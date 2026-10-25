@@ -24,6 +24,11 @@ public final class ArgentinaTime {
         return LocalDate.ofInstant(instant, ZONE);
     }
 
+    /** Monday of the current week. */
+    public static LocalDate startOfCurrentWeekDate() {
+        return today().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+    }
+
     /** Monday 00:00 of the current week. */
     public static Instant startOfCurrentWeek() {
         return today().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))

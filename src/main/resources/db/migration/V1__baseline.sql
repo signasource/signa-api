@@ -1,0 +1,1794 @@
+-- Flyway baseline (V1) — snapshot of the production schema at migration adoption.
+-- Captured via pg_dump --schema-only --no-owner --no-privileges --no-comments.
+-- On existing environments Flyway baselines at V1 and NEVER runs this file; it only
+-- builds the schema on fresh databases. Structural changes go in V2+ migrations.
+-- Reference data (seeds) still comes from DataLoader + the content import pipeline.
+
+--
+-- PostgreSQL database dump
+--
+
+
+-- Dumped from database version 17.10 (Debian 17.10-1.pgdg13+1)
+-- Dumped by pg_dump version 17.10 (Debian 17.10-1.pgdg13+1)
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: achievements; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.achievements (
+    id uuid NOT NULL,
+    active boolean NOT NULL,
+    code character varying(100) NOT NULL,
+    criteria_type character varying(255) NOT NULL,
+    criteria_value integer NOT NULL,
+    description text,
+    icon_url character varying(255),
+    reward_gems integer DEFAULT 0 NOT NULL,
+    reward_streak_shields integer DEFAULT 0 NOT NULL,
+    title character varying(150) NOT NULL,
+    CONSTRAINT achievements_criteria_type_check CHECK (((criteria_type)::text = ANY ((ARRAY['STREAK_DAYS'::character varying, 'STREAK_DAYS_NO_SHIELD'::character varying, 'TOTAL_XP'::character varying, 'WEEKLY_XP'::character varying, 'LESSONS_COMPLETED'::character varying, 'COURSES_COMPLETED'::character varying, 'CHALLENGES_COMPLETED'::character varying, 'DAILY_CHALLENGES_COMPLETED'::character varying, 'WEEKLY_CHALLENGES_COMPLETED'::character varying, 'GIFTS_SENT'::character varying, 'SHOP_PURCHASES'::character varying, 'FRIENDS_COUNT'::character varying])::text[])))
+);
+
+
+--
+-- Name: challenges; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.challenges (
+    id uuid NOT NULL,
+    active boolean NOT NULL,
+    challenge_type character varying(255) NOT NULL,
+    code character varying(100) NOT NULL,
+    criteria_type character varying(255) NOT NULL,
+    criteria_value integer NOT NULL,
+    description text,
+    display_order integer NOT NULL,
+    reward_duration_minutes integer,
+    reward_multiplier_value double precision,
+    reward_quantity integer NOT NULL,
+    reward_type character varying(255) NOT NULL,
+    title character varying(150) NOT NULL,
+    CONSTRAINT challenges_challenge_type_check CHECK (((challenge_type)::text = ANY ((ARRAY['FIRST_STEPS'::character varying, 'DAILY'::character varying, 'WEEKLY'::character varying])::text[]))),
+    CONSTRAINT challenges_criteria_type_check CHECK (((criteria_type)::text = ANY ((ARRAY['COMPLETE_LESSONS'::character varying, 'EARN_XP'::character varying, 'PERFECT_LESSONS'::character varying, 'CAMERA_PRACTICES'::character varying, 'STREAK_DAYS'::character varying, 'FRIEND_REQUESTS_SENT'::character varying])::text[]))),
+    CONSTRAINT challenges_reward_type_check CHECK (((reward_type)::text = ANY ((ARRAY['GEMS'::character varying, 'LIFE'::character varying, 'XP_MULTIPLIER'::character varying, 'STREAK_SHIELD'::character varying])::text[])))
+);
+
+
+--
+-- Name: course_versions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.course_versions (
+    id uuid NOT NULL,
+    published_at timestamp(6) with time zone,
+    status character varying(20) NOT NULL,
+    version character varying(50) NOT NULL,
+    course_id uuid NOT NULL,
+    CONSTRAINT course_versions_status_check CHECK (((status)::text = ANY ((ARRAY['DRAFT'::character varying, 'PUBLISHED'::character varying, 'ARCHIVED'::character varying])::text[])))
+);
+
+
+--
+-- Name: courses; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.courses (
+    id uuid NOT NULL,
+    code character varying(255) NOT NULL,
+    content_hash character varying(64),
+    cover_url character varying(255),
+    description text,
+    is_free boolean NOT NULL,
+    name character varying(150) NOT NULL,
+    sign_language_id uuid NOT NULL
+);
+
+
+--
+-- Name: device_tokens; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.device_tokens (
+    id bigint NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    last_used_at timestamp(6) with time zone NOT NULL,
+    platform character varying(255),
+    token character varying(512) NOT NULL,
+    user_id uuid NOT NULL,
+    CONSTRAINT device_tokens_platform_check CHECK (((platform)::text = ANY ((ARRAY['ANDROID'::character varying, 'IOS'::character varying, 'WEB'::character varying])::text[])))
+);
+
+
+--
+-- Name: device_tokens_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.device_tokens ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.device_tokens_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: friend_event_likes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.friend_event_likes (
+    id bigint NOT NULL,
+    created_at timestamp(6) with time zone,
+    event_owner_id uuid NOT NULL,
+    event_ref_id uuid NOT NULL,
+    event_type character varying(255) NOT NULL,
+    user_id uuid NOT NULL,
+    CONSTRAINT friend_event_likes_event_type_check CHECK (((event_type)::text = ANY ((ARRAY['ACHIEVEMENT'::character varying, 'SIGN_LEARNED'::character varying])::text[])))
+);
+
+
+--
+-- Name: friend_event_likes_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.friend_event_likes ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.friend_event_likes_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: friendships; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.friendships (
+    id bigint NOT NULL,
+    created_at timestamp(6) without time zone,
+    status character varying(255) NOT NULL,
+    updated_at timestamp(6) without time zone,
+    addressee_user_id uuid NOT NULL,
+    requester_user_id uuid NOT NULL,
+    CONSTRAINT friendships_status_check CHECK (((status)::text = ANY ((ARRAY['PENDING'::character varying, 'ACCEPTED'::character varying, 'REJECTED'::character varying, 'BLOCKED'::character varying])::text[])))
+);
+
+
+--
+-- Name: friendships_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.friendships ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.friendships_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: gem_packs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.gem_packs (
+    id uuid NOT NULL,
+    active boolean NOT NULL,
+    gems integer NOT NULL,
+    product_id character varying(100) NOT NULL,
+    sort_order integer NOT NULL
+);
+
+
+--
+-- Name: gem_purchases; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.gem_purchases (
+    id uuid NOT NULL,
+    gems_granted integer NOT NULL,
+    order_id character varying(100),
+    product_id character varying(100) NOT NULL,
+    purchase_token text NOT NULL,
+    purchased_at timestamp(6) with time zone NOT NULL,
+    verified_at timestamp(6) with time zone NOT NULL,
+    gem_pack_id uuid NOT NULL,
+    user_id uuid NOT NULL
+);
+
+
+--
+-- Name: gifts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.gifts (
+    id uuid NOT NULL,
+    claimed_at timestamp(6) with time zone,
+    expires_at timestamp(6) with time zone,
+    message text,
+    sent_at timestamp(6) with time zone NOT NULL,
+    status character varying(255) NOT NULL,
+    recipient_id uuid NOT NULL,
+    sender_id uuid NOT NULL,
+    shop_item_id uuid NOT NULL,
+    CONSTRAINT gifts_status_check CHECK (((status)::text = ANY ((ARRAY['PENDING'::character varying, 'CLAIMED'::character varying, 'EXPIRED'::character varying])::text[])))
+);
+
+
+--
+-- Name: invite_codes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.invite_codes (
+    id uuid NOT NULL,
+    active boolean NOT NULL,
+    code character varying(20) NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    email character varying(255),
+    expires_at timestamp(6) with time zone,
+    max_uses integer,
+    member_role character varying(20) DEFAULT 'MEMBER'::character varying NOT NULL,
+    use_count integer NOT NULL,
+    organization_id uuid NOT NULL,
+    CONSTRAINT invite_codes_member_role_check CHECK (((member_role)::text = ANY ((ARRAY['ADMIN'::character varying, 'MEMBER'::character varying])::text[])))
+);
+
+
+--
+-- Name: lesson_block_attempts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.lesson_block_attempts (
+    id uuid NOT NULL,
+    attempted_at timestamp(6) with time zone NOT NULL,
+    is_correct boolean,
+    lesson_block_id uuid NOT NULL,
+    organization_id uuid,
+    user_id uuid NOT NULL
+);
+
+
+--
+-- Name: lesson_blocks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.lesson_blocks (
+    id uuid NOT NULL,
+    config text,
+    "order" integer NOT NULL,
+    type character varying(30) NOT NULL,
+    xp_reward integer,
+    lesson_id uuid NOT NULL
+);
+
+
+--
+-- Name: lessons; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.lessons (
+    id uuid NOT NULL,
+    code character varying(50) NOT NULL,
+    description text,
+    name character varying(150) NOT NULL,
+    "order" integer NOT NULL,
+    topic_id uuid NOT NULL
+);
+
+
+--
+-- Name: notification_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.notification_history (
+    id bigint NOT NULL,
+    body character varying(1000) NOT NULL,
+    metadata character varying(2000),
+    is_read boolean NOT NULL,
+    read_at timestamp(6) with time zone,
+    sent_at timestamp(6) with time zone NOT NULL,
+    title character varying(255) NOT NULL,
+    template_id bigint NOT NULL,
+    user_id uuid NOT NULL
+);
+
+
+--
+-- Name: notification_history_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.notification_history ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.notification_history_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: notification_templates; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.notification_templates (
+    id bigint NOT NULL,
+    code character varying(255) NOT NULL,
+    default_body character varying(1000) NOT NULL,
+    default_title character varying(255) NOT NULL,
+    enabled boolean NOT NULL,
+    schedulable boolean NOT NULL,
+    scope character varying(255) NOT NULL,
+    CONSTRAINT notification_templates_code_check CHECK (((code)::text = ANY ((ARRAY['DAILY_REMINDER'::character varying, 'COURSE_COMPLETED'::character varying, 'STREAK_REMINDER'::character varying, 'NEW_COURSE_AVAILABLE'::character varying, 'GLOBAL_ANNOUNCEMENT'::character varying, 'FRIEND_REQUEST_RECEIVED'::character varying, 'FRIEND_REQUEST_ACCEPTED'::character varying, 'FRIEND_EVENT_LIKED'::character varying])::text[]))),
+    CONSTRAINT notification_templates_scope_check CHECK (((scope)::text = ANY ((ARRAY['GLOBAL'::character varying, 'INDIVIDUAL'::character varying])::text[])))
+);
+
+
+--
+-- Name: notification_templates_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.notification_templates ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.notification_templates_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: organization_courses; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.organization_courses (
+    id uuid NOT NULL,
+    contracted_at timestamp(6) with time zone NOT NULL,
+    course_id uuid NOT NULL,
+    organization_id uuid NOT NULL
+);
+
+
+--
+-- Name: organization_members; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.organization_members (
+    id uuid NOT NULL,
+    joined_at timestamp(6) with time zone NOT NULL,
+    removed_at timestamp(6) with time zone,
+    role character varying(20) NOT NULL,
+    status character varying(20) NOT NULL,
+    organization_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    CONSTRAINT organization_members_role_check CHECK (((role)::text = ANY ((ARRAY['ADMIN'::character varying, 'MEMBER'::character varying])::text[]))),
+    CONSTRAINT organization_members_status_check CHECK (((status)::text = ANY ((ARRAY['ACTIVE'::character varying, 'REMOVED'::character varying])::text[])))
+);
+
+
+--
+-- Name: organizations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.organizations (
+    id uuid NOT NULL,
+    contact_email character varying(150),
+    contact_phone character varying(50),
+    created_at timestamp(6) with time zone NOT NULL,
+    cuit character varying(20),
+    member_limit integer,
+    name character varying(150) NOT NULL,
+    status character varying(10) NOT NULL,
+    CONSTRAINT organizations_status_check CHECK (((status)::text = ANY ((ARRAY['PENDING'::character varying, 'ACTIVE'::character varying, 'REJECTED'::character varying, 'SUSPENDED'::character varying])::text[])))
+);
+
+
+--
+-- Name: practice_attempts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.practice_attempts (
+    id uuid NOT NULL,
+    attempted_at timestamp(6) with time zone NOT NULL,
+    is_correct boolean NOT NULL,
+    lesson_block_id uuid NOT NULL,
+    user_id uuid NOT NULL
+);
+
+
+--
+-- Name: purchases; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.purchases (
+    id uuid NOT NULL,
+    activated_at timestamp(6) with time zone,
+    gems_spent integer NOT NULL,
+    purchased_at timestamp(6) with time zone NOT NULL,
+    status character varying(20) NOT NULL,
+    shop_item_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    CONSTRAINT purchases_status_check CHECK (((status)::text = ANY ((ARRAY['PENDING'::character varying, 'STORED'::character varying, 'ACTIVATED'::character varying])::text[])))
+);
+
+
+--
+-- Name: shop_items; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.shop_items (
+    id uuid NOT NULL,
+    active boolean NOT NULL,
+    code character varying(100) NOT NULL,
+    description text,
+    duration_minutes integer,
+    item_type character varying(255) NOT NULL,
+    multiplier_value double precision,
+    price_gems integer NOT NULL,
+    quantity integer NOT NULL,
+    title character varying(150) NOT NULL,
+    CONSTRAINT shop_items_item_type_check CHECK (((item_type)::text = ANY ((ARRAY['STREAK_SHIELD'::character varying, 'UNLIMITED_LIVES'::character varying, 'XP_MULTIPLIER'::character varying, 'MYSTERY_CHEST'::character varying, 'GEMS'::character varying, 'LIFE'::character varying])::text[])))
+);
+
+
+--
+-- Name: sign_languages; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sign_languages (
+    id uuid NOT NULL,
+    code character varying(10) NOT NULL,
+    country_code character varying(3) NOT NULL,
+    name character varying(100) NOT NULL
+);
+
+
+--
+-- Name: sign_reports; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sign_reports (
+    id uuid NOT NULL,
+    admin_note text,
+    created_at timestamp(6) without time zone NOT NULL,
+    description text,
+    reason character varying(50) NOT NULL,
+    resolved_at timestamp(6) without time zone,
+    status character varying(255) NOT NULL,
+    resolved_by uuid,
+    sign_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    CONSTRAINT sign_reports_reason_check CHECK (((reason)::text = ANY ((ARRAY['INCORRECT_SIGN'::character varying, 'UNCLEAR_ANIMATION'::character varying, 'WRONG_MEANING'::character varying, 'MISSING_CONTEXT'::character varying, 'REGIONAL_VARIANT'::character varying, 'TECHNICAL_PROBLEM'::character varying, 'OTHER'::character varying])::text[]))),
+    CONSTRAINT sign_reports_status_check CHECK (((status)::text = ANY ((ARRAY['PENDING'::character varying, 'REVIEWED'::character varying, 'RESOLVED'::character varying, 'REJECTED'::character varying])::text[])))
+);
+
+
+--
+-- Name: signs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.signs (
+    id uuid NOT NULL,
+    animation_url character varying(255),
+    handedness character varying(20) NOT NULL,
+    meaning character varying(150) NOT NULL,
+    youtube_url character varying(255),
+    sign_language_id uuid NOT NULL,
+    CONSTRAINT signs_handedness_check CHECK (((handedness)::text = ANY ((ARRAY['ONE_HANDED'::character varying, 'TWO_HANDED'::character varying])::text[])))
+);
+
+
+--
+-- Name: tokens; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.tokens (
+    id bigint NOT NULL,
+    expiry_date timestamp(6) with time zone NOT NULL,
+    token character varying(255) NOT NULL,
+    type character varying(255) NOT NULL,
+    user_id uuid NOT NULL,
+    CONSTRAINT tokens_type_check CHECK (((type)::text = ANY ((ARRAY['EMAIL_VERIFICATION'::character varying, 'PASSWORD_RESET'::character varying, 'REFRESH'::character varying])::text[])))
+);
+
+
+--
+-- Name: tokens_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.tokens ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.tokens_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: topics; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.topics (
+    id uuid NOT NULL,
+    code character varying(50) NOT NULL,
+    cover_url character varying(255),
+    description text,
+    "order" integer NOT NULL,
+    subtitle character varying(150),
+    title character varying(150) NOT NULL,
+    course_version_id uuid NOT NULL
+);
+
+
+--
+-- Name: user_achievements; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_achievements (
+    id uuid NOT NULL,
+    earned_at timestamp(6) with time zone NOT NULL,
+    seen_at timestamp(6) with time zone,
+    achievement_id uuid NOT NULL,
+    user_id uuid NOT NULL
+);
+
+
+--
+-- Name: user_challenges; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_challenges (
+    id uuid NOT NULL,
+    completed boolean NOT NULL,
+    completed_at timestamp(6) with time zone,
+    current_progress integer NOT NULL,
+    period_end date NOT NULL,
+    period_start date NOT NULL,
+    reward_claimed_at timestamp(6) with time zone,
+    started_at timestamp(6) with time zone NOT NULL,
+    challenge_id uuid NOT NULL,
+    user_id uuid NOT NULL
+);
+
+
+--
+-- Name: user_course_enrollments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_course_enrollments (
+    id uuid NOT NULL,
+    access_expires_at timestamp(6) with time zone,
+    completed_at timestamp(6) with time zone,
+    started_at timestamp(6) with time zone NOT NULL,
+    status character varying(50) NOT NULL,
+    course_version_id uuid NOT NULL,
+    organization_id uuid,
+    user_id uuid NOT NULL,
+    CONSTRAINT user_course_enrollments_status_check CHECK (((status)::text = ANY ((ARRAY['ENROLLED'::character varying, 'COMPLETED'::character varying, 'DROPPED'::character varying])::text[])))
+);
+
+
+--
+-- Name: user_daily_activity; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_daily_activity (
+    id uuid NOT NULL,
+    activity_date date NOT NULL,
+    minutes integer NOT NULL,
+    user_id uuid NOT NULL
+);
+
+
+--
+-- Name: user_daily_xp; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_daily_xp (
+    id uuid NOT NULL,
+    xp_date date NOT NULL,
+    xp_earned integer NOT NULL,
+    user_id uuid NOT NULL
+);
+
+
+--
+-- Name: user_learned_signs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_learned_signs (
+    id uuid NOT NULL,
+    learned_at timestamp(6) with time zone NOT NULL,
+    sign character varying(100) NOT NULL,
+    course_version_id uuid NOT NULL,
+    user_id uuid NOT NULL
+);
+
+
+--
+-- Name: user_lesson_progress; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_lesson_progress (
+    id uuid NOT NULL,
+    completed_at timestamp(6) with time zone,
+    started_at timestamp(6) with time zone,
+    status character varying(50) NOT NULL,
+    xp_earned integer NOT NULL,
+    lesson_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    CONSTRAINT user_lesson_progress_status_check CHECK (((status)::text = ANY ((ARRAY['LOCKED'::character varying, 'IN_PROGRESS'::character varying, 'COMPLETED'::character varying])::text[])))
+);
+
+
+--
+-- Name: user_providers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_providers (
+    user_id uuid NOT NULL,
+    provider character varying(255) NOT NULL,
+    CONSTRAINT user_providers_provider_check CHECK (((provider)::text = ANY ((ARRAY['LOCAL'::character varying, 'GOOGLE'::character varying])::text[])))
+);
+
+
+--
+-- Name: user_settings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_settings (
+    id uuid NOT NULL,
+    account_visibility character varying(20) NOT NULL,
+    daily_goal_minutes integer NOT NULL,
+    daily_notification_enabled boolean NOT NULL,
+    daily_notification_time time(6) without time zone NOT NULL,
+    font_size character varying(20) NOT NULL,
+    notifications_enabled boolean NOT NULL,
+    profile_header_color character varying(7) NOT NULL,
+    theme character varying(20) NOT NULL,
+    timezone character varying(255) NOT NULL,
+    vibration_enabled boolean NOT NULL,
+    user_id uuid NOT NULL,
+    CONSTRAINT user_settings_account_visibility_check CHECK (((account_visibility)::text = ANY ((ARRAY['PUBLIC'::character varying, 'PRIVATE'::character varying])::text[]))),
+    CONSTRAINT user_settings_font_size_check CHECK (((font_size)::text = ANY ((ARRAY['SMALL'::character varying, 'MEDIUM'::character varying, 'LARGE'::character varying])::text[]))),
+    CONSTRAINT user_settings_theme_check CHECK (((theme)::text = ANY ((ARRAY['LIGHT'::character varying, 'DARK'::character varying, 'SYSTEM'::character varying])::text[])))
+);
+
+
+--
+-- Name: user_stats; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_stats (
+    id uuid NOT NULL,
+    current_lives integer,
+    current_streak integer NOT NULL,
+    gems integer NOT NULL,
+    last_mistake_review_at timestamp(6) with time zone,
+    last_streak_date date,
+    learned_signs_count integer NOT NULL,
+    lives_mode character varying(255) NOT NULL,
+    longest_streak integer NOT NULL,
+    next_life_at timestamp(6) with time zone,
+    previous_weekly_rank integer,
+    streak_shields integer NOT NULL,
+    total_xp bigint NOT NULL,
+    unlimited_lives_expires_at timestamp(6) with time zone,
+    updated_at timestamp(6) with time zone NOT NULL,
+    weekly_xp integer NOT NULL,
+    xp_multiplier double precision NOT NULL,
+    xp_multiplier_expires_at timestamp(6) with time zone,
+    user_id uuid NOT NULL,
+    CONSTRAINT user_stats_lives_mode_check CHECK (((lives_mode)::text = ANY ((ARRAY['INFINITE'::character varying, 'LIMITED'::character varying])::text[])))
+);
+
+
+--
+-- Name: user_topic_progress; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_topic_progress (
+    id uuid NOT NULL,
+    completed_at timestamp(6) with time zone,
+    started_at timestamp(6) with time zone,
+    status character varying(50) NOT NULL,
+    topic_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    CONSTRAINT user_topic_progress_status_check CHECK (((status)::text = ANY ((ARRAY['LOCKED'::character varying, 'IN_PROGRESS'::character varying, 'COMPLETED'::character varying])::text[])))
+);
+
+
+--
+-- Name: users; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.users (
+    id uuid NOT NULL,
+    account_visibility character varying(255) NOT NULL,
+    email character varying(255) NOT NULL,
+    enabled boolean NOT NULL,
+    last_name character varying(255) NOT NULL,
+    name character varying(255) NOT NULL,
+    password_hash character varying(255) NOT NULL,
+    role character varying(255),
+    username character varying(255) NOT NULL,
+    verified boolean NOT NULL,
+    current_course_id uuid,
+    CONSTRAINT users_account_visibility_check CHECK (((account_visibility)::text = ANY ((ARRAY['PUBLIC'::character varying, 'PRIVATE'::character varying])::text[]))),
+    CONSTRAINT users_role_check CHECK (((role)::text = ANY ((ARRAY['USER'::character varying, 'ADMIN'::character varying, 'ORG_ADMIN'::character varying])::text[])))
+);
+
+
+--
+-- Name: waitlist_entries; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.waitlist_entries (
+    id bigint NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    email character varying(254) NOT NULL
+);
+
+
+--
+-- Name: waitlist_entries_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.waitlist_entries ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.waitlist_entries_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: achievements achievements_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.achievements
+    ADD CONSTRAINT achievements_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: challenges challenges_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.challenges
+    ADD CONSTRAINT challenges_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: course_versions course_versions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_versions
+    ADD CONSTRAINT course_versions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: courses courses_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.courses
+    ADD CONSTRAINT courses_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: device_tokens device_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.device_tokens
+    ADD CONSTRAINT device_tokens_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: friend_event_likes friend_event_likes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.friend_event_likes
+    ADD CONSTRAINT friend_event_likes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: friendships friendships_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.friendships
+    ADD CONSTRAINT friendships_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: gem_packs gem_packs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.gem_packs
+    ADD CONSTRAINT gem_packs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: gem_purchases gem_purchases_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.gem_purchases
+    ADD CONSTRAINT gem_purchases_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: gifts gifts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.gifts
+    ADD CONSTRAINT gifts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: invite_codes invite_codes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.invite_codes
+    ADD CONSTRAINT invite_codes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: lesson_block_attempts lesson_block_attempts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lesson_block_attempts
+    ADD CONSTRAINT lesson_block_attempts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: lesson_blocks lesson_blocks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lesson_blocks
+    ADD CONSTRAINT lesson_blocks_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: lessons lessons_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lessons
+    ADD CONSTRAINT lessons_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: notification_history notification_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notification_history
+    ADD CONSTRAINT notification_history_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: notification_templates notification_templates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notification_templates
+    ADD CONSTRAINT notification_templates_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: organization_courses organization_courses_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organization_courses
+    ADD CONSTRAINT organization_courses_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: organization_members organization_members_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organization_members
+    ADD CONSTRAINT organization_members_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: organizations organizations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizations
+    ADD CONSTRAINT organizations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: practice_attempts practice_attempts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.practice_attempts
+    ADD CONSTRAINT practice_attempts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: purchases purchases_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.purchases
+    ADD CONSTRAINT purchases_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: shop_items shop_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.shop_items
+    ADD CONSTRAINT shop_items_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: sign_languages sign_languages_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sign_languages
+    ADD CONSTRAINT sign_languages_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: sign_reports sign_reports_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sign_reports
+    ADD CONSTRAINT sign_reports_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: signs signs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.signs
+    ADD CONSTRAINT signs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: tokens tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tokens
+    ADD CONSTRAINT tokens_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: topics topics_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.topics
+    ADD CONSTRAINT topics_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_course_enrollments uk132h25o390qp8v8s2kuu8lhmk; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_course_enrollments
+    ADD CONSTRAINT uk132h25o390qp8v8s2kuu8lhmk UNIQUE (user_id, course_version_id);
+
+
+--
+-- Name: organizations uk1m3nqqiqajmv34w3d3dv1tjxl; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizations
+    ADD CONSTRAINT uk1m3nqqiqajmv34w3d3dv1tjxl UNIQUE (cuit);
+
+
+--
+-- Name: organization_courses uk2a9ufx9lch3wxft99sttepfy5; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organization_courses
+    ADD CONSTRAINT uk2a9ufx9lch3wxft99sttepfy5 UNIQUE (organization_id, course_id);
+
+
+--
+-- Name: challenges uk2ooow5gju78uo6t0op939vwn3; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.challenges
+    ADD CONSTRAINT uk2ooow5gju78uo6t0op939vwn3 UNIQUE (code);
+
+
+--
+-- Name: gem_purchases uk3ywhpyjovh0rek5yk05rhaq2j; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.gem_purchases
+    ADD CONSTRAINT uk3ywhpyjovh0rek5yk05rhaq2j UNIQUE (purchase_token);
+
+
+--
+-- Name: user_settings uk4bos7satl9xeqd18frfeqg6tt; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_settings
+    ADD CONSTRAINT uk4bos7satl9xeqd18frfeqg6tt UNIQUE (user_id);
+
+
+--
+-- Name: notification_templates uk590i2e6i9u4i77xek1ohkbwak; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notification_templates
+    ADD CONSTRAINT uk590i2e6i9u4i77xek1ohkbwak UNIQUE (code);
+
+
+--
+-- Name: user_daily_activity uk5w9n8b4yh6oaytq9wfc349yjo; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_daily_activity
+    ADD CONSTRAINT uk5w9n8b4yh6oaytq9wfc349yjo UNIQUE (user_id, activity_date);
+
+
+--
+-- Name: courses uk61og8rbqdd2y28rx2et5fdnxd; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.courses
+    ADD CONSTRAINT uk61og8rbqdd2y28rx2et5fdnxd UNIQUE (code);
+
+
+--
+-- Name: user_learned_signs uk6deaj3wg3qptv25sgvyi1c3w7; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_learned_signs
+    ADD CONSTRAINT uk6deaj3wg3qptv25sgvyi1c3w7 UNIQUE (user_id, sign, course_version_id);
+
+
+--
+-- Name: users uk6dotkott2kjsp8vw4d0m25fb7; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT uk6dotkott2kjsp8vw4d0m25fb7 UNIQUE (email);
+
+
+--
+-- Name: shop_items uk6lsgog17vi7qhtdefn44mio1c; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.shop_items
+    ADD CONSTRAINT uk6lsgog17vi7qhtdefn44mio1c UNIQUE (code);
+
+
+--
+-- Name: waitlist_entries uk6r5i227gpp77oe0rokp1e76nb; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.waitlist_entries
+    ADD CONSTRAINT uk6r5i227gpp77oe0rokp1e76nb UNIQUE (email);
+
+
+--
+-- Name: user_challenges uk87iacxrdl94vhlydjt52hrawa; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_challenges
+    ADD CONSTRAINT uk87iacxrdl94vhlydjt52hrawa UNIQUE (user_id, challenge_id, period_start);
+
+
+--
+-- Name: device_tokens uk8se1i37nto56x9252rmrit8ib; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.device_tokens
+    ADD CONSTRAINT uk8se1i37nto56x9252rmrit8ib UNIQUE (token);
+
+
+--
+-- Name: signs uk92rrn2rpexh4olg797c5bc7cw; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.signs
+    ADD CONSTRAINT uk92rrn2rpexh4olg797c5bc7cw UNIQUE (meaning);
+
+
+--
+-- Name: achievements uk9qqq83lafche8dr9o229kc9tg; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.achievements
+    ADD CONSTRAINT uk9qqq83lafche8dr9o229kc9tg UNIQUE (code);
+
+
+--
+-- Name: friend_event_likes uk_like_user_event; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.friend_event_likes
+    ADD CONSTRAINT uk_like_user_event UNIQUE (user_id, event_type, event_ref_id);
+
+
+--
+-- Name: friendships uk_requester_addressee; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.friendships
+    ADD CONSTRAINT uk_requester_addressee UNIQUE (requester_user_id, addressee_user_id);
+
+
+--
+-- Name: user_stats ukcgfgfs7fk42h7ck71lrs42sou; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_stats
+    ADD CONSTRAINT ukcgfgfs7fk42h7ck71lrs42sou UNIQUE (user_id);
+
+
+--
+-- Name: user_achievements ukehxedycprv0kd4wts369ikmw1; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_achievements
+    ADD CONSTRAINT ukehxedycprv0kd4wts369ikmw1 UNIQUE (user_id, achievement_id);
+
+
+--
+-- Name: invite_codes ukewef0q2x39gfns3l6ats16gh; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.invite_codes
+    ADD CONSTRAINT ukewef0q2x39gfns3l6ats16gh UNIQUE (code);
+
+
+--
+-- Name: user_topic_progress ukff7nnhgtv59247j9et0tsc2rp; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_topic_progress
+    ADD CONSTRAINT ukff7nnhgtv59247j9et0tsc2rp UNIQUE (user_id, topic_id);
+
+
+--
+-- Name: sign_languages ukidjwh2iffo14oobbglvuabal9; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sign_languages
+    ADD CONSTRAINT ukidjwh2iffo14oobbglvuabal9 UNIQUE (code);
+
+
+--
+-- Name: tokens ukna3v9f8s7ucnj16tylrs822qj; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tokens
+    ADD CONSTRAINT ukna3v9f8s7ucnj16tylrs822qj UNIQUE (token);
+
+
+--
+-- Name: gem_packs uknx9437hmssfs7i8nykle0e9tf; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.gem_packs
+    ADD CONSTRAINT uknx9437hmssfs7i8nykle0e9tf UNIQUE (product_id);
+
+
+--
+-- Name: organizations ukp9pbw3flq9hkay8hdx3ypsldy; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizations
+    ADD CONSTRAINT ukp9pbw3flq9hkay8hdx3ypsldy UNIQUE (name);
+
+
+--
+-- Name: organization_members ukqq4dnx3tiwao99hlsrgi2g000; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organization_members
+    ADD CONSTRAINT ukqq4dnx3tiwao99hlsrgi2g000 UNIQUE (user_id);
+
+
+--
+-- Name: user_lesson_progress ukqtk0f3koh1fjn49jfeu9mdcy0; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_lesson_progress
+    ADD CONSTRAINT ukqtk0f3koh1fjn49jfeu9mdcy0 UNIQUE (user_id, lesson_id);
+
+
+--
+-- Name: users ukr43af9ap4edm43mmtq01oddj6; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT ukr43af9ap4edm43mmtq01oddj6 UNIQUE (username);
+
+
+--
+-- Name: user_daily_xp uktp5w59pufmpe1ee6bo5316n7s; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_daily_xp
+    ADD CONSTRAINT uktp5w59pufmpe1ee6bo5316n7s UNIQUE (user_id, xp_date);
+
+
+--
+-- Name: user_achievements user_achievements_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_achievements
+    ADD CONSTRAINT user_achievements_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_challenges user_challenges_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_challenges
+    ADD CONSTRAINT user_challenges_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_course_enrollments user_course_enrollments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_course_enrollments
+    ADD CONSTRAINT user_course_enrollments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_daily_activity user_daily_activity_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_daily_activity
+    ADD CONSTRAINT user_daily_activity_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_daily_xp user_daily_xp_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_daily_xp
+    ADD CONSTRAINT user_daily_xp_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_learned_signs user_learned_signs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_learned_signs
+    ADD CONSTRAINT user_learned_signs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_lesson_progress user_lesson_progress_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_lesson_progress
+    ADD CONSTRAINT user_lesson_progress_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_providers user_providers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_providers
+    ADD CONSTRAINT user_providers_pkey PRIMARY KEY (user_id, provider);
+
+
+--
+-- Name: user_settings user_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_settings
+    ADD CONSTRAINT user_settings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_stats user_stats_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_stats
+    ADD CONSTRAINT user_stats_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_topic_progress user_topic_progress_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_topic_progress
+    ADD CONSTRAINT user_topic_progress_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT users_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: waitlist_entries waitlist_entries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.waitlist_entries
+    ADD CONSTRAINT waitlist_entries_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: idx_device_token_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_device_token_user ON public.device_tokens USING btree (user_id);
+
+
+--
+-- Name: idx_like_event; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_like_event ON public.friend_event_likes USING btree (event_type, event_ref_id);
+
+
+--
+-- Name: idx_notif_hist_template; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_notif_hist_template ON public.notification_history USING btree (template_id);
+
+
+--
+-- Name: idx_notif_hist_user_read; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_notif_hist_user_read ON public.notification_history USING btree (user_id, is_read);
+
+
+--
+-- Name: idx_notif_hist_user_sent; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_notif_hist_user_sent ON public.notification_history USING btree (user_id, sent_at);
+
+
+--
+-- Name: user_lesson_progress fk15tdn9l75kjm9imsarb223k9q; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_lesson_progress
+    ADD CONSTRAINT fk15tdn9l75kjm9imsarb223k9q FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: sign_reports fk1q0upp1mckrwgksnj6bqskolx; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sign_reports
+    ADD CONSTRAINT fk1q0upp1mckrwgksnj6bqskolx FOREIGN KEY (resolved_by) REFERENCES public.users(id);
+
+
+--
+-- Name: lesson_blocks fk1q7g93rf1i28dybjl244vgu7r; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lesson_blocks
+    ADD CONSTRAINT fk1q7g93rf1i28dybjl244vgu7r FOREIGN KEY (lesson_id) REFERENCES public.lessons(id);
+
+
+--
+-- Name: notification_history fk1ykhbounaikmoas6suiculknv; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notification_history
+    ADD CONSTRAINT fk1ykhbounaikmoas6suiculknv FOREIGN KEY (template_id) REFERENCES public.notification_templates(id);
+
+
+--
+-- Name: tokens fk2dylsfo39lgjyqml2tbe0b0ss; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tokens
+    ADD CONSTRAINT fk2dylsfo39lgjyqml2tbe0b0ss FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: gifts fk2o0yoxohiuwwp0xttefupkx2p; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.gifts
+    ADD CONSTRAINT fk2o0yoxohiuwwp0xttefupkx2p FOREIGN KEY (shop_item_id) REFERENCES public.shop_items(id);
+
+
+--
+-- Name: gem_purchases fk2u47lm8p6ox0xmvsohhj8bn4t; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.gem_purchases
+    ADD CONSTRAINT fk2u47lm8p6ox0xmvsohhj8bn4t FOREIGN KEY (gem_pack_id) REFERENCES public.gem_packs(id);
+
+
+--
+-- Name: gifts fk41nfoko4sfkjtyeolnahoy134; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.gifts
+    ADD CONSTRAINT fk41nfoko4sfkjtyeolnahoy134 FOREIGN KEY (sender_id) REFERENCES public.users(id);
+
+
+--
+-- Name: users fk4hbh4ytudxqwjdh203na0255n; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT fk4hbh4ytudxqwjdh203na0255n FOREIGN KEY (current_course_id) REFERENCES public.courses(id);
+
+
+--
+-- Name: notification_history fk5b64bcurvlekeo08sn2aqvlf2; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notification_history
+    ADD CONSTRAINT fk5b64bcurvlekeo08sn2aqvlf2 FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: gifts fk5i4n56yhbcq2kvdh5silgl5aj; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.gifts
+    ADD CONSTRAINT fk5i4n56yhbcq2kvdh5silgl5aj FOREIGN KEY (recipient_id) REFERENCES public.users(id);
+
+
+--
+-- Name: signs fk5kqibh6ejv6omwms0xd7g1iwn; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.signs
+    ADD CONSTRAINT fk5kqibh6ejv6omwms0xd7g1iwn FOREIGN KEY (sign_language_id) REFERENCES public.sign_languages(id);
+
+
+--
+-- Name: invite_codes fk5v2h1lomt5b33jmw4uvr1ky8v; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.invite_codes
+    ADD CONSTRAINT fk5v2h1lomt5b33jmw4uvr1ky8v FOREIGN KEY (organization_id) REFERENCES public.organizations(id);
+
+
+--
+-- Name: organization_members fk67edx4b35ogkpk3ghbhwand9i; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organization_members
+    ADD CONSTRAINT fk67edx4b35ogkpk3ghbhwand9i FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: user_topic_progress fk6kyxc2r4yshtgngqcv6iaarcp; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_topic_progress
+    ADD CONSTRAINT fk6kyxc2r4yshtgngqcv6iaarcp FOREIGN KEY (topic_id) REFERENCES public.topics(id);
+
+
+--
+-- Name: user_achievements fk6vt5fpu0uta41vny1x6vpk45k; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_achievements
+    ADD CONSTRAINT fk6vt5fpu0uta41vny1x6vpk45k FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: organization_members fk7vpc2vd3jlfahlombjdc32mhe; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organization_members
+    ADD CONSTRAINT fk7vpc2vd3jlfahlombjdc32mhe FOREIGN KEY (organization_id) REFERENCES public.organizations(id);
+
+
+--
+-- Name: friendships fk7w6kdvwyx2b5tcmjibepskev3; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.friendships
+    ADD CONSTRAINT fk7w6kdvwyx2b5tcmjibepskev3 FOREIGN KEY (requester_user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: sign_reports fk83pa50r7jlsoj96duf848btpy; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sign_reports
+    ADD CONSTRAINT fk83pa50r7jlsoj96duf848btpy FOREIGN KEY (sign_id) REFERENCES public.signs(id);
+
+
+--
+-- Name: user_achievements fk8ipvec6cs8t3g8515thtlsxuf; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_achievements
+    ADD CONSTRAINT fk8ipvec6cs8t3g8515thtlsxuf FOREIGN KEY (achievement_id) REFERENCES public.achievements(id);
+
+
+--
+-- Name: user_settings fk8v82nj88rmai0nyck19f873dw; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_settings
+    ADD CONSTRAINT fk8v82nj88rmai0nyck19f873dw FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: organization_courses fk97w1j1oa98tiqktx3lnl9slvb; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organization_courses
+    ADD CONSTRAINT fk97w1j1oa98tiqktx3lnl9slvb FOREIGN KEY (organization_id) REFERENCES public.organizations(id);
+
+
+--
+-- Name: lesson_block_attempts fk9ip6r7j65bdx8qloxbyh0qoct; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lesson_block_attempts
+    ADD CONSTRAINT fk9ip6r7j65bdx8qloxbyh0qoct FOREIGN KEY (lesson_block_id) REFERENCES public.lesson_blocks(id);
+
+
+--
+-- Name: user_challenges fkcdjf32e49p3wb497fpxklkon; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_challenges
+    ADD CONSTRAINT fkcdjf32e49p3wb497fpxklkon FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: friend_event_likes fkcu4brdml6splw9nskp9pea6in; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.friend_event_likes
+    ADD CONSTRAINT fkcu4brdml6splw9nskp9pea6in FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: user_daily_activity fkd5u83hqek7jd8nbi43dswh9n8; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_daily_activity
+    ADD CONSTRAINT fkd5u83hqek7jd8nbi43dswh9n8 FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: user_daily_xp fkdd3e7yolami77kbvuhvl5fh4d; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_daily_xp
+    ADD CONSTRAINT fkdd3e7yolami77kbvuhvl5fh4d FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: user_learned_signs fkdgq45ujry7et51x3dqdyewe6h; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_learned_signs
+    ADD CONSTRAINT fkdgq45ujry7et51x3dqdyewe6h FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: topics fke8oyg62k9lsxqodemt84s04vy; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.topics
+    ADD CONSTRAINT fke8oyg62k9lsxqodemt84s04vy FOREIGN KEY (course_version_id) REFERENCES public.course_versions(id);
+
+
+--
+-- Name: courses fkfe69flm9aqfe7fyyoeipivt2a; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.courses
+    ADD CONSTRAINT fkfe69flm9aqfe7fyyoeipivt2a FOREIGN KEY (sign_language_id) REFERENCES public.sign_languages(id);
+
+
+--
+-- Name: gem_purchases fkfhd63krjg7w6f3abhk2idib1t; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.gem_purchases
+    ADD CONSTRAINT fkfhd63krjg7w6f3abhk2idib1t FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: purchases fkfykmew40yd903sxbgturxvvq5; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.purchases
+    ADD CONSTRAINT fkfykmew40yd903sxbgturxvvq5 FOREIGN KEY (shop_item_id) REFERENCES public.shop_items(id);
+
+
+--
+-- Name: friendships fkgsdgyl6tm7o49852yxcefurld; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.friendships
+    ADD CONSTRAINT fkgsdgyl6tm7o49852yxcefurld FOREIGN KEY (addressee_user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: practice_attempts fkha3esgxxdxs2n5csbyi29aitl; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.practice_attempts
+    ADD CONSTRAINT fkha3esgxxdxs2n5csbyi29aitl FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: device_tokens fkhc7d11bnr8x9gs5biohdhnx1c; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.device_tokens
+    ADD CONSTRAINT fkhc7d11bnr8x9gs5biohdhnx1c FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: course_versions fkhm335wqysw83g299a2534aekk; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_versions
+    ADD CONSTRAINT fkhm335wqysw83g299a2534aekk FOREIGN KEY (course_id) REFERENCES public.courses(id);
+
+
+--
+-- Name: user_topic_progress fkhrsl1tix21xpdpsunnqt9rija; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_topic_progress
+    ADD CONSTRAINT fkhrsl1tix21xpdpsunnqt9rija FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: user_stats fkj277c5rcqlsvwkk3hj39e2b74; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_stats
+    ADD CONSTRAINT fkj277c5rcqlsvwkk3hj39e2b74 FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: sign_reports fkj7gkv19grf05jyy5mohi9nv7s; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sign_reports
+    ADD CONSTRAINT fkj7gkv19grf05jyy5mohi9nv7s FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: user_providers fkjn43qct6quty65mmawu66aesk; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_providers
+    ADD CONSTRAINT fkjn43qct6quty65mmawu66aesk FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: user_course_enrollments fkk7djx08der7y1p3vdnevri2xb; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_course_enrollments
+    ADD CONSTRAINT fkk7djx08der7y1p3vdnevri2xb FOREIGN KEY (organization_id) REFERENCES public.organizations(id);
+
+
+--
+-- Name: user_course_enrollments fkkfjtrragivf567htxg20poywq; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_course_enrollments
+    ADD CONSTRAINT fkkfjtrragivf567htxg20poywq FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: organization_courses fkkkmt2qrgvseacc41fg7eqje2j; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organization_courses
+    ADD CONSTRAINT fkkkmt2qrgvseacc41fg7eqje2j FOREIGN KEY (course_id) REFERENCES public.courses(id);
+
+
+--
+-- Name: user_lesson_progress fkkm3wlef4wdkrsdwkbly0sid0l; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_lesson_progress
+    ADD CONSTRAINT fkkm3wlef4wdkrsdwkbly0sid0l FOREIGN KEY (lesson_id) REFERENCES public.lessons(id);
+
+
+--
+-- Name: user_learned_signs fkl1r4b8eqiew1rot4ew4fkep2f; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_learned_signs
+    ADD CONSTRAINT fkl1r4b8eqiew1rot4ew4fkep2f FOREIGN KEY (course_version_id) REFERENCES public.course_versions(id);
+
+
+--
+-- Name: user_course_enrollments fklpytn18fygch7wed8912dw23t; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_course_enrollments
+    ADD CONSTRAINT fklpytn18fygch7wed8912dw23t FOREIGN KEY (course_version_id) REFERENCES public.course_versions(id);
+
+
+--
+-- Name: purchases fkm0ndjymn9p747pfp4515pio8i; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.purchases
+    ADD CONSTRAINT fkm0ndjymn9p747pfp4515pio8i FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: practice_attempts fkn1golm9qespysioi8m4jkpbv9; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.practice_attempts
+    ADD CONSTRAINT fkn1golm9qespysioi8m4jkpbv9 FOREIGN KEY (lesson_block_id) REFERENCES public.lesson_blocks(id);
+
+
+--
+-- Name: lessons fkn1lqfilldva7f2y31fxf3p4p1; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lessons
+    ADD CONSTRAINT fkn1lqfilldva7f2y31fxf3p4p1 FOREIGN KEY (topic_id) REFERENCES public.topics(id);
+
+
+--
+-- Name: lesson_block_attempts fkpsjc9xh57cnlruwdb2fn9cq64; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lesson_block_attempts
+    ADD CONSTRAINT fkpsjc9xh57cnlruwdb2fn9cq64 FOREIGN KEY (organization_id) REFERENCES public.organizations(id);
+
+
+--
+-- Name: user_challenges fktaajflq2v15ya0kct9woncmft; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_challenges
+    ADD CONSTRAINT fktaajflq2v15ya0kct9woncmft FOREIGN KEY (challenge_id) REFERENCES public.challenges(id);
+
+
+--
+-- Name: lesson_block_attempts fktoyyfdmm9k7a80k0j2i5o7ljw; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lesson_block_attempts
+    ADD CONSTRAINT fktoyyfdmm9k7a80k0j2i5o7ljw FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- PostgreSQL database dump complete
+--
+
+

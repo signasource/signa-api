@@ -4,6 +4,7 @@ import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.organizations.dto.ModuleStatsResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationActivityResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationOverviewResponse;
+import com.signasource.signa_api.organizations.service.MetricsPeriod;
 import com.signasource.signa_api.organizations.service.OrganizationMetricsService;
 import java.time.LocalDate;
 import java.util.List;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+/** Dashboard metrics; {@code from}/{@code to} (both or neither) narrow them to a period. */
 @RestController
 @RequestMapping("/organizations/{organizationId}")
 @RequiredArgsConstructor
@@ -29,29 +31,50 @@ public class OrganizationMetricsController {
     public ResponseEntity<OrganizationOverviewResponse> getOverview(
             @PathVariable UUID organizationId,
             @RequestParam(required = false) UUID courseId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate to,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(
-                metricsService.getOverview(userDetails.getUser(), organizationId, courseId));
+                metricsService.getOverview(
+                        userDetails.getUser(),
+                        organizationId,
+                        courseId,
+                        MetricsPeriod.of(from, to)));
     }
 
     @GetMapping("/activity")
     public ResponseEntity<OrganizationActivityResponse> getActivity(
             @PathVariable UUID organizationId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate to,
             @RequestParam(required = false) UUID courseId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(
                 metricsService.getActivity(
-                        userDetails.getUser(), organizationId, courseId, from, to));
+                        userDetails.getUser(),
+                        organizationId,
+                        courseId,
+                        MetricsPeriod.of(from, to)));
     }
 
     @GetMapping("/modules")
     public ResponseEntity<List<ModuleStatsResponse>> getModuleStats(
             @PathVariable UUID organizationId,
             @RequestParam(required = false) UUID courseId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate to,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(
-                metricsService.getModuleStats(userDetails.getUser(), organizationId, courseId));
+                metricsService.getModuleStats(
+                        userDetails.getUser(),
+                        organizationId,
+                        courseId,
+                        MetricsPeriod.of(from, to)));
     }
 }

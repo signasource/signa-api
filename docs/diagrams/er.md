@@ -324,6 +324,7 @@ erDiagram
         int rewardDurationMinutes
         double rewardMultiplierValue
         boolean active
+        int displayOrder
     }
     USER_CHALLENGE {
         uuid id PK
@@ -535,5 +536,27 @@ erDiagram
         long id PK
         string email UK "minúsculas, sin espacios"
         instant createdAt
+    }
+```
+
+## Importación de contenido
+
+Bitácora de cada corrida del pipeline de importación de contenido (al arrancar o a demanda desde el
+panel). No tiene relaciones: es un registro de auditoría independiente.
+
+```mermaid
+erDiagram
+    CONTENT_IMPORT_RUN {
+        uuid id PK
+        instant startedAt
+        instant finishedAt
+        enum trigger "STARTUP | MANUAL"
+        enum status "SUCCESS | FAILED"
+        string triggeredBy "email del admin; null si fue al arrancar"
+        int coursesProcessed
+        int created
+        int updated
+        int unchanged
+        text details "líneas por curso, o el error si falló"
     }
 ```

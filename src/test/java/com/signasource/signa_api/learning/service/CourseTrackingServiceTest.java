@@ -23,8 +23,10 @@ import com.signasource.signa_api.exceptions.ForbiddenException;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
+import com.signasource.signa_api.gamification.entity.ChallengeCriteriaType;
 import com.signasource.signa_api.gamification.repository.UserLearnedSignRepository;
 import com.signasource.signa_api.gamification.service.AchievementService;
+import com.signasource.signa_api.gamification.service.ChallengeService;
 import com.signasource.signa_api.learning.dto.CourseProgressResponse;
 import com.signasource.signa_api.learning.dto.TopicProgressResponse;
 import com.signasource.signa_api.learning.entity.BlockType;
@@ -85,6 +87,7 @@ class CourseTrackingServiceTest {
     @Mock private UserLearnedSignRepository userLearnedSignRepository;
     @Mock private AchievementService achievementService;
     @Mock private MetricsService metricsService;
+    @Mock private ChallengeService challengeService;
 
     @InjectMocks private CourseTrackingService courseTrackingService;
 
@@ -761,6 +764,111 @@ class CourseTrackingServiceTest {
     }
 
     @Test
+    void recordBlockInteraction_CompletesLesson_IgnoringBlocksThePlayerNeverReports() {
+        UUID exerciseBlockId = UUID.randomUUID();
+        Topic topic =
+                Topic.builder().id(UUID.randomUUID()).courseVersion(new CourseVersion()).build();
+        Lesson lesson = Lesson.builder().id(UUID.randomUUID()).topic(topic).build();
+        LessonBlock introduceBlock =
+                LessonBlock.builder()
+                        .id(UUID.randomUUID())
+                        .type(BlockType.INTRODUCE_SIGN)
+                        .lesson(lesson)
+                        .build();
+        LessonBlock invisibleBlock =
+                LessonBlock.builder()
+                        .id(UUID.randomUUID())
+                        .type(BlockType.INVISIBLE_SIGNS)
+                        .lesson(lesson)
+                        .build();
+        LessonBlock exerciseBlock =
+                LessonBlock.builder()
+                        .id(exerciseBlockId)
+                        .type(BlockType.SELECT_MEANING)
+                        .xpReward(10)
+                        .lesson(lesson)
+                        .build();
+        lesson.setLessonBlocks(List.of(introduceBlock, exerciseBlock, invisibleBlock));
+
+        when(blockSignExtractor.extract(exerciseBlock)).thenReturn(List.of());
+        when(lessonBlockRepository.findWithCourseVersionById(exerciseBlockId))
+                .thenReturn(Optional.of(exerciseBlock));
+        when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(
+                        userId, exerciseBlockId))
+                .thenReturn(false, true);
+        when(attemptRepository.save(any(LessonBlockAttempt.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(lessonProgressRepository.findByUserIdAndLessonId(userId, lesson.getId()))
+                .thenReturn(
+                        Optional.of(
+                                UserLessonProgress.builder()
+                                        .lesson(lesson)
+                                        .status(ProgressStatus.IN_PROGRESS)
+                                        .build()));
+        when(lessonProgressRepository.save(any(UserLessonProgress.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        courseTrackingService.recordBlockInteraction(mockUser, exerciseBlockId, true);
+
+        ArgumentCaptor<UserLessonProgress> progressCaptor =
+                ArgumentCaptor.forClass(UserLessonProgress.class);
+        verify(lessonProgressRepository).save(progressCaptor.capture());
+        assertEquals(ProgressStatus.COMPLETED, progressCaptor.getValue().getStatus());
+        verify(attemptRepository, never())
+                .existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, introduceBlock.getId());
+        verify(attemptRepository, never())
+                .existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, invisibleBlock.getId());
+    }
+
+    @Test
+    void recordBlockInteraction_ReansweringABlock_CompletesALessonLeftInProgress() {
+        UUID exerciseBlockId = UUID.randomUUID();
+        Topic topic =
+                Topic.builder().id(UUID.randomUUID()).courseVersion(new CourseVersion()).build();
+        Lesson lesson = Lesson.builder().id(UUID.randomUUID()).topic(topic).build();
+        LessonBlock exerciseBlock =
+                LessonBlock.builder()
+                        .id(exerciseBlockId)
+                        .type(BlockType.SELECT_MEANING)
+                        .xpReward(10)
+                        .lesson(lesson)
+                        .build();
+        LessonBlock introduceBlock =
+                LessonBlock.builder()
+                        .id(UUID.randomUUID())
+                        .type(BlockType.INTRODUCE_SIGN)
+                        .lesson(lesson)
+                        .build();
+        lesson.setLessonBlocks(List.of(introduceBlock, exerciseBlock));
+
+        when(lessonBlockRepository.findWithCourseVersionById(exerciseBlockId))
+                .thenReturn(Optional.of(exerciseBlock));
+        // Already answered right before the fix: not a new milestone, no XP again.
+        when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(
+                        userId, exerciseBlockId))
+                .thenReturn(true);
+        when(attemptRepository.save(any(LessonBlockAttempt.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(lessonProgressRepository.findByUserIdAndLessonId(userId, lesson.getId()))
+                .thenReturn(
+                        Optional.of(
+                                UserLessonProgress.builder()
+                                        .lesson(lesson)
+                                        .status(ProgressStatus.IN_PROGRESS)
+                                        .build()));
+        when(lessonProgressRepository.save(any(UserLessonProgress.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        courseTrackingService.recordBlockInteraction(mockUser, exerciseBlockId, true);
+
+        verify(eventPublisher, never()).publishEvent(any(XpEarnedEvent.class));
+        ArgumentCaptor<UserLessonProgress> progressCaptor =
+                ArgumentCaptor.forClass(UserLessonProgress.class);
+        verify(lessonProgressRepository).save(progressCaptor.capture());
+        assertEquals(ProgressStatus.COMPLETED, progressCaptor.getValue().getStatus());
+    }
+
+    @Test
     void shouldPublishSignsLearnedEvent_WhenFirstCorrectAttemptExtractsSigns() {
         UUID blockId = UUID.randomUUID();
         Topic topic =
@@ -1111,5 +1219,145 @@ class CourseTrackingServiceTest {
         when(view.getTopicId()).thenReturn(topicId);
         when(view.getCompletedLessons()).thenReturn(completedLessons);
         return view;
+    }
+
+    @Test
+    void recordBlockInteraction_CompletingAPerfectLesson_ReportsLessonAndPerfectChallenges() {
+        UUID blockId = UUID.randomUUID();
+        UUID lessonId = UUID.randomUUID();
+        UUID topicId = UUID.randomUUID();
+
+        Topic topic = Topic.builder().id(topicId).courseVersion(new CourseVersion()).build();
+        Lesson lesson = Lesson.builder().id(lessonId).topic(topic).build();
+        Lesson otherLesson = Lesson.builder().id(UUID.randomUUID()).topic(topic).build();
+        topic.setLessons(List.of(lesson, otherLesson));
+
+        LessonBlock block =
+                LessonBlock.builder()
+                        .id(blockId)
+                        .type(BlockType.SELECT_MEANING)
+                        .xpReward(50)
+                        .lesson(lesson)
+                        .build();
+        lesson.setLessonBlocks(List.of(block));
+
+        when(blockSignExtractor.extract(block)).thenReturn(List.of());
+        when(lessonBlockRepository.findWithCourseVersionById(blockId))
+                .thenReturn(Optional.of(block));
+        when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, blockId))
+                .thenReturn(false, true);
+        when(attemptRepository.save(any(LessonBlockAttempt.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(lessonProgressRepository.findByUserIdAndLessonId(userId, lessonId))
+                .thenReturn(
+                        Optional.of(
+                                UserLessonProgress.builder()
+                                        .lesson(lesson)
+                                        .status(ProgressStatus.IN_PROGRESS)
+                                        .build()));
+        when(lessonProgressRepository.save(any(UserLessonProgress.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(lessonProgressRepository.findByUserIdAndLessonTopicId(userId, topicId))
+                .thenReturn(List.of());
+
+        when(attemptRepository.existsByUserIdAndLessonBlockLessonIdAndIsCorrectFalse(
+                        userId, lessonId))
+                .thenReturn(false);
+
+        courseTrackingService.recordBlockInteraction(mockUser, blockId, true);
+
+        verify(challengeService).record(mockUser, ChallengeCriteriaType.COMPLETE_LESSONS, 1);
+        verify(challengeService).record(mockUser, ChallengeCriteriaType.PERFECT_LESSONS, 1);
+    }
+
+    @Test
+    void recordBlockInteraction_CompletingALessonWithMistakes_IsNotPerfect() {
+        UUID blockId = UUID.randomUUID();
+        UUID lessonId = UUID.randomUUID();
+        UUID topicId = UUID.randomUUID();
+
+        Topic topic = Topic.builder().id(topicId).courseVersion(new CourseVersion()).build();
+        Lesson lesson = Lesson.builder().id(lessonId).topic(topic).build();
+        Lesson otherLesson = Lesson.builder().id(UUID.randomUUID()).topic(topic).build();
+        topic.setLessons(List.of(lesson, otherLesson));
+
+        LessonBlock block =
+                LessonBlock.builder()
+                        .id(blockId)
+                        .type(BlockType.SELECT_MEANING)
+                        .xpReward(50)
+                        .lesson(lesson)
+                        .build();
+        lesson.setLessonBlocks(List.of(block));
+
+        when(blockSignExtractor.extract(block)).thenReturn(List.of());
+        when(lessonBlockRepository.findWithCourseVersionById(blockId))
+                .thenReturn(Optional.of(block));
+        when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, blockId))
+                .thenReturn(false, true);
+        when(attemptRepository.save(any(LessonBlockAttempt.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(lessonProgressRepository.findByUserIdAndLessonId(userId, lessonId))
+                .thenReturn(
+                        Optional.of(
+                                UserLessonProgress.builder()
+                                        .lesson(lesson)
+                                        .status(ProgressStatus.IN_PROGRESS)
+                                        .build()));
+        when(lessonProgressRepository.save(any(UserLessonProgress.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(lessonProgressRepository.findByUserIdAndLessonTopicId(userId, topicId))
+                .thenReturn(List.of());
+
+        when(attemptRepository.existsByUserIdAndLessonBlockLessonIdAndIsCorrectFalse(
+                        userId, lessonId))
+                .thenReturn(true);
+
+        courseTrackingService.recordBlockInteraction(mockUser, blockId, true);
+
+        verify(challengeService).record(mockUser, ChallengeCriteriaType.COMPLETE_LESSONS, 1);
+        verify(challengeService, never())
+                .record(mockUser, ChallengeCriteriaType.PERFECT_LESSONS, 1);
+    }
+
+    @Test
+    void recordBlockInteraction_CorrectCameraAnswer_CountsTowardsChallenges() {
+        UUID blockId = UUID.randomUUID();
+        Topic topic =
+                Topic.builder().id(UUID.randomUUID()).courseVersion(new CourseVersion()).build();
+        Lesson lesson = Lesson.builder().id(UUID.randomUUID()).topic(topic).build();
+        LessonBlock block =
+                LessonBlock.builder()
+                        .id(blockId)
+                        .type(BlockType.VISUAL_RECOGNITION)
+                        .xpReward(15)
+                        .lesson(lesson)
+                        .build();
+        lesson.setLessonBlocks(
+                List.of(
+                        block,
+                        LessonBlock.builder()
+                                .id(UUID.randomUUID())
+                                .type(BlockType.MATCH)
+                                .lesson(lesson)
+                                .build()));
+        when(blockSignExtractor.extract(block)).thenReturn(List.of());
+        when(lessonBlockRepository.findWithCourseVersionById(blockId))
+                .thenReturn(Optional.of(block));
+        when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, blockId))
+                .thenReturn(false);
+        when(attemptRepository.save(any(LessonBlockAttempt.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(lessonProgressRepository.findByUserIdAndLessonId(any(), any()))
+                .thenReturn(
+                        Optional.of(
+                                UserLessonProgress.builder()
+                                        .lesson(lesson)
+                                        .status(ProgressStatus.IN_PROGRESS)
+                                        .build()));
+
+        courseTrackingService.recordBlockInteraction(mockUser, blockId, true);
+
+        verify(challengeService).record(mockUser, ChallengeCriteriaType.CAMERA_PRACTICES, 1);
     }
 }

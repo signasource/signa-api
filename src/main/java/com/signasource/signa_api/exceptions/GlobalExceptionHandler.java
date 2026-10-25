@@ -6,8 +6,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
@@ -71,6 +73,21 @@ public class GlobalExceptionHandler {
                                 })
                         .orElse("Validation error");
 
+        return ResponseEntity.status(400).body(ErrorResponse.of(message, 400));
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorResponse> handleMissingParameter(
+            MissingServletRequestParameterException ex) {
+        String message = ex.getParameterName() + ": is required";
+        return ResponseEntity.status(400).body(ErrorResponse.of(message, 400));
+    }
+
+    /** A query param or path variable that doesn't parse, e.g. a malformed UUID. */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleArgumentTypeMismatch(
+            MethodArgumentTypeMismatchException ex) {
+        String message = ex.getName() + ": invalid value";
         return ResponseEntity.status(400).body(ErrorResponse.of(message, 400));
     }
 
