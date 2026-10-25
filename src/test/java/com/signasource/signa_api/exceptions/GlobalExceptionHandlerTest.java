@@ -44,7 +44,8 @@ class GlobalExceptionHandlerTest {
     @Test
     void shouldAnswer405ForAnUnsupportedMethod() {
         ResponseEntity<ErrorResponse> response =
-                handler.handleMethodNotSupported(new HttpRequestMethodNotSupportedException("POST"));
+                handler.handleMethodNotSupported(
+                        new HttpRequestMethodNotSupportedException("POST"));
 
         assertEquals(HttpStatus.METHOD_NOT_ALLOWED, response.getStatusCode());
         assertNotNull(response.getBody());

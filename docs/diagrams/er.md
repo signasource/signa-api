@@ -441,7 +441,7 @@ lo que usan las métricas del panel.
 
 Un usuario pertenece a una sola organización: al salir la membresía queda como `REMOVED` (no se
 borra), sus inscripciones a cursos pagos pasan a `DROPPED` y sus cupos activos a `REVOKED`; el
-progreso se conserva. `INVITE_CODE` solo se usa para invitar administradores al panel (los códigos
+progreso se conserva. Si la persona da de baja su cuenta, sus cupos quedan con el email anonimizado (`erased-{id}@invalid`). `INVITE_CODE` solo se usa para invitar administradores al panel (los códigos
 compartidos de participantes se eliminaron). Los intentos de ejercicio hechos sobre cursos de la
 organización se etiquetan con ella para separar esa actividad de la propia del usuario.
 
