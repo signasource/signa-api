@@ -66,6 +66,13 @@ public class CoursePurchase {
     @Column(nullable = false)
     private int signCount;
 
+    /** Price per seat before the volume discount. */
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal listPricePerSeat;
+
+    @Column(nullable = false)
+    private int discountPercent;
+
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal pricePerSeat;
 
@@ -82,6 +89,10 @@ public class CoursePurchase {
 
     @Column(length = 100)
     private String paymentReference;
+
+    /** Last Mercado Pago Checkout Pro preference created for this purchase. */
+    @Column(length = 100)
+    private String mercadoPagoPreferenceId;
 
     @Column private Instant paidAt;
 

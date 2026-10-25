@@ -46,6 +46,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(409).body(ErrorResponse.of(ex.getMessage(), 409));
     }
 
+    @ExceptionHandler(PaymentProviderException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentProvider(PaymentProviderException ex) {
+        log.error("Payment provider error", ex);
+        return ResponseEntity.status(503).body(ErrorResponse.of(ex.getMessage(), 503));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleMethodArgumentNotValid(
             MethodArgumentNotValidException ex) {

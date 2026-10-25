@@ -431,8 +431,10 @@ erDiagram
 ## Organizaciones
 
 Una organización compra **cupos** por curso (`COURSE_PURCHASE`): cuántos, por cuántos días de acceso
-(15 a 60) y a qué precio (precio por cupo = señas del curso × días × `price-per-sign-per-day`, con un
-mínimo por cupo). Cada compra es independiente: tiene su propio pago, su ventana de invitación (10
+(15 a 60) y a qué precio (precio de lista por cupo = (base + precio por seña × señas del curso) ×
+(días / 30)^0,85, menos un descuento por volumen; ver `PurchasePricing`). Se paga con Mercado Pago
+Checkout Pro. Un pago aprobado que no puede pagar la compra (cancelada, ya pagada por otro pago o
+de otro monto) se devuelve completo y queda en `PURCHASE_REFUND`. Cada compra es independiente: tiene su propio pago, su ventana de invitación (10
 días desde el pago) y sus cupos (`PURCHASE_SEAT`), cada uno atado a un email. Al aceptar la
 invitación arrancan los días de esa persona (`activatedAt` → `accessExpiresAt`). Los estados
 `INVITATION_EXPIRED` y `ACCESS_EXPIRED` no se guardan: se derivan de las fechas. `ORGANIZATION_COURSE`
@@ -458,6 +460,7 @@ erDiagram
     COURSE ||--o{ ORGANIZATION_COURSE : "contratado en"
     COURSE ||--o{ COURSE_PURCHASE : "se compra en"
     COURSE_PURCHASE ||--|{ PURCHASE_SEAT : "tiene"
+    COURSE_PURCHASE ||--o{ PURCHASE_REFUND : "devuelve"
 
     ORGANIZATION {
         uuid id PK
@@ -491,15 +494,30 @@ erDiagram
         int seats
         int durationDays "15 a 60"
         int signCount "señas al cotizar"
+        decimal listPricePerSeat "antes del descuento"
+        int discountPercent "por volumen"
         decimal pricePerSeat
         decimal totalAmount
         string currency
         enum status "PENDING_PAYMENT | PAID | CANCELLED"
-        string paymentReference "id del pago (Mercado Pago)"
+        string paymentReference "mercadopago:<id> o la del back-office"
+        string mercadoPagoPreferenceId "última preferencia de Checkout Pro"
         instant paidAt
         instant invitationDeadline "paidAt + 10 días"
         instant cancelledAt
         instant createdAt
+    }
+    PURCHASE_REFUND {
+        uuid id PK
+        uuid purchase_id FK
+        string paymentId UK "pago de Mercado Pago devuelto"
+        decimal amount
+        string currency
+        enum reason "PURCHASE_CANCELLED | ALREADY_PAID | AMOUNT_MISMATCH"
+        enum status "PENDING | REFUNDED"
+        string mercadoPagoRefundId
+        instant createdAt
+        instant refundedAt
     }
     PURCHASE_SEAT {
         uuid id PK

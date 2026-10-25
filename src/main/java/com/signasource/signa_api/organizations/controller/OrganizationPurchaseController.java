@@ -1,13 +1,17 @@
 package com.signasource.signa_api.organizations.controller;
 
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
+import com.signasource.signa_api.organizations.dto.CheckoutResponse;
 import com.signasource.signa_api.organizations.dto.CreatePurchaseRequest;
+import com.signasource.signa_api.organizations.dto.PaymentSyncResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseCatalogResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseDetailResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseQuoteResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseResponse;
+import com.signasource.signa_api.organizations.dto.SyncPaymentRequest;
 import com.signasource.signa_api.organizations.dto.UpdateSeatEmailRequest;
 import com.signasource.signa_api.organizations.service.CoursePurchaseService;
+import com.signasource.signa_api.organizations.service.MercadoPagoCheckoutService;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -30,6 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrganizationPurchaseController {
 
     private final CoursePurchaseService purchaseService;
+    private final MercadoPagoCheckoutService checkoutService;
 
     @GetMapping("/catalog")
     public ResponseEntity<PurchaseCatalogResponse> getCatalog() {
@@ -73,7 +78,27 @@ public class OrganizationPurchaseController {
             @PathVariable UUID purchaseId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(
-                purchaseService.cancel(userDetails.getUser(), organizationId, purchaseId));
+                checkoutService.cancel(userDetails.getUser(), organizationId, purchaseId));
+    }
+
+    @PostMapping("/{organizationId}/purchases/{purchaseId}/checkout")
+    public ResponseEntity<CheckoutResponse> startCheckout(
+            @PathVariable UUID organizationId,
+            @PathVariable UUID purchaseId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(
+                checkoutService.startCheckout(userDetails.getUser(), organizationId, purchaseId));
+    }
+
+    @PostMapping("/{organizationId}/purchases/{purchaseId}/payments/sync")
+    public ResponseEntity<PaymentSyncResponse> syncPayment(
+            @PathVariable UUID organizationId,
+            @PathVariable UUID purchaseId,
+            @Valid @RequestBody SyncPaymentRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(
+                checkoutService.syncPayment(
+                        userDetails.getUser(), organizationId, purchaseId, request.paymentId()));
     }
 
     @PatchMapping("/{organizationId}/purchases/{purchaseId}/seats/{seatId}")

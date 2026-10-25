@@ -6,13 +6,17 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
+import com.signasource.signa_api.organizations.dto.CheckoutResponse;
 import com.signasource.signa_api.organizations.dto.CreatePurchaseRequest;
+import com.signasource.signa_api.organizations.dto.PaymentSyncResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseCatalogResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseDetailResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseQuoteResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseResponse;
+import com.signasource.signa_api.organizations.dto.SyncPaymentRequest;
 import com.signasource.signa_api.organizations.dto.UpdateSeatEmailRequest;
 import com.signasource.signa_api.organizations.service.CoursePurchaseService;
+import com.signasource.signa_api.organizations.service.MercadoPagoCheckoutService;
 import com.signasource.signa_api.users.entity.User;
 import java.util.List;
 import java.util.UUID;
@@ -29,6 +33,7 @@ import org.springframework.http.ResponseEntity;
 class OrganizationPurchaseControllerTest {
 
     @Mock private CoursePurchaseService purchaseService;
+    @Mock private MercadoPagoCheckoutService checkoutService;
 
     @InjectMocks private OrganizationPurchaseController controller;
 
@@ -46,13 +51,13 @@ class OrganizationPurchaseControllerTest {
         organizationId = UUID.randomUUID();
         purchaseId = UUID.randomUUID();
         seatId = UUID.randomUUID();
-        detail = new PurchaseDetailResponse(null, List.of());
+        detail = new PurchaseDetailResponse(null, List.of(), List.of());
     }
 
     @Test
     void shouldReturnTheCatalog() {
         PurchaseCatalogResponse catalog =
-                new PurchaseCatalogResponse(List.of(), "ARS", null, null, 15, 60, 10, 500);
+                new PurchaseCatalogResponse(List.of(), "ARS", List.of(), 15, 60, 10, 500);
         when(purchaseService.catalog()).thenReturn(catalog);
 
         assertSame(catalog, controller.getCatalog().getBody());
@@ -62,7 +67,8 @@ class OrganizationPurchaseControllerTest {
     void shouldReturnAQuote() {
         UUID courseId = UUID.randomUUID();
         PurchaseQuoteResponse quote =
-                new PurchaseQuoteResponse(courseId, "LSA", 1, 2, 30, null, null, "ARS");
+                new PurchaseQuoteResponse(
+                        courseId, "LSA", 1, 2, 30, null, 0, null, null, null, null, "ARS");
         when(purchaseService.quote(courseId, 2, 30)).thenReturn(quote);
 
         assertSame(quote, controller.quote(courseId, 2, 30).getBody());
@@ -102,7 +108,7 @@ class OrganizationPurchaseControllerTest {
     @Test
     void shouldCancelAPurchase() {
         when(principal.getUser()).thenReturn(user);
-        when(purchaseService.cancel(user, organizationId, purchaseId)).thenReturn(detail);
+        when(checkoutService.cancel(user, organizationId, purchaseId)).thenReturn(detail);
 
         assertSame(
                 detail, controller.cancelPurchase(organizationId, purchaseId, principal).getBody());
@@ -131,5 +137,34 @@ class OrganizationPurchaseControllerTest {
         assertSame(
                 detail,
                 controller.remindSeat(organizationId, purchaseId, seatId, principal).getBody());
+    }
+
+    @Test
+    void shouldStartTheCheckout() {
+        when(principal.getUser()).thenReturn(user);
+        CheckoutResponse checkout = new CheckoutResponse("https://mp/checkout");
+        when(checkoutService.startCheckout(user, organizationId, purchaseId)).thenReturn(checkout);
+
+        assertSame(
+                checkout,
+                controller.startCheckout(organizationId, purchaseId, principal).getBody());
+    }
+
+    @Test
+    void shouldSyncAPayment() {
+        when(principal.getUser()).thenReturn(user);
+        PaymentSyncResponse synced = new PaymentSyncResponse("approved", detail);
+        when(checkoutService.syncPayment(user, organizationId, purchaseId, "987"))
+                .thenReturn(synced);
+
+        assertSame(
+                synced,
+                controller
+                        .syncPayment(
+                                organizationId,
+                                purchaseId,
+                                new SyncPaymentRequest("987"),
+                                principal)
+                        .getBody());
     }
 }

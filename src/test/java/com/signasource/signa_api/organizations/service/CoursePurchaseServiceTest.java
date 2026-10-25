@@ -20,7 +20,7 @@ import com.signasource.signa_api.learning.entity.CourseVersion;
 import com.signasource.signa_api.learning.entity.VersionStatus;
 import com.signasource.signa_api.learning.repository.CourseRepository;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
-import com.signasource.signa_api.learning.repository.LessonBlockRepository;
+import com.signasource.signa_api.organizations.dto.CatalogModuleResponse;
 import com.signasource.signa_api.organizations.dto.CreatePurchaseRequest;
 import com.signasource.signa_api.organizations.dto.PurchaseCatalogResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseDetailResponse;
@@ -36,6 +36,7 @@ import com.signasource.signa_api.organizations.entity.PurchaseStatus;
 import com.signasource.signa_api.organizations.entity.SeatStatus;
 import com.signasource.signa_api.organizations.repository.CoursePurchaseRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationRepository;
+import com.signasource.signa_api.organizations.repository.PurchaseRefundRepository;
 import com.signasource.signa_api.organizations.repository.PurchaseSeatRepository;
 import com.signasource.signa_api.users.entity.User;
 import java.math.BigDecimal;
@@ -56,10 +57,11 @@ class CoursePurchaseServiceTest {
 
     @Mock private CoursePurchaseRepository purchaseRepository;
     @Mock private PurchaseSeatRepository seatRepository;
+    @Mock private PurchaseRefundRepository refundRepository;
     @Mock private OrganizationRepository organizationRepository;
     @Mock private CourseRepository courseRepository;
     @Mock private CourseVersionRepository courseVersionRepository;
-    @Mock private LessonBlockRepository lessonBlockRepository;
+    @Mock private CourseSignCatalog signCatalog;
     @Mock private OrganizationAccessService accessService;
     @Mock private SeatInvitationService invitationService;
 
@@ -71,20 +73,27 @@ class CoursePurchaseServiceTest {
 
     @BeforeEach
     void setUp() {
-        PurchasePolicy policy =
-                new PurchasePolicy(
-                        "ARS", new BigDecimal("5"), new BigDecimal("5000"), 15, 60, 10, 5, 24, 3);
+        PurchasePolicy policy = new PurchasePolicy(15, 60, 10, 5, 24, 3);
         service =
                 new CoursePurchaseService(
                         purchaseRepository,
                         seatRepository,
+                        refundRepository,
                         organizationRepository,
                         courseRepository,
                         courseVersionRepository,
-                        lessonBlockRepository,
+                        signCatalog,
                         accessService,
                         invitationService,
-                        policy);
+                        policy,
+                        new PurchasePricing(
+                                "ARS",
+                                new BigDecimal("6000"),
+                                new BigDecimal("400"),
+                                30,
+                                0.85,
+                                BigDecimal.TEN,
+                                "10:10,25:15"));
         actor = new User();
         actor.setId(UUID.randomUUID());
         organization =
@@ -102,7 +111,20 @@ class CoursePurchaseServiceTest {
         when(courseVersionRepository.findByCourseIdAndStatus(
                         course.getId(), VersionStatus.PUBLISHED))
                 .thenReturn(Optional.of(version));
-        when(lessonBlockRepository.countIntroducedSigns(version.getId())).thenReturn(100L);
+        when(signCatalog.modules(version.getId())).thenReturn(modules(30));
+    }
+
+    /** One module per ten signs, so the count spans several modules. */
+    private static List<CatalogModuleResponse> modules(int signs) {
+        List<CatalogModuleResponse> modules = new java.util.ArrayList<>();
+        for (int start = 0; start < signs; start += 10) {
+            List<String> words = new java.util.ArrayList<>();
+            for (int i = start; i < Math.min(start + 10, signs); i++) {
+                words.add("seña " + i);
+            }
+            modules.add(new CatalogModuleResponse("Módulo " + start / 10, words));
+        }
+        return modules;
     }
 
     private void stubOrganization() {
@@ -135,12 +157,15 @@ class CoursePurchaseServiceTest {
         when(courseVersionRepository.findByCourseIdAndStatus(
                         draft.getId(), VersionStatus.PUBLISHED))
                 .thenReturn(Optional.empty());
-        when(lessonBlockRepository.countIntroducedSigns(version.getId())).thenReturn(42L);
+        when(signCatalog.modules(version.getId())).thenReturn(modules(42));
 
         PurchaseCatalogResponse catalog = service.catalog();
 
         assertEquals(1, catalog.courses().size());
         assertEquals(42, catalog.courses().get(0).signCount());
+        assertEquals(5, catalog.courses().get(0).modules().size());
+        assertEquals(2, catalog.volumeDiscounts().size());
+        assertEquals(10, catalog.volumeDiscounts().get(0).minSeats());
         assertEquals(15, catalog.minDays());
         assertEquals(60, catalog.maxDays());
     }
@@ -151,9 +176,45 @@ class CoursePurchaseServiceTest {
 
         PurchaseQuoteResponse quote = service.quote(course.getId(), 3, 30);
 
-        assertEquals(new BigDecimal("15000.00"), quote.pricePerSeat());
-        assertEquals(new BigDecimal("45000.00"), quote.totalAmount());
-        assertEquals(100, quote.signCount());
+        assertEquals(new BigDecimal("18000.00"), quote.pricePerSeat());
+        assertEquals(0, quote.discountPercent());
+        assertEquals(new BigDecimal("54000.00"), quote.totalAmount());
+        assertEquals(30, quote.signCount());
+    }
+
+    @Test
+    void shouldDiscountTheQuoteByVolume() {
+        stubCourse();
+        PurchasePolicy roomy = new PurchasePolicy(15, 60, 10, 5, 24, 500);
+        service =
+                new CoursePurchaseService(
+                        purchaseRepository,
+                        seatRepository,
+                        refundRepository,
+                        organizationRepository,
+                        courseRepository,
+                        courseVersionRepository,
+                        signCatalog,
+                        accessService,
+                        invitationService,
+                        roomy,
+                        new PurchasePricing(
+                                "ARS",
+                                new BigDecimal("6000"),
+                                new BigDecimal("400"),
+                                30,
+                                0.85,
+                                BigDecimal.TEN,
+                                "10:10,25:15"));
+
+        PurchaseQuoteResponse quote = service.quote(course.getId(), 15, 30);
+
+        assertEquals(new BigDecimal("18000.00"), quote.listPricePerSeat());
+        assertEquals(10, quote.discountPercent());
+        assertEquals(new BigDecimal("16200.00"), quote.pricePerSeat());
+        assertEquals(new BigDecimal("270000.00"), quote.subtotal());
+        assertEquals(new BigDecimal("27000.00"), quote.discountAmount());
+        assertEquals(new BigDecimal("243000.00"), quote.totalAmount());
     }
 
     @Test
@@ -203,9 +264,11 @@ class CoursePurchaseServiceTest {
         ArgumentCaptor<CoursePurchase> saved = ArgumentCaptor.forClass(CoursePurchase.class);
         verify(purchaseRepository).save(saved.capture());
         assertEquals(2, saved.getValue().getSeats());
-        assertEquals(new BigDecimal("30000.00"), saved.getValue().getTotalAmount());
+        assertEquals(new BigDecimal("36000.00"), saved.getValue().getTotalAmount());
+        assertEquals(new BigDecimal("18000.00"), saved.getValue().getListPricePerSeat());
+        assertEquals(0, saved.getValue().getDiscountPercent());
         assertEquals(PurchaseStatus.PENDING_PAYMENT, saved.getValue().getStatus());
-        assertEquals(100, saved.getValue().getSignCount());
+        assertEquals(30, saved.getValue().getSignCount());
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<PurchaseSeat>> seats = ArgumentCaptor.forClass(List.class);
         verify(seatRepository).saveAll(seats.capture());
