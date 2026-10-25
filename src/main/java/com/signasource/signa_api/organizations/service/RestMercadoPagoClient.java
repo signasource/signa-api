@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.signasource.signa_api.config.MercadoPagoProperties;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.PaymentProviderException;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +29,9 @@ import org.springframework.web.client.RestClientResponseException;
 public class RestMercadoPagoClient implements MercadoPagoClient {
 
     private static final String DEFAULT_API_URL = "https://api.mercadopago.com";
+    private static final DateTimeFormatter MERCADO_PAGO_DATE =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
+    private static final ZoneId ARGENTINA = ZoneId.of("America/Argentina/Buenos_Aires");
 
     private final MercadoPagoProperties properties;
     private final RestClient restClient;
@@ -112,6 +118,45 @@ public class RestMercadoPagoClient implements MercadoPagoClient {
                 response.path("external_reference").asText(""),
                 response.path("transaction_amount").decimalValue(),
                 response.path("currency_id").asText(""));
+    }
+
+    @Override
+    public String refund(String paymentId) {
+        JsonNode response =
+                call(
+                        () ->
+                                restClient
+                                        .post()
+                                        .uri("/v1/payments/{id}/refunds", paymentId)
+                                        .headers(this::authorize)
+                                        // Same key for the same payment: a retried refund is not
+                                        // applied twice.
+                                        .header("X-Idempotency-Key", "signa-refund-" + paymentId)
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .body(Map.of())
+                                        .retrieve()
+                                        .body(JsonNode.class));
+        return response.path("id").asText("");
+    }
+
+    @Override
+    public void expirePreference(String preferenceId) {
+        call(
+                () ->
+                        restClient
+                                .put()
+                                .uri("/checkout/preferences/{id}", preferenceId)
+                                .headers(this::authorize)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .body(
+                                        Map.of(
+                                                "expires",
+                                                true,
+                                                "expiration_date_to",
+                                                OffsetDateTime.now(ARGENTINA)
+                                                        .format(MERCADO_PAGO_DATE)))
+                                .retrieve()
+                                .body(JsonNode.class));
     }
 
     private void authorize(HttpHeaders headers) {

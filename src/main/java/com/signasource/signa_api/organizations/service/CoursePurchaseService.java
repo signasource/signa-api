@@ -14,6 +14,7 @@ import com.signasource.signa_api.organizations.dto.CreatePurchaseRequest;
 import com.signasource.signa_api.organizations.dto.PurchaseCatalogResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseDetailResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseQuoteResponse;
+import com.signasource.signa_api.organizations.dto.PurchaseRefundResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseResponse;
 import com.signasource.signa_api.organizations.dto.UpdateSeatEmailRequest;
 import com.signasource.signa_api.organizations.dto.VolumeDiscountResponse;
@@ -25,6 +26,7 @@ import com.signasource.signa_api.organizations.entity.PurchaseStatus;
 import com.signasource.signa_api.organizations.entity.SeatStatus;
 import com.signasource.signa_api.organizations.repository.CoursePurchaseRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationRepository;
+import com.signasource.signa_api.organizations.repository.PurchaseRefundRepository;
 import com.signasource.signa_api.organizations.repository.PurchaseSeatRepository;
 import com.signasource.signa_api.users.entity.User;
 import java.time.Instant;
@@ -49,6 +51,7 @@ public class CoursePurchaseService {
 
     private final CoursePurchaseRepository purchaseRepository;
     private final PurchaseSeatRepository seatRepository;
+    private final PurchaseRefundRepository refundRepository;
     private final OrganizationRepository organizationRepository;
     private final CourseRepository courseRepository;
     private final CourseVersionRepository courseVersionRepository;
@@ -238,7 +241,10 @@ public class CoursePurchaseService {
         List<PurchaseSeat> seats = seatRepository.findByPurchaseIdOrderByEmailAsc(purchase.getId());
         return new PurchaseDetailResponse(
                 PurchaseResponse.from(purchase, seats, now),
-                seats.stream().map(seat -> invitationService.toResponse(seat, now)).toList());
+                seats.stream().map(seat -> invitationService.toResponse(seat, now)).toList(),
+                refundRepository.findByPurchaseIdOrderByCreatedAtAsc(purchase.getId()).stream()
+                        .map(PurchaseRefundResponse::from)
+                        .toList());
     }
 
     private void requireNoLiveSeats(

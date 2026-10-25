@@ -51,7 +51,7 @@ class OrganizationPurchaseControllerTest {
         organizationId = UUID.randomUUID();
         purchaseId = UUID.randomUUID();
         seatId = UUID.randomUUID();
-        detail = new PurchaseDetailResponse(null, List.of());
+        detail = new PurchaseDetailResponse(null, List.of(), List.of());
     }
 
     @Test
@@ -108,7 +108,7 @@ class OrganizationPurchaseControllerTest {
     @Test
     void shouldCancelAPurchase() {
         when(principal.getUser()).thenReturn(user);
-        when(purchaseService.cancel(user, organizationId, purchaseId)).thenReturn(detail);
+        when(checkoutService.cancel(user, organizationId, purchaseId)).thenReturn(detail);
 
         assertSame(
                 detail, controller.cancelPurchase(organizationId, purchaseId, principal).getBody());

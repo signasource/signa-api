@@ -541,7 +541,8 @@ lista, descuento por volumen y total) y, al confirmar, crea la compra pendiente 
 Mercado Pago Checkout Pro. El pago se acredita solo después de releerlo en la API de Mercado Pago, por
 el webhook o por el sync que hace el panel al volver (lo que llegue primero; la confirmación es
 idempotente). `PurchasePaymentService.confirmPayment` abre la ventana de 10 días y manda una
-invitación personal a cada email. El back-office puede confirmar a mano igual que antes.
+invitación personal a cada email. Un pago aprobado que no puede pagar la compra se reembolsa solo. Cancelar la compra expira la
+preferencia de Mercado Pago. El back-office puede confirmar a mano igual que antes.
 
 ```mermaid
 sequenceDiagram
@@ -579,9 +580,14 @@ sequenceDiagram
     end
     API->>MP: Leer el pago
     MP-->>API: Estado, external_reference, monto, moneda
-    alt aprobado y coincide con la compra
-        API->>DB: Lock de la compra; si sigue pendiente, pagada (mercadopago:<id>)
-    else rechazado, pendiente o no coincide
+    alt aprobado, compra pendiente y mismo total
+        API->>DB: Lock de la compra; pagada (mercadopago:<id>)
+    else aprobado pero la compra está cancelada, ya pagada por otro pago o el total no coincide
+        API->>DB: Reembolso PENDING (único por pago)
+        API->>MP: Reembolsar el pago completo (idempotente)
+        API->>DB: Reembolso REFUNDED
+        Note over API,MP: si Mercado Pago falla queda PENDING y el 503 hace reintentar el webhook
+    else rechazado o pendiente
         API-->>A: Estado del pago, la compra sigue pendiente
     end
     API->>DB: Vence la invitación a los 10 días

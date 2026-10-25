@@ -6,6 +6,7 @@ import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.PaymentProviderException;
 import com.signasource.signa_api.organizations.dto.CheckoutResponse;
 import com.signasource.signa_api.organizations.dto.PaymentSyncResponse;
+import com.signasource.signa_api.organizations.dto.PurchaseDetailResponse;
 import com.signasource.signa_api.organizations.entity.CoursePurchase;
 import com.signasource.signa_api.organizations.entity.OrganizationStatus;
 import com.signasource.signa_api.organizations.entity.PurchaseStatus;
@@ -34,7 +35,6 @@ import org.springframework.stereotype.Service;
 @Service
 public class MercadoPagoCheckoutService {
 
-    static final String PAYMENT_REFERENCE_PREFIX = "mercadopago:";
     private static final String PURCHASE_PATH = "/dashboard/purchases/";
 
     private final CoursePurchaseRepository purchaseRepository;
@@ -96,6 +96,24 @@ public class MercadoPagoCheckoutService {
         return new CheckoutResponse(preference.checkoutUrl());
     }
 
+    /**
+     * Cancels an unpaid purchase and expires its checkout so it cannot be paid anymore. Expiring is
+     * best effort: a payment that still gets through is refunded when it is notified.
+     */
+    public PurchaseDetailResponse cancel(User actor, UUID organizationId, UUID purchaseId) {
+        PurchaseDetailResponse cancelled =
+                purchaseService.cancel(actor, organizationId, purchaseId);
+        String preferenceId = findPurchase(organizationId, purchaseId).getMercadoPagoPreferenceId();
+        if (preferenceId != null) {
+            try {
+                mercadoPago.expirePreference(preferenceId);
+            } catch (RuntimeException e) {
+                log.warn("Could not expire Mercado Pago preference {}", preferenceId, e);
+            }
+        }
+        return cancelled;
+    }
+
     /** The panel reports the {@code payment_id} Mercado Pago appended to the return URL. */
     public PaymentSyncResponse syncPayment(
             User actor, UUID organizationId, UUID purchaseId, String paymentId) {
@@ -126,37 +144,42 @@ public class MercadoPagoCheckoutService {
         apply(mercadoPago.getPayment(dataId));
     }
 
+    /**
+     * Credits an approved payment, or gives it back when it cannot pay its purchase. The refund
+     * happens after {@link PurchasePaymentService#settle} commits; if Mercado Pago fails, the
+     * refund stays pending and the exception (503) makes Mercado Pago retry the notification.
+     */
     private void apply(Payment payment) {
+        if (payment.isRefunded()) {
+            paymentService.markRefunded(payment.id(), null);
+            return;
+        }
         if (!payment.isApproved()) {
             return;
         }
-        Optional<CoursePurchase> found =
-                parseUuid(payment.externalReference()).flatMap(purchaseRepository::findById);
-        if (found.isEmpty()) {
+        Optional<UUID> purchaseId = parseUuid(payment.externalReference());
+        if (purchaseId.isEmpty()) {
             log.warn("Approved Mercado Pago payment {} matches no purchase", payment.id());
             return;
         }
-        CoursePurchase purchase = found.get();
-        boolean amountMatches =
-                payment.transactionAmount() != null
-                        && payment.transactionAmount().compareTo(purchase.getTotalAmount()) == 0
-                        && purchase.getCurrency().equals(payment.currency());
-        if (!amountMatches) {
-            log.error(
-                    "Mercado Pago payment {} for purchase {} does not match its total",
-                    payment.id(),
-                    purchase.getId());
-            return;
+        PurchasePaymentService.Settlement settlement =
+                paymentService.settle(
+                        purchaseId.get(),
+                        payment.id(),
+                        payment.transactionAmount(),
+                        payment.currency());
+        switch (settlement) {
+            case REFUND -> {
+                log.warn(
+                        "Refunding Mercado Pago payment {}: it cannot pay purchase {}",
+                        payment.id(),
+                        purchaseId.get());
+                paymentService.markRefunded(payment.id(), mercadoPago.refund(payment.id()));
+            }
+            case UNKNOWN_PURCHASE ->
+                    log.warn("Approved Mercado Pago payment {} matches no purchase", payment.id());
+            case CONFIRMED, ALREADY_CONFIRMED, ALREADY_REFUNDED -> {}
         }
-        if (purchase.getStatus() == PurchaseStatus.CANCELLED) {
-            // Paid after being cancelled: needs a manual refund, never a silent reactivation.
-            log.error(
-                    "Mercado Pago payment {} approved for cancelled purchase {}",
-                    payment.id(),
-                    purchase.getId());
-            return;
-        }
-        paymentService.confirmPayment(purchase.getId(), PAYMENT_REFERENCE_PREFIX + payment.id());
     }
 
     private static Optional<UUID> parseUuid(String value) {

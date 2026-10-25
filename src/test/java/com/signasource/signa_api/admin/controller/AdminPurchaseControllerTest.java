@@ -34,7 +34,7 @@ class AdminPurchaseControllerTest {
     @Test
     void shouldConfirmAPaymentWithOrWithoutReference() {
         UUID purchaseId = UUID.randomUUID();
-        PurchaseDetailResponse detail = new PurchaseDetailResponse(null, List.of());
+        PurchaseDetailResponse detail = new PurchaseDetailResponse(null, List.of(), List.of());
         when(paymentService.confirmPayment(purchaseId, "ref")).thenReturn(detail);
         when(paymentService.confirmPayment(purchaseId, null)).thenReturn(detail);
 

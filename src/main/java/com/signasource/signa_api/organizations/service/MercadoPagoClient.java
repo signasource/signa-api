@@ -2,11 +2,14 @@ package com.signasource.signa_api.organizations.service;
 
 import java.math.BigDecimal;
 
-/** The two Mercado Pago calls the seat checkout needs. */
+/** The Mercado Pago calls the seat checkout needs: pay, read, refund and expire. */
 public interface MercadoPagoClient {
 
     /** Mercado Pago's {@code status} of a credited payment. */
     String STATUS_APPROVED = "approved";
+
+    /** Mercado Pago's {@code status} of a payment given back in full. */
+    String STATUS_REFUNDED = "refunded";
 
     /**
      * @throws com.signasource.signa_api.exceptions.PaymentProviderException if Mercado Pago is not
@@ -21,6 +24,17 @@ public interface MercadoPagoClient {
      *     configured or fails
      */
     Payment getPayment(String paymentId);
+
+    /**
+     * Refunds the whole payment and returns Mercado Pago's refund id. Idempotent per payment.
+     *
+     * @throws com.signasource.signa_api.exceptions.PaymentProviderException if Mercado Pago is not
+     *     configured or rejects the refund
+     */
+    String refund(String paymentId);
+
+    /** Makes a preference stop accepting payments (best effort before it is used). */
+    void expirePreference(String preferenceId);
 
     /**
      * One item paid as {@code quantity × unitPrice}. {@code successUrl}, {@code failureUrl} and
@@ -47,6 +61,10 @@ public interface MercadoPagoClient {
 
         public boolean isApproved() {
             return STATUS_APPROVED.equals(status);
+        }
+
+        public boolean isRefunded() {
+            return STATUS_REFUNDED.equals(status);
         }
     }
 }

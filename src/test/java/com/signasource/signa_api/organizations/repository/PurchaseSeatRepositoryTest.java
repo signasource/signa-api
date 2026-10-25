@@ -19,8 +19,11 @@ import com.signasource.signa_api.learning.repository.SignLanguageRepository;
 import com.signasource.signa_api.learning.repository.TopicRepository;
 import com.signasource.signa_api.organizations.entity.CoursePurchase;
 import com.signasource.signa_api.organizations.entity.Organization;
+import com.signasource.signa_api.organizations.entity.PurchaseRefund;
 import com.signasource.signa_api.organizations.entity.PurchaseSeat;
 import com.signasource.signa_api.organizations.entity.PurchaseStatus;
+import com.signasource.signa_api.organizations.entity.RefundReason;
+import com.signasource.signa_api.organizations.entity.RefundStatus;
 import com.signasource.signa_api.organizations.entity.SeatStatus;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -43,6 +46,7 @@ class PurchaseSeatRepositoryTest {
     @MockitoBean private FirebaseMessaging firebaseMessaging;
 
     @Autowired private PurchaseSeatRepository seatRepository;
+    @Autowired private PurchaseRefundRepository refundRepository;
     @Autowired private CoursePurchaseRepository purchaseRepository;
     @Autowired private OrganizationRepository organizationRepository;
     @Autowired private SignLanguageRepository signLanguageRepository;
@@ -203,5 +207,27 @@ class PurchaseSeatRepositoryTest {
                         .lesson(lesson)
                         .config("{\"word\":\"" + word + "\"}")
                         .build());
+    }
+
+    @Test
+    void shouldFindRefundsByPaymentAndPurchase() {
+        CoursePurchase cancelled = purchase(null);
+        PurchaseRefund refund =
+                refundRepository.save(
+                        PurchaseRefund.builder()
+                                .purchase(cancelled)
+                                .paymentId("987")
+                                .amount(BigDecimal.TEN)
+                                .currency("ARS")
+                                .reason(RefundReason.PURCHASE_CANCELLED)
+                                .build());
+
+        assertEquals(refund.getId(), refundRepository.findByPaymentId("987").orElseThrow().getId());
+        assertEquals(
+                List.of(refund.getId()),
+                refundRepository.findByPurchaseIdOrderByCreatedAtAsc(cancelled.getId()).stream()
+                        .map(PurchaseRefund::getId)
+                        .toList());
+        assertEquals(RefundStatus.PENDING, refund.getStatus());
     }
 }

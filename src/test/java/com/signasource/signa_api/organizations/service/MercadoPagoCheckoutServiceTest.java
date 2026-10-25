@@ -27,6 +27,7 @@ import com.signasource.signa_api.organizations.repository.CoursePurchaseReposito
 import com.signasource.signa_api.organizations.service.MercadoPagoClient.CheckoutPreference;
 import com.signasource.signa_api.organizations.service.MercadoPagoClient.Payment;
 import com.signasource.signa_api.organizations.service.MercadoPagoClient.PreferenceRequest;
+import com.signasource.signa_api.organizations.service.PurchasePaymentService.Settlement;
 import com.signasource.signa_api.users.entity.User;
 import java.math.BigDecimal;
 import java.util.List;
@@ -182,23 +183,24 @@ class MercadoPagoCheckoutServiceTest {
     }
 
     @Test
-    void shouldConfirmAnApprovedPaymentOnSync() {
+    void shouldSettleAnApprovedPaymentOnSync() {
         stubPurchase();
         when(mercadoPago.getPayment("987")).thenReturn(approved());
-        when(purchaseRepository.findById(purchase.getId())).thenReturn(Optional.of(purchase));
-        PurchaseDetailResponse detail = new PurchaseDetailResponse(null, List.of());
+        when(paymentService.settle(purchase.getId(), "987", new BigDecimal("243000"), "ARS"))
+                .thenReturn(Settlement.CONFIRMED);
+        PurchaseDetailResponse detail = new PurchaseDetailResponse(null, List.of(), List.of());
         when(purchaseService.get(actor, organization.getId(), purchase.getId())).thenReturn(detail);
 
         PaymentSyncResponse response =
                 service.syncPayment(actor, organization.getId(), purchase.getId(), "987");
 
-        verify(paymentService).confirmPayment(purchase.getId(), "mercadopago:987");
         assertEquals("approved", response.paymentStatus());
         assertSame(detail, response.purchase());
+        verify(mercadoPago, never()).refund(anyString());
     }
 
     @Test
-    void shouldReportARejectedPaymentOnSyncWithoutConfirming() {
+    void shouldReportARejectedPaymentOnSyncWithoutSettling() {
         stubPurchase();
         when(mercadoPago.getPayment("987"))
                 .thenReturn(payment("rejected", purchase.getId().toString(), "243000", "ARS"));
@@ -207,7 +209,7 @@ class MercadoPagoCheckoutServiceTest {
                 service.syncPayment(actor, organization.getId(), purchase.getId(), "987");
 
         assertEquals("rejected", response.paymentStatus());
-        verify(paymentService, never()).confirmPayment(any(), anyString());
+        verify(paymentService, never()).settle(any(), anyString(), any(), any());
     }
 
     @Test
@@ -219,19 +221,84 @@ class MercadoPagoCheckoutServiceTest {
         assertThrows(
                 InvalidInputException.class,
                 () -> service.syncPayment(actor, organization.getId(), purchase.getId(), "987"));
-        verify(paymentService, never()).confirmPayment(any(), anyString());
+        verify(paymentService, never()).settle(any(), anyString(), any(), any());
     }
 
     @Test
-    void shouldConfirmAnApprovedPaymentFromTheWebhook() {
+    void shouldSettleAnApprovedPaymentFromTheWebhook() {
         when(signatureVerifier.isEnabled()).thenReturn(true);
         when(signatureVerifier.isValid("sig", "req", "987")).thenReturn(true);
         when(mercadoPago.getPayment("987")).thenReturn(approved());
-        when(purchaseRepository.findById(purchase.getId())).thenReturn(Optional.of(purchase));
+        when(paymentService.settle(purchase.getId(), "987", new BigDecimal("243000"), "ARS"))
+                .thenReturn(Settlement.CONFIRMED);
 
         service.handleNotification("payment", "987", "sig", "req");
 
-        verify(paymentService).confirmPayment(purchase.getId(), "mercadopago:987");
+        verify(paymentService).settle(purchase.getId(), "987", new BigDecimal("243000"), "ARS");
+        verify(mercadoPago, never()).refund(anyString());
+    }
+
+    @Test
+    void shouldRefundAPaymentThatCannotPayThePurchase() {
+        when(mercadoPago.getPayment("987")).thenReturn(approved());
+        when(paymentService.settle(purchase.getId(), "987", new BigDecimal("243000"), "ARS"))
+                .thenReturn(Settlement.REFUND);
+        when(mercadoPago.refund("987")).thenReturn("r-1");
+
+        service.handleNotification("payment", "987", null, null);
+
+        verify(paymentService).markRefunded("987", "r-1");
+    }
+
+    @Test
+    void shouldLeaveTheRefundPendingWhenMercadoPagoFails() {
+        when(mercadoPago.getPayment("987")).thenReturn(approved());
+        when(paymentService.settle(purchase.getId(), "987", new BigDecimal("243000"), "ARS"))
+                .thenReturn(Settlement.REFUND);
+        when(mercadoPago.refund("987")).thenThrow(new PaymentProviderException("down"));
+
+        assertThrows(
+                PaymentProviderException.class,
+                () -> service.handleNotification("payment", "987", null, null));
+        verify(paymentService, never()).markRefunded(anyString(), any());
+    }
+
+    @Test
+    void shouldMarkTheRefundDoneWhenMercadoPagoNotifiesIt() {
+        when(mercadoPago.getPayment("987"))
+                .thenReturn(payment("refunded", purchase.getId().toString(), "243000", "ARS"));
+
+        service.handleNotification("payment", "987", null, null);
+
+        verify(paymentService).markRefunded("987", null);
+        verify(paymentService, never()).settle(any(), anyString(), any(), any());
+    }
+
+    @Test
+    void shouldNotRefundWhenNothingIsLeftToDo() {
+        when(mercadoPago.getPayment("987")).thenReturn(approved());
+        when(paymentService.settle(any(), anyString(), any(), any()))
+                .thenReturn(
+                        Settlement.ALREADY_CONFIRMED,
+                        Settlement.ALREADY_REFUNDED,
+                        Settlement.UNKNOWN_PURCHASE);
+
+        service.handleNotification("payment", "987", null, null);
+        service.handleNotification("payment", "987", null, null);
+        service.handleNotification("payment", "987", null, null);
+
+        verify(mercadoPago, never()).refund(anyString());
+    }
+
+    @Test
+    void shouldIgnoreAnApprovedPaymentWithoutAPurchaseReference() {
+        when(mercadoPago.getPayment("1")).thenReturn(payment("approved", "not-a-uuid", "1", "ARS"));
+        when(mercadoPago.getPayment("2")).thenReturn(payment("approved", null, "1", "ARS"));
+
+        service.handleNotification("payment", "1", null, null);
+        service.handleNotification("payment", "2", null, null);
+
+        verifyNoInteractions(paymentService);
     }
 
     @Test
@@ -255,37 +322,37 @@ class MercadoPagoCheckoutServiceTest {
     }
 
     @Test
-    void shouldNotConfirmAPaymentThatDoesNotMatchThePurchase() {
-        when(purchaseRepository.findById(purchase.getId())).thenReturn(Optional.of(purchase));
-        when(mercadoPago.getPayment("1"))
-                .thenReturn(payment("approved", purchase.getId().toString(), "100", "ARS"));
-        when(mercadoPago.getPayment("2"))
-                .thenReturn(payment("approved", purchase.getId().toString(), "243000", "USD"));
-        when(mercadoPago.getPayment("3"))
-                .thenReturn(payment("approved", purchase.getId().toString(), null, "ARS"));
+    void shouldExpireTheCheckoutWhenCancelling() {
+        PurchaseDetailResponse cancelled = new PurchaseDetailResponse(null, List.of(), List.of());
+        when(purchaseService.cancel(actor, organization.getId(), purchase.getId()))
+                .thenReturn(cancelled);
+        stubPurchase();
+        purchase.setMercadoPagoPreferenceId("pref-1");
 
-        service.handleNotification("payment", "1", null, null);
-        service.handleNotification("payment", "2", null, null);
-        service.handleNotification("payment", "3", null, null);
-
-        verify(paymentService, never()).confirmPayment(any(), anyString());
+        assertSame(cancelled, service.cancel(actor, organization.getId(), purchase.getId()));
+        verify(mercadoPago).expirePreference("pref-1");
     }
 
     @Test
-    void shouldIgnoreApprovedPaymentsOfUnknownOrCancelledPurchases() {
-        when(mercadoPago.getPayment("1")).thenReturn(payment("approved", "not-a-uuid", "1", "ARS"));
-        UUID unknown = UUID.randomUUID();
-        when(mercadoPago.getPayment("2"))
-                .thenReturn(payment("approved", unknown.toString(), "1", "ARS"));
-        when(purchaseRepository.findById(unknown)).thenReturn(Optional.empty());
-        purchase.setStatus(PurchaseStatus.CANCELLED);
-        when(mercadoPago.getPayment("3")).thenReturn(approved());
-        when(purchaseRepository.findById(purchase.getId())).thenReturn(Optional.of(purchase));
+    void shouldCancelEvenIfTheCheckoutCannotBeExpired() {
+        PurchaseDetailResponse cancelled = new PurchaseDetailResponse(null, List.of(), List.of());
+        when(purchaseService.cancel(actor, organization.getId(), purchase.getId()))
+                .thenReturn(cancelled);
+        stubPurchase();
+        purchase.setMercadoPagoPreferenceId("pref-1");
+        doThrow(new PaymentProviderException("down")).when(mercadoPago).expirePreference("pref-1");
 
-        service.handleNotification("payment", "1", null, null);
-        service.handleNotification("payment", "2", null, null);
-        service.handleNotification("payment", "3", null, null);
+        assertSame(cancelled, service.cancel(actor, organization.getId(), purchase.getId()));
+    }
 
-        verify(paymentService, never()).confirmPayment(any(), anyString());
+    @Test
+    void shouldCancelWithoutCallingMercadoPagoWhenTheCheckoutWasNeverOpened() {
+        when(purchaseService.cancel(actor, organization.getId(), purchase.getId()))
+                .thenReturn(new PurchaseDetailResponse(null, List.of(), List.of()));
+        stubPurchase();
+
+        service.cancel(actor, organization.getId(), purchase.getId());
+
+        verifyNoInteractions(mercadoPago);
     }
 }

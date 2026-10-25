@@ -3,6 +3,7 @@ package com.signasource.signa_api.organizations.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
@@ -172,5 +173,49 @@ class RestMercadoPagoClientTest {
                                 "{\"id\":1,\"status\":\"pending\"}", MediaType.APPLICATION_JSON));
 
         assertEquals("pending", client.getPayment("1").status());
+    }
+
+    @Test
+    void shouldRefundTheWholePaymentWithAStableIdempotencyKey() {
+        RestMercadoPagoClient client = client("TEST-token", null);
+        server.expect(requestTo(API + "/v1/payments/987/refunds"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(header("Authorization", "Bearer TEST-token"))
+                .andExpect(header("X-Idempotency-Key", "signa-refund-987"))
+                .andExpect(content().json("{}"))
+                .andRespond(
+                        withSuccess(
+                                "{\"id\":555,\"payment_id\":987,\"status\":\"approved\"}",
+                                MediaType.APPLICATION_JSON));
+
+        assertEquals("555", client.refund("987"));
+        server.verify();
+    }
+
+    @Test
+    void shouldFailWhenMercadoPagoRejectsTheRefund() {
+        RestMercadoPagoClient client = client("TEST-token", null);
+        server.expect(requestTo(API + "/v1/payments/987/refunds"))
+                .andRespond(withStatus(HttpStatus.BAD_REQUEST));
+
+        assertThrows(PaymentProviderException.class, () -> client.refund("987"));
+    }
+
+    @Test
+    void shouldExpireAPreference() {
+        RestMercadoPagoClient client = client("TEST-token", null);
+        server.expect(requestTo(API + "/checkout/preferences/pref-1"))
+                .andExpect(method(HttpMethod.PUT))
+                .andExpect(header("Authorization", "Bearer TEST-token"))
+                .andExpect(jsonPath("$.expires").value(true))
+                .andExpect(
+                        jsonPath("$.expiration_date_to")
+                                .value(
+                                        Matchers.matchesPattern(
+                                                "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}-03:00")))
+                .andRespond(withSuccess("{\"id\":\"pref-1\"}", MediaType.APPLICATION_JSON));
+
+        client.expirePreference("pref-1");
+        server.verify();
     }
 }

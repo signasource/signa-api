@@ -78,7 +78,7 @@ public class OrganizationPurchaseController {
             @PathVariable UUID purchaseId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(
-                purchaseService.cancel(userDetails.getUser(), organizationId, purchaseId));
+                checkoutService.cancel(userDetails.getUser(), organizationId, purchaseId));
     }
 
     @PostMapping("/{organizationId}/purchases/{purchaseId}/checkout")
