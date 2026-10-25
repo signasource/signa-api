@@ -72,8 +72,15 @@ public class SecurityConfig {
                                         .authenticated()
                                         .requestMatchers(HttpMethod.POST, "/organizations/register")
                                         .permitAll()
-                                        .requestMatchers(HttpMethod.GET, "/organizations/pricing")
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/organizations/catalog",
+                                                "/organizations/catalog/quote")
                                         .permitAll()
+                                        .requestMatchers(HttpMethod.GET, "/invitations/*")
+                                        .permitAll()
+                                        .requestMatchers(HttpMethod.POST, "/invitations/*/accept")
+                                        .authenticated()
                                         .requestMatchers("/organizations")
                                         .hasRole("ADMIN")
                                         .requestMatchers(HttpMethod.PATCH, "/organizations/*")
@@ -86,12 +93,6 @@ public class SecurityConfig {
                                         .requestMatchers(
                                                 HttpMethod.POST,
                                                 "/organizations/*/admin-invitations")
-                                        .hasRole("ADMIN")
-                                        .requestMatchers(
-                                                HttpMethod.POST, "/organizations/*/courses")
-                                        .hasRole("ADMIN")
-                                        .requestMatchers(
-                                                HttpMethod.DELETE, "/organizations/*/courses/*")
                                         .hasRole("ADMIN")
                                         .requestMatchers("/organizations/**")
                                         .hasAnyRole("ADMIN", "ORG_ADMIN")

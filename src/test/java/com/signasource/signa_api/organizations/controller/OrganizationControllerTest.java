@@ -9,8 +9,6 @@ import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.organizations.dto.AddOrganizationAdminRequest;
-import com.signasource.signa_api.organizations.dto.AddOrganizationCourseRequest;
-import com.signasource.signa_api.organizations.dto.CreateInviteCodeRequest;
 import com.signasource.signa_api.organizations.dto.CreateOrganizationRequest;
 import com.signasource.signa_api.organizations.dto.InviteByEmailRequest;
 import com.signasource.signa_api.organizations.dto.InviteCodeResponse;
@@ -120,45 +118,6 @@ class OrganizationControllerTest {
     }
 
     @Test
-    void shouldReturn201WhenContractingACourse() {
-        UUID courseId = UUID.randomUUID();
-        OrganizationCourseResponse response = new OrganizationCourseResponse(null, null);
-        when(organizationService.addCourse(organizationId, courseId)).thenReturn(response);
-
-        ResponseEntity<OrganizationCourseResponse> result =
-                organizationController.addCourse(
-                        organizationId, new AddOrganizationCourseRequest(courseId));
-
-        assertEquals(HttpStatus.CREATED, result.getStatusCode());
-        assertSame(response, result.getBody());
-    }
-
-    @Test
-    void shouldReturn204WhenRemovingAContractedCourse() {
-        UUID courseId = UUID.randomUUID();
-
-        ResponseEntity<Void> result = organizationController.removeCourse(organizationId, courseId);
-
-        assertEquals(HttpStatus.NO_CONTENT, result.getStatusCode());
-        verify(organizationService).removeCourse(organizationId, courseId);
-    }
-
-    @Test
-    void shouldReturn201WhenCreatingInviteCode() {
-        stubPrincipal();
-        CreateInviteCodeRequest request = new CreateInviteCodeRequest(null, null);
-        InviteCodeResponse response = inviteCodeResponse();
-        when(inviteCodeService.createInviteCode(mockUser, organizationId, request))
-                .thenReturn(response);
-
-        ResponseEntity<InviteCodeResponse> result =
-                organizationController.createInviteCode(organizationId, request, mockUserDetails);
-
-        assertEquals(HttpStatus.CREATED, result.getStatusCode());
-        assertSame(response, result.getBody());
-    }
-
-    @Test
     void shouldListInviteCodes() {
         stubPrincipal();
         List<InviteCodeResponse> response = List.of(inviteCodeResponse());
@@ -184,21 +143,6 @@ class OrganizationControllerTest {
         assertEquals(HttpStatus.NO_CONTENT, result.getStatusCode());
         assertNull(result.getBody());
         verify(inviteCodeService).deactivateInviteCode(mockUser, organizationId, inviteCodeId);
-    }
-
-    @Test
-    void shouldReturn201WhenInvitingByEmail() {
-        stubPrincipal();
-        InviteByEmailRequest request = new InviteByEmailRequest("ana@hospital.com", null);
-        InviteCodeResponse response = inviteCodeResponse();
-        when(inviteCodeService.inviteByEmail(mockUser, organizationId, request))
-                .thenReturn(response);
-
-        ResponseEntity<InviteCodeResponse> result =
-                organizationController.inviteByEmail(organizationId, request, mockUserDetails);
-
-        assertEquals(HttpStatus.CREATED, result.getStatusCode());
-        assertSame(response, result.getBody());
     }
 
     @Test
@@ -239,7 +183,6 @@ class OrganizationControllerTest {
                 "30123456789",
                 "rrhh@hospital.com",
                 null,
-                50,
                 3,
                 null);
     }
@@ -259,7 +202,7 @@ class OrganizationControllerTest {
 
     @Test
     void shouldReturn200WhenUpdatingOrganization() {
-        UpdateOrganizationRequest request = new UpdateOrganizationRequest(null, 10);
+        UpdateOrganizationRequest request = new UpdateOrganizationRequest(null);
         OrganizationDetailResponse detail = detail();
         when(organizationService.updateOrganization(organizationId, request)).thenReturn(detail);
 

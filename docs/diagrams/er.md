@@ -429,33 +429,42 @@ erDiagram
 
 ## Organizaciones
 
-Una organización contrata cursos y todos sus miembros activos acceden al mismo conjunto; el
-progreso es individual. Un usuario pertenece a una sola organización: al salir la membresía queda
-como `REMOVED` (no se borra) y sus inscripciones a cursos pagos pasan a `DROPPED`, así el progreso
-se conserva si vuelve (los cursos gratuitos sólo se desvinculan de la organización). Un código de
-invitación con `email` es una invitación nominal de un solo uso. Los intentos de ejercicio hechos
-sobre cursos de la organización se etiquetan con ella para separar esa actividad de la propia del
-usuario. `memberLimit` es el cupo de participantes activos (nulo = sin límite) y los datos de
-contacto/CUIT vienen del alta autogestionada.
+Una organización compra **cupos** por curso (`COURSE_PURCHASE`): cuántos, por cuántos días de acceso
+(15 a 60) y a qué precio (precio por cupo = señas del curso × días × `price-per-sign-per-day`, con un
+mínimo por cupo). Cada compra es independiente: tiene su propio pago, su ventana de invitación (10
+días desde el pago) y sus cupos (`PURCHASE_SEAT`), cada uno atado a un email. Al aceptar la
+invitación arrancan los días de esa persona (`activatedAt` → `accessExpiresAt`). Los estados
+`INVITATION_EXPIRED` y `ACCESS_EXPIRED` no se guardan: se derivan de las fechas. `ORGANIZATION_COURSE`
+queda como el registro de cursos que la organización compró alguna vez (lo crea el primer pago) y es
+lo que usan las métricas del panel.
+
+Un usuario pertenece a una sola organización: al salir la membresía queda como `REMOVED` (no se
+borra), sus inscripciones a cursos pagos pasan a `DROPPED` y sus cupos activos a `REVOKED`; el
+progreso se conserva. `INVITE_CODE` solo se usa para invitar administradores al panel (los códigos
+compartidos de participantes se eliminaron). Los intentos de ejercicio hechos sobre cursos de la
+organización se etiquetan con ella para separar esa actividad de la propia del usuario.
 
 ```mermaid
 erDiagram
     ORGANIZATION ||--o{ ORGANIZATION_MEMBER : "tiene"
-    ORGANIZATION ||--o{ ORGANIZATION_COURSE : "contrata"
-    ORGANIZATION ||--o{ INVITE_CODE : "emite"
+    ORGANIZATION ||--o{ ORGANIZATION_COURSE : "compró"
+    ORGANIZATION ||--o{ COURSE_PURCHASE : "compra"
+    ORGANIZATION ||--o{ INVITE_CODE : "invita admins"
     ORGANIZATION ||--o{ USER_COURSE_ENROLLMENT : "habilita"
     ORGANIZATION ||--o{ LESSON_BLOCK_ATTEMPT : "contexto de"
     USER ||--o| ORGANIZATION_MEMBER : "pertenece"
+    USER ||--o{ PURCHASE_SEAT : "acepta"
     COURSE ||--o{ ORGANIZATION_COURSE : "contratado en"
+    COURSE ||--o{ COURSE_PURCHASE : "se compra en"
+    COURSE_PURCHASE ||--|{ PURCHASE_SEAT : "tiene"
 
     ORGANIZATION {
         uuid id PK
         string name UK
-        enum status "PENDING | ACTIVE | REJECTED | SUSPENDED"
+        enum status "PENDING (sin validar) | ACTIVE (validada) | REJECTED | SUSPENDED"
         string cuit UK "11 dígitos, nulo si la creó SIGNA"
         string contactEmail
         string contactPhone
-        int memberLimit "nulo = sin límite"
         instant createdAt
     }
     ORGANIZATION_MEMBER {
@@ -473,12 +482,44 @@ erDiagram
         uuid course_id FK
         instant contractedAt
     }
+    COURSE_PURCHASE {
+        uuid id PK
+        uuid organization_id FK
+        uuid course_id FK
+        uuid created_by_id FK
+        int seats
+        int durationDays "15 a 60"
+        int signCount "señas al cotizar"
+        decimal pricePerSeat
+        decimal totalAmount
+        string currency
+        enum status "PENDING_PAYMENT | PAID | CANCELLED"
+        string paymentReference "id del pago (Mercado Pago)"
+        instant paidAt
+        instant invitationDeadline "paidAt + 10 días"
+        instant cancelledAt
+        instant createdAt
+    }
+    PURCHASE_SEAT {
+        uuid id PK
+        uuid purchase_id FK
+        string email "único por compra"
+        enum status "PENDING_PAYMENT | INVITED | ACTIVE | REVOKED | CANCELLED"
+        string invitationToken UK "se renueva al cambiar el email"
+        instant invitedAt
+        instant lastReminderAt
+        instant autoReminderSentAt
+        instant activatedAt
+        instant accessExpiresAt
+        instant revokedAt
+        uuid user_id FK "quien aceptó"
+    }
     INVITE_CODE {
         uuid id PK
         string code UK
         uuid organization_id FK
-        string email "nulo si es un código compartido"
-        enum memberRole "MEMBER | ADMIN"
+        string email
+        enum memberRole "ADMIN (los MEMBER son legado y no se canjean)"
         instant expiresAt
         int maxUses
         int useCount

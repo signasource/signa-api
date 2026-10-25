@@ -460,47 +460,11 @@ sequenceDiagram
     end
 ```
 
-## Ingreso a una organización con código o invitación
+## Alta y validación de una organización
 
-La organización (o un admin de SIGNA) genera un código compartido o invita por email; en ese caso
-se crea un código de un solo uso atado al correo y se le envía. Canjearlo une a la persona a la
-organización y la inscribe en todos los cursos que la organización contrató.
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant A as Admin de la organización
-    participant C as Usuario (app)
-    participant API as API
-    participant M as Correo
-    participant DB as Base de datos
-
-    A->>API: Invitar por email (o generar código compartido)
-    API->>DB: Guardar código (atado al email, un solo uso)
-    API-)M: Enviar el código por correo
-    C->>API: Canjear código
-    API->>DB: Buscar código
-    alt inexistente, inactivo, vencido, agotado o de otro correo
-        API-->>C: Solicitud inválida (400)
-    else organización pendiente de aprobación o sin cupo
-        API-->>C: Solicitud inválida (400)
-    else pertenece a otra organización
-        API-->>C: Conflicto (409)
-    else válido
-        API->>DB: Crear o reactivar la membresía
-        API->>DB: Inscribir en cada curso contratado (conserva progreso previo)
-        API-->>C: Organización y cursos habilitados
-    end
-    A->>API: Quitar participante (o el participante sale por su cuenta)
-    API->>DB: Marcar membresía como removida y bajar sus inscripciones
-    Note over API,DB: El progreso queda guardado por si se reincorpora
-```
-
-## Alta autogestionada de una organización
-
-Una empresa se registra desde la web: se crean en un solo paso la cuenta de su administrador y la
-organización, pendiente de aprobación. SIGNA la revisa desde su panel y la aprueba eligiendo qué
-cursos contrata (o la rechaza); recién ahí la organización puede sumar participantes.
+Una empresa se registra desde la web sin comprar nada: se crean en un solo paso la cuenta de su
+administrador y la organización, pendiente de validación. SIGNA verifica que quien la registró
+represente a la organización y la aprueba (o la rechaza); recién validada puede comprar cupos.
 
 ```mermaid
 sequenceDiagram
@@ -510,8 +474,7 @@ sequenceDiagram
     participant API as API
     participant DB as Base de datos
 
-    W->>API: Consultar precio por persona
-    W->>API: Registrar organización (nombre, CUIT, contacto, cupo, admin)
+    W->>API: Registrar organización (nombre, CUIT, contacto, admin)
     alt nombre, CUIT o email ya usados
         API-->>W: Conflicto (409)
     else CUIT mal formado
@@ -521,10 +484,78 @@ sequenceDiagram
         API-->>W: Organización pendiente (201)
     end
     S->>API: Listar organizaciones pendientes (panel de SIGNA)
-    S->>API: Aprobar eligiendo los cursos
-    API->>DB: Organización activa y cursos contratados
-    W->>API: El administrador de la empresa inicia sesión en su panel
-    W->>API: Invitar participantes (código, email o planilla)
+    S->>API: Validar (o rechazar)
+    API->>DB: Organización activa
+```
+
+## Compra de cupos
+
+La organización elige un curso, la duración (15 a 60 días) y carga un email por cupo. La compra
+queda pendiente de pago; la confirmación del pago (`PurchasePaymentService.confirmPayment`, que va a
+llamar el webhook de Mercado Pago y hoy dispara el back-office) abre la ventana de 10 días y manda una
+invitación personal a cada email.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as Admin de la organización
+    participant P as Pago (Mercado Pago / back-office)
+    participant API as API
+    participant M as Correo
+    participant DB as Base de datos
+
+    A->>API: Cotizar (curso, cupos, días)
+    API-->>A: Precio por cupo y total
+    A->>API: Comprar (curso, días, emails)
+    alt organización sin validar, curso gratuito, duración fuera de rango o email repetido
+        API-->>A: Solicitud inválida (400)
+    else un email ya tiene un cupo vigente o pendiente de ese curso
+        API-->>A: Conflicto (409)
+    else válido
+        API->>DB: Compra pendiente de pago + un cupo por email
+        API-->>A: Compra creada (201)
+    end
+    P->>API: Confirmar pago (referencia)
+    API->>DB: Compra pagada, vence la invitación a los 10 días
+    API->>DB: Registrar el curso como contratado (si es el primero)
+    API->>DB: Token nuevo por cupo
+    API-)M: Invitación personal a cada email (al confirmar la transacción)
+```
+
+## Aceptación de una invitación
+
+El link del correo lleva a la web. La persona crea su cuenta o inicia sesión **con el mismo email** y
+acepta; desde ese momento corren sus días de acceso. El link es la prueba de que el email es suyo,
+así que la cuenta queda verificada. Al día 5 sin aceptar sale un recordatorio automático (job
+horario); la organización puede mandar recordatorios manuales (uno cada 24 h) y cambiar el email
+mientras no se aceptó: eso invalida el link anterior y manda uno nuevo, sin correr el vencimiento.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as Empleado (web)
+    participant API as API
+    participant DB as Base de datos
+
+    U->>API: Ver la invitación (token)
+    API-->>U: Organización, curso, email, estado, vencimiento, si ya tiene cuenta
+    U->>API: Registrarse o iniciar sesión con ese email
+    U->>API: Aceptar (token)
+    alt token inexistente o reemplazado
+        API-->>U: No encontrado (404)
+    else otro email
+        API-->>U: Prohibido (403)
+    else vencida, revocada o la organización no está activa
+        API-->>U: Solicitud inválida (400)
+    else pertenece a otra organización
+        API-->>U: Conflicto (409)
+    else válida
+        API->>DB: Crear o reactivar la membresía (MEMBER)
+        API->>DB: Inscribir con vencimiento = hoy + días (conserva progreso previo)
+        API->>DB: Cupo activo, cuenta verificada
+        API-->>U: Curso habilitado y fecha de vencimiento
+    end
+    Note over API,DB: Al vencer, las lecciones se bloquean; el progreso queda visible para el empleado y la organización
 ```
 
 ## Invitación de un administrador al panel de la organización
