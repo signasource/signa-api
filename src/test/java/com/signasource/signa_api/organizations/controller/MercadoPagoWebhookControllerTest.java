@@ -23,18 +23,16 @@ class MercadoPagoWebhookControllerTest {
     void shouldHandleAWebhookFromItsQueryParams() {
         assertEquals(
                 HttpStatus.OK,
-                controller
-                        .webhook("payment", null, "987", null, "sig", "req", null)
-                        .getStatusCode());
+                controller.webhook("order", null, "987", null, "sig", "req", null).getStatusCode());
 
-        verify(checkoutService).handleNotification("payment", "987", "sig", "req");
+        verify(checkoutService).handleNotification("order", "987", "sig", "req");
     }
 
     @Test
     void shouldFallBackToTheLegacyIpnParams() {
-        controller.webhook(null, "payment", null, "987", null, null, null);
+        controller.webhook(null, "order", null, "987", null, null, null);
 
-        verify(checkoutService).handleNotification("payment", "987", null, null);
+        verify(checkoutService).handleNotification("order", "987", null, null);
     }
 
     @Test
@@ -46,8 +44,8 @@ class MercadoPagoWebhookControllerTest {
                 null,
                 null,
                 null,
-                new ObjectMapper().readTree("{\"type\":\"payment\",\"data\":{\"id\":\"987\"}}"));
+                new ObjectMapper().readTree("{\"type\":\"order\",\"data\":{\"id\":\"ORD1\"}}"));
 
-        verify(checkoutService).handleNotification("payment", "987", null, null);
+        verify(checkoutService).handleNotification("order", "ORD1", null, null);
     }
 }

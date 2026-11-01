@@ -11,9 +11,9 @@ import com.signasource.signa_api.organizations.entity.CoursePurchase;
 import com.signasource.signa_api.organizations.entity.OrganizationStatus;
 import com.signasource.signa_api.organizations.entity.PurchaseStatus;
 import com.signasource.signa_api.organizations.repository.CoursePurchaseRepository;
-import com.signasource.signa_api.organizations.service.MercadoPagoClient.CheckoutPreference;
+import com.signasource.signa_api.organizations.service.MercadoPagoClient.CheckoutOrder;
+import com.signasource.signa_api.organizations.service.MercadoPagoClient.OrderRequest;
 import com.signasource.signa_api.organizations.service.MercadoPagoClient.Payment;
-import com.signasource.signa_api.organizations.service.MercadoPagoClient.PreferenceRequest;
 import com.signasource.signa_api.users.entity.User;
 import java.time.Instant;
 import java.util.List;
@@ -81,9 +81,9 @@ public class MercadoPagoCheckoutService {
         }
 
         String returnUrl = panelUrl + PURCHASE_PATH + purchase.getId();
-        CheckoutPreference preference =
-                mercadoPago.createPreference(
-                        new PreferenceRequest(
+        CheckoutOrder preference =
+                mercadoPago.createOrder(
+                        new OrderRequest(
                                 purchase.getId().toString(),
                                 "Cupos SIGNA · "
                                         + purchase.getCourse().getName()
@@ -111,7 +111,7 @@ public class MercadoPagoCheckoutService {
         String preferenceId = findPurchase(organizationId, purchaseId).getMercadoPagoPreferenceId();
         if (preferenceId != null) {
             try {
-                mercadoPago.expirePreference(preferenceId);
+                mercadoPago.cancelOrder(preferenceId);
             } catch (RuntimeException e) {
                 log.warn("Could not expire Mercado Pago preference {}", preferenceId, e);
             }
@@ -135,12 +135,18 @@ public class MercadoPagoCheckoutService {
         return purchaseService.get(actor, organizationId, purchaseId);
     }
 
-    /** The panel reports the {@code payment_id} Mercado Pago appended to the return URL. */
-    public PaymentSyncResponse syncPayment(
-            User actor, UUID organizationId, UUID purchaseId, String paymentId) {
+    /**
+     * The panel asks to re-check the purchase's last order when the admin comes back from checkout.
+     * The order is the one Signa created and stored, so nothing the browser sends is trusted.
+     */
+    public PaymentSyncResponse syncPayment(User actor, UUID organizationId, UUID purchaseId) {
         accessService.requireManage(actor, organizationId);
         CoursePurchase purchase = findPurchase(organizationId, purchaseId);
-        Payment payment = mercadoPago.getPayment(paymentId);
+        String orderId = purchase.getMercadoPagoPreferenceId();
+        if (orderId == null || orderId.isBlank()) {
+            throw new InvalidInputException("This purchase has no checkout to check yet");
+        }
+        Payment payment = mercadoPago.getOrder(orderId);
         if (!purchase.getId().toString().equals(payment.externalReference())) {
             throw new InvalidInputException("That payment belongs to another purchase");
         }
@@ -150,8 +156,8 @@ public class MercadoPagoCheckoutService {
     }
 
     /**
-     * Handles a webhook. Anything that is not a payment notification is acknowledged and ignored,
-     * so Mercado Pago does not retry it.
+     * Handles a webhook. Anything that is not an {@code order} notification is acknowledged and
+     * ignored, so Mercado Pago does not retry it. {@code dataId} is the order's id.
      */
     public void handleNotification(
             String type, String dataId, String signatureHeader, String requestId) {
@@ -159,10 +165,10 @@ public class MercadoPagoCheckoutService {
                 && !signatureVerifier.isValid(signatureHeader, requestId, dataId)) {
             throw new ForbiddenException("Invalid Mercado Pago signature");
         }
-        if (!"payment".equals(type) || dataId == null || dataId.isBlank()) {
+        if (!"order".equals(type) || dataId == null || dataId.isBlank()) {
             return;
         }
-        apply(mercadoPago.getPayment(dataId));
+        apply(mercadoPago.getOrder(dataId));
     }
 
     /**
@@ -231,7 +237,7 @@ public class MercadoPagoCheckoutService {
         try {
             refundId = mercadoPago.refund(paymentId);
         } catch (PaymentProviderException e) {
-            if (!mercadoPago.getPayment(paymentId).isRefunded()) {
+            if (!mercadoPago.getOrder(paymentId).isRefunded()) {
                 throw e;
             }
             refundId = null;

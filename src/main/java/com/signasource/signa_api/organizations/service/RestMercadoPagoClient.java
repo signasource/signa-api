@@ -4,9 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.signasource.signa_api.config.MercadoPagoProperties;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.PaymentProviderException;
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,9 +28,6 @@ import org.springframework.web.client.RestClientResponseException;
 public class RestMercadoPagoClient implements MercadoPagoClient {
 
     private static final String DEFAULT_API_URL = "https://api.mercadopago.com";
-    private static final DateTimeFormatter MERCADO_PAGO_DATE =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
-    private static final ZoneId ARGENTINA = ZoneId.of("America/Argentina/Buenos_Aires");
 
     private final MercadoPagoProperties properties;
     private final RestClient restClient;
@@ -46,38 +42,39 @@ public class RestMercadoPagoClient implements MercadoPagoClient {
     }
 
     @Override
-    public CheckoutPreference createPreference(PreferenceRequest request) {
+    public CheckoutOrder createOrder(OrderRequest request) {
+        BigDecimal unitPrice = request.unitPrice().setScale(2, RoundingMode.HALF_UP);
+        BigDecimal total = unitPrice.multiply(BigDecimal.valueOf(request.quantity()));
+
         Map<String, Object> item = new LinkedHashMap<>();
-        item.put("id", request.externalReference());
         item.put("title", request.title());
         item.put("quantity", request.quantity());
-        item.put("unit_price", request.unitPrice());
-        item.put("currency_id", request.currency());
+        item.put("unit_price", unitPrice.toPlainString());
 
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("items", List.of(item));
-        body.put("external_reference", request.externalReference());
-        body.put("statement_descriptor", "SIGNA");
-        body.put(
-                "back_urls",
-                Map.of(
-                        "success", request.successUrl(),
-                        "failure", request.failureUrl(),
-                        "pending", request.pendingUrl()));
+        Map<String, Object> online = new LinkedHashMap<>();
+        online.put("success_url", request.successUrl());
+        online.put("failure_url", request.failureUrl());
+        online.put("pending_url", request.pendingUrl());
         // Mercado Pago only redirects on its own to an https success URL (not to localhost).
         if (request.successUrl().startsWith("https://")) {
-            body.put("auto_return", "approved");
+            online.put("auto_return", "approved");
         }
-        if (properties.notificationUrl() != null && !properties.notificationUrl().isBlank()) {
-            body.put("notification_url", properties.notificationUrl() + "?source_news=webhooks");
-        }
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("type", "online");
+        body.put("processing_mode", "manual");
+        body.put("total_amount", total.toPlainString());
+        body.put("external_reference", request.externalReference());
+        body.put("description", request.title());
+        body.put("items", List.of(item));
+        body.put("config", Map.of("online", online));
 
         JsonNode response =
                 call(
                         () ->
                                 restClient
                                         .post()
-                                        .uri("/checkout/preferences")
+                                        .uri("/v1/orders")
                                         .headers(this::authorize)
                                         .header("X-Idempotency-Key", UUID.randomUUID().toString())
                                         .contentType(MediaType.APPLICATION_JSON)
@@ -85,15 +82,16 @@ public class RestMercadoPagoClient implements MercadoPagoClient {
                                         .retrieve()
                                         .body(JsonNode.class));
         String id = response.path("id").asText("");
-        String checkoutUrl = response.path("init_point").asText("");
+        String checkoutUrl = response.path("checkout_url").asText("");
         if (id.isEmpty() || checkoutUrl.isEmpty()) {
-            throw new PaymentProviderException("Mercado Pago returned an incomplete preference");
+            throw new PaymentProviderException("Mercado Pago returned an incomplete order");
         }
-        return new CheckoutPreference(id, checkoutUrl);
+        return new CheckoutOrder(id, checkoutUrl);
     }
 
+    /** Reads an order and reports it in the payment terms the rest of the app already uses. */
     @Override
-    public Payment getPayment(String paymentId) {
+    public Payment getOrder(String orderId) {
         JsonNode response;
         try {
             response =
@@ -101,63 +99,92 @@ public class RestMercadoPagoClient implements MercadoPagoClient {
                             () ->
                                     restClient
                                             .get()
-                                            .uri("/v1/payments/{id}", paymentId)
+                                            .uri("/v1/orders/{id}", orderId)
                                             .headers(this::authorize)
                                             .retrieve()
                                             .body(JsonNode.class));
         } catch (PaymentProviderException e) {
             if (e.getCause() instanceof RestClientResponseException http
                     && http.getStatusCode().isSameCodeAs(HttpStatus.NOT_FOUND)) {
-                throw new InvalidInputException("Unknown Mercado Pago payment: " + paymentId);
+                throw new InvalidInputException("Unknown Mercado Pago order: " + orderId);
             }
             throw e;
         }
+        String detail = response.path("status_detail").asText("");
         return new Payment(
-                response.path("id").asText(paymentId),
-                response.path("status").asText(""),
-                response.path("status_detail").asText(""),
+                response.path("id").asText(orderId),
+                paymentStatus(response.path("status").asText(""), detail),
+                detail,
                 response.path("external_reference").asText(""),
-                response.path("transaction_amount").decimalValue(),
-                response.path("currency_id").asText(""));
+                amount(response.path("total_amount")),
+                response.path("currency").asText(""));
     }
 
     @Override
-    public String refund(String paymentId) {
+    public String refund(String orderId) {
         JsonNode response =
                 call(
                         () ->
                                 restClient
                                         .post()
-                                        .uri("/v1/payments/{id}/refunds", paymentId)
+                                        .uri("/v1/orders/{id}/refund", orderId)
                                         .headers(this::authorize)
-                                        // Same key for the same payment: a retried refund is not
+                                        // Same key for the same order: a retried refund is not
                                         // applied twice.
-                                        .header("X-Idempotency-Key", "signa-refund-" + paymentId)
-                                        .contentType(MediaType.APPLICATION_JSON)
-                                        .body(Map.of())
+                                        .header("X-Idempotency-Key", "signa-refund-" + orderId)
                                         .retrieve()
                                         .body(JsonNode.class));
-        return response.path("id").asText("");
+        JsonNode refunds = response.path("transactions").path("refunds");
+        if (refunds.isArray() && !refunds.isEmpty()) {
+            String refundId = refunds.get(refunds.size() - 1).path("id").asText("");
+            if (!refundId.isEmpty()) {
+                return refundId;
+            }
+        }
+        return response.path("id").asText(orderId);
     }
 
+    /** Cancels an order so it stops accepting payments (only possible before it is paid). */
     @Override
-    public void expirePreference(String preferenceId) {
+    public void cancelOrder(String orderId) {
         call(
                 () ->
                         restClient
-                                .put()
-                                .uri("/checkout/preferences/{id}", preferenceId)
+                                .post()
+                                .uri("/v1/orders/{id}/cancel", orderId)
                                 .headers(this::authorize)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .body(
-                                        Map.of(
-                                                "expires",
-                                                true,
-                                                "expiration_date_to",
-                                                OffsetDateTime.now(ARGENTINA)
-                                                        .format(MERCADO_PAGO_DATE)))
+                                .header("X-Idempotency-Key", UUID.randomUUID().toString())
                                 .retrieve()
                                 .body(JsonNode.class));
+    }
+
+    /**
+     * Orders report {@code processed} / {@code refunded} / {@code charged_back}; the app speaks in
+     * payment statuses. A dispute still under way is {@code charged_back} with {@code in_process}.
+     */
+    private static String paymentStatus(String orderStatus, String detail) {
+        return switch (orderStatus) {
+            case "processed" -> MercadoPagoClient.STATUS_APPROVED;
+            case "refunded" -> MercadoPagoClient.STATUS_REFUNDED;
+            case "charged_back" ->
+                    "in_process".equals(detail)
+                            ? MercadoPagoClient.STATUS_IN_MEDIATION
+                            : MercadoPagoClient.STATUS_CHARGED_BACK;
+            default -> orderStatus;
+        };
+    }
+
+    /** Orders send amounts as strings ({@code "1000.00"}); a missing one reads as zero. */
+    private static BigDecimal amount(JsonNode node) {
+        String text = node.asText("");
+        if (text.isBlank()) {
+            return BigDecimal.ZERO;
+        }
+        try {
+            return new BigDecimal(text);
+        } catch (NumberFormatException e) {
+            throw new PaymentProviderException("Mercado Pago returned an invalid amount: " + text);
+        }
     }
 
     private void authorize(HttpHeaders headers) {

@@ -2,7 +2,10 @@ package com.signasource.signa_api.organizations.service;
 
 import java.math.BigDecimal;
 
-/** The Mercado Pago calls the seat checkout needs: pay, read, refund and expire. */
+/**
+ * The Mercado Pago calls the seat checkout needs: create an order, read it, refund it and cancel
+ * it. An order is reported as a {@link Payment}, the terms the rest of the app already uses.
+ */
 public interface MercadoPagoClient {
 
     /** Mercado Pago's {@code status} of a credited payment. */
@@ -22,9 +25,9 @@ public interface MercadoPagoClient {
 
     /**
      * @throws com.signasource.signa_api.exceptions.PaymentProviderException if Mercado Pago is not
-     *     configured or rejects the preference
+     *     configured or rejects the order
      */
-    CheckoutPreference createPreference(PreferenceRequest request);
+    CheckoutOrder createOrder(OrderRequest request);
 
     /**
      * @throws com.signasource.signa_api.exceptions.InvalidInputException if the payment does not
@@ -32,7 +35,7 @@ public interface MercadoPagoClient {
      * @throws com.signasource.signa_api.exceptions.PaymentProviderException if Mercado Pago is not
      *     configured or fails
      */
-    Payment getPayment(String paymentId);
+    Payment getOrder(String paymentId);
 
     /**
      * Refunds the whole payment and returns Mercado Pago's refund id. Idempotent per payment.
@@ -42,14 +45,14 @@ public interface MercadoPagoClient {
      */
     String refund(String paymentId);
 
-    /** Makes a preference stop accepting payments (best effort before it is used). */
-    void expirePreference(String preferenceId);
+    /** Makes an order stop accepting payments (best effort before it is used). */
+    void cancelOrder(String preferenceId);
 
     /**
      * One item paid as {@code quantity × unitPrice}. {@code successUrl}, {@code failureUrl} and
      * {@code pendingUrl} are where Mercado Pago sends the buyer back.
      */
-    record PreferenceRequest(
+    record OrderRequest(
             String externalReference,
             String title,
             int quantity,
@@ -59,7 +62,7 @@ public interface MercadoPagoClient {
             String failureUrl,
             String pendingUrl) {}
 
-    record CheckoutPreference(String id, String checkoutUrl) {}
+    record CheckoutOrder(String id, String checkoutUrl) {}
 
     record Payment(
             String id,
