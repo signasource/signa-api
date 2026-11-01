@@ -35,6 +35,7 @@ class OrganizationMemberServiceTest {
     @Mock private UserRepository userRepository;
     @Mock private OrganizationAccessService accessService;
     @Mock private OrganizationEnrollmentService enrollmentService;
+    @Mock private SeatInvitationService invitationService;
 
     @InjectMocks private OrganizationMemberService memberService;
 
@@ -73,6 +74,7 @@ class OrganizationMemberServiceTest {
         verify(accessService).requireManage(actor, organizationId);
         verify(memberRepository).save(member);
         verify(enrollmentService).revokeAllFromUser(target, organizationId);
+        verify(invitationService).revokeActiveSeats(target, organizationId);
     }
 
     @Test
@@ -117,6 +119,7 @@ class OrganizationMemberServiceTest {
         assertEquals(MemberStatus.REMOVED, member.getStatus());
         assertNotNull(member.getRemovedAt());
         verify(enrollmentService).revokeAllFromUser(target, organizationId);
+        verify(invitationService).revokeActiveSeats(target, organizationId);
     }
 
     @Test

@@ -36,7 +36,6 @@ class AdminOrganizationControllerTest {
                 "30-12345678-9",
                 "test@test.com",
                 null,
-                50,
                 Instant.now(),
                 0,
                 "Admin User",
@@ -69,7 +68,7 @@ class AdminOrganizationControllerTest {
     void shouldUpdateOrganizationStatus() {
         UUID id = UUID.randomUUID();
         UpdateOrganizationStatusRequest req =
-                new UpdateOrganizationStatusRequest(OrganizationStatus.ACTIVE, List.of());
+                new UpdateOrganizationStatusRequest(OrganizationStatus.ACTIVE);
         when(adminService.updateOrganizationStatus(eq(id), any()))
                 .thenReturn(makeOrg(id, OrganizationStatus.ACTIVE));
 

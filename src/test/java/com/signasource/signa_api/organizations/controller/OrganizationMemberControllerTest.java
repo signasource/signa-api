@@ -11,9 +11,11 @@ import com.signasource.signa_api.organizations.dto.MemberActivityStatus;
 import com.signasource.signa_api.organizations.dto.MemberProgressResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationMemberSummaryResponse;
 import com.signasource.signa_api.organizations.entity.MemberStatus;
+import com.signasource.signa_api.organizations.service.MetricsPeriod;
 import com.signasource.signa_api.organizations.service.OrganizationMemberQueryService;
 import com.signasource.signa_api.organizations.service.OrganizationMemberService;
 import com.signasource.signa_api.users.entity.User;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,6 +56,8 @@ class OrganizationMemberControllerTest {
         Pageable pageable = PageRequest.of(0, 20);
         Page<OrganizationMemberSummaryResponse> page = new PageImpl<>(List.of(), pageable, 0);
         UUID courseId = UUID.randomUUID();
+        LocalDate from = LocalDate.of(2026, 9, 1);
+        LocalDate to = LocalDate.of(2026, 9, 30);
         when(memberQueryService.getMembers(
                         actor,
                         organizationId,
@@ -61,6 +65,7 @@ class OrganizationMemberControllerTest {
                         MemberStatus.ACTIVE,
                         MemberActivityStatus.INACTIVE,
                         courseId,
+                        MetricsPeriod.of(from, to),
                         pageable))
                 .thenReturn(page);
 
@@ -71,6 +76,8 @@ class OrganizationMemberControllerTest {
                         MemberStatus.ACTIVE,
                         MemberActivityStatus.INACTIVE,
                         courseId,
+                        from,
+                        to,
                         pageable,
                         userDetails);
 
@@ -85,11 +92,12 @@ class OrganizationMemberControllerTest {
                 new MemberProgressResponse(
                         userId, null, null, null, null, null, null, null, 0, 0, 0, 0, null, 0, 0, 0,
                         0, 0, 0, 0, List.of());
-        when(memberQueryService.getMemberProgress(actor, organizationId, userId))
+        when(memberQueryService.getMemberProgress(
+                        actor, organizationId, userId, MetricsPeriod.ALL_TIME))
                 .thenReturn(response);
 
         ResponseEntity<MemberProgressResponse> result =
-                memberController.getMemberProgress(organizationId, userId, userDetails);
+                memberController.getMemberProgress(organizationId, userId, null, null, userDetails);
 
         assertEquals(HttpStatus.OK, result.getStatusCode());
         assertSame(response, result.getBody());

@@ -4,9 +4,6 @@ import com.signasource.signa_api.auth.service.EmailService;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
-import com.signasource.signa_api.learning.dto.CourseSummaryResponse;
-import com.signasource.signa_api.learning.entity.Course;
-import com.signasource.signa_api.organizations.dto.CreateInviteCodeRequest;
 import com.signasource.signa_api.organizations.dto.InviteByEmailRequest;
 import com.signasource.signa_api.organizations.dto.InviteCodeResponse;
 import com.signasource.signa_api.organizations.dto.RedeemInviteCodeResponse;
@@ -15,7 +12,6 @@ import com.signasource.signa_api.organizations.entity.MemberRole;
 import com.signasource.signa_api.organizations.entity.MemberStatus;
 import com.signasource.signa_api.organizations.entity.Organization;
 import com.signasource.signa_api.organizations.entity.OrganizationMember;
-import com.signasource.signa_api.organizations.entity.OrganizationStatus;
 import com.signasource.signa_api.organizations.repository.InviteCodeRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationMemberRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationRepository;
@@ -47,48 +43,8 @@ public class InviteCodeService {
     private final OrganizationMemberRepository memberRepository;
     private final UserRepository userRepository;
     private final OrganizationAccessService accessService;
-    private final OrganizationEnrollmentService enrollmentService;
     private final EmailService emailService;
     private final SecureRandom random = new SecureRandom();
-
-    @Transactional
-    public InviteCodeResponse createInviteCode(
-            User actor, UUID organizationId, CreateInviteCodeRequest request) {
-        accessService.requireManage(actor, organizationId);
-        Organization organization = findOrganization(organizationId);
-        requireActive(organization);
-        return InviteCodeResponse.from(
-                saveCode(
-                        organization,
-                        request.expiresAt(),
-                        request.maxUses(),
-                        null,
-                        MemberRole.MEMBER));
-    }
-
-    /**
-     * Creates a single-use code tied to {@code request.email} and mails it. Redeeming it is what
-     * accepts the invitation, so email invites and shared codes go through the same flow.
-     */
-    @Transactional
-    public InviteCodeResponse inviteByEmail(
-            User actor, UUID organizationId, InviteByEmailRequest request) {
-        accessService.requireManage(actor, organizationId);
-        Organization organization = findOrganization(organizationId);
-        requireActive(organization);
-        InviteCode inviteCode =
-                saveCode(
-                        organization,
-                        request.expiresAt(),
-                        1,
-                        request.email().trim().toLowerCase(),
-                        MemberRole.MEMBER);
-        emailService.sendOrganizationInviteEmail(
-                inviteCode.getEmail(),
-                inviteCode.getOrganization().getName(),
-                inviteCode.getCode());
-        return InviteCodeResponse.from(inviteCode);
-    }
 
     /**
      * Invites someone to administer the organization from the web panel. Same single-use,
@@ -139,7 +95,7 @@ public class InviteCodeService {
                         .findByCode(normalize(rawCode))
                         .orElseThrow(() -> new InvalidInputException(INVALID_CODE_MESSAGE));
 
-        if (!isRedeemable(inviteCode, user)) {
+        if (inviteCode.getMemberRole() != MemberRole.ADMIN || !isRedeemable(inviteCode, user)) {
             throw new InvalidInputException(INVALID_CODE_MESSAGE);
         }
 
@@ -153,24 +109,13 @@ public class InviteCodeService {
             throw new ResourceAlreadyInUseException("User already belongs to another organization");
         }
 
-        // Only a participant redeeming an admin code changes anything; an admin redeeming a
-        // participant code must not be demoted.
-        MemberRole granted = inviteCode.getMemberRole();
-        boolean alreadyMember =
-                inThisOrganization
-                        && (member.getRole() == MemberRole.ADMIN || granted == MemberRole.MEMBER);
-
-        if (!alreadyMember && granted == MemberRole.MEMBER) {
-            requireActive(organization);
-            requireSeat(organization);
-        }
-
-        if (!alreadyMember) {
+        boolean alreadyAdmin = inThisOrganization && member.getRole() == MemberRole.ADMIN;
+        if (!alreadyAdmin) {
             if (member == null) {
                 member = OrganizationMember.builder().user(user).build();
             }
             member.setOrganization(organization);
-            member.setRole(granted);
+            member.setRole(MemberRole.ADMIN);
             member.setStatus(MemberStatus.ACTIVE);
             member.setRemovedAt(null);
             memberRepository.save(member);
@@ -179,33 +124,16 @@ public class InviteCodeService {
             inviteCodeRepository.save(inviteCode);
         }
 
-        if (member.getRole() == MemberRole.ADMIN) {
-            if (user.getRole() == Role.USER) {
-                user.setRole(Role.ORG_ADMIN);
-                userRepository.save(user);
-            }
-            return new RedeemInviteCodeResponse(
-                    organization.getName(),
-                    List.of(),
-                    alreadyMember,
-                    inviteCode.getExpiresAt(),
-                    MemberRole.ADMIN);
-        }
-
-        List<Course> courses =
-                enrollmentService.grantContractedCourses(
-                        user, organization, inviteCode.getExpiresAt());
-        if (!courses.isEmpty()) {
-            user.setCurrentCourse(courses.get(0));
+        if (user.getRole() == Role.USER) {
+            user.setRole(Role.ORG_ADMIN);
             userRepository.save(user);
         }
-
         return new RedeemInviteCodeResponse(
                 organization.getName(),
-                courses.stream().map(CourseSummaryResponse::from).toList(),
-                alreadyMember,
+                List.of(),
+                alreadyAdmin,
                 inviteCode.getExpiresAt(),
-                MemberRole.MEMBER);
+                MemberRole.ADMIN);
     }
 
     private boolean isRedeemable(InviteCode inviteCode, User user) {
@@ -219,26 +147,6 @@ public class InviteCodeService {
                 inviteCode.getEmail() != null
                         && !inviteCode.getEmail().equalsIgnoreCase(user.getEmail());
         return inviteCode.isActive() && !expired && !exhausted && !wrongRecipient;
-    }
-
-    /**
-     * Participants can only join an organization SIGNA approved and has not suspended or rejected;
-     * its admins may still set things up.
-     */
-    private static void requireActive(Organization organization) {
-        if (organization.getStatus() != OrganizationStatus.ACTIVE) {
-            throw new InvalidInputException("Organization is not active");
-        }
-    }
-
-    private void requireSeat(Organization organization) {
-        Integer limit = organization.getMemberLimit();
-        if (limit != null
-                && memberRepository.countByOrganizationIdAndRoleAndStatus(
-                                organization.getId(), MemberRole.MEMBER, MemberStatus.ACTIVE)
-                        >= limit) {
-            throw new InvalidInputException("Organization reached its member limit");
-        }
     }
 
     private Organization findOrganization(UUID organizationId) {

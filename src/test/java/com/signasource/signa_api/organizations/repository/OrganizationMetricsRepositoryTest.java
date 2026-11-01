@@ -37,7 +37,7 @@ import com.signasource.signa_api.organizations.repository.projection.AttemptView
 import com.signasource.signa_api.organizations.repository.projection.DailyAttemptStatsView;
 import com.signasource.signa_api.organizations.repository.projection.DailyMinutesView;
 import com.signasource.signa_api.organizations.repository.projection.TopicAttemptStatsView;
-import com.signasource.signa_api.organizations.repository.projection.TopicStatusCountView;
+import com.signasource.signa_api.organizations.repository.projection.TopicProgressCountView;
 import com.signasource.signa_api.organizations.repository.projection.UserAttemptStatsView;
 import com.signasource.signa_api.organizations.repository.projection.UserCompletedLessonsView;
 import com.signasource.signa_api.organizations.repository.projection.UserCountView;
@@ -86,6 +86,11 @@ class OrganizationMetricsRepositoryTest {
     @Autowired private UserTopicProgressRepository topicProgressRepository;
     @Autowired private UserDailyActivityRepository dailyActivityRepository;
     @Autowired private UserStatsRepository userStatsRepository;
+
+    /** Bounds that include everything the tests create. */
+    private static final Instant BEGINNING = Instant.parse("2000-01-01T00:00:00Z");
+
+    private static final LocalDate FIRST_DAY = LocalDate.of(2000, 1, 1);
 
     private Organization organization;
     private User ana;
@@ -194,7 +199,9 @@ class OrganizationMetricsRepositoryTest {
                         metricsRepository.findAttemptStatsByUser(
                                 organization.getId(),
                                 List.of(ana.getId(), bruno.getId()),
-                                List.of(course.getId())),
+                                List.of(course.getId()),
+                                BEGINNING,
+                                Instant.now().plus(1, ChronoUnit.DAYS)),
                         UserAttemptStatsView::getUserId);
 
         assertEquals(3, stats.get(ana.getId()).getEvaluated());
@@ -212,7 +219,9 @@ class OrganizationMetricsRepositoryTest {
                 metricsRepository.findAttemptStatsByTopic(
                         organization.getId(),
                         List.of(ana.getId(), bruno.getId()),
-                        List.of(course.getId()));
+                        List.of(course.getId()),
+                        BEGINNING,
+                        Instant.now().plus(1, ChronoUnit.DAYS));
 
         assertEquals(1, stats.size());
         assertEquals(topic.getId(), stats.get(0).getTopicId());
@@ -229,13 +238,17 @@ class OrganizationMetricsRepositoryTest {
                         organization.getId(),
                         List.of(ana.getId(), bruno.getId()),
                         List.of(course.getId()),
-                        List.of(BlockType.VISUAL_RECOGNITION));
+                        List.of(BlockType.VISUAL_RECOGNITION),
+                        BEGINNING,
+                        Instant.now().plus(1, ChronoUnit.DAYS));
         AttemptTotalsView none =
                 metricsRepository.findAttemptTotalsByBlockTypes(
                         organization.getId(),
                         List.of(ana.getId()),
                         List.of(course.getId()),
-                        List.of(BlockType.PERFORM_SIGN));
+                        List.of(BlockType.PERFORM_SIGN),
+                        BEGINNING,
+                        Instant.now().plus(1, ChronoUnit.DAYS));
 
         assertEquals(2, totals.getEvaluated());
         assertEquals(1, totals.getCorrect());
@@ -252,7 +265,8 @@ class OrganizationMetricsRepositoryTest {
                         organization.getId(),
                         List.of(ana.getId(), bruno.getId()),
                         List.of(course.getId()),
-                        Instant.now().minus(2, ChronoUnit.DAYS));
+                        Instant.now().minus(2, ChronoUnit.DAYS),
+                        Instant.now().plus(1, ChronoUnit.DAYS));
 
         assertEquals(1, days.size());
         assertEquals(4, days.get(0).getEvaluated());
@@ -285,25 +299,26 @@ class OrganizationMetricsRepositoryTest {
         List<UUID> versions = List.of(version.getId());
 
         List<UserCompletedLessonsView> perUser =
-                metricsRepository.findCompletedLessonCountsByUser(users, versions);
+                metricsRepository.findCompletedLessonCountsByUser(
+                        users, versions, Instant.now().plus(1, ChronoUnit.DAYS));
         List<VersionCountView> perVersion =
-                metricsRepository.findCompletedLessonCountsByVersion(ana.getId(), versions);
-        Map<ProgressStatus, Long> statuses =
-                metricsRepository.findTopicStatusCounts(users, versions).stream()
-                        .collect(
-                                Collectors.toMap(
-                                        TopicStatusCountView::getStatus,
-                                        TopicStatusCountView::getUsers));
+                metricsRepository.findCompletedLessonCountsByVersion(
+                        ana.getId(), versions, Instant.now().plus(1, ChronoUnit.DAYS));
+        List<TopicProgressCountView> modules =
+                metricsRepository.findTopicProgressCounts(
+                        users, versions, Instant.now().plus(1, ChronoUnit.DAYS));
         List<UserTopicProgress> inProgress =
-                metricsRepository.findInProgressTopics(users, versions);
+                metricsRepository.findInProgressTopics(
+                        users, versions, Instant.now().plus(1, ChronoUnit.DAYS));
 
         assertEquals(1, perUser.size());
         assertEquals(ana.getId(), perUser.get(0).getUserId());
         assertEquals(1, perUser.get(0).getCompletedLessons());
         assertEquals(version.getId(), perVersion.get(0).getVersionId());
         assertEquals(1, perVersion.get(0).getTotal());
-        assertEquals(1, statuses.get(ProgressStatus.COMPLETED));
-        assertEquals(1, statuses.get(ProgressStatus.IN_PROGRESS));
+        assertEquals(1, modules.size());
+        assertEquals(1, modules.get(0).getCompleted());
+        assertEquals(1, modules.get(0).getInProgress());
         assertEquals(1, inProgress.size());
         assertEquals(bruno.getId(), inProgress.get(0).getUser().getId());
         assertEquals("Greetings", inProgress.get(0).getTopic().getTitle());
@@ -327,9 +342,11 @@ class OrganizationMetricsRepositoryTest {
                 UserStats.builder().user(ana).currentStreak(4).updatedAt(Instant.now()).build());
         List<UUID> users = List.of(ana.getId(), bruno.getId());
 
-        List<UserCountView> minutes = metricsRepository.findLearningMinutesByUser(users);
+        List<UserCountView> minutes =
+                metricsRepository.findLearningMinutesByUser(users, FIRST_DAY, LocalDate.now());
         List<UserCountView> activeDays =
-                metricsRepository.findActiveDaysByUser(users, LocalDate.now().minusDays(30));
+                metricsRepository.findActiveDaysByUser(
+                        users, LocalDate.now().minusDays(30), LocalDate.now());
         List<Integer> streaks = metricsRepository.findCurrentStreaks(users);
 
         assertEquals(8, minutes.get(0).getTotal());
@@ -379,7 +396,9 @@ class OrganizationMetricsRepositoryTest {
                         .findAttemptStatsByUser(
                                 organization.getId(),
                                 List.of(ana.getId(), bruno.getId()),
-                                List.of(UUID.randomUUID()))
+                                List.of(UUID.randomUUID()),
+                                BEGINNING,
+                                Instant.now().plus(1, ChronoUnit.DAYS))
                         .isEmpty());
     }
 
@@ -475,10 +494,129 @@ class OrganizationMetricsRepositoryTest {
 
         List<UserTopicView> done =
                 metricsRepository.findCompletedTopics(
-                        List.of(ana.getId(), bruno.getId()), List.of(version.getId()));
+                        List.of(ana.getId(), bruno.getId()),
+                        List.of(version.getId()),
+                        Instant.now().plus(1, ChronoUnit.DAYS));
 
         assertEquals(1, done.size());
         assertEquals(ana.getId(), done.get(0).getUserId());
         assertEquals(topic.getId(), done.get(0).getTopicId());
+    }
+
+    @Test
+    void shouldCountAttemptsInsideThePeriodAndLastActivityBeforeItsEnd() {
+        seedAttempts();
+        List<UUID> users = List.of(ana.getId(), bruno.getId());
+        Instant later = Instant.now().plus(1, ChronoUnit.HOURS);
+
+        Map<UUID, UserAttemptStatsView> afterTheAttempts =
+                byUser(
+                        metricsRepository.findAttemptStatsByUser(
+                                organization.getId(),
+                                users,
+                                List.of(course.getId()),
+                                later,
+                                later.plus(1, ChronoUnit.DAYS)),
+                        UserAttemptStatsView::getUserId);
+        List<UserAttemptStatsView> beforeTheAttempts =
+                metricsRepository.findAttemptStatsByUser(
+                        organization.getId(), users, List.of(course.getId()), BEGINNING, BEGINNING);
+
+        assertEquals(0, afterTheAttempts.get(ana.getId()).getEvaluated());
+        assertNotNull(afterTheAttempts.get(ana.getId()).getLastActivityAt());
+        assertTrue(beforeTheAttempts.isEmpty());
+    }
+
+    @Test
+    void shouldReadModuleProgressAsOfAnInstant() {
+        Instant start = Instant.now().minus(10, ChronoUnit.DAYS);
+        Instant finish = Instant.now().minus(2, ChronoUnit.DAYS);
+        Instant asOf = Instant.now().minus(5, ChronoUnit.DAYS);
+        topicProgressRepository.save(
+                UserTopicProgress.builder()
+                        .user(ana)
+                        .topic(topic)
+                        .status(ProgressStatus.COMPLETED)
+                        .startedAt(start)
+                        .completedAt(finish)
+                        .build());
+        topicProgressRepository.save(
+                UserTopicProgress.builder()
+                        .user(bruno)
+                        .topic(topic)
+                        .status(ProgressStatus.IN_PROGRESS)
+                        .startedAt(Instant.now().minus(1, ChronoUnit.DAYS))
+                        .build());
+        List<UUID> users = List.of(ana.getId(), bruno.getId());
+        List<UUID> versions = List.of(version.getId());
+
+        List<TopicProgressCountView> then =
+                metricsRepository.findTopicProgressCounts(users, versions, asOf);
+        List<UserTopicProgress> inProgressThen =
+                metricsRepository.findInProgressTopics(users, versions, asOf);
+        List<UserTopicView> completedThen =
+                metricsRepository.findCompletedTopics(users, versions, asOf);
+
+        assertEquals(1, then.size());
+        assertEquals(0, then.get(0).getCompleted());
+        assertEquals(1, then.get(0).getInProgress());
+        assertEquals(1, inProgressThen.size());
+        assertEquals(ana.getId(), inProgressThen.get(0).getUser().getId());
+        assertTrue(completedThen.isEmpty());
+        assertEquals(
+                1,
+                metricsRepository.countTopicsCompletedBetween(
+                        users, versions, asOf, Instant.now()));
+        assertEquals(
+                0, metricsRepository.countTopicsCompletedBetween(users, versions, BEGINNING, asOf));
+    }
+
+    @Test
+    void shouldCountLessonsCompletedBeforeAnInstant() {
+        lessonProgressRepository.save(
+                UserLessonProgress.builder()
+                        .user(ana)
+                        .lesson(lesson)
+                        .status(ProgressStatus.COMPLETED)
+                        .completedAt(Instant.now().minus(1, ChronoUnit.DAYS))
+                        .build());
+
+        assertTrue(
+                metricsRepository
+                        .findCompletedLessonCountsByUser(
+                                List.of(ana.getId()),
+                                List.of(version.getId()),
+                                Instant.now().minus(2, ChronoUnit.DAYS))
+                        .isEmpty());
+        assertEquals(
+                1,
+                metricsRepository
+                        .findCompletedLessonCountsByUser(
+                                List.of(ana.getId()), List.of(version.getId()), Instant.now())
+                        .size());
+    }
+
+    @Test
+    void shouldBoundLearningMinutesAndActiveDaysByDate() {
+        LocalDate today = LocalDate.now();
+        dailyActivityRepository.save(
+                UserDailyActivity.builder().user(ana).activityDate(today).minutes(5).build());
+        dailyActivityRepository.save(
+                UserDailyActivity.builder()
+                        .user(ana)
+                        .activityDate(today.minusDays(10))
+                        .minutes(7)
+                        .build());
+        List<UUID> users = List.of(ana.getId());
+
+        List<UserCountView> minutes =
+                metricsRepository.findLearningMinutesByUser(
+                        users, today.minusDays(12), today.minusDays(1));
+        List<UserCountView> activeDays =
+                metricsRepository.findActiveDaysByUser(
+                        users, today.minusDays(12), today.minusDays(1));
+
+        assertEquals(7, minutes.get(0).getTotal());
+        assertEquals(1, activeDays.get(0).getTotal());
     }
 }

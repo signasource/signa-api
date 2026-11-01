@@ -1,0 +1,15 @@
+# Curso de prueba para validar la compra de cupos con Mercado Pago.
+# BORRAR antes de cobrar de verdad: si no, aparece en el catálogo de las organizaciones.
+course:
+  code: test-paid-course
+  name: Curso de prueba (pago)
+  description: Curso mínimo para probar la compra de cupos. No es contenido real.
+  free: false
+  cover: "mock-cover"
+
+version:
+  version: "0.1.0"
+  status: PUBLISHED
+
+topics:
+  - topic-01.yml

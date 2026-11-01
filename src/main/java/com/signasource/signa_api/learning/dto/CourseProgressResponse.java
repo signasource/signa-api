@@ -1,6 +1,7 @@
 package com.signasource.signa_api.learning.dto;
 
 import com.signasource.signa_api.learning.entity.EnrollmentStatus;
+import java.time.Instant;
 
 public record CourseProgressResponse(
         String courseName,
@@ -9,4 +10,6 @@ public record CourseProgressResponse(
         int completedLessons,
         int progressPercentage,
         int signsLearned,
-        TopicProgressResponse currentTopic) {}
+        TopicProgressResponse currentTopic,
+        Instant accessExpiresAt,
+        boolean accessExpired) {}

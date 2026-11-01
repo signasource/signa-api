@@ -37,4 +37,12 @@ public interface LessonBlockRepository extends JpaRepository<LessonBlock, UUID> 
                     + "WHERE b.lesson.topic.courseVersion.id IN :versionIds")
     List<LessonBlock> findByLessonTopicCourseVersionIdIn(
             @Param("versionIds") List<UUID> versionIds);
+
+    /** The signs a course version teaches, in the order a learner meets them. */
+    @Query(
+            "SELECT b FROM LessonBlock b JOIN FETCH b.lesson l JOIN FETCH l.topic t "
+                    + "WHERE t.courseVersion.id = :versionId "
+                    + "AND b.type = com.signasource.signa_api.learning.entity.BlockType.INTRODUCE_SIGN "
+                    + "ORDER BY t.order, l.order, b.order")
+    List<LessonBlock> findIntroducedSigns(@Param("versionId") UUID versionId);
 }

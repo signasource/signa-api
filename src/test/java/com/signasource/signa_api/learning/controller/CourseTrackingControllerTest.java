@@ -49,7 +49,9 @@ class CourseTrackingControllerTest {
     @Test
     void getMyProgress_ShouldReturn200WithProgress() {
         List<CourseProgressResponse> progress =
-                List.of(new CourseProgressResponse("Basic LSA", null, 6, 2, 33, 0, null));
+                List.of(
+                        new CourseProgressResponse(
+                                "Basic LSA", null, 6, 2, 33, 0, null, null, false));
         when(trackingService.getUserCourseProgress(mockUser)).thenReturn(progress);
 
         ResponseEntity<List<CourseProgressResponse>> response =

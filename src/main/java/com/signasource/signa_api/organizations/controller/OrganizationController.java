@@ -2,8 +2,6 @@ package com.signasource.signa_api.organizations.controller;
 
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.organizations.dto.AddOrganizationAdminRequest;
-import com.signasource.signa_api.organizations.dto.AddOrganizationCourseRequest;
-import com.signasource.signa_api.organizations.dto.CreateInviteCodeRequest;
 import com.signasource.signa_api.organizations.dto.CreateOrganizationRequest;
 import com.signasource.signa_api.organizations.dto.InviteByEmailRequest;
 import com.signasource.signa_api.organizations.dto.InviteCodeResponse;
@@ -11,7 +9,6 @@ import com.signasource.signa_api.organizations.dto.MyOrganizationResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationAdminResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationCourseResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationDetailResponse;
-import com.signasource.signa_api.organizations.dto.OrganizationPricingResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationResponse;
 import com.signasource.signa_api.organizations.dto.RedeemInviteCodeRequest;
 import com.signasource.signa_api.organizations.dto.RedeemInviteCodeResponse;
@@ -51,11 +48,6 @@ public class OrganizationController {
             @Valid @RequestBody RegisterOrganizationRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(organizationService.registerOrganization(request));
-    }
-
-    @GetMapping("/pricing")
-    public ResponseEntity<OrganizationPricingResponse> getPricing() {
-        return ResponseEntity.ok(organizationService.getPricing());
     }
 
     @PostMapping
@@ -124,32 +116,6 @@ public class OrganizationController {
                 organizationService.getCourses(userDetails.getUser(), organizationId));
     }
 
-    @PostMapping("/{organizationId}/courses")
-    public ResponseEntity<OrganizationCourseResponse> addCourse(
-            @PathVariable UUID organizationId,
-            @Valid @RequestBody AddOrganizationCourseRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(organizationService.addCourse(organizationId, request.courseId()));
-    }
-
-    @DeleteMapping("/{organizationId}/courses/{courseId}")
-    public ResponseEntity<Void> removeCourse(
-            @PathVariable UUID organizationId, @PathVariable UUID courseId) {
-        organizationService.removeCourse(organizationId, courseId);
-        return ResponseEntity.noContent().build();
-    }
-
-    @PostMapping("/{organizationId}/invite-codes")
-    public ResponseEntity<InviteCodeResponse> createInviteCode(
-            @PathVariable UUID organizationId,
-            @Valid @RequestBody CreateInviteCodeRequest request,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(
-                        inviteCodeService.createInviteCode(
-                                userDetails.getUser(), organizationId, request));
-    }
-
     @GetMapping("/{organizationId}/invite-codes")
     public ResponseEntity<List<InviteCodeResponse>> getInviteCodes(
             @PathVariable UUID organizationId,
@@ -166,17 +132,6 @@ public class OrganizationController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         inviteCodeService.deactivateInviteCode(userDetails.getUser(), organizationId, inviteCodeId);
         return ResponseEntity.noContent().build();
-    }
-
-    @PostMapping("/{organizationId}/invitations")
-    public ResponseEntity<InviteCodeResponse> inviteByEmail(
-            @PathVariable UUID organizationId,
-            @Valid @RequestBody InviteByEmailRequest request,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(
-                        inviteCodeService.inviteByEmail(
-                                userDetails.getUser(), organizationId, request));
     }
 
     @PostMapping("/{organizationId}/admin-invitations")

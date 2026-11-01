@@ -1,6 +1,11 @@
 package com.signasource.signa_api.auth.service;
 
 import jakarta.mail.internet.MimeMessage;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,6 +21,11 @@ import org.springframework.web.util.HtmlUtils;
 public class EmailService {
     private static final String VERIFICATION_PATH = "/auth/verify";
     private static final String ADMIN_INVITE_PATH = "/accept-invite";
+    private static final String SEAT_INVITATION_PATH = "/invitacion";
+    private static final String PURCHASE_PATH = "/dashboard/purchases/";
+    private static final DateTimeFormatter DEADLINE_FORMAT =
+            DateTimeFormatter.ofPattern("dd/MM/yyyy")
+                    .withZone(ZoneId.of("America/Argentina/Buenos_Aires"));
 
     private final JavaMailSender mailSender;
 
@@ -44,8 +54,27 @@ public class EmailService {
     }
 
     @Async
-    public void sendOrganizationInviteEmail(String to, String organizationName, String code) {
-        sendEmail(to, "Te invitaron a SIGNA", buildOrganizationInviteHtml(organizationName, code));
+    public void sendSeatInvitationEmail(
+            String to,
+            String organizationName,
+            String courseName,
+            String token,
+            Instant deadline,
+            int durationDays,
+            boolean reminder) {
+        String link = String.format("%s%s?token=%s", panelUrl, SEAT_INVITATION_PATH, token);
+        sendEmail(
+                to,
+                reminder
+                        ? "Recordatorio: tu invitación a SIGNA vence pronto"
+                        : "Te invitaron a SIGNA",
+                buildSeatInvitationHtml(
+                        organizationName,
+                        courseName,
+                        link,
+                        DEADLINE_FORMAT.format(deadline),
+                        durationDays,
+                        reminder));
     }
 
     @Async
@@ -56,6 +85,45 @@ public class EmailService {
                 buildOrganizationAdminInviteHtml(
                         organizationName,
                         String.format("%s%s?code=%s", panelUrl, ADMIN_INVITE_PATH, code)));
+    }
+
+    @Async
+    public void sendSeatAccessEndedEmail(
+            String to, String organizationName, String courseName, boolean hadAccess) {
+        sendEmail(
+                to,
+                hadAccess
+                        ? "Terminó tu acceso a " + courseName
+                        : "Tu invitación a SIGNA fue anulada",
+                buildSeatAccessEndedHtml(organizationName, courseName, hadAccess));
+    }
+
+    @Async
+    public void sendPurchaseRefundedEmail(
+            String to,
+            String organizationName,
+            String courseName,
+            UUID purchaseId,
+            String amount,
+            String reasonText,
+            int cancelledInvitations,
+            int endedAccesses) {
+        sendEmail(
+                to,
+                "Compra anulada: " + courseName,
+                buildPurchaseRefundedHtml(
+                        organizationName,
+                        courseName,
+                        String.format("%s%s%s", panelUrl, PURCHASE_PATH, purchaseId),
+                        amount,
+                        reasonText,
+                        cancelledInvitations,
+                        endedAccesses));
+    }
+
+    @Async
+    public void sendOpsAlertEmail(String to, String subject, List<String> lines) {
+        sendEmail(to, "[SIGNA] " + subject, buildOpsAlertHtml(lines));
     }
 
     private void sendEmail(String to, String subject, String html) {
@@ -110,16 +178,112 @@ public class EmailService {
                 .formatted(code);
     }
 
-    private String buildOrganizationInviteHtml(String organizationName, String code) {
+    private String buildSeatInvitationHtml(
+            String organizationName,
+            String courseName,
+            String link,
+            String deadline,
+            int durationDays,
+            boolean reminder) {
+        String intro =
+                reminder
+                        ? "Todavía no aceptaste la invitación de %s al curso <b>%s</b> de SIGNA."
+                        : "%s te invitó al curso <b>%s</b> de SIGNA para aprender Lengua de Señas Argentina.";
         return """
 				<div style="font-family: Arial;">
 				    <h2>¡Hola!</h2>
-				    <p>%s te invitó a aprender Lengua de Señas Argentina en SIGNA.</p>
-				    <p>Ingresá este código en la app para sumarte:</p>
-				    <p style="font-size:24px; font-weight:bold; letter-spacing:4px;">%s</p>
+				    <p>%s</p>
+				    <p>Tenés %d días de acceso desde que aceptás. La invitación vence el %s.</p>
+				    <p>Creá tu cuenta o iniciá sesión con este mismo email y aceptá la invitación:</p>
+				    <a href="%s" style="
+				        background-color:#4CAF50;
+				        color:white;
+				        padding:10px 20px;
+				        text-decoration:none;
+				        border-radius:5px;">
+				        Aceptar invitación
+				    </a>
+				    <p style="color:#666; font-size:12px;">La invitación es personal: solo funciona con la cuenta de este email.</p>
 				</div>
 				"""
-                .formatted(HtmlUtils.htmlEscape(organizationName), code);
+                .formatted(
+                        intro.formatted(
+                                HtmlUtils.htmlEscape(organizationName),
+                                HtmlUtils.htmlEscape(courseName)),
+                        durationDays,
+                        deadline,
+                        link);
+    }
+
+    private String buildSeatAccessEndedHtml(
+            String organizationName, String courseName, boolean hadAccess) {
+        String body =
+                hadAccess
+                        ? "%s anuló la compra del curso <b>%s</b>, así que tu acceso terminó."
+                                + " Tu progreso se conserva y lo podés seguir viendo en la app."
+                        : "%s anuló la compra del curso <b>%s</b>, así que tu invitación ya no es"
+                                + " válida. No tenés que hacer nada.";
+        return """
+				<div style="font-family: Arial;">
+				    <h2>¡Hola!</h2>
+				    <p>%s</p>
+				    <p style="color:#666; font-size:12px;">Si tenés dudas, consultá con quien administra SIGNA en tu organización.</p>
+				</div>
+				"""
+                .formatted(
+                        body.formatted(
+                                HtmlUtils.htmlEscape(organizationName),
+                                HtmlUtils.htmlEscape(courseName)));
+    }
+
+    private String buildPurchaseRefundedHtml(
+            String organizationName,
+            String courseName,
+            String link,
+            String amount,
+            String reasonText,
+            int cancelledInvitations,
+            int endedAccesses) {
+        return """
+				<div style="font-family: Arial;">
+				    <h2>Compra anulada</h2>
+				    <p>La compra del curso <b>%s</b> para %s quedó anulada. %s</p>
+				    <p>Monto devuelto: <b>%s</b>. Mercado Pago lo acredita en el medio de pago original; según el medio puede tardar unos días.</p>
+				    <ul>
+				        <li>Invitaciones pendientes anuladas: %d</li>
+				        <li>Personas que perdieron el acceso al curso: %d (su progreso se conserva)</li>
+				    </ul>
+				    <a href="%s" style="
+				        background-color:#4CAF50;
+				        color:white;
+				        padding:10px 20px;
+				        text-decoration:none;
+				        border-radius:5px;">
+				        Ver la compra
+				    </a>
+				</div>
+				"""
+                .formatted(
+                        HtmlUtils.htmlEscape(courseName),
+                        HtmlUtils.htmlEscape(organizationName),
+                        HtmlUtils.htmlEscape(reasonText),
+                        HtmlUtils.htmlEscape(amount),
+                        cancelledInvitations,
+                        endedAccesses,
+                        link);
+    }
+
+    private String buildOpsAlertHtml(List<String> lines) {
+        StringBuilder items = new StringBuilder();
+        for (String line : lines) {
+            items.append("<li>").append(HtmlUtils.htmlEscape(line)).append("</li>");
+        }
+        return """
+				<div style="font-family: Arial;">
+				    <ul>%s</ul>
+				</div>
+				"""
+                .formatted(items);
     }
 
     private String buildOrganizationAdminInviteHtml(String organizationName, String link) {

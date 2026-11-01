@@ -1,11 +1,11 @@
 package com.signasource.signa_api.organizations.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -17,13 +17,7 @@ import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import com.signasource.signa_api.learning.entity.VersionStatus;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
-import com.signasource.signa_api.organizations.entity.MemberRole;
-import com.signasource.signa_api.organizations.entity.MemberStatus;
 import com.signasource.signa_api.organizations.entity.Organization;
-import com.signasource.signa_api.organizations.entity.OrganizationCourse;
-import com.signasource.signa_api.organizations.entity.OrganizationMember;
-import com.signasource.signa_api.organizations.repository.OrganizationCourseRepository;
-import com.signasource.signa_api.organizations.repository.OrganizationMemberRepository;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.repository.UserRepository;
 import java.time.Instant;
@@ -42,8 +36,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class OrganizationEnrollmentServiceTest {
 
-    @Mock private OrganizationCourseRepository organizationCourseRepository;
-    @Mock private OrganizationMemberRepository memberRepository;
     @Mock private CourseVersionRepository courseVersionRepository;
     @Mock private UserCourseEnrollmentRepository enrollmentRepository;
     @Mock private UserRepository userRepository;
@@ -65,14 +57,6 @@ class OrganizationEnrollmentServiceTest {
     }
 
     private void stubContractedCourse() {
-        when(organizationCourseRepository.findByOrganizationIdOrderByContractedAtAsc(
-                        organization.getId()))
-                .thenReturn(
-                        List.of(
-                                OrganizationCourse.builder()
-                                        .organization(organization)
-                                        .course(course)
-                                        .build()));
         when(courseVersionRepository.findByCourseIdAndStatus(
                         course.getId(), VersionStatus.PUBLISHED))
                 .thenReturn(Optional.of(version));
@@ -85,9 +69,8 @@ class OrganizationEnrollmentServiceTest {
                 .thenReturn(Optional.empty());
         Instant expiry = Instant.now().plusSeconds(3600);
 
-        List<Course> granted = enrollmentService.grantContractedCourses(user, organization, expiry);
+        enrollmentService.grantCourse(user, organization, course, expiry);
 
-        assertEquals(List.of(course), granted);
         ArgumentCaptor<UserCourseEnrollment> captor =
                 ArgumentCaptor.forClass(UserCourseEnrollment.class);
         verify(enrollmentRepository).save(captor.capture());
@@ -111,7 +94,7 @@ class OrganizationEnrollmentServiceTest {
         when(enrollmentRepository.findByUserIdAndCourseVersionId(user.getId(), version.getId()))
                 .thenReturn(Optional.of(existing));
 
-        enrollmentService.grantContractedCourses(user, organization, null);
+        enrollmentService.grantCourse(user, organization, course, null);
 
         assertEquals(EnrollmentStatus.COMPLETED, existing.getStatus());
         assertEquals(organization, existing.getOrganization());
@@ -131,7 +114,7 @@ class OrganizationEnrollmentServiceTest {
         when(enrollmentRepository.findByUserIdAndCourseVersionId(user.getId(), version.getId()))
                 .thenReturn(Optional.of(dropped));
 
-        enrollmentService.grantContractedCourses(user, organization, null);
+        enrollmentService.grantCourse(user, organization, course, null);
 
         assertEquals(EnrollmentStatus.ENROLLED, dropped.getStatus());
         assertNull(dropped.getAccessExpiresAt());
@@ -139,62 +122,13 @@ class OrganizationEnrollmentServiceTest {
 
     @Test
     void shouldFailWhenAContractedCourseHasNoPublishedVersion() {
-        when(organizationCourseRepository.findByOrganizationIdOrderByContractedAtAsc(
-                        organization.getId()))
-                .thenReturn(
-                        List.of(
-                                OrganizationCourse.builder()
-                                        .organization(organization)
-                                        .course(course)
-                                        .build()));
         when(courseVersionRepository.findByCourseIdAndStatus(
                         course.getId(), VersionStatus.PUBLISHED))
                 .thenReturn(Optional.empty());
 
         assertThrows(
                 NotFoundException.class,
-                () -> enrollmentService.grantContractedCourses(user, organization, null));
-    }
-
-    @Test
-    void shouldGrantNewCourseOnlyToActiveMembersNotAdmins() {
-        OrganizationMember member =
-                OrganizationMember.builder()
-                        .user(user)
-                        .organization(organization)
-                        .role(MemberRole.MEMBER)
-                        .status(MemberStatus.ACTIVE)
-                        .build();
-        when(memberRepository.findByOrganizationIdAndRoleAndStatus(
-                        organization.getId(), MemberRole.MEMBER, MemberStatus.ACTIVE))
-                .thenReturn(List.of(member));
-        when(courseVersionRepository.findByCourseIdAndStatus(
-                        course.getId(), VersionStatus.PUBLISHED))
-                .thenReturn(Optional.of(version));
-        when(enrollmentRepository.findByUserIdAndCourseVersionId(user.getId(), version.getId()))
-                .thenReturn(Optional.empty());
-
-        enrollmentService.grantCourseToActiveMembers(organization, course);
-
-        verify(enrollmentRepository, times(1)).save(any(UserCourseEnrollment.class));
-    }
-
-    @Test
-    void shouldDropEnrollmentsWhenTheCourseIsUncontracted() {
-        UserCourseEnrollment enrollment =
-                UserCourseEnrollment.builder()
-                        .user(user)
-                        .courseVersion(version)
-                        .status(EnrollmentStatus.ENROLLED)
-                        .build();
-        when(enrollmentRepository.findByOrganizationIdAndCourseVersionCourseId(
-                        organization.getId(), course.getId()))
-                .thenReturn(List.of(enrollment));
-
-        enrollmentService.revokeCourseFromMembers(organization.getId(), course.getId());
-
-        assertEquals(EnrollmentStatus.DROPPED, enrollment.getStatus());
-        verify(enrollmentRepository).save(enrollment);
+                () -> enrollmentService.grantCourse(user, organization, course, null));
     }
 
     @Test
@@ -246,25 +180,6 @@ class OrganizationEnrollmentServiceTest {
     }
 
     @Test
-    void shouldClearCurrentCourseOfMembersWhenTheCourseIsUncontracted() {
-        UserCourseEnrollment enrollment =
-                UserCourseEnrollment.builder()
-                        .user(user)
-                        .courseVersion(version)
-                        .status(EnrollmentStatus.ENROLLED)
-                        .build();
-        user.setCurrentCourse(course);
-        when(enrollmentRepository.findByOrganizationIdAndCourseVersionCourseId(
-                        organization.getId(), course.getId()))
-                .thenReturn(List.of(enrollment));
-
-        enrollmentService.revokeCourseFromMembers(organization.getId(), course.getId());
-
-        assertNull(user.getCurrentCourse());
-        verify(userRepository).save(user);
-    }
-
-    @Test
     void shouldOnlyDetachFreeCoursesInsteadOfDroppingThem() {
         course.setFree(true);
         user.setCurrentCourse(course);
@@ -275,13 +190,9 @@ class OrganizationEnrollmentServiceTest {
                         .organization(organization)
                         .status(EnrollmentStatus.ENROLLED)
                         .build();
-        when(enrollmentRepository.findByOrganizationIdAndCourseVersionCourseId(
-                        organization.getId(), course.getId()))
-                .thenReturn(List.of(enrollment));
         when(enrollmentRepository.findByUserIdAndOrganizationId(user.getId(), organization.getId()))
                 .thenReturn(List.of(enrollment));
 
-        enrollmentService.revokeCourseFromMembers(organization.getId(), course.getId());
         enrollmentService.revokeAllFromUser(user, organization.getId());
 
         assertEquals(EnrollmentStatus.ENROLLED, enrollment.getStatus());
@@ -297,13 +208,75 @@ class OrganizationEnrollmentServiceTest {
         when(enrollmentRepository.findByUserIdAndCourseVersionId(user.getId(), version.getId()))
                 .thenReturn(Optional.empty());
 
-        enrollmentService.grantContractedCourses(
-                user, organization, Instant.now().plus(30, ChronoUnit.DAYS));
+        enrollmentService.grantCourse(
+                user, organization, course, Instant.now().plus(30, ChronoUnit.DAYS));
 
         ArgumentCaptor<UserCourseEnrollment> captor =
                 ArgumentCaptor.forClass(UserCourseEnrollment.class);
         verify(enrollmentRepository).save(captor.capture());
         assertNull(captor.getValue().getAccessExpiresAt());
         assertEquals(organization, captor.getValue().getOrganization());
+    }
+
+    @Test
+    void shouldEndAccessToAPaidCourseNowKeepingTheEnrollment() {
+        Instant now = Instant.now();
+        UserCourseEnrollment enrollment =
+                UserCourseEnrollment.builder()
+                        .user(user)
+                        .courseVersion(version)
+                        .organization(organization)
+                        .status(EnrollmentStatus.ENROLLED)
+                        .accessExpiresAt(now.plus(20, ChronoUnit.DAYS))
+                        .build();
+        when(enrollmentRepository.findByUserIdAndOrganizationId(user.getId(), organization.getId()))
+                .thenReturn(List.of(enrollment));
+
+        enrollmentService.endCourseAccess(user, organization.getId(), course.getId(), now);
+
+        assertEquals(now, enrollment.getAccessExpiresAt());
+        assertEquals(EnrollmentStatus.ENROLLED, enrollment.getStatus());
+        assertFalse(enrollment.grantsAccess(now));
+        verify(enrollmentRepository).save(enrollment);
+    }
+
+    @Test
+    void shouldNotTouchOtherCoursesFreeCoursesOrAccessesThatAlreadyEnded() {
+        Instant now = Instant.now();
+        Course other = Course.builder().id(UUID.randomUUID()).name("LSA Educación").build();
+        Course free = Course.builder().id(course.getId()).name("Base").isFree(true).build();
+        UserCourseEnrollment otherCourse =
+                UserCourseEnrollment.builder()
+                        .courseVersion(CourseVersion.builder().course(other).build())
+                        .accessExpiresAt(now.plus(5, ChronoUnit.DAYS))
+                        .build();
+        UserCourseEnrollment freeCourse =
+                UserCourseEnrollment.builder()
+                        .courseVersion(CourseVersion.builder().course(free).build())
+                        .build();
+        UserCourseEnrollment ended =
+                UserCourseEnrollment.builder()
+                        .courseVersion(version)
+                        .accessExpiresAt(now.minus(1, ChronoUnit.DAYS))
+                        .build();
+        when(enrollmentRepository.findByUserIdAndOrganizationId(user.getId(), organization.getId()))
+                .thenReturn(List.of(otherCourse, freeCourse, ended));
+
+        enrollmentService.endCourseAccess(user, organization.getId(), course.getId(), now);
+
+        verify(enrollmentRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldEndAnOpenEndedAccessToAPaidCourse() {
+        Instant now = Instant.now();
+        UserCourseEnrollment openEnded =
+                UserCourseEnrollment.builder().courseVersion(version).build();
+        when(enrollmentRepository.findByUserIdAndOrganizationId(user.getId(), organization.getId()))
+                .thenReturn(List.of(openEnded));
+
+        enrollmentService.endCourseAccess(user, organization.getId(), course.getId(), now);
+
+        assertEquals(now, openEnded.getAccessExpiresAt());
     }
 }

@@ -34,10 +34,8 @@ import com.signasource.signa_api.organizations.entity.MemberRole;
 import com.signasource.signa_api.organizations.entity.MemberStatus;
 import com.signasource.signa_api.organizations.entity.Organization;
 import com.signasource.signa_api.organizations.entity.OrganizationStatus;
-import com.signasource.signa_api.organizations.repository.OrganizationCourseRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationMemberRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationRepository;
-import com.signasource.signa_api.organizations.service.OrganizationEnrollmentService;
 import com.signasource.signa_api.users.entity.AuthProvider;
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
@@ -69,8 +67,6 @@ class AdminServiceTest {
 
     @Mock private OrganizationRepository organizationRepository;
     @Mock private OrganizationMemberRepository memberRepository;
-    @Mock private OrganizationCourseRepository organizationCourseRepository;
-    @Mock private OrganizationEnrollmentService enrollmentService;
     @Mock private SignReportRepository signReportRepository;
     @Mock private UserRepository userRepository;
     @Mock private UserSettingsRepository userSettingsRepository;
@@ -96,7 +92,6 @@ class AdminServiceTest {
                         .status(OrganizationStatus.PENDING)
                         .cuit("30-12345678-9")
                         .contactEmail("test@test.com")
-                        .memberLimit(50)
                         .createdAt(Instant.now())
                         .build();
 
@@ -165,7 +160,7 @@ class AdminServiceTest {
                 .thenReturn(List.of());
 
         UpdateOrganizationStatusRequest req =
-                new UpdateOrganizationStatusRequest(OrganizationStatus.ACTIVE, List.of());
+                new UpdateOrganizationStatusRequest(OrganizationStatus.ACTIVE);
         adminService.updateOrganizationStatus(orgId, req);
 
         verify(organizationRepository).save(any());
@@ -179,7 +174,7 @@ class AdminServiceTest {
                 .thenReturn(List.of());
 
         UpdateOrganizationStatusRequest req =
-                new UpdateOrganizationStatusRequest(OrganizationStatus.REJECTED, null);
+                new UpdateOrganizationStatusRequest(OrganizationStatus.REJECTED);
         adminService.updateOrganizationStatus(orgId, req);
 
         verify(organizationRepository).save(any());
@@ -197,7 +192,7 @@ class AdminServiceTest {
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
 
         UpdateOrganizationStatusRequest req =
-                new UpdateOrganizationStatusRequest(OrganizationStatus.ACTIVE, null);
+                new UpdateOrganizationStatusRequest(OrganizationStatus.ACTIVE);
 
         assertThrows(
                 InvalidInputException.class,
@@ -269,7 +264,7 @@ class AdminServiceTest {
                 .thenReturn(List.of());
 
         UpdateOrganizationStatusRequest req =
-                new UpdateOrganizationStatusRequest(OrganizationStatus.SUSPENDED, null);
+                new UpdateOrganizationStatusRequest(OrganizationStatus.SUSPENDED);
         adminService.updateOrganizationStatus(orgId, req);
 
         verify(organizationRepository).save(any());
