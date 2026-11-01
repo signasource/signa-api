@@ -13,7 +13,6 @@ import com.signasource.signa_api.organizations.dto.PurchaseCatalogResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseDetailResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseQuoteResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseResponse;
-import com.signasource.signa_api.organizations.dto.SyncPaymentRequest;
 import com.signasource.signa_api.organizations.dto.UpdateSeatEmailRequest;
 import com.signasource.signa_api.organizations.dto.WithdrawPurchaseRequest;
 import com.signasource.signa_api.organizations.service.CoursePurchaseService;
@@ -155,18 +154,9 @@ class OrganizationPurchaseControllerTest {
     void shouldSyncAPayment() {
         when(principal.getUser()).thenReturn(user);
         PaymentSyncResponse synced = new PaymentSyncResponse("approved", detail);
-        when(checkoutService.syncPayment(user, organizationId, purchaseId, "987"))
-                .thenReturn(synced);
+        when(checkoutService.syncPayment(user, organizationId, purchaseId)).thenReturn(synced);
 
-        assertSame(
-                synced,
-                controller
-                        .syncPayment(
-                                organizationId,
-                                purchaseId,
-                                new SyncPaymentRequest("987"),
-                                principal)
-                        .getBody());
+        assertSame(synced, controller.syncPayment(organizationId, purchaseId, principal).getBody());
     }
 
     @Test

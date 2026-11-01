@@ -116,6 +116,7 @@ mercado-pago:
   api-url: https://api.mercadopago.com
   access-token: ${MERCADO_PAGO_ACCESS_TOKEN:}
   webhook-secret: ${MERCADO_PAGO_WEBHOOK_SECRET:}
+  # Unused with the Orders API (no per-order notification URL); register the webhook in the dashboard.
   notification-url: ${MERCADO_PAGO_NOTIFICATION_URL:}
 
 admin:

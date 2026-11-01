@@ -8,7 +8,6 @@ import com.signasource.signa_api.organizations.dto.PurchaseCatalogResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseDetailResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseQuoteResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseResponse;
-import com.signasource.signa_api.organizations.dto.SyncPaymentRequest;
 import com.signasource.signa_api.organizations.dto.UpdateSeatEmailRequest;
 import com.signasource.signa_api.organizations.dto.WithdrawPurchaseRequest;
 import com.signasource.signa_api.organizations.service.CoursePurchaseService;
@@ -110,11 +109,9 @@ public class OrganizationPurchaseController {
     public ResponseEntity<PaymentSyncResponse> syncPayment(
             @PathVariable UUID organizationId,
             @PathVariable UUID purchaseId,
-            @Valid @RequestBody SyncPaymentRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(
-                checkoutService.syncPayment(
-                        userDetails.getUser(), organizationId, purchaseId, request.paymentId()));
+                checkoutService.syncPayment(userDetails.getUser(), organizationId, purchaseId));
     }
 
     @PatchMapping("/{organizationId}/purchases/{purchaseId}/seats/{seatId}")

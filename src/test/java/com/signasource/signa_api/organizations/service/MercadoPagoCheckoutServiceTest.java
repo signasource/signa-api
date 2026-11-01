@@ -198,6 +198,7 @@ class MercadoPagoCheckoutServiceTest {
     @Test
     void shouldSettleAnApprovedPaymentOnSync() {
         stubPurchase();
+        purchase.setMercadoPagoPreferenceId("987");
         when(mercadoPago.getPayment("987")).thenReturn(approved());
         when(paymentService.settle(purchase.getId(), "987", new BigDecimal("243000"), "ARS"))
                 .thenReturn(Settlement.CONFIRMED);
@@ -205,7 +206,7 @@ class MercadoPagoCheckoutServiceTest {
         when(purchaseService.get(actor, organization.getId(), purchase.getId())).thenReturn(detail);
 
         PaymentSyncResponse response =
-                service.syncPayment(actor, organization.getId(), purchase.getId(), "987");
+                service.syncPayment(actor, organization.getId(), purchase.getId());
 
         assertEquals("approved", response.paymentStatus());
         assertSame(detail, response.purchase());
@@ -215,11 +216,12 @@ class MercadoPagoCheckoutServiceTest {
     @Test
     void shouldReportARejectedPaymentOnSyncWithoutSettling() {
         stubPurchase();
+        purchase.setMercadoPagoPreferenceId("987");
         when(mercadoPago.getPayment("987"))
                 .thenReturn(payment("rejected", purchase.getId().toString(), "243000", "ARS"));
 
         PaymentSyncResponse response =
-                service.syncPayment(actor, organization.getId(), purchase.getId(), "987");
+                service.syncPayment(actor, organization.getId(), purchase.getId());
 
         assertEquals("rejected", response.paymentStatus());
         verify(paymentService, never()).settle(any(), anyString(), any(), any());
@@ -228,13 +230,25 @@ class MercadoPagoCheckoutServiceTest {
     @Test
     void shouldRejectASyncWithThePaymentOfAnotherPurchase() {
         stubPurchase();
+        purchase.setMercadoPagoPreferenceId("987");
         when(mercadoPago.getPayment("987"))
                 .thenReturn(payment("approved", UUID.randomUUID().toString(), "243000", "ARS"));
 
         assertThrows(
                 InvalidInputException.class,
-                () -> service.syncPayment(actor, organization.getId(), purchase.getId(), "987"));
+                () -> service.syncPayment(actor, organization.getId(), purchase.getId()));
         verify(paymentService, never()).settle(any(), anyString(), any(), any());
+    }
+
+    @Test
+    void shouldRejectASyncBeforeAnyCheckoutWasStarted() {
+        stubPurchase();
+        purchase.setMercadoPagoPreferenceId(null);
+
+        assertThrows(
+                InvalidInputException.class,
+                () -> service.syncPayment(actor, organization.getId(), purchase.getId()));
+        verifyNoInteractions(mercadoPago);
     }
 
     @Test
@@ -245,7 +259,7 @@ class MercadoPagoCheckoutServiceTest {
         when(paymentService.settle(purchase.getId(), "987", new BigDecimal("243000"), "ARS"))
                 .thenReturn(Settlement.CONFIRMED);
 
-        service.handleNotification("payment", "987", "sig", "req");
+        service.handleNotification("order", "987", "sig", "req");
 
         verify(paymentService).settle(purchase.getId(), "987", new BigDecimal("243000"), "ARS");
         verify(mercadoPago, never()).refund(anyString());
@@ -258,7 +272,7 @@ class MercadoPagoCheckoutServiceTest {
                 .thenReturn(Settlement.REFUND);
         when(mercadoPago.refund("987")).thenReturn("r-1");
 
-        service.handleNotification("payment", "987", null, null);
+        service.handleNotification("order", "987", null, null);
 
         verify(paymentService).markRefunded("987", "r-1");
     }
@@ -272,7 +286,7 @@ class MercadoPagoCheckoutServiceTest {
 
         assertThrows(
                 PaymentProviderException.class,
-                () -> service.handleNotification("payment", "987", null, null));
+                () -> service.handleNotification("order", "987", null, null));
         verify(paymentService, never()).markRefunded(anyString(), any());
     }
 
@@ -281,7 +295,7 @@ class MercadoPagoCheckoutServiceTest {
         when(mercadoPago.getPayment("987"))
                 .thenReturn(payment("refunded", purchase.getId().toString(), "243000", "ARS"));
 
-        service.handleNotification("payment", "987", null, null);
+        service.handleNotification("order", "987", null, null);
 
         verify(paymentService).reverse("987", false, new BigDecimal("243000"));
         verify(paymentService, never()).settle(any(), anyString(), any(), any());
@@ -296,9 +310,9 @@ class MercadoPagoCheckoutServiceTest {
                         Settlement.ALREADY_REFUNDED,
                         Settlement.UNKNOWN_PURCHASE);
 
-        service.handleNotification("payment", "987", null, null);
-        service.handleNotification("payment", "987", null, null);
-        service.handleNotification("payment", "987", null, null);
+        service.handleNotification("order", "987", null, null);
+        service.handleNotification("order", "987", null, null);
+        service.handleNotification("order", "987", null, null);
 
         verify(mercadoPago, never()).refund(anyString());
     }
@@ -308,8 +322,8 @@ class MercadoPagoCheckoutServiceTest {
         when(mercadoPago.getPayment("1")).thenReturn(payment("approved", "not-a-uuid", "1", "ARS"));
         when(mercadoPago.getPayment("2")).thenReturn(payment("approved", null, "1", "ARS"));
 
-        service.handleNotification("payment", "1", null, null);
-        service.handleNotification("payment", "2", null, null);
+        service.handleNotification("order", "1", null, null);
+        service.handleNotification("order", "2", null, null);
 
         verifyNoInteractions(paymentService);
     }
@@ -321,15 +335,17 @@ class MercadoPagoCheckoutServiceTest {
 
         assertThrows(
                 ForbiddenException.class,
-                () -> service.handleNotification("payment", "987", "sig", "req"));
+                () -> service.handleNotification("order", "987", "sig", "req"));
         verifyNoInteractions(mercadoPago);
     }
 
     @Test
-    void shouldIgnoreNotificationsThatAreNotPayments() {
+    void shouldIgnoreNotificationsThatAreNotOrders() {
         service.handleNotification("merchant_order", "1", null, null);
-        service.handleNotification("payment", " ", null, null);
+        service.handleNotification("order", " ", null, null);
         service.handleNotification(null, "1", null, null);
+        // The legacy payment notifications of the Preferences API are not orders.
+        service.handleNotification("payment", "987", null, null);
 
         verifyNoInteractions(mercadoPago, paymentService);
     }
@@ -445,7 +461,7 @@ class MercadoPagoCheckoutServiceTest {
     void shouldRevokeThePurchaseOnAChargeback() {
         when(mercadoPago.getPayment("987")).thenReturn(detailed("charged_back", "settled"));
 
-        service.handleNotification("payment", "987", null, null);
+        service.handleNotification("order", "987", null, null);
 
         verify(paymentService).reverse("987", true, new BigDecimal("243000"));
     }
@@ -456,7 +472,7 @@ class MercadoPagoCheckoutServiceTest {
         when(mercadoPago.getPayment("987")).thenReturn(detailed("in_mediation", "pending"));
         when(paymentService.findPaidBy("987")).thenReturn(Optional.of(purchase));
 
-        service.handleNotification("payment", "987", null, null);
+        service.handleNotification("order", "987", null, null);
 
         verify(notifications).alertOps(contains("Disputa abierta"), anyList());
         verify(paymentService, never()).reverse(anyString(), anyBoolean(), any());
@@ -469,7 +485,7 @@ class MercadoPagoCheckoutServiceTest {
         when(mercadoPago.getPayment("987")).thenReturn(detailed("approved", "partially_refunded"));
         when(paymentService.findPaidBy("987")).thenReturn(Optional.of(purchase));
 
-        service.handleNotification("payment", "987", null, null);
+        service.handleNotification("order", "987", null, null);
 
         verify(notifications).alertOps(contains("Reembolso parcial"), anyList());
         verify(paymentService, never()).settle(any(), anyString(), any(), any());
@@ -480,7 +496,7 @@ class MercadoPagoCheckoutServiceTest {
         when(mercadoPago.getPayment("987")).thenReturn(detailed("in_mediation", "pending"));
         when(paymentService.findPaidBy("987")).thenReturn(Optional.empty());
 
-        service.handleNotification("payment", "987", null, null);
+        service.handleNotification("order", "987", null, null);
 
         verifyNoInteractions(notifications);
     }

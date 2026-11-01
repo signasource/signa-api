@@ -135,12 +135,18 @@ public class MercadoPagoCheckoutService {
         return purchaseService.get(actor, organizationId, purchaseId);
     }
 
-    /** The panel reports the {@code payment_id} Mercado Pago appended to the return URL. */
-    public PaymentSyncResponse syncPayment(
-            User actor, UUID organizationId, UUID purchaseId, String paymentId) {
+    /**
+     * The panel asks to re-check the purchase's last order when the admin comes back from checkout.
+     * The order is the one Signa created and stored, so nothing the browser sends is trusted.
+     */
+    public PaymentSyncResponse syncPayment(User actor, UUID organizationId, UUID purchaseId) {
         accessService.requireManage(actor, organizationId);
         CoursePurchase purchase = findPurchase(organizationId, purchaseId);
-        Payment payment = mercadoPago.getPayment(paymentId);
+        String orderId = purchase.getMercadoPagoPreferenceId();
+        if (orderId == null || orderId.isBlank()) {
+            throw new InvalidInputException("This purchase has no checkout to check yet");
+        }
+        Payment payment = mercadoPago.getPayment(orderId);
         if (!purchase.getId().toString().equals(payment.externalReference())) {
             throw new InvalidInputException("That payment belongs to another purchase");
         }
@@ -150,8 +156,8 @@ public class MercadoPagoCheckoutService {
     }
 
     /**
-     * Handles a webhook. Anything that is not a payment notification is acknowledged and ignored,
-     * so Mercado Pago does not retry it.
+     * Handles a webhook. Anything that is not an {@code order} notification is acknowledged and
+     * ignored, so Mercado Pago does not retry it. {@code dataId} is the order's id.
      */
     public void handleNotification(
             String type, String dataId, String signatureHeader, String requestId) {
@@ -159,7 +165,7 @@ public class MercadoPagoCheckoutService {
                 && !signatureVerifier.isValid(signatureHeader, requestId, dataId)) {
             throw new ForbiddenException("Invalid Mercado Pago signature");
         }
-        if (!"payment".equals(type) || dataId == null || dataId.isBlank()) {
+        if (!"order".equals(type) || dataId == null || dataId.isBlank()) {
             return;
         }
         apply(mercadoPago.getPayment(dataId));
