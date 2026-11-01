@@ -1,0 +1,23 @@
+topic:
+  code: unidad-1
+  title: "Unidad 1"
+  subtitle: "Prueba de compra"
+  description: Unidad mínima del curso de prueba.
+
+lessons:
+  - code: leccion-1
+    name: "Vocabulario de prueba"
+    description: "Tres señas ya existentes, solo para que el curso tenga precio."
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: alumnos
+          word: alumnos
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: director
+          word: director
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: maestro
+          word: maestro
