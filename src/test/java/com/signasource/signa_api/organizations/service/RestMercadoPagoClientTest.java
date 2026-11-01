@@ -14,9 +14,9 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import com.signasource.signa_api.config.MercadoPagoProperties;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.PaymentProviderException;
-import com.signasource.signa_api.organizations.service.MercadoPagoClient.CheckoutPreference;
+import com.signasource.signa_api.organizations.service.MercadoPagoClient.CheckoutOrder;
+import com.signasource.signa_api.organizations.service.MercadoPagoClient.OrderRequest;
 import com.signasource.signa_api.organizations.service.MercadoPagoClient.Payment;
-import com.signasource.signa_api.organizations.service.MercadoPagoClient.PreferenceRequest;
 import java.math.BigDecimal;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
@@ -36,11 +36,11 @@ class RestMercadoPagoClientTest {
         RestClient.Builder builder = RestClient.builder();
         server = MockRestServiceServer.bindTo(builder).build();
         return new RestMercadoPagoClient(
-                new MercadoPagoProperties(API, accessToken, null, null), builder);
+                new MercadoPagoProperties(API, accessToken, null), builder);
     }
 
-    private static PreferenceRequest request(String successUrl) {
-        return new PreferenceRequest(
+    private static OrderRequest request(String successUrl) {
+        return new OrderRequest(
                 "purchase-1",
                 "Cupos SIGNA · LSA Salud · 30 días",
                 15,
@@ -82,9 +82,9 @@ class RestMercadoPagoClientTest {
                                 "{\"id\":\"ORD1\",\"checkout_url\":\"https://mp/checkout\"}",
                                 MediaType.APPLICATION_JSON));
 
-        CheckoutPreference preference = client.createPreference(request("https://panel/s"));
+        CheckoutOrder preference = client.createOrder(request("https://panel/s"));
 
-        assertEquals(new CheckoutPreference("ORD1", "https://mp/checkout"), preference);
+        assertEquals(new CheckoutOrder("ORD1", "https://mp/checkout"), preference);
         server.verify();
     }
 
@@ -98,7 +98,7 @@ class RestMercadoPagoClientTest {
                                 "{\"id\":\"ORD1\",\"checkout_url\":\"https://mp/checkout\"}",
                                 MediaType.APPLICATION_JSON));
 
-        client.createPreference(request("http://localhost:3000/s"));
+        client.createOrder(request("http://localhost:3000/s"));
 
         server.verify();
     }
@@ -110,13 +110,13 @@ class RestMercadoPagoClientTest {
                 .andRespond(withSuccess("{\"id\":\"ORD1\"}", MediaType.APPLICATION_JSON));
         assertThrows(
                 PaymentProviderException.class,
-                () -> client.createPreference(request("https://panel/s")));
+                () -> client.createOrder(request("https://panel/s")));
 
         RestMercadoPagoClient failing = client("TEST-token");
         server.expect(requestTo(API + "/v1/orders")).andRespond(withServerError());
         assertThrows(
                 PaymentProviderException.class,
-                () -> failing.createPreference(request("https://panel/s")));
+                () -> failing.createOrder(request("https://panel/s")));
     }
 
     @Test
@@ -128,7 +128,7 @@ class RestMercadoPagoClientTest {
                 .andRespond(
                         withSuccess(order("processed", "accredited"), MediaType.APPLICATION_JSON));
 
-        Payment payment = client.getPayment("ORD1");
+        Payment payment = client.getOrder("ORD1");
 
         assertEquals("ORD1", payment.id());
         assertTrue(payment.isApproved());
@@ -147,7 +147,7 @@ class RestMercadoPagoClientTest {
                                 order("processed", "partially_refunded"),
                                 MediaType.APPLICATION_JSON));
 
-        assertTrue(client.getPayment("ORD1").isPartiallyRefunded());
+        assertTrue(client.getOrder("ORD1").isPartiallyRefunded());
     }
 
     @Test
@@ -155,20 +155,20 @@ class RestMercadoPagoClientTest {
         RestMercadoPagoClient refunded = client("TEST-token");
         server.expect(requestTo(API + "/v1/orders/ORD1"))
                 .andRespond(withSuccess(order("refunded", "refunded"), MediaType.APPLICATION_JSON));
-        assertTrue(refunded.getPayment("ORD1").isRefunded());
+        assertTrue(refunded.getOrder("ORD1").isRefunded());
 
         RestMercadoPagoClient dispute = client("TEST-token");
         server.expect(requestTo(API + "/v1/orders/ORD1"))
                 .andRespond(
                         withSuccess(
                                 order("charged_back", "in_process"), MediaType.APPLICATION_JSON));
-        assertTrue(dispute.getPayment("ORD1").isInMediation());
+        assertTrue(dispute.getOrder("ORD1").isInMediation());
 
         RestMercadoPagoClient chargeback = client("TEST-token");
         server.expect(requestTo(API + "/v1/orders/ORD1"))
                 .andRespond(
                         withSuccess(order("charged_back", "settled"), MediaType.APPLICATION_JSON));
-        assertTrue(chargeback.getPayment("ORD1").isChargedBack());
+        assertTrue(chargeback.getOrder("ORD1").isChargedBack());
     }
 
     @Test
@@ -177,7 +177,7 @@ class RestMercadoPagoClientTest {
         server.expect(requestTo(API + "/v1/orders/ORD1"))
                 .andRespond(withSuccess(order("created", "created"), MediaType.APPLICATION_JSON));
 
-        Payment payment = client.getPayment("ORD1");
+        Payment payment = client.getOrder("ORD1");
 
         assertEquals("created", payment.status());
         assertEquals(false, payment.isApproved());
@@ -189,14 +189,14 @@ class RestMercadoPagoClientTest {
         server.expect(requestTo(API + "/v1/orders/ORD1"))
                 .andRespond(withStatus(HttpStatus.NOT_FOUND));
 
-        assertThrows(InvalidInputException.class, () -> client.getPayment("ORD1"));
+        assertThrows(InvalidInputException.class, () -> client.getOrder("ORD1"));
     }
 
     @Test
     void shouldFailOnAProviderErrorOrABadAmountWhileReadingAnOrder() {
         RestMercadoPagoClient failing = client("TEST-token");
         server.expect(requestTo(API + "/v1/orders/ORD1")).andRespond(withServerError());
-        assertThrows(PaymentProviderException.class, () -> failing.getPayment("ORD1"));
+        assertThrows(PaymentProviderException.class, () -> failing.getOrder("ORD1"));
 
         RestMercadoPagoClient garbled = client("TEST-token");
         server.expect(requestTo(API + "/v1/orders/ORD1"))
@@ -204,17 +204,17 @@ class RestMercadoPagoClientTest {
                         withSuccess(
                                 "{\"id\":\"ORD1\",\"status\":\"processed\",\"total_amount\":\"abc\"}",
                                 MediaType.APPLICATION_JSON));
-        assertThrows(PaymentProviderException.class, () -> garbled.getPayment("ORD1"));
+        assertThrows(PaymentProviderException.class, () -> garbled.getOrder("ORD1"));
     }
 
     @Test
     void shouldFailWithoutAnAccessToken() {
         RestMercadoPagoClient client = client(" ");
 
-        assertThrows(PaymentProviderException.class, () -> client.getPayment("ORD1"));
+        assertThrows(PaymentProviderException.class, () -> client.getOrder("ORD1"));
         assertThrows(
                 PaymentProviderException.class,
-                () -> client.createPreference(request("https://panel/s")));
+                () -> client.createOrder(request("https://panel/s")));
     }
 
     @Test
@@ -222,7 +222,7 @@ class RestMercadoPagoClientTest {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer defaultServer = MockRestServiceServer.bindTo(builder).build();
         RestMercadoPagoClient client =
-                new RestMercadoPagoClient(new MercadoPagoProperties("", "t", null, null), builder);
+                new RestMercadoPagoClient(new MercadoPagoProperties("", "t", null), builder);
         defaultServer
                 .expect(requestTo("https://api.mercadopago.com/v1/orders/ORD1"))
                 .andRespond(
@@ -230,7 +230,7 @@ class RestMercadoPagoClientTest {
                                 "{\"id\":\"ORD1\",\"status\":\"action_required\"}",
                                 MediaType.APPLICATION_JSON));
 
-        assertEquals("action_required", client.getPayment("ORD1").status());
+        assertEquals("action_required", client.getOrder("ORD1").status());
     }
 
     @Test
@@ -283,7 +283,7 @@ class RestMercadoPagoClientTest {
                                 "{\"id\":\"ORD1\",\"status\":\"canceled\"}",
                                 MediaType.APPLICATION_JSON));
 
-        client.expirePreference("ORD1");
+        client.cancelOrder("ORD1");
         server.verify();
     }
 }

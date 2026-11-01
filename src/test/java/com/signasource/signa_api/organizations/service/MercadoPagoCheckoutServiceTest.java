@@ -29,9 +29,9 @@ import com.signasource.signa_api.organizations.entity.Organization;
 import com.signasource.signa_api.organizations.entity.OrganizationStatus;
 import com.signasource.signa_api.organizations.entity.PurchaseStatus;
 import com.signasource.signa_api.organizations.repository.CoursePurchaseRepository;
-import com.signasource.signa_api.organizations.service.MercadoPagoClient.CheckoutPreference;
+import com.signasource.signa_api.organizations.service.MercadoPagoClient.CheckoutOrder;
+import com.signasource.signa_api.organizations.service.MercadoPagoClient.OrderRequest;
 import com.signasource.signa_api.organizations.service.MercadoPagoClient.Payment;
-import com.signasource.signa_api.organizations.service.MercadoPagoClient.PreferenceRequest;
 import com.signasource.signa_api.organizations.service.PurchasePaymentService.Settlement;
 import com.signasource.signa_api.users.entity.User;
 import java.math.BigDecimal;
@@ -123,17 +123,16 @@ class MercadoPagoCheckoutServiceTest {
     @Test
     void shouldCreateAPreferenceForTheSeatsAndReturnTheCheckoutUrl() {
         stubPurchase();
-        when(mercadoPago.createPreference(any()))
-                .thenReturn(new CheckoutPreference("pref-1", "https://mp.com/checkout/pref-1"));
+        when(mercadoPago.createOrder(any()))
+                .thenReturn(new CheckoutOrder("pref-1", "https://mp.com/checkout/pref-1"));
 
         CheckoutResponse response =
                 service.startCheckout(actor, organization.getId(), purchase.getId());
 
         verify(accessService).requireManage(actor, organization.getId());
         assertEquals("https://mp.com/checkout/pref-1", response.checkoutUrl());
-        ArgumentCaptor<PreferenceRequest> request =
-                ArgumentCaptor.forClass(PreferenceRequest.class);
-        verify(mercadoPago).createPreference(request.capture());
+        ArgumentCaptor<OrderRequest> request = ArgumentCaptor.forClass(OrderRequest.class);
+        verify(mercadoPago).createOrder(request.capture());
         assertEquals(purchase.getId().toString(), request.getValue().externalReference());
         assertEquals(15, request.getValue().quantity());
         assertEquals(new BigDecimal("16200.00"), request.getValue().unitPrice());
@@ -199,7 +198,7 @@ class MercadoPagoCheckoutServiceTest {
     void shouldSettleAnApprovedPaymentOnSync() {
         stubPurchase();
         purchase.setMercadoPagoPreferenceId("987");
-        when(mercadoPago.getPayment("987")).thenReturn(approved());
+        when(mercadoPago.getOrder("987")).thenReturn(approved());
         when(paymentService.settle(purchase.getId(), "987", new BigDecimal("243000"), "ARS"))
                 .thenReturn(Settlement.CONFIRMED);
         PurchaseDetailResponse detail = new PurchaseDetailResponse(null, List.of(), List.of());
@@ -217,7 +216,7 @@ class MercadoPagoCheckoutServiceTest {
     void shouldReportARejectedPaymentOnSyncWithoutSettling() {
         stubPurchase();
         purchase.setMercadoPagoPreferenceId("987");
-        when(mercadoPago.getPayment("987"))
+        when(mercadoPago.getOrder("987"))
                 .thenReturn(payment("rejected", purchase.getId().toString(), "243000", "ARS"));
 
         PaymentSyncResponse response =
@@ -231,7 +230,7 @@ class MercadoPagoCheckoutServiceTest {
     void shouldRejectASyncWithThePaymentOfAnotherPurchase() {
         stubPurchase();
         purchase.setMercadoPagoPreferenceId("987");
-        when(mercadoPago.getPayment("987"))
+        when(mercadoPago.getOrder("987"))
                 .thenReturn(payment("approved", UUID.randomUUID().toString(), "243000", "ARS"));
 
         assertThrows(
@@ -255,7 +254,7 @@ class MercadoPagoCheckoutServiceTest {
     void shouldSettleAnApprovedPaymentFromTheWebhook() {
         when(signatureVerifier.isEnabled()).thenReturn(true);
         when(signatureVerifier.isValid("sig", "req", "987")).thenReturn(true);
-        when(mercadoPago.getPayment("987")).thenReturn(approved());
+        when(mercadoPago.getOrder("987")).thenReturn(approved());
         when(paymentService.settle(purchase.getId(), "987", new BigDecimal("243000"), "ARS"))
                 .thenReturn(Settlement.CONFIRMED);
 
@@ -267,7 +266,7 @@ class MercadoPagoCheckoutServiceTest {
 
     @Test
     void shouldRefundAPaymentThatCannotPayThePurchase() {
-        when(mercadoPago.getPayment("987")).thenReturn(approved());
+        when(mercadoPago.getOrder("987")).thenReturn(approved());
         when(paymentService.settle(purchase.getId(), "987", new BigDecimal("243000"), "ARS"))
                 .thenReturn(Settlement.REFUND);
         when(mercadoPago.refund("987")).thenReturn("r-1");
@@ -279,7 +278,7 @@ class MercadoPagoCheckoutServiceTest {
 
     @Test
     void shouldLeaveTheRefundPendingWhenMercadoPagoFails() {
-        when(mercadoPago.getPayment("987")).thenReturn(approved());
+        when(mercadoPago.getOrder("987")).thenReturn(approved());
         when(paymentService.settle(purchase.getId(), "987", new BigDecimal("243000"), "ARS"))
                 .thenReturn(Settlement.REFUND);
         when(mercadoPago.refund("987")).thenThrow(new PaymentProviderException("down"));
@@ -292,7 +291,7 @@ class MercadoPagoCheckoutServiceTest {
 
     @Test
     void shouldMarkTheRefundDoneWhenMercadoPagoNotifiesIt() {
-        when(mercadoPago.getPayment("987"))
+        when(mercadoPago.getOrder("987"))
                 .thenReturn(payment("refunded", purchase.getId().toString(), "243000", "ARS"));
 
         service.handleNotification("order", "987", null, null);
@@ -303,7 +302,7 @@ class MercadoPagoCheckoutServiceTest {
 
     @Test
     void shouldNotRefundWhenNothingIsLeftToDo() {
-        when(mercadoPago.getPayment("987")).thenReturn(approved());
+        when(mercadoPago.getOrder("987")).thenReturn(approved());
         when(paymentService.settle(any(), anyString(), any(), any()))
                 .thenReturn(
                         Settlement.ALREADY_CONFIRMED,
@@ -319,8 +318,8 @@ class MercadoPagoCheckoutServiceTest {
 
     @Test
     void shouldIgnoreAnApprovedPaymentWithoutAPurchaseReference() {
-        when(mercadoPago.getPayment("1")).thenReturn(payment("approved", "not-a-uuid", "1", "ARS"));
-        when(mercadoPago.getPayment("2")).thenReturn(payment("approved", null, "1", "ARS"));
+        when(mercadoPago.getOrder("1")).thenReturn(payment("approved", "not-a-uuid", "1", "ARS"));
+        when(mercadoPago.getOrder("2")).thenReturn(payment("approved", null, "1", "ARS"));
 
         service.handleNotification("order", "1", null, null);
         service.handleNotification("order", "2", null, null);
@@ -359,7 +358,7 @@ class MercadoPagoCheckoutServiceTest {
         purchase.setMercadoPagoPreferenceId("pref-1");
 
         assertSame(cancelled, service.cancel(actor, organization.getId(), purchase.getId()));
-        verify(mercadoPago).expirePreference("pref-1");
+        verify(mercadoPago).cancelOrder("pref-1");
     }
 
     @Test
@@ -369,7 +368,7 @@ class MercadoPagoCheckoutServiceTest {
                 .thenReturn(cancelled);
         stubPurchase();
         purchase.setMercadoPagoPreferenceId("pref-1");
-        doThrow(new PaymentProviderException("down")).when(mercadoPago).expirePreference("pref-1");
+        doThrow(new PaymentProviderException("down")).when(mercadoPago).cancelOrder("pref-1");
 
         assertSame(cancelled, service.cancel(actor, organization.getId(), purchase.getId()));
     }
@@ -424,7 +423,7 @@ class MercadoPagoCheckoutServiceTest {
     void shouldLeaveTheWithdrawalPendingWhenMercadoPagoFails() {
         when(paymentService.startWithdrawal(any(), any(), any(), any(), any())).thenReturn("987");
         when(mercadoPago.refund("987")).thenThrow(new PaymentProviderException("down"));
-        when(mercadoPago.getPayment("987")).thenReturn(detailed("approved", "accredited"));
+        when(mercadoPago.getOrder("987")).thenReturn(detailed("approved", "accredited"));
 
         assertThrows(
                 PaymentProviderException.class,
@@ -436,7 +435,7 @@ class MercadoPagoCheckoutServiceTest {
     void shouldCountARefundAlreadyMadeInMercadoPagoAsDone() {
         when(paymentService.startWithdrawal(any(), any(), any(), any(), any())).thenReturn("987");
         when(mercadoPago.refund("987")).thenThrow(new PaymentProviderException("already refunded"));
-        when(mercadoPago.getPayment("987")).thenReturn(detailed("refunded", "refunded"));
+        when(mercadoPago.getOrder("987")).thenReturn(detailed("refunded", "refunded"));
         when(purchaseService.get(actor, organization.getId(), purchase.getId()))
                 .thenReturn(new PurchaseDetailResponse(null, List.of(), List.of()));
 
@@ -459,7 +458,7 @@ class MercadoPagoCheckoutServiceTest {
 
     @Test
     void shouldRevokeThePurchaseOnAChargeback() {
-        when(mercadoPago.getPayment("987")).thenReturn(detailed("charged_back", "settled"));
+        when(mercadoPago.getOrder("987")).thenReturn(detailed("charged_back", "settled"));
 
         service.handleNotification("order", "987", null, null);
 
@@ -469,7 +468,7 @@ class MercadoPagoCheckoutServiceTest {
     @Test
     void shouldAlertWithoutChangesWhenADisputeOpens() {
         purchase.setStatus(PurchaseStatus.PAID);
-        when(mercadoPago.getPayment("987")).thenReturn(detailed("in_mediation", "pending"));
+        when(mercadoPago.getOrder("987")).thenReturn(detailed("in_mediation", "pending"));
         when(paymentService.findPaidBy("987")).thenReturn(Optional.of(purchase));
 
         service.handleNotification("order", "987", null, null);
@@ -482,7 +481,7 @@ class MercadoPagoCheckoutServiceTest {
     @Test
     void shouldAlertWithoutChangesOnAPartialRefund() {
         purchase.setStatus(PurchaseStatus.PAID);
-        when(mercadoPago.getPayment("987")).thenReturn(detailed("approved", "partially_refunded"));
+        when(mercadoPago.getOrder("987")).thenReturn(detailed("approved", "partially_refunded"));
         when(paymentService.findPaidBy("987")).thenReturn(Optional.of(purchase));
 
         service.handleNotification("order", "987", null, null);
@@ -493,7 +492,7 @@ class MercadoPagoCheckoutServiceTest {
 
     @Test
     void shouldStayQuietAboutDisputesOfPaymentsThatPaidNothing() {
-        when(mercadoPago.getPayment("987")).thenReturn(detailed("in_mediation", "pending"));
+        when(mercadoPago.getOrder("987")).thenReturn(detailed("in_mediation", "pending"));
         when(paymentService.findPaidBy("987")).thenReturn(Optional.empty());
 
         service.handleNotification("order", "987", null, null);

@@ -42,7 +42,7 @@ public class RestMercadoPagoClient implements MercadoPagoClient {
     }
 
     @Override
-    public CheckoutPreference createPreference(PreferenceRequest request) {
+    public CheckoutOrder createOrder(OrderRequest request) {
         BigDecimal unitPrice = request.unitPrice().setScale(2, RoundingMode.HALF_UP);
         BigDecimal total = unitPrice.multiply(BigDecimal.valueOf(request.quantity()));
 
@@ -86,12 +86,12 @@ public class RestMercadoPagoClient implements MercadoPagoClient {
         if (id.isEmpty() || checkoutUrl.isEmpty()) {
             throw new PaymentProviderException("Mercado Pago returned an incomplete order");
         }
-        return new CheckoutPreference(id, checkoutUrl);
+        return new CheckoutOrder(id, checkoutUrl);
     }
 
     /** Reads an order and reports it in the payment terms the rest of the app already uses. */
     @Override
-    public Payment getPayment(String orderId) {
+    public Payment getOrder(String orderId) {
         JsonNode response;
         try {
             response =
@@ -146,7 +146,7 @@ public class RestMercadoPagoClient implements MercadoPagoClient {
 
     /** Cancels an order so it stops accepting payments (only possible before it is paid). */
     @Override
-    public void expirePreference(String orderId) {
+    public void cancelOrder(String orderId) {
         call(
                 () ->
                         restClient

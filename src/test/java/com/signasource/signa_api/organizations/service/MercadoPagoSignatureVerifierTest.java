@@ -15,8 +15,7 @@ class MercadoPagoSignatureVerifierTest {
     private static final String SECRET = "webhook-secret";
 
     private final MercadoPagoSignatureVerifier verifier =
-            new MercadoPagoSignatureVerifier(
-                    new MercadoPagoProperties(null, "token", SECRET, null));
+            new MercadoPagoSignatureVerifier(new MercadoPagoProperties(null, "token", SECRET));
 
     private static String sign(String manifest) throws Exception {
         Mac mac = Mac.getInstance("HmacSHA256");
@@ -54,10 +53,10 @@ class MercadoPagoSignatureVerifierTest {
     void shouldBeEnabledOnlyWithASecret() {
         assertTrue(verifier.isEnabled());
         assertFalse(
-                new MercadoPagoSignatureVerifier(new MercadoPagoProperties(null, "t", " ", null))
+                new MercadoPagoSignatureVerifier(new MercadoPagoProperties(null, "t", " "))
                         .isEnabled());
         assertFalse(
-                new MercadoPagoSignatureVerifier(new MercadoPagoProperties(null, "t", null, null))
+                new MercadoPagoSignatureVerifier(new MercadoPagoProperties(null, "t", null))
                         .isEnabled());
     }
 }
