@@ -62,6 +62,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 @ExtendWith(MockitoExtension.class)
@@ -298,8 +299,7 @@ class AdminServiceTest {
     void shouldGetSignReports() {
         SignReport report = sampleReport("hola", ReportReason.INCORRECT_SIGN, ReportStatus.PENDING);
 
-        when(signReportRepository.findForAdmin(null, null, null, null, null))
-                .thenReturn(List.of(report));
+        when(signReportRepository.findAll(any(Specification.class))).thenReturn(List.of(report));
 
         List<AdminSignReportResponse> reports =
                 adminService.getSignReports(null, null, null, null, null);
@@ -318,19 +318,14 @@ class AdminServiceTest {
         LocalDate to = LocalDate.of(2026, 2, 1);
         SignReport report = sampleReport("hola", ReportReason.OTHER, ReportStatus.REVIEWED);
 
-        when(signReportRepository.findForAdmin(
-                        ReportStatus.REVIEWED,
-                        ReportReason.OTHER,
-                        "hola",
-                        from.atStartOfDay(),
-                        to.atTime(java.time.LocalTime.MAX)))
-                .thenReturn(List.of(report));
+        when(signReportRepository.findAll(any(Specification.class))).thenReturn(List.of(report));
 
         List<AdminSignReportResponse> reports =
                 adminService.getSignReports(
                         ReportStatus.REVIEWED, ReportReason.OTHER, "  hola  ", from, to);
 
         assertEquals(1, reports.size());
+        assertEquals("hola", reports.get(0).signMeaning());
     }
 
     @Test

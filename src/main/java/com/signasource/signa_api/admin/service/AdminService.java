@@ -38,10 +38,16 @@ import com.signasource.signa_api.users.entity.UserSettings;
 import com.signasource.signa_api.users.repository.UserRepository;
 import com.signasource.signa_api.users.repository.UserSettingsRepository;
 import com.signasource.signa_api.waitlist.repository.WaitlistRepository;
+import jakarta.persistence.criteria.Fetch;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -49,6 +55,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -184,10 +191,49 @@ public class AdminService {
         String query = (signQuery != null && !signQuery.isBlank()) ? signQuery.trim() : null;
 
         return signReportRepository
-                .findForAdmin(status, reason, query, fromDateTime, toDateTime)
+                .findAll(signReportSpec(status, reason, query, fromDateTime, toDateTime))
                 .stream()
                 .map(AdminSignReportResponse::from)
                 .toList();
+    }
+
+    /**
+     * Builds the admin report query as a Specification so only the filters actually provided add a
+     * predicate. A JPQL {@code :param IS NULL OR ...} query binds typed nulls that PostgreSQL
+     * cannot infer (e.g. a null string parameter is read as {@code bytea}, breaking {@code
+     * lower(...)}).
+     */
+    private Specification<SignReport> signReportSpec(
+            ReportStatus status,
+            ReportReason reason,
+            String signQuery,
+            LocalDateTime from,
+            LocalDateTime to) {
+        return (root, query, cb) -> {
+            Fetch<SignReport, Sign> signFetch = root.fetch("sign", JoinType.INNER);
+            signFetch.fetch("signLanguage", JoinType.INNER);
+            root.fetch("user", JoinType.INNER);
+            root.fetch("resolvedBy", JoinType.LEFT);
+            query.orderBy(cb.desc(root.get("createdAt")));
+
+            List<Predicate> predicates = new ArrayList<>();
+            if (status != null) predicates.add(cb.equal(root.get("status"), status));
+            if (reason != null) predicates.add(cb.equal(root.get("reason"), reason));
+            if (signQuery != null) {
+                Join<SignReport, Sign> sign = root.join("sign", JoinType.INNER);
+                predicates.add(
+                        cb.like(
+                                cb.lower(sign.get("meaning")),
+                                "%" + signQuery.toLowerCase(Locale.ROOT) + "%"));
+            }
+            if (from != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.<LocalDateTime>get("createdAt"), from));
+            }
+            if (to != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.<LocalDateTime>get("createdAt"), to));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
     }
 
     @Transactional
