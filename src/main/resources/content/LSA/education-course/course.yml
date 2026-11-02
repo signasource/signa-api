@@ -2,7 +2,7 @@ course:
   code: education-course
   name: Curso Educación
   description: Aprende vocabulario útil en entornos educativos.
-  free: true
+  free: false
   cover: "mock-cover"
 
 version:
