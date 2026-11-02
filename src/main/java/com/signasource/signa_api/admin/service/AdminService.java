@@ -2,14 +2,15 @@ package com.signasource.signa_api.admin.service;
 
 import com.signasource.signa_api.admin.dto.AdminCourseResponse;
 import com.signasource.signa_api.admin.dto.AdminOrganizationResponse;
-import com.signasource.signa_api.admin.dto.AdminSignReportGroupResponse;
+import com.signasource.signa_api.admin.dto.AdminSignDetailResponse;
+import com.signasource.signa_api.admin.dto.AdminSignReportResponse;
 import com.signasource.signa_api.admin.dto.AdminSignResponse;
 import com.signasource.signa_api.admin.dto.AdminStatsResponse;
 import com.signasource.signa_api.admin.dto.AdminUserResponse;
 import com.signasource.signa_api.admin.dto.AdminWaitlistEntryResponse;
 import com.signasource.signa_api.admin.dto.CreateAdminRequest;
 import com.signasource.signa_api.admin.dto.UpdateOrganizationStatusRequest;
-import com.signasource.signa_api.admin.dto.UpdateSignReportGroupRequest;
+import com.signasource.signa_api.admin.dto.UpdateSignReportRequest;
 import com.signasource.signa_api.admin.dto.UpdateUserRequest;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
@@ -37,13 +38,13 @@ import com.signasource.signa_api.users.entity.UserSettings;
 import com.signasource.signa_api.users.repository.UserRepository;
 import com.signasource.signa_api.users.repository.UserSettingsRepository;
 import com.signasource.signa_api.waitlist.repository.WaitlistRepository;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Comparator;
+import java.time.LocalTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
+import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -172,98 +173,40 @@ public class AdminService {
     // ── Sign Reports ─────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
-    public List<AdminSignReportGroupResponse> getSignReportGroups(ReportStatus statusFilter) {
-        List<ReportStatus> statuses =
-                statusFilter != null
-                        ? List.of(statusFilter)
-                        : List.of(
-                                ReportStatus.PENDING,
-                                ReportStatus.REVIEWED,
-                                ReportStatus.RESOLVED,
-                                ReportStatus.REJECTED);
+    public List<AdminSignReportResponse> getSignReports(
+            ReportStatus status,
+            ReportReason reason,
+            String signQuery,
+            LocalDate from,
+            LocalDate to) {
+        LocalDateTime fromDateTime = from != null ? from.atStartOfDay() : null;
+        LocalDateTime toDateTime = to != null ? to.atTime(LocalTime.MAX) : null;
+        String query = (signQuery != null && !signQuery.isBlank()) ? signQuery.trim() : null;
 
-        List<SignReport> reports = signReportRepository.findByStatusIn(statuses);
-
-        Map<UUID, List<SignReport>> bySign =
-                reports.stream().collect(Collectors.groupingBy(r -> r.getSign().getId()));
-
-        return bySign.entrySet().stream()
-                .map(e -> buildGroup(e.getValue()))
-                .sorted(Comparator.comparingInt(g -> -g.reportCount()))
+        return signReportRepository
+                .findForAdmin(status, reason, query, fromDateTime, toDateTime)
+                .stream()
+                .map(AdminSignReportResponse::from)
                 .toList();
     }
 
-    private AdminSignReportGroupResponse buildGroup(List<SignReport> reports) {
-        Sign sign = reports.get(0).getSign();
-        ReportReason topReason =
-                reports.stream()
-                        .collect(
-                                Collectors.groupingBy(SignReport::getReason, Collectors.counting()))
-                        .entrySet()
-                        .stream()
-                        .max(Map.Entry.comparingByValue())
-                        .map(Map.Entry::getKey)
-                        .orElse(ReportReason.OTHER);
-
-        ReportStatus groupStatus = deriveGroupStatus(reports);
-        LocalDateTime lastAt =
-                reports.stream()
-                        .map(SignReport::getCreatedAt)
-                        .max(Comparator.naturalOrder())
-                        .orElse(null);
-
-        List<AdminSignReportGroupResponse.ReportItem> items =
-                reports.stream()
-                        .sorted(Comparator.comparing(SignReport::getCreatedAt).reversed())
-                        .map(
-                                r ->
-                                        new AdminSignReportGroupResponse.ReportItem(
-                                                r.getId(),
-                                                r.getUser().getUsername(),
-                                                r.getReason(),
-                                                r.getDescription(),
-                                                r.getStatus(),
-                                                r.getCreatedAt()))
-                        .toList();
-
-        return new AdminSignReportGroupResponse(
-                sign.getId(),
-                sign.getMeaning(),
-                sign.getSignLanguage().getName(),
-                sign.getHandedness().name(),
-                reports.size(),
-                topReason,
-                groupStatus,
-                lastAt,
-                items);
-    }
-
-    private ReportStatus deriveGroupStatus(List<SignReport> reports) {
-        Set<ReportStatus> statuses =
-                reports.stream().map(SignReport::getStatus).collect(Collectors.toSet());
-        if (statuses.contains(ReportStatus.PENDING)) return ReportStatus.PENDING;
-        if (statuses.contains(ReportStatus.REVIEWED)) return ReportStatus.REVIEWED;
-        if (statuses.contains(ReportStatus.RESOLVED)) return ReportStatus.RESOLVED;
-        return ReportStatus.REJECTED;
-    }
-
     @Transactional
-    public AdminSignReportGroupResponse updateSignReportGroup(
-            UUID signId, UpdateSignReportGroupRequest request, User actor) {
-        List<SignReport> reports = signReportRepository.findBySignId(signId);
-        if (reports.isEmpty()) throw new NotFoundException("No reports found for sign " + signId);
+    public AdminSignReportResponse updateSignReport(
+            UUID reportId, UpdateSignReportRequest request, User actor) {
+        SignReport report =
+                signReportRepository
+                        .findById(reportId)
+                        .orElseThrow(() -> new NotFoundException("Report not found: " + reportId));
 
-        for (SignReport report : reports) {
-            report.setStatus(request.status());
-            if (request.adminNote() != null) report.setAdminNote(request.adminNote());
-            if (request.status() == ReportStatus.RESOLVED
-                    || request.status() == ReportStatus.REJECTED) {
-                report.setResolvedBy(actor);
-                report.setResolvedAt(LocalDateTime.now());
-            }
+        report.setStatus(request.status());
+        if (request.adminNote() != null) report.setAdminNote(request.adminNote());
+        if (request.status() == ReportStatus.RESOLVED
+                || request.status() == ReportStatus.REJECTED) {
+            report.setResolvedBy(actor);
+            report.setResolvedAt(LocalDateTime.now());
         }
-        signReportRepository.saveAll(reports);
-        return buildGroup(reports);
+        signReportRepository.save(report);
+        return AdminSignReportResponse.from(report);
     }
 
     // ── Users ────────────────────────────────────────────────────────────────
@@ -391,6 +334,38 @@ public class AdminService {
                                 })
                         .toList();
         return new PageImpl<>(content, pageable, page.getTotalElements());
+    }
+
+    private static final Pattern YOUTUBE_URL_PATTERN =
+            Pattern.compile("^https?://(www\\.|m\\.)?(youtube\\.com|youtu\\.be)/.+");
+
+    @Transactional(readOnly = true)
+    public AdminSignDetailResponse getSign(UUID id) {
+        Sign sign =
+                signRepository
+                        .findById(id)
+                        .orElseThrow(() -> new NotFoundException("Sign not found: " + id));
+        return AdminSignDetailResponse.from(sign, countOpenReports(id));
+    }
+
+    @Transactional
+    public AdminSignDetailResponse updateSign(UUID id, String youtubeUrl) {
+        Sign sign =
+                signRepository
+                        .findById(id)
+                        .orElseThrow(() -> new NotFoundException("Sign not found: " + id));
+        String normalized = (youtubeUrl == null || youtubeUrl.isBlank()) ? null : youtubeUrl.trim();
+        if (normalized != null && !YOUTUBE_URL_PATTERN.matcher(normalized).matches()) {
+            throw new InvalidInputException("Invalid YouTube URL: " + normalized);
+        }
+        sign.setYoutubeUrl(normalized);
+        signRepository.save(sign);
+        return AdminSignDetailResponse.from(sign, countOpenReports(id));
+    }
+
+    private long countOpenReports(UUID signId) {
+        return signReportRepository.countBySignIdAndStatusIn(
+                signId, List.of(ReportStatus.PENDING, ReportStatus.REVIEWED));
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

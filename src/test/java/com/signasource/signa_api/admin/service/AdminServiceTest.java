@@ -2,6 +2,7 @@ package com.signasource.signa_api.admin.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -9,13 +10,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.admin.dto.AdminOrganizationResponse;
-import com.signasource.signa_api.admin.dto.AdminSignReportGroupResponse;
+import com.signasource.signa_api.admin.dto.AdminSignReportResponse;
 import com.signasource.signa_api.admin.dto.AdminStatsResponse;
 import com.signasource.signa_api.admin.dto.AdminUserResponse;
 import com.signasource.signa_api.admin.dto.AdminWaitlistEntryResponse;
 import com.signasource.signa_api.admin.dto.CreateAdminRequest;
 import com.signasource.signa_api.admin.dto.UpdateOrganizationStatusRequest;
-import com.signasource.signa_api.admin.dto.UpdateSignReportGroupRequest;
+import com.signasource.signa_api.admin.dto.UpdateSignReportRequest;
 import com.signasource.signa_api.admin.dto.UpdateUserRequest;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
@@ -45,6 +46,7 @@ import com.signasource.signa_api.users.repository.UserSettingsRepository;
 import com.signasource.signa_api.waitlist.entity.WaitlistEntry;
 import com.signasource.signa_api.waitlist.repository.WaitlistRepository;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
@@ -270,14 +272,13 @@ class AdminServiceTest {
         verify(organizationRepository).save(any());
     }
 
-    @Test
-    void shouldGetSignReportGroups() {
+    private SignReport sampleReport(String meaning, ReportReason reason, ReportStatus status) {
         SignLanguage lang =
                 SignLanguage.builder().id(UUID.randomUUID()).code("LSA").name("LSA").build();
         Sign sign =
                 Sign.builder()
                         .id(UUID.randomUUID())
-                        .meaning("hola")
+                        .meaning(meaning)
                         .handedness(Handedness.ONE_HANDED)
                         .signLanguage(lang)
                         .build();
@@ -286,62 +287,84 @@ class AdminServiceTest {
         report.setId(UUID.randomUUID());
         report.setSign(sign);
         report.setUser(adminUser);
-        report.setStatus(ReportStatus.PENDING);
-        report.setReason(ReportReason.INCORRECT_SIGN);
+        report.setStatus(status);
+        report.setReason(reason);
+        report.setDescription("no se entiende");
         report.setCreatedAt(LocalDateTime.now());
-
-        when(signReportRepository.findByStatusIn(any())).thenReturn(List.of(report));
-
-        List<AdminSignReportGroupResponse> groups = adminService.getSignReportGroups(null);
-
-        assertEquals(1, groups.size());
-        assertEquals("hola", groups.get(0).signMeaning());
-        assertEquals(ReportStatus.PENDING, groups.get(0).status());
+        return report;
     }
 
     @Test
-    void shouldUpdateSignReportGroup() {
-        UUID signId = UUID.randomUUID();
-        SignLanguage lang =
-                SignLanguage.builder().id(UUID.randomUUID()).code("LSA").name("LSA").build();
-        Sign sign =
-                Sign.builder()
-                        .id(signId)
-                        .meaning("gracias")
-                        .handedness(Handedness.ONE_HANDED)
-                        .signLanguage(lang)
-                        .build();
+    void shouldGetSignReports() {
+        SignReport report = sampleReport("hola", ReportReason.INCORRECT_SIGN, ReportStatus.PENDING);
 
-        SignReport report = new SignReport();
-        report.setId(UUID.randomUUID());
-        report.setSign(sign);
-        report.setUser(adminUser);
-        report.setStatus(ReportStatus.PENDING);
-        report.setReason(ReportReason.OTHER);
-        report.setCreatedAt(LocalDateTime.now());
+        when(signReportRepository.findForAdmin(null, null, null, null, null))
+                .thenReturn(List.of(report));
 
-        when(signReportRepository.findBySignId(signId)).thenReturn(List.of(report));
-        when(signReportRepository.saveAll(any())).thenReturn(List.of(report));
+        List<AdminSignReportResponse> reports =
+                adminService.getSignReports(null, null, null, null, null);
 
-        UpdateSignReportGroupRequest req =
-                new UpdateSignReportGroupRequest(ReportStatus.RESOLVED, "Verified OK");
-        AdminSignReportGroupResponse result =
-                adminService.updateSignReportGroup(signId, req, adminUser);
-
-        assertEquals(signId, result.signId());
-        verify(signReportRepository).saveAll(any());
+        assertEquals(1, reports.size());
+        assertEquals("hola", reports.get(0).signMeaning());
+        assertEquals(ReportStatus.PENDING, reports.get(0).status());
+        assertEquals("no se entiende", reports.get(0).description());
+        assertEquals("admin", reports.get(0).username());
+        assertNull(reports.get(0).resolvedBy());
     }
 
     @Test
-    void shouldThrowNotFoundWhenNoReportsForSign() {
-        when(signReportRepository.findBySignId(any())).thenReturn(List.of());
+    void shouldGetSignReportsWithFilters() {
+        LocalDate from = LocalDate.of(2026, 1, 1);
+        LocalDate to = LocalDate.of(2026, 2, 1);
+        SignReport report = sampleReport("hola", ReportReason.OTHER, ReportStatus.REVIEWED);
+
+        when(signReportRepository.findForAdmin(
+                        ReportStatus.REVIEWED,
+                        ReportReason.OTHER,
+                        "hola",
+                        from.atStartOfDay(),
+                        to.atTime(java.time.LocalTime.MAX)))
+                .thenReturn(List.of(report));
+
+        List<AdminSignReportResponse> reports =
+                adminService.getSignReports(
+                        ReportStatus.REVIEWED, ReportReason.OTHER, "  hola  ", from, to);
+
+        assertEquals(1, reports.size());
+    }
+
+    @Test
+    void shouldUpdateSignReportAndRecordResolver() {
+        UUID reportId = UUID.randomUUID();
+        SignReport report = sampleReport("gracias", ReportReason.OTHER, ReportStatus.PENDING);
+        report.setId(reportId);
+
+        when(signReportRepository.findById(reportId)).thenReturn(Optional.of(report));
+        when(signReportRepository.save(any())).thenReturn(report);
+
+        UpdateSignReportRequest req =
+                new UpdateSignReportRequest(ReportStatus.RESOLVED, "Verified OK");
+        AdminSignReportResponse result = adminService.updateSignReport(reportId, req, adminUser);
+
+        assertEquals(reportId, result.id());
+        assertEquals(ReportStatus.RESOLVED, result.status());
+        assertEquals("Verified OK", result.adminNote());
+        assertEquals("Admin Signa", result.resolvedBy());
+        assertNotNull(result.resolvedAt());
+        verify(signReportRepository).save(any());
+    }
+
+    @Test
+    void shouldThrowNotFoundWhenReportDoesNotExist() {
+        UUID reportId = UUID.randomUUID();
+        when(signReportRepository.findById(reportId)).thenReturn(Optional.empty());
 
         assertThrows(
                 NotFoundException.class,
                 () ->
-                        adminService.updateSignReportGroup(
-                                UUID.randomUUID(),
-                                new UpdateSignReportGroupRequest(ReportStatus.RESOLVED, null),
+                        adminService.updateSignReport(
+                                reportId,
+                                new UpdateSignReportRequest(ReportStatus.RESOLVED, null),
                                 adminUser));
     }
 
@@ -444,5 +467,88 @@ class AdminServiceTest {
                 adminService.getSigns(null, Pageable.unpaged());
 
         assertNotNull(result);
+    }
+
+    private Sign signFixture(UUID id) {
+        SignLanguage lang =
+                SignLanguage.builder().id(UUID.randomUUID()).code("LSA").name("LSA").build();
+        return Sign.builder()
+                .id(id)
+                .meaning("hola")
+                .handedness(Handedness.ONE_HANDED)
+                .signLanguage(lang)
+                .build();
+    }
+
+    @Test
+    void shouldGetSignDetail() {
+        UUID id = UUID.randomUUID();
+        Sign sign = signFixture(id);
+        sign.setYoutubeUrl("https://youtu.be/abc123");
+        when(signRepository.findById(id)).thenReturn(Optional.of(sign));
+        when(signReportRepository.countBySignIdAndStatusIn(any(), any())).thenReturn(2L);
+
+        var result = adminService.getSign(id);
+
+        assertEquals("hola", result.meaning());
+        assertEquals("LSA", result.signLanguageCode());
+        assertEquals("https://youtu.be/abc123", result.youtubeUrl());
+        assertEquals(2L, result.openReports());
+    }
+
+    @Test
+    void shouldThrowNotFoundWhenGettingMissingSign() {
+        UUID id = UUID.randomUUID();
+        when(signRepository.findById(id)).thenReturn(Optional.empty());
+
+        assertThrows(NotFoundException.class, () -> adminService.getSign(id));
+    }
+
+    @Test
+    void shouldUpdateSignYoutubeUrl() {
+        UUID id = UUID.randomUUID();
+        Sign sign = signFixture(id);
+        when(signRepository.findById(id)).thenReturn(Optional.of(sign));
+        when(signReportRepository.countBySignIdAndStatusIn(any(), any())).thenReturn(0L);
+
+        var result = adminService.updateSign(id, "https://www.youtube.com/watch?v=xyz");
+
+        assertEquals("https://www.youtube.com/watch?v=xyz", sign.getYoutubeUrl());
+        assertEquals("https://www.youtube.com/watch?v=xyz", result.youtubeUrl());
+        verify(signRepository).save(sign);
+    }
+
+    @Test
+    void shouldClearSignYoutubeUrlWhenBlank() {
+        UUID id = UUID.randomUUID();
+        Sign sign = signFixture(id);
+        sign.setYoutubeUrl("https://youtu.be/old");
+        when(signRepository.findById(id)).thenReturn(Optional.of(sign));
+        when(signReportRepository.countBySignIdAndStatusIn(any(), any())).thenReturn(0L);
+
+        adminService.updateSign(id, "   ");
+
+        assertNull(sign.getYoutubeUrl());
+        verify(signRepository).save(sign);
+    }
+
+    @Test
+    void shouldRejectNonYoutubeUrl() {
+        UUID id = UUID.randomUUID();
+        Sign sign = signFixture(id);
+        when(signRepository.findById(id)).thenReturn(Optional.of(sign));
+
+        assertThrows(
+                InvalidInputException.class,
+                () -> adminService.updateSign(id, "https://vimeo.com/123"));
+    }
+
+    @Test
+    void shouldThrowNotFoundWhenUpdatingMissingSign() {
+        UUID id = UUID.randomUUID();
+        when(signRepository.findById(id)).thenReturn(Optional.empty());
+
+        assertThrows(
+                NotFoundException.class, () -> adminService.updateSign(id, "https://youtu.be/abc"));
     }
 }
