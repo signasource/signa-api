@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.signasource.signa_api.common.MetricsService;
 import com.signasource.signa_api.notification.dto.FcmResult;
 import com.signasource.signa_api.notification.dto.PushMessage;
 import com.signasource.signa_api.notification.service.DeviceTokenService;
@@ -28,6 +29,7 @@ class NotificationPushListenerTest {
 
     @Mock private DeviceTokenService deviceTokenService;
     @Mock private FirebaseService firebaseService;
+    @Mock private MetricsService metricsService;
 
     @InjectMocks private NotificationPushListener listener;
 
@@ -54,6 +56,7 @@ class NotificationPushListenerTest {
 
         verify(firebaseService).sendToTokens(List.of(VALID_TOKEN, INVALID_TOKEN), message);
         verify(deviceTokenService).purgeInvalidTokens(List.of(INVALID_TOKEN));
+        verify(metricsService).recordPushFailure();
     }
 
     @Test
@@ -65,5 +68,6 @@ class NotificationPushListenerTest {
         listener.onNotificationPersisted(new NotificationPersistedEvent(userId, message));
 
         verify(deviceTokenService, never()).purgeInvalidTokens(any());
+        verifyNoInteractions(metricsService);
     }
 }

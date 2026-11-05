@@ -4,6 +4,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.signasource.signa_api.common.MetricsService;
 import jakarta.mail.internet.MimeMessage;
 import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,6 +28,8 @@ class EmailServiceTest {
     @Mock private JavaMailSender mailSender;
 
     @Mock private MimeMessage mimeMessage;
+
+    @Mock private MetricsService metricsService;
 
     @InjectMocks private EmailService emailService;
 
@@ -100,5 +103,17 @@ class EmailServiceTest {
                 TO_EMAIL, "Contracargo: Hospital", java.util.List.of("Compra: <1>", "Pago: 987"));
 
         verify(mailSender).send(mimeMessage);
+    }
+
+    @Test
+    void recordsFailureMetricWhenSendingFails() {
+        org.mockito.Mockito.doThrow(new org.springframework.mail.MailSendException("down"))
+                .when(mailSender)
+                .send(mimeMessage);
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+                RuntimeException.class, () -> emailService.sendVerificationEmail(TO_EMAIL, TOKEN));
+
+        verify(metricsService).recordEmailFailure();
     }
 }

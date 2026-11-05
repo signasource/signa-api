@@ -33,6 +33,12 @@ server {
     add_header X-Frame-Options DENY always;
     add_header X-Content-Type-Options nosniff always;
 
+    # Only Alloy scrapes metrics, over the internal Docker network (signa-api:8080). Nothing on
+    # the public internet needs the Prometheus endpoint, so don't expose internal metrics there.
+    location = /actuator/prometheus {
+        return 404;
+    }
+
     location / {
         proxy_pass http://signa-api:8080;
         proxy_set_header Host $host;

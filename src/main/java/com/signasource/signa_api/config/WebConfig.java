@@ -17,7 +17,10 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(new RateLimitInterceptor(objectMapper, metricsService))
-                .addPathPatterns("/users/username-availability", "/store/gem-purchases");
+                .addPathPatterns(
+                        "/users/username-availability",
+                        "/store/gem-purchases",
+                        "/telemetry/events");
         registry.addInterceptor(RateLimitInterceptor.forAuthEmail(objectMapper, metricsService))
                 .addPathPatterns(
                         "/auth/forgot-password",

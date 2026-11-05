@@ -2,6 +2,8 @@ package com.signasource.signa_api.common;
 
 import com.signasource.signa_api.learning.entity.BlockType;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
+import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -59,5 +61,72 @@ public class MetricsService {
 
     public void recordRateLimitHit(String endpoint) {
         registry.counter("signa.rate.limit.hits", "endpoint", endpoint).increment();
+    }
+
+    // --- Performance / reliability -------------------------------------------------------------
+
+    /**
+     * Time taken to presign an R2 (animations) download URL, split by outcome. A percentile
+     * histogram so Grafana can read p95/p99 latency of the animation critical path.
+     */
+    public void recordR2Presign(Duration duration, boolean success) {
+        timer("signa.r2.presign.duration", "result", success ? "success" : "failure")
+                .record(duration);
+    }
+
+    /** Result of the periodic R2 reachability probe (see R2HealthIndicator). */
+    public void recordR2Probe(Duration duration, boolean up) {
+        timer("signa.r2.probe.duration", "result", up ? "up" : "down").record(duration);
+    }
+
+    /**
+     * An HTTP error served by the API, tagged by exception type and status, for error-rate panels.
+     */
+    public void recordHttpError(String type, int status) {
+        registry.counter("signa.http.errors", "type", type, "status", Integer.toString(status))
+                .increment();
+    }
+
+    /** A transactional email that failed to send (SMTP down, bad credentials, …). */
+    public void recordEmailFailure() {
+        registry.counter("signa.email.failures").increment();
+    }
+
+    /** A push notification batch that FCM rejected or that failed to send. */
+    public void recordPushFailure() {
+        registry.counter("signa.push.failures").increment();
+    }
+
+    // --- Client telemetry (web / mobile) -------------------------------------------------------
+    // Callers must pass values from a bounded allow-list (see TelemetryService); never user data.
+
+    public void recordClientWebVital(String platform, String name, Duration duration) {
+        timer("signa.client.web_vital", "platform", platform, "name", name).record(duration);
+    }
+
+    public void recordClientScreenLoad(String platform, String name, Duration duration) {
+        timer("signa.client.screen_load", "platform", platform, "name", name).record(duration);
+    }
+
+    public void recordClientAnimationLoad(String platform, boolean success, Duration duration) {
+        timer(
+                        "signa.client.animation_load",
+                        "platform",
+                        platform,
+                        "result",
+                        success ? "success" : "failure")
+                .record(duration);
+    }
+
+    public void recordClientError(String platform, String type) {
+        registry.counter("signa.client.errors", "platform", platform, "type", type).increment();
+    }
+
+    /**
+     * A percentile-histogram timer, created once and cached by Micrometer per name+tags. The
+     * histogram buckets are what let Grafana compute quantiles with {@code histogram_quantile}.
+     */
+    private Timer timer(String name, String... tags) {
+        return Timer.builder(name).tags(tags).publishPercentileHistogram().register(registry);
     }
 }
