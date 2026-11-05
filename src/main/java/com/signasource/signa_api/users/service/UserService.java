@@ -28,6 +28,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class UserService {
 
+    public static final String DELETED_EMAIL_DOMAIN = "@signa.invalid";
+
     private static final String DELETED_ACCOUNT_NAME = "Usuario";
     private static final String DELETED_ACCOUNT_LAST_NAME = "eliminado";
 
@@ -82,7 +84,7 @@ public class UserService {
 
         user.setEnabled(false);
         user.setVerified(false);
-        user.setEmail("deleted_" + user.getId() + "@signa.invalid");
+        user.setEmail("deleted_" + user.getId() + DELETED_EMAIL_DOMAIN);
         user.setUsername("deleted_" + user.getId());
         user.setName(DELETED_ACCOUNT_NAME);
         user.setLastName(DELETED_ACCOUNT_LAST_NAME);

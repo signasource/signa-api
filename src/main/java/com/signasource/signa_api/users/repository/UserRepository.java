@@ -16,6 +16,8 @@ import org.springframework.stereotype.Repository;
 public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByEmail(String email);
 
+    Optional<User> findFirstByEmailIgnoreCase(String email);
+
     Optional<User> findByUsername(String username);
 
     Optional<User> findByName(String name);
@@ -41,12 +43,12 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     @Query(
             value =
-                    "SELECT u FROM User u WHERE u.enabled = true "
+                    "SELECT u FROM User u WHERE u.email NOT LIKE '%@signa.invalid' "
                             + "AND (:query IS NULL OR LOWER(u.username) LIKE :pattern "
                             + "OR LOWER(u.name) LIKE :pattern OR LOWER(u.email) LIKE :pattern) "
                             + "AND (:role IS NULL OR u.role = :role)",
             countQuery =
-                    "SELECT COUNT(u) FROM User u WHERE u.enabled = true "
+                    "SELECT COUNT(u) FROM User u WHERE u.email NOT LIKE '%@signa.invalid' "
                             + "AND (:query IS NULL OR LOWER(u.username) LIKE :pattern "
                             + "OR LOWER(u.name) LIKE :pattern OR LOWER(u.email) LIKE :pattern) "
                             + "AND (:role IS NULL OR u.role = :role)")

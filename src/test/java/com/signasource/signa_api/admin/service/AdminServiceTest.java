@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -18,9 +19,10 @@ import com.signasource.signa_api.admin.dto.CreateAdminRequest;
 import com.signasource.signa_api.admin.dto.UpdateOrganizationStatusRequest;
 import com.signasource.signa_api.admin.dto.UpdateSignReportRequest;
 import com.signasource.signa_api.admin.dto.UpdateUserRequest;
+import com.signasource.signa_api.auth.entity.TokenType;
+import com.signasource.signa_api.auth.repository.TokenRepository;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
-import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
 import com.signasource.signa_api.learning.entity.Handedness;
 import com.signasource.signa_api.learning.entity.ReportReason;
@@ -43,6 +45,7 @@ import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.entity.UserSettings;
 import com.signasource.signa_api.users.repository.UserRepository;
 import com.signasource.signa_api.users.repository.UserSettingsRepository;
+import com.signasource.signa_api.users.service.UserService;
 import com.signasource.signa_api.waitlist.entity.WaitlistEntry;
 import com.signasource.signa_api.waitlist.repository.WaitlistRepository;
 import java.time.Instant;
@@ -77,6 +80,8 @@ class AdminServiceTest {
     @Mock private CourseRepository courseRepository;
     @Mock private SignRepository signRepository;
     @Mock private UserStatsRepository userStatsRepository;
+    @Mock private TokenRepository tokenRepository;
+    @Mock private UserService userService;
     @Mock private PasswordEncoder passwordEncoder;
 
     @InjectMocks private AdminService adminService;
@@ -204,7 +209,7 @@ class AdminServiceTest {
 
     @Test
     void shouldCreateAdmin() {
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(userRepository.findFirstByEmailIgnoreCase(anyString())).thenReturn(Optional.empty());
         when(userRepository.existsByUsername(anyString())).thenReturn(false);
         when(passwordEncoder.encode(anyString())).thenReturn("hashed");
         when(userRepository.save(any())).thenReturn(adminUser);
@@ -220,13 +225,62 @@ class AdminServiceTest {
     }
 
     @Test
-    void shouldThrowWhenCreatingAdminWithExistingEmail() {
-        when(userRepository.existsByEmail("existing@signa.com")).thenReturn(true);
+    void shouldPromoteExistingAccountKeepingItsPassword() {
+        User existing =
+                User.builder()
+                        .id(UUID.randomUUID())
+                        .email("existing@signa.com")
+                        .username("existing")
+                        .name("Nombre")
+                        .lastName("Apellido")
+                        .passwordHash("own-hash")
+                        .role(Role.USER)
+                        .enabled(false)
+                        .verified(false)
+                        .providers(new HashSet<>(Set.of(AuthProvider.LOCAL)))
+                        .build();
+        when(userRepository.findFirstByEmailIgnoreCase("existing@signa.com"))
+                .thenReturn(Optional.of(existing));
+        when(userRepository.findById(existing.getId())).thenReturn(Optional.of(existing));
+        when(memberRepository.findByUserId(any())).thenReturn(Optional.empty());
 
-        CreateAdminRequest req =
-                new CreateAdminRequest("existing@signa.com", "Nombre", "Apellido", "pass");
+        AdminUserResponse result =
+                adminService.createAdmin(
+                        new CreateAdminRequest("existing@signa.com", "Otro", "Dato", "temporal"));
 
-        assertThrows(ResourceAlreadyInUseException.class, () -> adminService.createAdmin(req));
+        assertEquals(Role.ADMIN, result.role());
+        assertEquals("own-hash", existing.getPasswordHash());
+        assertEquals("Nombre", existing.getName());
+        assertEquals(true, existing.isEnabled());
+        assertEquals(true, existing.isVerified());
+        verify(passwordEncoder, never()).encode(anyString());
+        verify(userSettingsRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldGivePasswordToPromotedGoogleOnlyAccount() {
+        User google =
+                User.builder()
+                        .id(UUID.randomUUID())
+                        .email("google@signa.com")
+                        .username("google")
+                        .name("Nombre")
+                        .lastName("Apellido")
+                        .role(Role.USER)
+                        .enabled(true)
+                        .verified(true)
+                        .providers(new HashSet<>(Set.of(AuthProvider.GOOGLE)))
+                        .build();
+        when(userRepository.findFirstByEmailIgnoreCase("google@signa.com"))
+                .thenReturn(Optional.of(google));
+        when(userRepository.findById(google.getId())).thenReturn(Optional.of(google));
+        when(memberRepository.findByUserId(any())).thenReturn(Optional.empty());
+        when(passwordEncoder.encode("temporal")).thenReturn("hashed");
+
+        adminService.createAdmin(new CreateAdminRequest("google@signa.com", "A", "B", "temporal"));
+
+        assertEquals("hashed", google.getPasswordHash());
+        assertEquals(true, google.getProviders().contains(AuthProvider.LOCAL));
     }
 
     @Test
@@ -398,10 +452,93 @@ class AdminServiceTest {
         when(memberRepository.findByUserId(any())).thenReturn(Optional.empty());
 
         UpdateUserRequest req = new UpdateUserRequest(Role.ADMIN, true);
-        AdminUserResponse result = adminService.updateUser(adminUser.getId(), req);
+        AdminUserResponse result = adminService.updateUser(adminUser, adminUser.getId(), req);
 
         assertNotNull(result);
         verify(userRepository).save(any());
+    }
+
+    @Test
+    void shouldRevokeSessionsWhenDisablingUser() {
+        User target = otherUser("target@signa.com");
+        when(userRepository.findById(target.getId())).thenReturn(Optional.of(target));
+        when(memberRepository.findByUserId(any())).thenReturn(Optional.empty());
+
+        adminService.updateUser(adminUser, target.getId(), new UpdateUserRequest(null, false));
+
+        assertEquals(false, target.isEnabled());
+        verify(tokenRepository).deleteByUserAndType(target, TokenType.REFRESH);
+    }
+
+    @Test
+    void shouldNotRevokeSessionsWhenEnablingUser() {
+        User target = otherUser("target@signa.com");
+        when(userRepository.findById(target.getId())).thenReturn(Optional.of(target));
+        when(memberRepository.findByUserId(any())).thenReturn(Optional.empty());
+
+        adminService.updateUser(adminUser, target.getId(), new UpdateUserRequest(null, true));
+
+        verify(tokenRepository, never()).deleteByUserAndType(any(), any());
+    }
+
+    @Test
+    void shouldRefuseToDisableOrDemoteYourself() {
+        when(userRepository.findById(adminUser.getId())).thenReturn(Optional.of(adminUser));
+
+        assertThrows(
+                InvalidInputException.class,
+                () ->
+                        adminService.updateUser(
+                                adminUser, adminUser.getId(), new UpdateUserRequest(null, false)));
+        assertThrows(
+                InvalidInputException.class,
+                () ->
+                        adminService.updateUser(
+                                adminUser,
+                                adminUser.getId(),
+                                new UpdateUserRequest(Role.USER, null)));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldDeleteUserWithTheAccountErasure() {
+        User target = otherUser("target@signa.com");
+        when(userRepository.findById(target.getId())).thenReturn(Optional.of(target));
+
+        adminService.deleteUser(adminUser, target.getId());
+
+        verify(userService).deleteAccount(target);
+    }
+
+    @Test
+    void shouldRefuseToDeleteYourself() {
+        assertThrows(
+                InvalidInputException.class,
+                () -> adminService.deleteUser(adminUser, adminUser.getId()));
+        verify(userService, never()).deleteAccount(any());
+    }
+
+    @Test
+    void shouldTreatAnAlreadyDeletedUserAsNotFound() {
+        User deleted = otherUser("deleted_1@signa.invalid");
+        when(userRepository.findById(deleted.getId())).thenReturn(Optional.of(deleted));
+
+        assertThrows(
+                NotFoundException.class, () -> adminService.deleteUser(adminUser, deleted.getId()));
+        verify(userService, never()).deleteAccount(any());
+    }
+
+    private User otherUser(String email) {
+        return User.builder()
+                .id(UUID.randomUUID())
+                .email(email)
+                .username("other")
+                .name("Otra")
+                .lastName("Persona")
+                .role(Role.USER)
+                .enabled(true)
+                .verified(true)
+                .build();
     }
 
     @Test
