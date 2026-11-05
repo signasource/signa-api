@@ -12,9 +12,10 @@ import com.signasource.signa_api.admin.dto.CreateAdminRequest;
 import com.signasource.signa_api.admin.dto.UpdateOrganizationStatusRequest;
 import com.signasource.signa_api.admin.dto.UpdateSignReportRequest;
 import com.signasource.signa_api.admin.dto.UpdateUserRequest;
+import com.signasource.signa_api.auth.entity.TokenType;
+import com.signasource.signa_api.auth.repository.TokenRepository;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
-import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.gamification.entity.UserStats;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
 import com.signasource.signa_api.learning.entity.ReportReason;
@@ -37,6 +38,7 @@ import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.entity.UserSettings;
 import com.signasource.signa_api.users.repository.UserRepository;
 import com.signasource.signa_api.users.repository.UserSettingsRepository;
+import com.signasource.signa_api.users.service.UserService;
 import com.signasource.signa_api.waitlist.repository.WaitlistRepository;
 import jakarta.persistence.criteria.Fetch;
 import jakarta.persistence.criteria.Join;
@@ -48,6 +50,7 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -73,6 +76,8 @@ public class AdminService {
     private final CourseRepository courseRepository;
     private final SignRepository signRepository;
     private final UserStatsRepository userStatsRepository;
+    private final TokenRepository tokenRepository;
+    private final UserService userService;
     private final PasswordEncoder passwordEncoder;
 
     // ── Stats ────────────────────────────────────────────────────────────────
@@ -288,12 +293,37 @@ public class AdminService {
     }
 
     @Transactional
-    public AdminUserResponse updateUser(UUID userId, UpdateUserRequest request) {
-        User user = findUser(userId);
+    public AdminUserResponse updateUser(User actor, UUID userId, UpdateUserRequest request) {
+        User user = findExistingUser(userId);
+        boolean losesAccess =
+                Boolean.FALSE.equals(request.enabled())
+                        || (request.role() != null && request.role() != Role.ADMIN);
+        if (actor.getId().equals(userId) && losesAccess) {
+            throw new InvalidInputException("You cannot disable or demote your own account");
+        }
         if (request.role() != null) user.setRole(request.role());
         if (request.enabled() != null) user.setEnabled(request.enabled());
         userRepository.save(user);
+        if (Boolean.FALSE.equals(request.enabled())) {
+            tokenRepository.deleteByUserAndType(user, TokenType.REFRESH);
+        }
         return getUser(userId);
+    }
+
+    @Transactional
+    public void deleteUser(User actor, UUID userId) {
+        if (actor.getId().equals(userId)) {
+            throw new InvalidInputException("You cannot delete your own account");
+        }
+        userService.deleteAccount(findExistingUser(userId));
+    }
+
+    private User findExistingUser(UUID userId) {
+        User user = findUser(userId);
+        if (user.getEmail().endsWith(UserService.DELETED_EMAIL_DOMAIN)) {
+            throw new NotFoundException("User not found");
+        }
+        return user;
     }
 
     // ── Admins ───────────────────────────────────────────────────────────────
@@ -313,8 +343,9 @@ public class AdminService {
 
     @Transactional
     public AdminUserResponse createAdmin(CreateAdminRequest request) {
-        if (userRepository.existsByEmail(request.email())) {
-            throw new ResourceAlreadyInUseException("Email already in use");
+        Optional<User> existing = userRepository.findFirstByEmailIgnoreCase(request.email().trim());
+        if (existing.isPresent()) {
+            return promoteToAdmin(existing.get(), request.password());
         }
         String base = request.name().toLowerCase().replaceAll("[^a-z0-9]", "");
         if (base.length() > 20) base = base.substring(0, 20);
@@ -340,6 +371,18 @@ public class AdminService {
         userRepository.save(admin);
         userSettingsRepository.save(UserSettings.builder().user(admin).build());
         return AdminUserResponse.from(admin, null, null);
+    }
+
+    private AdminUserResponse promoteToAdmin(User user, String password) {
+        user.setRole(Role.ADMIN);
+        user.setEnabled(true);
+        user.setVerified(true);
+        if (user.getPasswordHash() == null) {
+            user.setPasswordHash(passwordEncoder.encode(password));
+            user.getProviders().add(AuthProvider.LOCAL);
+        }
+        userRepository.save(user);
+        return getUser(user.getId());
     }
 
     // ── Waitlist ─────────────────────────────────────────────────────────────
@@ -425,7 +468,6 @@ public class AdminService {
     private User findUser(UUID id) {
         return userRepository
                 .findById(id)
-                .filter(User::isEnabled)
                 .orElseThrow(() -> new NotFoundException("User not found"));
     }
 }

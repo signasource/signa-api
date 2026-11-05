@@ -230,6 +230,21 @@ class AuthServiceTest {
     }
 
     @Test
+    void shouldRefuseRefreshForDisabledUser() {
+        Token token = createRefreshToken(OLD_REFRESH_TOKEN, Instant.now().plusSeconds(3600));
+        token.getUser().setEnabled(false);
+        when(tokenRepository.findByTokenAndType(OLD_REFRESH_TOKEN, TokenType.REFRESH))
+                .thenReturn(Optional.of(token));
+
+        assertThrows(
+                InvalidTokenException.class,
+                () -> authService.refreshToken(new RefreshTokenRequest(OLD_REFRESH_TOKEN)));
+
+        verify(tokenRepository).delete(token);
+        verify(jwtService, never()).generateToken(any(CustomUserDetails.class));
+    }
+
+    @Test
     void shouldFailWhenRefreshTokenNotFound() {
         when(tokenRepository.findByTokenAndType(INVALID_REFRESH_TOKEN, TokenType.REFRESH))
                 .thenReturn(Optional.empty());

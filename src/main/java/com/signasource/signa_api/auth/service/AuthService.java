@@ -135,6 +135,9 @@ public class AuthService {
         Token refreshToken = getToken(request.refreshToken(), TokenType.REFRESH);
         validateExpiration(refreshToken);
         tokenRepository.delete(refreshToken);
+        if (!refreshToken.getUser().isEnabled()) {
+            throw new InvalidTokenException();
+        }
         return generateTokens(refreshToken.getUser());
     }
 
@@ -290,6 +293,9 @@ public class AuthService {
 
             if (userOptional.isPresent()) {
                 user = userOptional.get();
+                if (!user.isEnabled()) {
+                    throw new InvalidCredentialsException("Authentication failed");
+                }
                 boolean needsUpdate = false;
 
                 // Google ya verifico el correo del usuario.

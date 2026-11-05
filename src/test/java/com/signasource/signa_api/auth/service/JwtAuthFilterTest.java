@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
+import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
 import jakarta.servlet.FilterChain;
@@ -54,6 +55,7 @@ class JwtAuthFilterTest {
                         .name("Test User")
                         .passwordHash("hashed_password_123")
                         .role(Role.USER)
+                        .enabled(true)
                         .build();
         userDetails = new CustomUserDetails(testUser);
         SecurityContextHolder.clearContext();
@@ -84,6 +86,33 @@ class JwtAuthFilterTest {
         verify(jwtService).isValid(VALID_TOKEN, userDetails);
         verify(filterChain).doFilter(request, response);
         assertNotNull(SecurityContextHolder.getContext().getAuthentication());
+    }
+
+    @Test
+    void testFilterRejectsTokenOfDisabledUser() throws ServletException, IOException {
+        CustomUserDetails disabled =
+                new CustomUserDetails(User.builder().email(EMAIL).enabled(false).build());
+        when(request.getHeader("Authorization")).thenReturn("Bearer " + VALID_TOKEN);
+        when(jwtService.extractUsername(VALID_TOKEN)).thenReturn(EMAIL);
+        when(userDetailsService.loadUserByUsername(EMAIL)).thenReturn(disabled);
+
+        jwtAuthFilter.doFilterInternal(request, response, filterChain);
+
+        verify(filterChain).doFilter(request, response);
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
+    }
+
+    @Test
+    void testFilterRejectsTokenOfDeletedUser() throws ServletException, IOException {
+        when(request.getHeader("Authorization")).thenReturn("Bearer " + VALID_TOKEN);
+        when(jwtService.extractUsername(VALID_TOKEN)).thenReturn(EMAIL);
+        when(userDetailsService.loadUserByUsername(EMAIL))
+                .thenThrow(new NotFoundException("User not found"));
+
+        jwtAuthFilter.doFilterInternal(request, response, filterChain);
+
+        verify(filterChain).doFilter(request, response);
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
     }
 
     @Test
