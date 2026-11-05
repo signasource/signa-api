@@ -68,6 +68,8 @@ public class TelemetryService {
             case "client_error", "api_error" ->
                     metricsService.recordClientError(
                             platform, allowed(event.name(), ERROR_CATEGORIES, UNKNOWN));
+            case "ml_inference" ->
+                    metricsService.recordClientInference(platform, millis(event.valueMs()));
             default -> {
                 // Unknown event type: ignore.
             }

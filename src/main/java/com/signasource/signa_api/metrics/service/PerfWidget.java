@@ -16,7 +16,14 @@ public enum PerfWidget {
     ERROR_RATE(
             "sum(rate(http_server_requests_seconds_count{status=~\"5..\"}[%1$s]))"
                     + " / clamp_min(sum(rate(http_server_requests_seconds_count[%1$s])), 1)"),
+    ERROR_RATE_4XX(
+            "sum(rate(http_server_requests_seconds_count{status=~\"4..\"}[%1$s]))"
+                    + " / clamp_min(sum(rate(http_server_requests_seconds_count[%1$s])), 1)"),
     ERRORS_TOTAL("sum by (status) (rate(signa_http_errors_total[%1$s]))"),
+
+    EMAIL_FAILURES("sum(rate(signa_email_failures_total[%1$s]))"),
+    PUSH_FAILURES("sum(rate(signa_push_failures_total[%1$s]))"),
+    CLIENT_ERRORS("sum by (type) (rate(signa_client_errors_total[%1$s]))"),
 
     LATENCY_P50(
             "histogram_quantile(0.50, sum by (le) (rate(http_server_requests_seconds_bucket[%1$s])))"),
@@ -37,6 +44,11 @@ public enum PerfWidget {
     DB_CONNECTIONS_PENDING("hikaricp_connections_pending"),
     PG_CONNECTIONS("sum(pg_stat_database_numbackends)"),
 
+    JVM_HEAP("sum(jvm_memory_used_bytes{area=\"heap\"})"),
+    JVM_GC_PAUSE(
+            "sum(rate(jvm_gc_pause_seconds_sum[%1$s]))"
+                    + " / clamp_min(sum(rate(jvm_gc_pause_seconds_count[%1$s])), 1)"),
+
     R2_PRESIGN_LATENCY(
             "histogram_quantile(0.95, sum by (le)"
                     + " (rate(signa_r2_presign_duration_seconds_bucket[%1$s])))"),
@@ -45,7 +57,13 @@ public enum PerfWidget {
                     + " (rate(signa_client_animation_load_seconds_bucket[%1$s])))"),
     WEB_VITALS(
             "histogram_quantile(0.75, sum by (le, name)"
-                    + " (rate(signa_client_web_vital_seconds_bucket[%1$s])))");
+                    + " (rate(signa_client_web_vital_seconds_bucket[%1$s])))"),
+    SCREEN_LOAD(
+            "histogram_quantile(0.75, sum by (le, name)"
+                    + " (rate(signa_client_screen_load_seconds_bucket[%1$s])))"),
+    ML_INFERENCE_LATENCY(
+            "histogram_quantile(0.95, sum by (le)"
+                    + " (rate(signa_client_inference_seconds_bucket[%1$s])))");
 
     private final String template;
 

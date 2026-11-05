@@ -122,6 +122,11 @@ public class MetricsService {
         registry.counter("signa.client.errors", "platform", platform, "type", type).increment();
     }
 
+    /** On-device sign-recognition inference latency per frame, reported by the mobile app. */
+    public void recordClientInference(String platform, Duration duration) {
+        timer("signa.client.inference", "platform", platform).record(duration);
+    }
+
     /**
      * A percentile-histogram timer, created once and cached by Micrometer per name+tags. The
      * histogram buckets are what let Grafana compute quantiles with {@code histogram_quantile}.

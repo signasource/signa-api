@@ -73,6 +73,14 @@ class TelemetryServiceTest {
     }
 
     @Test
+    void recordsMlInferenceLatency() {
+        telemetryService.record(
+                batch(new TelemetryEventRequest("android", "ml_inference", null, 45.0, "ok")));
+
+        verify(metricsService).recordClientInference(eq("android"), any(Duration.class));
+    }
+
+    @Test
     void dropsUnknownPlatform() {
         telemetryService.record(
                 batch(new TelemetryEventRequest("desktop", "web_vital", "LCP", 1.0, "ok")));

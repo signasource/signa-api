@@ -1,0 +1,95 @@
+package com.signasource.signa_api.metrics.repository;
+
+import com.signasource.signa_api.gamification.entity.UserDailyXp;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.UUID;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.Repository;
+import org.springframework.data.repository.query.Param;
+
+/**
+ * Read-only aggregates behind the usage dashboard's "Gamificación & engagement" apartado. Grouped
+ * queries return {@code Object[]} rows mapped in {@code GamificationMetricsService}; happenings are
+ * counted by instant window {@code [from, until)} (XP by calendar day, bounds inclusive), streaks
+ * are the current state. Verified against H2 in {@code GamificationMetricsRepositoryTest}.
+ */
+public interface GamificationMetricsRepository extends Repository<UserDailyXp, UUID> {
+
+    // ── XP (day resolution) ──────────────────────────────────────────────────────────────────────
+    @Query(
+            "SELECT COALESCE(SUM(x.xpEarned), 0) FROM UserDailyXp x "
+                    + "WHERE x.xpDate >= :fromDate AND x.xpDate <= :toDate")
+    long sumXpBetween(@Param("fromDate") LocalDate fromDate, @Param("toDate") LocalDate toDate);
+
+    /** Rows of {@code [LocalDate day, long xp]}. */
+    @Query(
+            "SELECT x.xpDate, COALESCE(SUM(x.xpEarned), 0) FROM UserDailyXp x "
+                    + "WHERE x.xpDate >= :fromDate AND x.xpDate <= :toDate GROUP BY x.xpDate")
+    List<Object[]> dailyXp(
+            @Param("fromDate") LocalDate fromDate, @Param("toDate") LocalDate toDate);
+
+    // ── Streaks (current state) ──────────────────────────────────────────────────────────────────
+    @Query("SELECT AVG(s.currentStreak) FROM UserStats s WHERE s.currentStreak > 0")
+    Double averageCurrentStreak();
+
+    @Query("SELECT COUNT(s) FROM UserStats s WHERE s.currentStreak > :days")
+    long countStreakOver(@Param("days") int days);
+
+    @Query("SELECT COUNT(s) FROM UserStats s WHERE s.currentStreak > 0")
+    long countActiveStreakers();
+
+    // ── Achievements ─────────────────────────────────────────────────────────────────────────────
+    @Query(
+            "SELECT COUNT(a) FROM UserAchievement a "
+                    + "WHERE a.earnedAt >= :from AND a.earnedAt < :until")
+    long countUnlockedBetween(@Param("from") Instant from, @Param("until") Instant until);
+
+    /** Rows of {@code [LocalDate day, long count]} of achievements unlocked. */
+    @Query(
+            "SELECT CAST(a.earnedAt AS LocalDate), COUNT(a) FROM UserAchievement a "
+                    + "WHERE a.earnedAt >= :from AND a.earnedAt < :until "
+                    + "GROUP BY CAST(a.earnedAt AS LocalDate)")
+    List<Object[]> dailyUnlocked(@Param("from") Instant from, @Param("until") Instant until);
+
+    /** Rows of {@code [String title, long count]} ordered by most unlocked first (all-time). */
+    @Query(
+            "SELECT a.achievement.title, COUNT(a) FROM UserAchievement a "
+                    + "GROUP BY a.achievement.title ORDER BY COUNT(a) DESC")
+    List<Object[]> topUnlockedAchievements();
+
+    // ── Challenges ───────────────────────────────────────────────────────────────────────────────
+    /**
+     * Rows of {@code [ChallengeType type, long completed, long claimed]} completed in the window.
+     */
+    @Query(
+            "SELECT uc.challenge.challengeType, COUNT(uc), "
+                    + "SUM(CASE WHEN uc.rewardClaimedAt IS NOT NULL THEN 1L ELSE 0L END) "
+                    + "FROM UserChallenge uc "
+                    + "WHERE uc.completed = true AND uc.completedAt >= :from AND uc.completedAt < :until "
+                    + "GROUP BY uc.challenge.challengeType")
+    List<Object[]> challengeClaims(@Param("from") Instant from, @Param("until") Instant until);
+
+    // ── Gifts ────────────────────────────────────────────────────────────────────────────────────
+    @Query("SELECT COUNT(g) FROM Gift g WHERE g.sentAt >= :from AND g.sentAt < :until")
+    long countGiftsSentBetween(@Param("from") Instant from, @Param("until") Instant until);
+
+    @Query("SELECT COUNT(g) FROM Gift g WHERE g.claimedAt >= :from AND g.claimedAt < :until")
+    long countGiftsClaimedBetween(@Param("from") Instant from, @Param("until") Instant until);
+
+    // ── Shop economy ─────────────────────────────────────────────────────────────────────────────
+    @Query(
+            "SELECT COALESCE(SUM(p.gemsSpent), 0) FROM Purchase p "
+                    + "WHERE p.purchasedAt >= :from AND p.purchasedAt < :until")
+    long sumGemsSpentBetween(@Param("from") Instant from, @Param("until") Instant until);
+
+    /**
+     * Rows of {@code [String title, long purchases, long gemsSpent]} ordered by most bought first.
+     */
+    @Query(
+            "SELECT p.shopItem.title, COUNT(p), COALESCE(SUM(p.gemsSpent), 0) FROM Purchase p "
+                    + "WHERE p.purchasedAt >= :from AND p.purchasedAt < :until "
+                    + "GROUP BY p.shopItem.title ORDER BY COUNT(p) DESC")
+    List<Object[]> topShopItems(@Param("from") Instant from, @Param("until") Instant until);
+}

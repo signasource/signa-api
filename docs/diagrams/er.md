@@ -31,6 +31,7 @@ erDiagram
         boolean verified
         enum accountVisibility
         set providers "AuthProvider; default LOCAL"
+        instant createdAt "alta de la cuenta; métricas de crecimiento"
     }
     USER_SETTINGS {
         uuid id PK
