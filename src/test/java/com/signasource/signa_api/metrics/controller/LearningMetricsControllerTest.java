@@ -33,6 +33,13 @@ class LearningMetricsControllerTest {
                     0,
                     List.of(),
                     new ReportsSection(0, 0, List.of()),
+                    List.of(),
+                    new LearningMetricsResponse.LessonFlow(0, 0, 0),
+                    new LearningMetricsResponse.ExerciseFlow(0, 0, 0, 0),
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    List.of(),
                     List.of());
 
     @Test

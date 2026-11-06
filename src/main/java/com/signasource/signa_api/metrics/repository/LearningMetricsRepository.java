@@ -47,6 +47,84 @@ public interface LearningMetricsRepository extends Repository<UserCourseEnrollme
             @Param("until") Instant until,
             @Param("minEvaluated") long minEvaluated);
 
+    // ── Lesson flow (started vs completed) ───────────────────────────────────────────────────────
+    @Query(
+            "SELECT COUNT(p) FROM UserLessonProgress p "
+                    + "WHERE p.startedAt >= :from AND p.startedAt < :until")
+    long countLessonsStartedBetween(@Param("from") Instant from, @Param("until") Instant until);
+
+    @Query(
+            "SELECT COUNT(p) FROM UserLessonProgress p "
+                    + "WHERE p.completedAt >= :from AND p.completedAt < :until")
+    long countLessonsCompletedBetween(@Param("from") Instant from, @Param("until") Instant until);
+
+    /**
+     * Per-exercise (lesson block) evaluated attempts in the window: {@code [UUID blockId, String
+     * lessonName, BlockType type, long evaluated, long correct, long distinctUsers]}. The service
+     * derives the error rate and the attempts-per-user (retries) ranking from these rows.
+     */
+    @Query(
+            "SELECT a.lessonBlock.id, a.lessonBlock.lesson.name, a.lessonBlock.type, COUNT(a), "
+                    + "SUM(CASE WHEN a.isCorrect = true THEN 1L ELSE 0L END), "
+                    + "COUNT(DISTINCT a.user.id) "
+                    + "FROM LessonBlockAttempt a "
+                    + "WHERE a.isCorrect IS NOT NULL AND a.attemptedAt >= :from AND a.attemptedAt < :until "
+                    + "GROUP BY a.lessonBlock.id, a.lessonBlock.lesson.name, a.lessonBlock.type")
+    List<Object[]> exerciseStats(@Param("from") Instant from, @Param("until") Instant until);
+
+    /**
+     * Per-lesson progress as of {@code until}: {@code [UUID lessonId, String name, long started,
+     * long completed]}.
+     */
+    @Query(
+            "SELECT p.lesson.id, p.lesson.name, COUNT(p), "
+                    + "SUM(CASE WHEN p.status = com.signasource.signa_api.learning.entity.ProgressStatus.COMPLETED THEN 1L ELSE 0L END) "
+                    + "FROM UserLessonProgress p "
+                    + "WHERE p.startedAt IS NOT NULL AND p.startedAt < :until "
+                    + "GROUP BY p.lesson.id, p.lesson.name")
+    List<Object[]> lessonDropoffStats(@Param("until") Instant until);
+
+    /**
+     * Rows of {@code [LocalDate day, long evaluated, long correct]} for the correct-answer
+     * evolution.
+     */
+    @Query(
+            "SELECT CAST(a.attemptedAt AS LocalDate), COUNT(a), "
+                    + "SUM(CASE WHEN a.isCorrect = true THEN 1L ELSE 0L END) "
+                    + "FROM LessonBlockAttempt a "
+                    + "WHERE a.isCorrect IS NOT NULL AND a.attemptedAt >= :from AND a.attemptedAt < :until "
+                    + "GROUP BY CAST(a.attemptedAt AS LocalDate)")
+    List<Object[]> dailyAccuracy(@Param("from") Instant from, @Param("until") Instant until);
+
+    // ── Onboarding funnel (distinct users reaching each step, as of until)
+    // ────────────────────────
+    @Query("SELECT COUNT(u) FROM User u WHERE u.enabled = true AND u.createdAt < :until")
+    long countUsersBefore(@Param("until") Instant until);
+
+    @Query(
+            "SELECT COUNT(DISTINCT p.user.id) FROM UserLessonProgress p "
+                    + "WHERE p.startedAt IS NOT NULL AND p.startedAt < :until")
+    long countUsersStartedLessonBefore(@Param("until") Instant until);
+
+    @Query(
+            "SELECT COUNT(DISTINCT a.user.id) FROM LessonBlockAttempt a "
+                    + "WHERE a.attemptedAt < :until")
+    long countUsersAttemptedBefore(@Param("until") Instant until);
+
+    @Query(
+            "SELECT COUNT(DISTINCT p.user.id) FROM UserLessonProgress p "
+                    + "WHERE p.status = com.signasource.signa_api.learning.entity.ProgressStatus.COMPLETED "
+                    + "AND p.completedAt < :until")
+    long countUsersCompletedLessonBefore(@Param("until") Instant until);
+
+    /** User ids with 2+ completed lessons as of {@code until}; the service counts the rows. */
+    @Query(
+            "SELECT p.user.id FROM UserLessonProgress p "
+                    + "WHERE p.status = com.signasource.signa_api.learning.entity.ProgressStatus.COMPLETED "
+                    + "AND p.completedAt < :until "
+                    + "GROUP BY p.user.id HAVING COUNT(p) >= 2")
+    List<UUID> usersWithTwoPlusCompletedLessons(@Param("until") Instant until);
+
     @Query(
             "SELECT COUNT(ls) FROM UserLearnedSign ls "
                     + "WHERE ls.learnedAt >= :from AND ls.learnedAt < :until")

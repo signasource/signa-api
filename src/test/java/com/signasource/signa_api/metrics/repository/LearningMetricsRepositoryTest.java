@@ -17,6 +17,7 @@ import com.signasource.signa_api.learning.entity.Handedness;
 import com.signasource.signa_api.learning.entity.Lesson;
 import com.signasource.signa_api.learning.entity.LessonBlock;
 import com.signasource.signa_api.learning.entity.LessonBlockAttempt;
+import com.signasource.signa_api.learning.entity.ProgressStatus;
 import com.signasource.signa_api.learning.entity.ReportReason;
 import com.signasource.signa_api.learning.entity.ReportStatus;
 import com.signasource.signa_api.learning.entity.Sign;
@@ -24,6 +25,7 @@ import com.signasource.signa_api.learning.entity.SignLanguage;
 import com.signasource.signa_api.learning.entity.SignReport;
 import com.signasource.signa_api.learning.entity.Topic;
 import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
+import com.signasource.signa_api.learning.entity.UserLessonProgress;
 import com.signasource.signa_api.learning.entity.VersionStatus;
 import com.signasource.signa_api.learning.repository.CourseRepository;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
@@ -35,6 +37,7 @@ import com.signasource.signa_api.learning.repository.SignReportRepository;
 import com.signasource.signa_api.learning.repository.SignRepository;
 import com.signasource.signa_api.learning.repository.TopicRepository;
 import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
+import com.signasource.signa_api.learning.repository.UserLessonProgressRepository;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.repository.UserRepository;
 import java.time.Instant;
@@ -67,6 +70,7 @@ class LearningMetricsRepositoryTest {
     @Autowired private LessonBlockRepository lessonBlockRepository;
     @Autowired private LessonBlockAttemptRepository attemptRepository;
     @Autowired private UserCourseEnrollmentRepository enrollmentRepository;
+    @Autowired private UserLessonProgressRepository lessonProgressRepository;
     @Autowired private UserLearnedSignRepository learnedSignRepository;
     @Autowired private SignRepository signRepository;
     @Autowired private SignReportRepository signReportRepository;
@@ -201,6 +205,40 @@ class LearningMetricsRepositoryTest {
         assertEquals(1, repository.importsByStatus(FROM, until).size());
         assertEquals(
                 ContentImportStatus.SUCCESS, repository.importsByStatus(FROM, until).get(0)[0]);
+    }
+
+    @Test
+    void computesLessonFlowExercisesAndFunnel() {
+        // Two evaluable attempts on the block (one correct) by the same user.
+        attemptRepository.save(attempt(true));
+        attemptRepository.save(attempt(false));
+        // A started + completed lesson for the funnel and dropoff stats.
+        lessonProgressRepository.save(
+                UserLessonProgress.builder()
+                        .user(user)
+                        .lesson(lesson)
+                        .status(ProgressStatus.COMPLETED)
+                        .startedAt(Instant.now())
+                        .completedAt(Instant.now())
+                        .xpEarned(10)
+                        .build());
+
+        assertEquals(1, repository.countLessonsStartedBetween(FROM, until));
+        assertEquals(1, repository.countLessonsCompletedBetween(FROM, until));
+
+        var ex = repository.exerciseStats(FROM, until);
+        assertEquals(1, ex.size());
+        assertEquals(2L, ((Number) ex.get(0)[3]).longValue()); // evaluated
+        assertEquals(1L, ((Number) ex.get(0)[4]).longValue()); // correct
+        assertEquals(1L, ((Number) ex.get(0)[5]).longValue()); // distinct users
+
+        assertEquals(1, repository.lessonDropoffStats(until).size());
+        assertEquals(1, repository.dailyAccuracy(FROM, until).size());
+
+        assertEquals(1, repository.countUsersStartedLessonBefore(until));
+        assertEquals(1, repository.countUsersAttemptedBefore(until));
+        assertEquals(1, repository.countUsersCompletedLessonBefore(until));
+        assertEquals(0, repository.usersWithTwoPlusCompletedLessons(until).size());
     }
 
     private LessonBlockAttempt attempt(boolean correct) {

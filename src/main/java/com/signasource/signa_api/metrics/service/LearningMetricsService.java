@@ -4,8 +4,13 @@ import com.signasource.signa_api.learning.entity.EnrollmentStatus;
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse;
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.CountItem;
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.CourseStat;
+import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.DailyAccuracy;
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.DailyCount;
+import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.ExerciseDifficulty;
+import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.ExerciseFlow;
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.LessonAccuracy;
+import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.LessonDropoff;
+import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.LessonFlow;
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.MeaningCount;
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.ReportsSection;
 import com.signasource.signa_api.metrics.repository.LearningMetricsRepository;
@@ -33,12 +38,20 @@ public class LearningMetricsService {
     private static final int HARDEST_LIMIT = 10;
     private static final int MOST_REPORTED_LIMIT = 10;
 
+    /** Noise floors so a ranking isn't dominated by one-off attempts / starts. */
+    private static final long EXERCISE_MIN_EVALUATED = 10;
+
+    private static final long LESSON_MIN_STARTED = 5;
+    private static final int RANKING_LIMIT = 10;
+
     private final LearningMetricsRepository repository;
 
     @Transactional(readOnly = true)
     public LearningMetricsResponse getLearningMetrics(MetricsRange range) {
         Instant from = range.start();
         Instant until = range.end();
+
+        List<Object[]> exerciseRows = repository.exerciseStats(from, until);
 
         return new LearningMetricsResponse(
                 courses(until),
@@ -47,7 +60,130 @@ public class LearningMetricsService {
                 repository.countLearnedSignsBetween(from, until),
                 toDailyCounts(repository.dailyLearnedSigns(from, until)),
                 reports(),
-                toCountItems(repository.importsByStatus(from, until)));
+                toCountItems(repository.importsByStatus(from, until)),
+                lessonFlow(from, until),
+                exerciseFlow(exerciseRows),
+                onboardingFunnel(until),
+                lessonRanking(until),
+                highestErrorExercises(exerciseRows),
+                mostRetriedExercises(exerciseRows),
+                dailyAccuracy(from, until));
+    }
+
+    private LessonFlow lessonFlow(Instant from, Instant until) {
+        long started = repository.countLessonsStartedBetween(from, until);
+        long completed = repository.countLessonsCompletedBetween(from, until);
+        return new LessonFlow(started, completed, percent(completed, started));
+    }
+
+    /**
+     * Headline exercise figures from the per-block rows: success and attempts per (user, exercise).
+     */
+    private ExerciseFlow exerciseFlow(List<Object[]> rows) {
+        long attempted = 0;
+        long correct = 0;
+        long userExercisePairs = 0;
+        for (Object[] row : rows) {
+            attempted += toLong(row[3]);
+            correct += toLong(row[4]);
+            userExercisePairs += toLong(row[5]);
+        }
+        double averageAttempts =
+                userExercisePairs == 0
+                        ? 0.0
+                        : Math.round((attempted * 10.0) / userExercisePairs) / 10.0;
+        return new ExerciseFlow(attempted, correct, percent(correct, attempted), averageAttempts);
+    }
+
+    private List<CountItem> onboardingFunnel(Instant until) {
+        List<CountItem> steps = new ArrayList<>(5);
+        steps.add(new CountItem("Usuarios registrados", repository.countUsersBefore(until)));
+        steps.add(
+                new CountItem(
+                        "Iniciaron una lección", repository.countUsersStartedLessonBefore(until)));
+        steps.add(
+                new CountItem(
+                        "Hicieron un ejercicio", repository.countUsersAttemptedBefore(until)));
+        steps.add(
+                new CountItem(
+                        "Completaron una lección",
+                        repository.countUsersCompletedLessonBefore(until)));
+        steps.add(
+                new CountItem(
+                        "Completaron 2+ lecciones",
+                        repository.usersWithTwoPlusCompletedLessons(until).size()));
+        return steps;
+    }
+
+    private List<LessonDropoff> lessonRanking(Instant until) {
+        List<LessonDropoff> ranking = new ArrayList<>();
+        for (Object[] row : repository.lessonDropoffStats(until)) {
+            long started = toLong(row[2]);
+            if (started < LESSON_MIN_STARTED) {
+                continue;
+            }
+            long completed = toLong(row[3]);
+            double completion = percent(completed, started);
+            ranking.add(
+                    new LessonDropoff(
+                            String.valueOf(row[0]),
+                            String.valueOf(row[1]),
+                            started,
+                            completed,
+                            completion,
+                            Math.round((100.0 - completion) * 10.0) / 10.0));
+        }
+        ranking.sort(Comparator.comparingDouble(LessonDropoff::abandonmentPercent).reversed());
+        return ranking.size() > RANKING_LIMIT ? ranking.subList(0, RANKING_LIMIT) : ranking;
+    }
+
+    private List<ExerciseDifficulty> highestErrorExercises(List<Object[]> rows) {
+        List<ExerciseDifficulty> exercises = difficulties(rows);
+        exercises.sort(Comparator.comparingDouble(ExerciseDifficulty::errorPercent).reversed());
+        return exercises.size() > RANKING_LIMIT ? exercises.subList(0, RANKING_LIMIT) : exercises;
+    }
+
+    private List<ExerciseDifficulty> mostRetriedExercises(List<Object[]> rows) {
+        List<ExerciseDifficulty> exercises = difficulties(rows);
+        exercises.sort(Comparator.comparingDouble(ExerciseDifficulty::averageAttempts).reversed());
+        return exercises.size() > RANKING_LIMIT ? exercises.subList(0, RANKING_LIMIT) : exercises;
+    }
+
+    /** Maps the per-block rows to difficulty items, dropping blocks below the noise floor. */
+    private List<ExerciseDifficulty> difficulties(List<Object[]> rows) {
+        List<ExerciseDifficulty> exercises = new ArrayList<>();
+        for (Object[] row : rows) {
+            long evaluated = toLong(row[3]);
+            if (evaluated < EXERCISE_MIN_EVALUATED) {
+                continue;
+            }
+            long correct = toLong(row[4]);
+            long users = toLong(row[5]);
+            double averageAttempts =
+                    users == 0 ? 0.0 : Math.round((evaluated * 10.0) / users) / 10.0;
+            exercises.add(
+                    new ExerciseDifficulty(
+                            String.valueOf(row[0]),
+                            row[1] + " · " + row[2],
+                            evaluated,
+                            correct,
+                            percent(evaluated - correct, evaluated),
+                            averageAttempts));
+        }
+        return exercises;
+    }
+
+    private List<DailyAccuracy> dailyAccuracy(Instant from, Instant until) {
+        List<DailyAccuracy> series = new ArrayList<>();
+        for (Object[] row : repository.dailyAccuracy(from, until)) {
+            long evaluated = toLong(row[1]);
+            long correct = toLong(row[2]);
+            series.add(
+                    new DailyAccuracy(
+                            (LocalDate) row[0], evaluated, correct, percent(correct, evaluated)));
+        }
+        series.sort(Comparator.comparing(DailyAccuracy::day));
+        return series;
     }
 
     /** Folds the per-course status rows into one {@link CourseStat} each, ranked by enrollments. */
