@@ -40,6 +40,8 @@ import com.signasource.signa_api.organizations.repository.OrganizationRepository
 import com.signasource.signa_api.organizations.repository.PurchaseRefundRepository;
 import com.signasource.signa_api.organizations.repository.PurchaseSeatRepository;
 import com.signasource.signa_api.users.entity.User;
+import com.signasource.signa_api.users.entity.UserDailyActivity;
+import com.signasource.signa_api.users.repository.UserDailyActivityRepository;
 import com.signasource.signa_api.users.repository.UserRepository;
 import com.signasource.signa_api.waitlist.entity.WaitlistEntry;
 import com.signasource.signa_api.waitlist.repository.WaitlistRepository;
@@ -80,6 +82,7 @@ class GrowthMetricsRepositoryTest {
     @Autowired private GemPackRepository gemPackRepository;
     @Autowired private GemPurchaseRepository gemPurchaseRepository;
     @Autowired private UserCourseEnrollmentRepository enrollmentRepository;
+    @Autowired private UserDailyActivityRepository dailyActivityRepository;
 
     private static final Instant FROM = Instant.parse("2000-01-01T00:00:00Z");
     private final Instant until = Instant.now().plus(1, ChronoUnit.DAYS);
@@ -114,6 +117,24 @@ class GrowthMetricsRepositoryTest {
         assertEquals(1, repository.dailyNewUsers(FROM, until).size());
         assertEquals(1, repository.countActiveUsersBetween(FROM, until));
         assertEquals(1, repository.dailyActiveUsers(FROM, until).size());
+    }
+
+    @Test
+    void countsActivatedNewUsersAndReturnsCohortRows() {
+        User activated = saveUser();
+        attemptRepository.save(anAttempt(activated));
+        dailyActivityRepository.save(
+                UserDailyActivity.builder()
+                        .user(activated)
+                        .activityDate(java.time.LocalDate.now())
+                        .minutes(5)
+                        .build());
+        saveUser(); // registered but never started learning
+
+        assertEquals(1, repository.countActivatedNewUsersBetween(FROM, until));
+        // One row per (user, activity day); the user without activity still appears once (left
+        // join).
+        assertEquals(2, repository.cohortActivityRows(FROM, until).size());
     }
 
     @Test

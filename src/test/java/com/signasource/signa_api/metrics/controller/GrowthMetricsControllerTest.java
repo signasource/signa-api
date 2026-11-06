@@ -27,8 +27,9 @@ class GrowthMetricsControllerTest {
 
     private static final GrowthMetricsResponse SAMPLE =
             new GrowthMetricsResponse(
-                    new GrowthMetricsResponse.UsersSection(1, 0, List.of()),
-                    new GrowthMetricsResponse.EngagementSection(0, 0, 0, 0, List.of()),
+                    new GrowthMetricsResponse.UsersSection(1, 0, null, 0, 0, List.of()),
+                    new GrowthMetricsResponse.EngagementSection(0, 0, 0, 0, 0, null, List.of()),
+                    List.of(),
                     new GrowthMetricsResponse.WaitlistSection(0, 0, List.of()),
                     new GrowthMetricsResponse.RevenueSection(
                             BigDecimal.ZERO, 0, BigDecimal.ZERO, BigDecimal.ZERO, 0, List.of()),

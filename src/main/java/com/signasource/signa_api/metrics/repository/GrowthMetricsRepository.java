@@ -46,6 +46,26 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
                     + "GROUP BY CAST(a.attemptedAt AS LocalDate)")
     List<Object[]> dailyActiveUsers(@Param("from") Instant from, @Param("until") Instant until);
 
+    /** New users inside the window who actually started learning (made at least one attempt). */
+    @Query(
+            "SELECT COUNT(DISTINCT u.id) FROM User u "
+                    + "WHERE u.createdAt >= :from AND u.createdAt < :until "
+                    + "AND EXISTS (SELECT 1 FROM LessonBlockAttempt a WHERE a.user = u)")
+    long countActivatedNewUsersBetween(@Param("from") Instant from, @Param("until") Instant until);
+
+    /**
+     * Cohort retention raw rows: {@code [UUID userId, LocalDate registrationDay, LocalDate
+     * activityDay]} for every user registered inside the window, left-joined to all their active
+     * days (activity day is {@code null} for users who never came back). The service buckets these
+     * into weekly cohorts and measures the D1/D7/D30 horizons in memory — portable date arithmetic
+     * that neither H2 nor Postgres JPQL express cleanly.
+     */
+    @Query(
+            "SELECT u.id, CAST(u.createdAt AS LocalDate), a.activityDate "
+                    + "FROM User u LEFT JOIN UserDailyActivity a ON a.user = u "
+                    + "WHERE u.createdAt >= :from AND u.createdAt < :until")
+    List<Object[]> cohortActivityRows(@Param("from") Instant from, @Param("until") Instant until);
+
     // ── Waitlist ───────────────────────────────────────────────────────────────────────────────
     @Query("SELECT COUNT(w) FROM WaitlistEntry w WHERE w.createdAt < :until")
     long countWaitlistBefore(@Param("until") Instant until);

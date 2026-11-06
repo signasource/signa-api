@@ -10,6 +10,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,6 +32,7 @@ class GrowthMetricsServiceTest {
     void stubs() {
         when(repository.countUsersBefore(any())).thenReturn(500L);
         when(repository.countNewUsersBetween(any(), any())).thenReturn(40L);
+        when(repository.countActivatedNewUsersBetween(any(), any())).thenReturn(24L);
         when(repository.dailyNewUsers(any(), any()))
                 .thenReturn(List.<Object[]>of(new Object[] {LocalDate.of(2026, 11, 2), 10L}));
         // Three rolling windows, called in order: DAU, WAU, MAU.
@@ -70,6 +72,67 @@ class GrowthMetricsServiceTest {
         assertEquals(1, r.users().daily().size());
         assertEquals(800L, r.waitlist().total());
         assertEquals(50L, r.waitlist().newInRange());
+    }
+
+    @Test
+    void reportsActivationAndPeriodOverPeriodComparison() {
+        GrowthMetricsResponse r = service.getGrowthMetrics(range);
+
+        assertEquals(24L, r.users().activatedInRange());
+        assertEquals(60.0, r.users().activationPercent());
+        // Closed range → the previous equal-length window is comparable (same stubbed counts).
+        assertEquals(40L, r.users().previousNewInRange());
+        assertEquals(25L, r.engagement().activeInRange());
+        assertEquals(25L, r.engagement().previousActiveInRange());
+    }
+
+    @Test
+    void bucketsWeeklyRetentionCohorts() {
+        UUID a = UUID.randomUUID();
+        UUID b = UUID.randomUUID();
+        LocalDate reg = LocalDate.of(2026, 1, 5); // a Monday, long enough ago to be observable
+        when(repository.cohortActivityRows(any(), any()))
+                .thenReturn(
+                        List.<Object[]>of(
+                                new Object[] {a, reg, reg.plusDays(1)}, // D1 hit
+                                new Object[] {a, reg, reg.plusDays(7)}, // D7 hit
+                                new Object[] {b, reg, null})); // never returned
+
+        GrowthMetricsResponse r = service.getGrowthMetrics(range);
+
+        assertEquals(1, r.retention().size());
+        var cohort = r.retention().get(0);
+        assertEquals(reg, cohort.weekStart());
+        assertEquals(2L, cohort.cohortSize());
+        assertEquals(1L, cohort.d1());
+        assertEquals(50.0, cohort.d1Percent());
+        assertEquals(1L, cohort.d7());
+        assertEquals(0L, cohort.d30());
+        assertEquals(0.0, cohort.d30Percent());
+    }
+
+    @Test
+    void leavesUnobservableCohortHorizonsNull() {
+        UUID a = UUID.randomUUID();
+        LocalDate reg =
+                LocalDate.now().with(java.time.DayOfWeek.MONDAY); // current week, D7/D30 open
+        when(repository.cohortActivityRows(any(), any()))
+                .thenReturn(List.<Object[]>of(new Object[] {a, reg, null}));
+
+        var cohort = service.getGrowthMetrics(range).retention().get(0);
+
+        assertEquals(null, cohort.d7());
+        assertEquals(null, cohort.d7Percent());
+        assertEquals(null, cohort.d30());
+    }
+
+    @Test
+    void omitsComparisonForOpenRange() {
+        GrowthMetricsResponse r = service.getGrowthMetrics(MetricsRange.ALL_TIME);
+
+        assertEquals(null, r.users().previousNewInRange());
+        assertEquals(null, r.engagement().previousActiveInRange());
+        assertEquals(0, r.retention().size());
     }
 
     @Test

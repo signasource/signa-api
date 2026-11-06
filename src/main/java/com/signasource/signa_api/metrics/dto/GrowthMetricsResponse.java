@@ -14,6 +14,7 @@ import java.util.List;
 public record GrowthMetricsResponse(
         UsersSection users,
         EngagementSection engagement,
+        List<CohortRetention> retention,
         WaitlistSection waitlist,
         RevenueSection revenue,
         GemsSection gems,
@@ -29,11 +30,49 @@ public record GrowthMetricsResponse(
 
     public record DailyAmount(LocalDate day, BigDecimal amount) {}
 
-    public record UsersSection(long total, long newInRange, List<DailyCount> daily) {}
+    /**
+     * Signups: the audience total as of the window's close, how many are new inside it (with the
+     * previous equal-length window for a period-over-period delta, {@code null} for the whole
+     * history), how many of those new users actually started learning (activation), and the daily
+     * series.
+     */
+    public record UsersSection(
+            long total,
+            long newInRange,
+            Long previousNewInRange,
+            long activatedInRange,
+            double activationPercent,
+            List<DailyCount> daily) {}
 
-    /** Rolling active-user counts ending at the window's close, plus the daily active series. */
+    /**
+     * Rolling active-user counts ending at the window's close (DAU/WAU/MAU) plus stickiness, the
+     * distinct active users inside the window (with the previous window for a delta, {@code null}
+     * for the whole history) and the daily active series.
+     */
     public record EngagementSection(
-            long dau, long wau, long mau, double stickinessPercent, List<DailyCount> dailyActive) {}
+            long dau,
+            long wau,
+            long mau,
+            double stickinessPercent,
+            long activeInRange,
+            Long previousActiveInRange,
+            List<DailyCount> dailyActive) {}
+
+    /**
+     * Weekly retention cohort: users grouped by the ISO week they registered, and the share active
+     * again exactly 1, 7 and 30 days after each member's own signup day. Counts/percentages are
+     * {@code null} when the cohort's whole week is not yet observable at that horizon (so the UI
+     * renders "—" instead of a misleading 0%).
+     */
+    public record CohortRetention(
+            LocalDate weekStart,
+            long cohortSize,
+            Long d1,
+            Double d1Percent,
+            Long d7,
+            Double d7Percent,
+            Long d30,
+            Double d30Percent) {}
 
     public record WaitlistSection(long total, long newInRange, List<DailyCount> daily) {}
 
