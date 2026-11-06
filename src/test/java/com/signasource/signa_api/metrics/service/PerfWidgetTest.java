@@ -34,6 +34,14 @@ class PerfWidgetTest {
     }
 
     @Test
+    void inferenceRateCountsRecognitionThroughput() {
+        assertEquals(PerfWidget.ML_INFERENCE_RATE, PerfWidget.fromKey("ml_inference_rate"));
+        String query = PerfWidget.ML_INFERENCE_RATE.promQl("5m");
+        assertTrue(query.contains("signa_client_inference_seconds_count"));
+        assertTrue(query.contains("[5m]"));
+    }
+
+    @Test
     void errorRateUsesWindowTwice() {
         String query = PerfWidget.ERROR_RATE.promQl("1m");
         assertEquals(2, query.split("\\[1m]", -1).length - 1);
