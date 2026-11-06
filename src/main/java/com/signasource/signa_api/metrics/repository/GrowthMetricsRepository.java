@@ -31,7 +31,7 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
     @Query(
             "SELECT FLOOR(extract(epoch from u.createdAt) / :bucket), COUNT(u) FROM User u "
                     + "WHERE u.createdAt >= :from AND u.createdAt < :until "
-                    + "GROUP BY FLOOR(extract(epoch from u.createdAt) / :bucket)")
+                    + "GROUP BY 1")
     List<Object[]> dailyNewUsers(
             @Param("from") Instant from,
             @Param("until") Instant until,
@@ -48,7 +48,7 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
             "SELECT FLOOR(extract(epoch from a.attemptedAt) / :bucket), COUNT(DISTINCT a.user.id) "
                     + "FROM LessonBlockAttempt a "
                     + "WHERE a.attemptedAt >= :from AND a.attemptedAt < :until "
-                    + "GROUP BY FLOOR(extract(epoch from a.attemptedAt) / :bucket)")
+                    + "GROUP BY 1")
     List<Object[]> dailyActiveUsers(
             @Param("from") Instant from,
             @Param("until") Instant until,
@@ -76,7 +76,7 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
     @Query(
             "SELECT FLOOR(extract(epoch from s.startedAt) / :bucket), COUNT(s) FROM UserSession s "
                     + "WHERE s.startedAt >= :from AND s.startedAt < :until "
-                    + "GROUP BY FLOOR(extract(epoch from s.startedAt) / :bucket)")
+                    + "GROUP BY 1")
     List<Object[]> dailySessions(
             @Param("from") Instant from,
             @Param("until") Instant until,
@@ -115,7 +115,7 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
     @Query(
             "SELECT FLOOR(extract(epoch from w.createdAt) / :bucket), COUNT(w) FROM WaitlistEntry w "
                     + "WHERE w.createdAt >= :from AND w.createdAt < :until "
-                    + "GROUP BY FLOOR(extract(epoch from w.createdAt) / :bucket)")
+                    + "GROUP BY 1")
     List<Object[]> dailyWaitlist(
             @Param("from") Instant from,
             @Param("until") Instant until,
@@ -137,7 +137,7 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
             "SELECT FLOOR(extract(epoch from p.paidAt) / :bucket), COALESCE(SUM(p.totalAmount), 0) "
                     + "FROM CoursePurchase p "
                     + "WHERE p.paidAt IS NOT NULL AND p.paidAt >= :from AND p.paidAt < :until "
-                    + "GROUP BY FLOOR(extract(epoch from p.paidAt) / :bucket)")
+                    + "GROUP BY 1")
     List<Object[]> dailyRevenue(
             @Param("from") Instant from,
             @Param("until") Instant until,
@@ -164,7 +164,7 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
     @Query(
             "SELECT FLOOR(extract(epoch from g.verifiedAt) / :bucket), COUNT(g) FROM GemPurchase g "
                     + "WHERE g.verifiedAt >= :from AND g.verifiedAt < :until "
-                    + "GROUP BY FLOOR(extract(epoch from g.verifiedAt) / :bucket)")
+                    + "GROUP BY 1")
     List<Object[]> dailyGemPurchases(
             @Param("from") Instant from,
             @Param("until") Instant until,
@@ -232,7 +232,7 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
     @Query(
             "SELECT FLOOR(extract(epoch from p.paidAt) / :bucket), COUNT(p) FROM CoursePurchase p "
                     + "WHERE p.paidAt IS NOT NULL AND p.paidAt >= :from AND p.paidAt < :until "
-                    + "GROUP BY FLOOR(extract(epoch from p.paidAt) / :bucket)")
+                    + "GROUP BY 1")
     List<Object[]> dailyPurchases(
             @Param("from") Instant from,
             @Param("until") Instant until,
