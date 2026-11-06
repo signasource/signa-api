@@ -39,19 +39,27 @@ public class GamificationMetricsService {
         LocalDate toDate = until.atZone(ZoneOffset.UTC).toLocalDate();
 
         return new GamificationMetricsResponse(
-                new XpSection(
-                        repository.sumXpBetween(fromDate, toDate),
-                        toDailyCounts(repository.dailyXp(fromDate, toDate))),
+                xp(fromDate, toDate, from, until),
                 streaks(from, until),
-                new AchievementsSection(
-                        repository.countUnlockedBetween(from, until),
-                        toDailyCounts(repository.dailyUnlocked(from, until)),
-                        topNames(repository.topUnlockedAchievements())),
+                achievements(from, until),
                 challenges(from, until),
                 new GiftsSection(
                         repository.countGiftsSentBetween(from, until),
                         repository.countGiftsClaimedBetween(from, until)),
-                shop(from, until));
+                shop(from, until),
+                xpDistribution());
+    }
+
+    /** Total XP plus the per-active-user average (honest engagement, not inflated by headcount). */
+    private XpSection xp(LocalDate fromDate, LocalDate toDate, Instant from, Instant until) {
+        long total = repository.sumXpBetween(fromDate, toDate);
+        long activeUsers = repository.countActiveUsersBetween(from, until);
+        long perActiveUser = activeUsers == 0 ? 0 : Math.round((double) total / activeUsers);
+        return new XpSection(
+                total,
+                perActiveUser,
+                activeUsers,
+                toDailyCounts(repository.dailyXp(fromDate, toDate)));
     }
 
     private StreaksSection streaks(Instant from, Instant until) {
@@ -59,7 +67,30 @@ public class GamificationMetricsService {
                 round1(repository.averageCurrentStreak()),
                 round1(repository.averageStreakActive(from, until)),
                 repository.countStreakOver(STREAK_HABIT_DAYS),
-                repository.countActiveStreakers());
+                repository.countActiveStreakers(),
+                repository.maxStreak());
+    }
+
+    private AchievementsSection achievements(Instant from, Instant until) {
+        long opportunities = repository.countActiveAchievements() * repository.countEnabledUsers();
+        double unlockRate = percent(repository.countAllUnlocked(), opportunities);
+        return new AchievementsSection(
+                repository.countUnlockedBetween(from, until),
+                unlockRate,
+                toDailyCounts(repository.dailyUnlocked(from, until)),
+                topNames(repository.topUnlockedAchievements()),
+                topNames(repository.leastUnlockedAchievements()));
+    }
+
+    /** Users bucketed by total XP into experience tiers. */
+    private List<NameCount> xpDistribution() {
+        List<NameCount> tiers = new ArrayList<>(5);
+        tiers.add(new NameCount("Sin XP", repository.countStatsXpBetween(0, 0)));
+        tiers.add(new NameCount("1–100", repository.countStatsXpBetween(1, 100)));
+        tiers.add(new NameCount("101–500", repository.countStatsXpBetween(101, 500)));
+        tiers.add(new NameCount("501–2000", repository.countStatsXpBetween(501, 2000)));
+        tiers.add(new NameCount("2000+", repository.countStatsXpOver(2000)));
+        return tiers;
     }
 
     private static double round1(Double value) {
@@ -89,8 +120,18 @@ public class GamificationMetricsService {
             }
             items.add(new ItemSpend(String.valueOf(row[0]), toLong(row[1]), toLong(row[2])));
         }
+        long spent = repository.sumGemsSpentBetween(from, until);
+        // Credited = reward inflows (challenges claimed + achievements earned + real-money
+        // purchases);
+        // gifts move gems between users, so they're economy-neutral and excluded.
+        long credited =
+                repository.sumChallengeRewardGemsBetween(from, until)
+                        + repository.sumAchievementRewardGemsBetween(from, until)
+                        + repository.sumGemPurchaseGemsBetween(from, until);
         return new ShopSection(
-                repository.sumGemsSpentBetween(from, until),
+                spent,
+                credited,
+                percent(spent, credited),
                 items,
                 toDailyCounts(repository.dailyGemsSpent(from, until)));
     }

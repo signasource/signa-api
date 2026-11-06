@@ -98,6 +98,38 @@ class GamificationMetricsServiceTest {
     }
 
     @Test
+    void computesPerActiveUserMaxStreakUnlockRateRedemptionAndDistribution() {
+        when(repository.countActiveUsersBetween(any(), any())).thenReturn(100L); // 5000/100 = 50
+        when(repository.maxStreak()).thenReturn(45L);
+        when(repository.countActiveAchievements()).thenReturn(10L);
+        when(repository.countEnabledUsers()).thenReturn(50L); // 10×50 = 500 opportunities
+        when(repository.countAllUnlocked()).thenReturn(125L); // 125/500 = 25%
+        when(repository.leastUnlockedAchievements())
+                .thenReturn(List.<Object[]>of(new Object[] {"Logro raro", 0L}));
+        when(repository.sumChallengeRewardGemsBetween(any(), any())).thenReturn(300L);
+        when(repository.sumAchievementRewardGemsBetween(any(), any())).thenReturn(200L);
+        when(repository.sumGemPurchaseGemsBetween(any(), any())).thenReturn(500L); // credited 1000
+        when(repository.countStatsXpBetween(0L, 0L)).thenReturn(5L);
+        when(repository.countStatsXpBetween(1L, 100L)).thenReturn(10L);
+        when(repository.countStatsXpBetween(101L, 500L)).thenReturn(8L);
+        when(repository.countStatsXpBetween(501L, 2000L)).thenReturn(4L);
+        when(repository.countStatsXpOver(2000L)).thenReturn(2L);
+
+        GamificationMetricsResponse r = service.getGamificationMetrics(range);
+
+        assertEquals(100L, r.xp().activeUsers());
+        assertEquals(50L, r.xp().perActiveUser());
+        assertEquals(45L, r.streaks().maxStreak());
+        assertEquals(25.0, r.achievements().unlockRatePercent());
+        assertEquals("Logro raro", r.achievements().leastUnlocked().get(0).name());
+        assertEquals(1000L, r.shop().gemsCredited());
+        assertEquals(120.0, r.shop().redemptionRatePercent()); // 1200 spent / 1000 credited
+        assertEquals(5, r.xpDistribution().size());
+        assertEquals("Sin XP", r.xpDistribution().get(0).name());
+        assertEquals(2L, r.xpDistribution().get(4).count());
+    }
+
+    @Test
     void handlesNoStreaksWithoutNullPointer() {
         when(repository.averageCurrentStreak()).thenReturn(null);
 

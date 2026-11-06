@@ -188,6 +188,80 @@ class GamificationMetricsRepositoryTest {
         assertEquals("Escudo", repository.topShopItems(FROM, until).get(0)[0]);
     }
 
+    @Test
+    void summarisesMaxStreakXpDistributionUnlockRateAndRewardGems() {
+        userStatsRepository.save(
+                UserStats.builder()
+                        .user(user)
+                        .currentStreak(10)
+                        .longestStreak(42)
+                        .totalXp(350)
+                        .updatedAt(Instant.now())
+                        .build());
+
+        Achievement unlocked =
+                achievementRepository.save(
+                        Achievement.builder()
+                                .code("ach-" + UUID.randomUUID())
+                                .title("Racha 10")
+                                .criteriaType(AchievementCriteriaType.STREAK_DAYS)
+                                .criteriaValue(10)
+                                .active(true)
+                                .rewardGems(25)
+                                .build());
+        achievementRepository.save(
+                Achievement.builder()
+                        .code("ach-" + UUID.randomUUID())
+                        .title("Nunca desbloqueado")
+                        .criteriaType(AchievementCriteriaType.STREAK_DAYS)
+                        .criteriaValue(100)
+                        .active(true)
+                        .rewardGems(0)
+                        .build());
+        userAchievementRepository.save(
+                UserAchievement.builder()
+                        .user(user)
+                        .achievement(unlocked)
+                        .earnedAt(Instant.now())
+                        .build());
+
+        Challenge challenge =
+                challengeRepository.save(
+                        Challenge.builder()
+                                .code("ch-" + UUID.randomUUID())
+                                .title("Diario")
+                                .challengeType(ChallengeType.DAILY)
+                                .criteriaType(ChallengeCriteriaType.EARN_XP)
+                                .criteriaValue(50)
+                                .rewardType(ChallengeRewardType.GEMS)
+                                .rewardQuantity(30)
+                                .build());
+        userChallengeRepository.save(
+                UserChallenge.builder()
+                        .user(user)
+                        .challenge(challenge)
+                        .completed(true)
+                        .completedAt(Instant.now())
+                        .rewardClaimedAt(Instant.now())
+                        .periodStart(LocalDate.now())
+                        .periodEnd(LocalDate.now())
+                        .startedAt(Instant.now())
+                        .build());
+
+        assertEquals(42L, repository.maxStreak());
+        assertEquals(1L, repository.countStatsXpBetween(101, 500));
+        assertEquals(0L, repository.countStatsXpOver(2000));
+        assertEquals(2L, repository.countActiveAchievements());
+        assertTrue(repository.countEnabledUsers() >= 1);
+        assertEquals(1L, repository.countAllUnlocked());
+        // LEFT JOIN: the never-unlocked achievement appears first with count 0.
+        var least = repository.leastUnlockedAchievements();
+        assertEquals(2, least.size());
+        assertEquals(0L, ((Number) least.get(0)[1]).longValue());
+        assertEquals(25L, repository.sumAchievementRewardGemsBetween(FROM, until));
+        assertEquals(30L, repository.sumChallengeRewardGemsBetween(FROM, until));
+    }
+
     private User saveUser() {
         return userRepository.save(
                 User.builder()

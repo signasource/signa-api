@@ -40,6 +40,22 @@ public interface GamificationMetricsRepository extends Repository<UserDailyXp, U
     @Query("SELECT COUNT(s) FROM UserStats s WHERE s.currentStreak > 0")
     long countActiveStreakers();
 
+    @Query("SELECT COALESCE(MAX(s.longestStreak), 0) FROM UserStats s")
+    long maxStreak();
+
+    // ── XP distribution (users bucketed by total XP) + engagement
+    // ──────────────────────────────────
+    @Query(
+            "SELECT COUNT(DISTINCT a.user.id) FROM LessonBlockAttempt a "
+                    + "WHERE a.attemptedAt >= :from AND a.attemptedAt < :until")
+    long countActiveUsersBetween(@Param("from") Instant from, @Param("until") Instant until);
+
+    @Query("SELECT COUNT(s) FROM UserStats s " + "WHERE s.totalXp >= :lo AND s.totalXp <= :hi")
+    long countStatsXpBetween(@Param("lo") long lo, @Param("hi") long hi);
+
+    @Query("SELECT COUNT(s) FROM UserStats s WHERE s.totalXp > :threshold")
+    long countStatsXpOver(@Param("threshold") long threshold);
+
     /** Average current streak among users who were active (had an attempt) within the window. */
     @Query(
             "SELECT AVG(s.currentStreak) FROM UserStats s WHERE s.currentStreak > 0 AND s.user.id IN "
@@ -65,6 +81,46 @@ public interface GamificationMetricsRepository extends Repository<UserDailyXp, U
             "SELECT a.achievement.title, COUNT(a) FROM UserAchievement a "
                     + "GROUP BY a.achievement.title ORDER BY COUNT(a) DESC")
     List<Object[]> topUnlockedAchievements();
+
+    /**
+     * Rows of {@code [String title, long count]} for every active achievement, least unlocked first
+     * — a LEFT JOIN so achievements nobody has (count 0) are included.
+     */
+    @Query(
+            "SELECT a.title, COUNT(ua) FROM Achievement a "
+                    + "LEFT JOIN UserAchievement ua ON ua.achievement = a "
+                    + "WHERE a.active = true "
+                    + "GROUP BY a.id, a.title ORDER BY COUNT(ua) ASC")
+    List<Object[]> leastUnlockedAchievements();
+
+    @Query("SELECT COUNT(ua) FROM UserAchievement ua")
+    long countAllUnlocked();
+
+    @Query("SELECT COUNT(a) FROM Achievement a WHERE a.active = true")
+    long countActiveAchievements();
+
+    @Query("SELECT COUNT(u) FROM User u WHERE u.enabled = true")
+    long countEnabledUsers();
+
+    @Query(
+            "SELECT COALESCE(SUM(ua.achievement.rewardGems), 0) FROM UserAchievement ua "
+                    + "WHERE ua.earnedAt >= :from AND ua.earnedAt < :until")
+    long sumAchievementRewardGemsBetween(
+            @Param("from") Instant from, @Param("until") Instant until);
+
+    /** Gems granted by claimed challenges whose reward is gems, in the window. */
+    @Query(
+            "SELECT COALESCE(SUM(uc.challenge.rewardQuantity), 0) FROM UserChallenge uc "
+                    + "WHERE uc.rewardClaimedAt >= :from AND uc.rewardClaimedAt < :until "
+                    + "AND uc.challenge.rewardType = "
+                    + "com.signasource.signa_api.gamification.entity.ChallengeRewardType.GEMS")
+    long sumChallengeRewardGemsBetween(@Param("from") Instant from, @Param("until") Instant until);
+
+    /** Gems granted by verified real-money gem purchases in the window. */
+    @Query(
+            "SELECT COALESCE(SUM(g.gemsGranted), 0) FROM GemPurchase g "
+                    + "WHERE g.verifiedAt >= :from AND g.verifiedAt < :until")
+    long sumGemPurchaseGemsBetween(@Param("from") Instant from, @Param("until") Instant until);
 
     // ── Challenges ───────────────────────────────────────────────────────────────────────────────
     /**

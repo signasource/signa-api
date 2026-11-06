@@ -31,12 +31,13 @@ class GamificationMetricsControllerTest {
 
     private static final GamificationMetricsResponse SAMPLE =
             new GamificationMetricsResponse(
-                    new XpSection(0, List.of()),
-                    new StreaksSection(0, 0, 0, 0),
-                    new AchievementsSection(0, List.of(), List.of()),
+                    new XpSection(0, 0, 0, List.of()),
+                    new StreaksSection(0, 0, 0, 0, 0),
+                    new AchievementsSection(0, 0, List.of(), List.of(), List.of()),
                     List.of(),
                     new GiftsSection(0, 0),
-                    new ShopSection(0, List.of(), List.of()));
+                    new ShopSection(0, 0, 0, List.of(), List.of()),
+                    List.of());
 
     @Test
     void returnsTheSnapshotForTheRequestedWindow() {

@@ -16,22 +16,40 @@ public record GamificationMetricsResponse(
         AchievementsSection achievements,
         List<ChallengeClaim> challenges,
         GiftsSection gifts,
-        ShopSection shop) {
+        ShopSection shop,
+        /** Users bucketed by total XP (experience tiers) — the distribution, not just the total. */
+        List<NameCount> xpDistribution) {
 
     public record DailyCount(LocalDate day, long count) {}
 
     public record NameCount(String name, long count) {}
 
-    public record XpSection(long total, List<DailyCount> daily) {}
+    /**
+     * XP over the window: the total (grows just by having more users), the active users it was
+     * earned by and the per-active-user average — the honest engagement signal.
+     */
+    public record XpSection(
+            long total, long perActiveUser, long activeUsers, List<DailyCount> daily) {}
 
     public record StreaksSection(
             double averageCurrentStreak,
             double averageStreakActive,
             long usersOverSevenDays,
-            long activeStreakers) {}
+            long activeStreakers,
+            /** Longest streak any user has reached (longestStreak across UserStats). */
+            long maxStreak) {}
 
+    /**
+     * Achievements unlocked in the window plus the all-time unlock rate (unlocked pairs / active
+     * achievements × enabled users) and the most/least unlocked achievements (least includes those
+     * with zero unlocks).
+     */
     public record AchievementsSection(
-            long unlocked, List<DailyCount> daily, List<NameCount> topUnlocked) {}
+            long unlocked,
+            double unlockRatePercent,
+            List<DailyCount> daily,
+            List<NameCount> topUnlocked,
+            List<NameCount> leastUnlocked) {}
 
     public record ChallengeClaim(
             String type, long completed, long claimed, double claimRatePercent) {}
@@ -40,6 +58,14 @@ public record GamificationMetricsResponse(
 
     public record ItemSpend(String title, long purchases, long gemsSpent) {}
 
+    /**
+     * Shop economy over the window: gems spent, gems credited (reward inflows: challenges claimed +
+     * achievements earned + gem purchases) and the redemption rate (spent / credited).
+     */
     public record ShopSection(
-            long totalGemsSpent, List<ItemSpend> topItems, List<DailyCount> dailySpent) {}
+            long totalGemsSpent,
+            long gemsCredited,
+            double redemptionRatePercent,
+            List<ItemSpend> topItems,
+            List<DailyCount> dailySpent) {}
 }
