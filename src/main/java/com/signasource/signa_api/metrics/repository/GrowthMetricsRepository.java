@@ -148,4 +148,51 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
             "SELECT o.status, COUNT(o) FROM Organization o "
                     + "WHERE o.createdAt < :until GROUP BY o.status")
     List<Object[]> organizationsByStatus(@Param("until") Instant until);
+
+    @Query(
+            "SELECT COUNT(o) FROM Organization o "
+                    + "WHERE o.createdAt >= :from AND o.createdAt < :until")
+    long countNewOrgsBetween(@Param("from") Instant from, @Param("until") Instant until);
+
+    /** Rows of {@code [UUID orgId, String name, long activeMembers]} as of {@code until}. */
+    @Query(
+            "SELECT m.organization.id, m.organization.name, COUNT(m) FROM OrganizationMember m "
+                    + "WHERE m.status = com.signasource.signa_api.organizations.entity.MemberStatus.ACTIVE "
+                    + "AND m.joinedAt < :until "
+                    + "GROUP BY m.organization.id, m.organization.name")
+    List<Object[]> membersByOrg(@Param("until") Instant until);
+
+    /**
+     * Rows of {@code [UUID orgId, BigDecimal revenue]} of confirmed B2B revenue as of {@code
+     * until}.
+     */
+    @Query(
+            "SELECT p.organization.id, COALESCE(SUM(p.totalAmount), 0) FROM CoursePurchase p "
+                    + "WHERE p.paidAt IS NOT NULL AND p.paidAt < :until "
+                    + "GROUP BY p.organization.id")
+    List<Object[]> revenueByOrg(@Param("until") Instant until);
+
+    /**
+     * Rows of {@code [UUID orgId, String name, long seatsSold, long seatsActive]} of paid seats.
+     */
+    @Query(
+            "SELECT s.purchase.organization.id, s.purchase.organization.name, COUNT(s), "
+                    + "SUM(CASE WHEN s.status = com.signasource.signa_api.organizations.entity.SeatStatus.ACTIVE THEN 1L ELSE 0L END) "
+                    + "FROM PurchaseSeat s "
+                    + "WHERE s.purchase.paidAt IS NOT NULL AND s.purchase.paidAt < :until "
+                    + "GROUP BY s.purchase.organization.id, s.purchase.organization.name")
+    List<Object[]> seatsByOrg(@Param("until") Instant until);
+
+    /** Rows of {@code [LocalDate day, long count]} of confirmed purchases. */
+    @Query(
+            "SELECT CAST(p.paidAt AS LocalDate), COUNT(p) FROM CoursePurchase p "
+                    + "WHERE p.paidAt IS NOT NULL AND p.paidAt >= :from AND p.paidAt < :until "
+                    + "GROUP BY CAST(p.paidAt AS LocalDate)")
+    List<Object[]> dailyPurchases(@Param("from") Instant from, @Param("until") Instant until);
+
+    /** Distinct users enrolled in a free course, as of the window's close (the conversion base). */
+    @Query(
+            "SELECT COUNT(DISTINCT e.user.id) FROM UserCourseEnrollment e "
+                    + "WHERE e.courseVersion.course.isFree = true AND e.startedAt < :until")
+    long countFreeCourseUsers(@Param("until") Instant until);
 }

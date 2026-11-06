@@ -60,7 +60,9 @@ class GrowthMetricsServiceTest {
         when(repository.countSeatsSoldBefore(any())).thenReturn(10L);
         when(repository.countSeatsActiveBefore(any())).thenReturn(6L);
         when(repository.organizationsByStatus(any()))
-                .thenReturn(List.<Object[]>of(new Object[] {"ACTIVE", 3L}));
+                .thenReturn(
+                        List.<Object[]>of(
+                                new Object[] {"ACTIVE", 3L}, new Object[] {"PENDING", 2L}));
     }
 
     @Test
@@ -124,6 +126,47 @@ class GrowthMetricsServiceTest {
         assertEquals(null, cohort.d7());
         assertEquals(null, cohort.d7Percent());
         assertEquals(null, cohort.d30());
+    }
+
+    @Test
+    void buildsOrganizationsDeepDiveAndConversion() {
+        UUID a = UUID.randomUUID();
+        UUID b = UUID.randomUUID();
+        when(repository.countNewOrgsBetween(any(), any())).thenReturn(4L);
+        when(repository.membersByOrg(any()))
+                .thenReturn(
+                        List.<Object[]>of(
+                                new Object[] {a, "Org A", 10L}, new Object[] {b, "Org B", 5L}));
+        when(repository.revenueByOrg(any()))
+                .thenReturn(
+                        List.<Object[]>of(
+                                new Object[] {a, new BigDecimal("100000")},
+                                new Object[] {b, new BigDecimal("50000")}));
+        when(repository.seatsByOrg(any()))
+                .thenReturn(
+                        List.<Object[]>of(
+                                new Object[] {a, "Org A", 100L, 5L}, // 5% occupancy, 100 seats
+                                new Object[] {b, "Org B", 20L, 18L})); // 90% occupancy
+        when(repository.dailyPurchases(any(), any()))
+                .thenReturn(List.<Object[]>of(new Object[] {LocalDate.of(2026, 11, 4), 2L}));
+        when(repository.countFreeCourseUsers(any())).thenReturn(200L); // paid 33 → 16.5%
+
+        var orgs = service.getGrowthMetrics(range).orgs();
+
+        assertEquals(4L, orgs.newInRange());
+        assertEquals(2L, orgs.pending());
+        assertEquals(7.5, orgs.avgUsersPerOrg()); // (10+5)/2
+        assertEquals(0, new BigDecimal("75000.00").compareTo(orgs.avgRevenuePerOrg()));
+        assertEquals(4L, orgs.purchasesInRange());
+        assertEquals(2, orgs.utilization().size());
+        // Biggest client first; its licenses are badly under-used (5/100).
+        assertEquals("Org A", orgs.utilization().get(0).name());
+        assertEquals(100L, orgs.utilization().get(0).seatsSold());
+        assertEquals(5.0, orgs.utilization().get(0).occupancyPercent());
+        assertEquals(10L, orgs.utilization().get(0).members());
+        assertEquals(200L, orgs.conversion().freeCourseUsers());
+        assertEquals(33L, orgs.conversion().paidCourseUsers());
+        assertEquals(16.5, orgs.conversion().conversionPercent());
     }
 
     @Test

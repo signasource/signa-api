@@ -27,7 +27,10 @@ import com.signasource.signa_api.learning.repository.SignLanguageRepository;
 import com.signasource.signa_api.learning.repository.TopicRepository;
 import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
 import com.signasource.signa_api.organizations.entity.CoursePurchase;
+import com.signasource.signa_api.organizations.entity.MemberRole;
+import com.signasource.signa_api.organizations.entity.MemberStatus;
 import com.signasource.signa_api.organizations.entity.Organization;
+import com.signasource.signa_api.organizations.entity.OrganizationMember;
 import com.signasource.signa_api.organizations.entity.OrganizationStatus;
 import com.signasource.signa_api.organizations.entity.PurchaseRefund;
 import com.signasource.signa_api.organizations.entity.PurchaseSeat;
@@ -36,6 +39,7 @@ import com.signasource.signa_api.organizations.entity.RefundReason;
 import com.signasource.signa_api.organizations.entity.RefundStatus;
 import com.signasource.signa_api.organizations.entity.SeatStatus;
 import com.signasource.signa_api.organizations.repository.CoursePurchaseRepository;
+import com.signasource.signa_api.organizations.repository.OrganizationMemberRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationRepository;
 import com.signasource.signa_api.organizations.repository.PurchaseRefundRepository;
 import com.signasource.signa_api.organizations.repository.PurchaseSeatRepository;
@@ -69,6 +73,7 @@ class GrowthMetricsRepositoryTest {
     @Autowired private UserRepository userRepository;
     @Autowired private WaitlistRepository waitlistRepository;
     @Autowired private OrganizationRepository organizationRepository;
+    @Autowired private OrganizationMemberRepository organizationMemberRepository;
     @Autowired private SignLanguageRepository signLanguageRepository;
     @Autowired private CourseRepository courseRepository;
     @Autowired private CourseVersionRepository courseVersionRepository;
@@ -231,6 +236,55 @@ class GrowthMetricsRepositoryTest {
                         .build());
 
         assertEquals(1, repository.countPaidCourseUsers(until));
+    }
+
+    @Test
+    void aggregatesOrganizationsDeepDiveAndConversion() {
+        CoursePurchase purchase = savePaidPurchase(new BigDecimal("12000.00"));
+        Organization org = purchase.getOrganization();
+        seatRepository.save(seat(purchase, SeatStatus.ACTIVE));
+        seatRepository.save(seat(purchase, SeatStatus.INVITED));
+        organizationMemberRepository.save(
+                OrganizationMember.builder()
+                        .organization(org)
+                        .user(saveUser())
+                        .role(MemberRole.MEMBER)
+                        .status(MemberStatus.ACTIVE)
+                        .joinedAt(Instant.now())
+                        .build());
+        // A free-course enrollment feeds the conversion base.
+        Course freeCourse =
+                courseRepository.save(
+                        Course.builder()
+                                .code("free-" + UUID.randomUUID())
+                                .name("Free")
+                                .isFree(true)
+                                .signLanguage(course.getSignLanguage())
+                                .build());
+        CourseVersion freeVersion =
+                courseVersionRepository.save(
+                        CourseVersion.builder()
+                                .version("1.0.0")
+                                .status(VersionStatus.PUBLISHED)
+                                .course(freeCourse)
+                                .build());
+        enrollmentRepository.save(
+                UserCourseEnrollment.builder()
+                        .user(saveUser())
+                        .courseVersion(freeVersion)
+                        .status(EnrollmentStatus.ENROLLED)
+                        .startedAt(Instant.now())
+                        .build());
+
+        assertEquals(1, repository.countNewOrgsBetween(FROM, until));
+        assertEquals(1, repository.membersByOrg(until).size());
+        assertEquals(1L, ((Number) repository.membersByOrg(until).get(0)[2]).longValue());
+        assertEquals(1, repository.revenueByOrg(until).size());
+        var seats = repository.seatsByOrg(until).get(0);
+        assertEquals(2L, ((Number) seats[2]).longValue()); // sold
+        assertEquals(1L, ((Number) seats[3]).longValue()); // active
+        assertEquals(1, repository.dailyPurchases(FROM, until).size());
+        assertEquals(1, repository.countFreeCourseUsers(until));
     }
 
     private CoursePurchase savePaidPurchase(BigDecimal total) {

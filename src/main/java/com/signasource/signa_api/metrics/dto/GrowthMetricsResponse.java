@@ -20,6 +20,8 @@ public record GrowthMetricsResponse(
         GemsSection gems,
         SeatsSection seats,
         List<CountItem> organizations,
+        /** B2B deep-dive: pipeline, per-org utilization and the free→premium conversion. */
+        OrganizationsSection orgs,
         /** Distinct users enrolled in a non-free (paid) course, as of the window's close. */
         long paidCourseUsers) {
 
@@ -87,4 +89,32 @@ public record GrowthMetricsResponse(
     public record GemsSection(long purchases, long gemsGranted, List<DailyCount> daily) {}
 
     public record SeatsSection(long sold, long active, double utilizationPercent) {}
+
+    /**
+     * B2B organizations deep-dive: new orgs and those pending approval, average members and revenue
+     * per org, purchases in the window (with a daily series), the per-org license utilization table
+     * (contracted vs. used seats — a 100-seat org using 5 is a commercial signal) and the free→
+     * premium conversion.
+     */
+    public record OrganizationsSection(
+            long newInRange,
+            long pending,
+            double avgUsersPerOrg,
+            BigDecimal avgRevenuePerOrg,
+            long purchasesInRange,
+            List<DailyCount> dailyPurchases,
+            List<OrgUtilization> utilization,
+            ConversionSection conversion) {}
+
+    public record OrgUtilization(
+            String orgId,
+            String name,
+            long members,
+            long seatsSold,
+            long seatsActive,
+            double occupancyPercent,
+            BigDecimal revenue) {}
+
+    public record ConversionSection(
+            long freeCourseUsers, long paidCourseUsers, double conversionPercent) {}
 }

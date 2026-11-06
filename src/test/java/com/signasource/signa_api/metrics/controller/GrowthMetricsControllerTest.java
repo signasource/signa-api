@@ -36,6 +36,15 @@ class GrowthMetricsControllerTest {
                     new GrowthMetricsResponse.GemsSection(0, 0, List.of()),
                     new GrowthMetricsResponse.SeatsSection(0, 0, 0),
                     List.of(),
+                    new GrowthMetricsResponse.OrganizationsSection(
+                            0,
+                            0,
+                            0,
+                            BigDecimal.ZERO,
+                            0,
+                            List.of(),
+                            List.of(),
+                            new GrowthMetricsResponse.ConversionSection(0, 0, 0)),
                     0);
 
     @Test

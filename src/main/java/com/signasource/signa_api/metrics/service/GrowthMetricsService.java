@@ -2,11 +2,14 @@ package com.signasource.signa_api.metrics.service;
 
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.CohortRetention;
+import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.ConversionSection;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.CountItem;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.DailyAmount;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.DailyCount;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.EngagementSection;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.GemsSection;
+import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.OrgUtilization;
+import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.OrganizationsSection;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.RevenueSection;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.SeatsSection;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.UsersSection;
@@ -39,6 +42,9 @@ public class GrowthMetricsService {
     /** Most recent weekly cohorts kept, so an open (all-time) range stays bounded. */
     private static final int MAX_COHORTS = 12;
 
+    /** Biggest B2B clients shown in the per-org utilization table. */
+    private static final int MAX_ORGS = 20;
+
     private final GrowthMetricsRepository repository;
 
     @Transactional(readOnly = true)
@@ -48,6 +54,8 @@ public class GrowthMetricsService {
         // Immediately preceding, equal-length window for "+X% vs. período anterior"; absent for the
         // whole history (an open range has no comparable prior span).
         Instant previousFrom = range.isOpen() ? null : from.minus(Duration.between(from, until));
+        List<CountItem> statusItems = toCountItems(repository.organizationsByStatus(until));
+        long paidCourseUsers = repository.countPaidCourseUsers(until);
 
         return new GrowthMetricsResponse(
                 users(from, until, previousFrom),
@@ -60,8 +68,9 @@ public class GrowthMetricsService {
                         repository.sumGemsGrantedBetween(from, until),
                         toDailyCounts(repository.dailyGemPurchases(from, until))),
                 seats(until),
-                toCountItems(repository.organizationsByStatus(until)),
-                repository.countPaidCourseUsers(until));
+                statusItems,
+                orgs(from, until, statusItems, paidCourseUsers),
+                paidCourseUsers);
     }
 
     private UsersSection users(Instant from, Instant until, Instant previousFrom) {
@@ -210,6 +219,79 @@ public class GrowthMetricsService {
         long sold = repository.countSeatsSoldBefore(until);
         long active = repository.countSeatsActiveBefore(until);
         return new SeatsSection(sold, active, percent(active, sold));
+    }
+
+    /** B2B deep-dive: pipeline, per-org license utilization and free→premium conversion. */
+    private OrganizationsSection orgs(
+            Instant from, Instant until, List<CountItem> statusItems, long paidCourseUsers) {
+        long pending =
+                statusItems.stream()
+                        .filter(i -> "PENDING".equals(i.key()))
+                        .mapToLong(CountItem::count)
+                        .sum();
+
+        List<Object[]> memberRows = repository.membersByOrg(until);
+        Map<UUID, Long> membersByOrg = new HashMap<>();
+        long totalMembers = 0;
+        for (Object[] row : memberRows) {
+            long members = toLong(row[2]);
+            membersByOrg.put((UUID) row[0], members);
+            totalMembers += members;
+        }
+        double avgUsersPerOrg =
+                memberRows.isEmpty()
+                        ? 0.0
+                        : Math.round((totalMembers * 10.0) / memberRows.size()) / 10.0;
+
+        List<Object[]> revenueRows = repository.revenueByOrg(until);
+        Map<UUID, BigDecimal> revenueByOrg = new HashMap<>();
+        BigDecimal totalRevenue = BigDecimal.ZERO;
+        for (Object[] row : revenueRows) {
+            BigDecimal revenue = nonNull((BigDecimal) row[1]);
+            revenueByOrg.put((UUID) row[0], revenue);
+            totalRevenue = totalRevenue.add(revenue);
+        }
+        BigDecimal avgRevenuePerOrg =
+                revenueRows.isEmpty()
+                        ? BigDecimal.ZERO
+                        : totalRevenue.divide(
+                                BigDecimal.valueOf(revenueRows.size()), 2, RoundingMode.HALF_UP);
+
+        List<OrgUtilization> utilization = new ArrayList<>();
+        for (Object[] row : repository.seatsByOrg(until)) {
+            UUID orgId = (UUID) row[0];
+            long sold = toLong(row[2]);
+            long active = toLong(row[3]);
+            utilization.add(
+                    new OrgUtilization(
+                            String.valueOf(orgId),
+                            String.valueOf(row[1]),
+                            membersByOrg.getOrDefault(orgId, 0L),
+                            sold,
+                            active,
+                            percent(active, sold),
+                            revenueByOrg.getOrDefault(orgId, BigDecimal.ZERO)));
+        }
+        // Biggest clients first — that's where under-utilized licenses matter most.
+        utilization.sort(Comparator.comparingLong(OrgUtilization::seatsSold).reversed());
+        if (utilization.size() > MAX_ORGS) {
+            utilization = utilization.subList(0, MAX_ORGS);
+        }
+
+        long freeUsers = repository.countFreeCourseUsers(until);
+        ConversionSection conversion =
+                new ConversionSection(
+                        freeUsers, paidCourseUsers, percent(paidCourseUsers, freeUsers));
+
+        return new OrganizationsSection(
+                repository.countNewOrgsBetween(from, until),
+                pending,
+                avgUsersPerOrg,
+                avgRevenuePerOrg,
+                repository.countPaidBetween(from, until),
+                toDailyCounts(repository.dailyPurchases(from, until)),
+                utilization,
+                conversion);
     }
 
     private static List<CountItem> toCountItems(List<Object[]> rows) {
