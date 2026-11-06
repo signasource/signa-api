@@ -77,6 +77,32 @@ class GrowthMetricsServiceTest {
     }
 
     @Test
+    void computesSessionsPerUserAndAverageDuration() {
+        when(repository.countSessionsBetween(any(), any())).thenReturn(30L);
+        when(repository.countUsersWithSessionBetween(any(), any())).thenReturn(12L);
+        when(repository.averageSessionDurationBetween(any(), any())).thenReturn(184.4);
+        when(repository.dailySessions(any(), any()))
+                .thenReturn(List.<Object[]>of(new Object[] {LocalDate.of(2026, 11, 2), 7L}));
+
+        var sessions = service.getGrowthMetrics(range).sessions();
+
+        assertEquals(30L, sessions.total());
+        assertEquals(12L, sessions.users());
+        assertEquals(2.5, sessions.perUser()); // 30 / 12
+        assertEquals(184.4, sessions.averageDurationSeconds());
+        assertEquals(1, sessions.daily().size());
+    }
+
+    @Test
+    void handlesNoSessionsWithoutNullPointer() {
+        var sessions = service.getGrowthMetrics(MetricsRange.ALL_TIME).sessions();
+
+        assertEquals(0L, sessions.total());
+        assertEquals(0.0, sessions.perUser());
+        assertEquals(0.0, sessions.averageDurationSeconds());
+    }
+
+    @Test
     void reportsActivationAndPeriodOverPeriodComparison() {
         GrowthMetricsResponse r = service.getGrowthMetrics(range);
 

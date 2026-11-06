@@ -14,6 +14,7 @@ import java.util.List;
 public record GrowthMetricsResponse(
         UsersSection users,
         EngagementSection engagement,
+        SessionsSection sessions,
         List<CohortRetention> retention,
         WaitlistSection waitlist,
         RevenueSection revenue,
@@ -59,6 +60,18 @@ public record GrowthMetricsResponse(
             long activeInRange,
             Long previousActiveInRange,
             List<DailyCount> dailyActive) {}
+
+    /**
+     * App-usage sessions in the window (client-reported): the total, the distinct users they came
+     * from, sessions per user (frequency) and the average session duration in seconds (time spent),
+     * plus a daily series. Zero when no sessions were reported.
+     */
+    public record SessionsSection(
+            long total,
+            long users,
+            double perUser,
+            double averageDurationSeconds,
+            List<DailyCount> daily) {}
 
     /**
      * Weekly retention cohort: users grouped by the ISO week they registered, and the share active

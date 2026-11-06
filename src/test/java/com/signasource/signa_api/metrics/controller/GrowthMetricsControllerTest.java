@@ -29,6 +29,7 @@ class GrowthMetricsControllerTest {
             new GrowthMetricsResponse(
                     new GrowthMetricsResponse.UsersSection(1, 0, null, 0, 0, List.of()),
                     new GrowthMetricsResponse.EngagementSection(0, 0, 0, 0, 0, null, List.of()),
+                    new GrowthMetricsResponse.SessionsSection(0, 0, 0, 0, List.of()),
                     List.of(),
                     new GrowthMetricsResponse.WaitlistSection(0, 0, List.of()),
                     new GrowthMetricsResponse.RevenueSection(

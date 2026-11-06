@@ -45,8 +45,10 @@ import com.signasource.signa_api.organizations.repository.PurchaseRefundReposito
 import com.signasource.signa_api.organizations.repository.PurchaseSeatRepository;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.entity.UserDailyActivity;
+import com.signasource.signa_api.users.entity.UserSession;
 import com.signasource.signa_api.users.repository.UserDailyActivityRepository;
 import com.signasource.signa_api.users.repository.UserRepository;
+import com.signasource.signa_api.users.repository.UserSessionRepository;
 import com.signasource.signa_api.waitlist.entity.WaitlistEntry;
 import com.signasource.signa_api.waitlist.repository.WaitlistRepository;
 import java.math.BigDecimal;
@@ -88,6 +90,7 @@ class GrowthMetricsRepositoryTest {
     @Autowired private GemPurchaseRepository gemPurchaseRepository;
     @Autowired private UserCourseEnrollmentRepository enrollmentRepository;
     @Autowired private UserDailyActivityRepository dailyActivityRepository;
+    @Autowired private UserSessionRepository userSessionRepository;
 
     private static final Instant FROM = Instant.parse("2000-01-01T00:00:00Z");
     private final Instant until = Instant.now().plus(1, ChronoUnit.DAYS);
@@ -140,6 +143,21 @@ class GrowthMetricsRepositoryTest {
         // One row per (user, activity day); the user without activity still appears once (left
         // join).
         assertEquals(2, repository.cohortActivityRows(FROM, until).size());
+    }
+
+    @Test
+    void aggregatesSessions() {
+        User user = saveUser();
+        User other = saveUser();
+        userSessionRepository.save(session(user, 120));
+        userSessionRepository.save(session(user, 240));
+        userSessionRepository.save(session(other, 60));
+
+        assertEquals(3, repository.countSessionsBetween(FROM, until));
+        assertEquals(2, repository.countUsersWithSessionBetween(FROM, until));
+        assertEquals(
+                140.0, repository.averageSessionDurationBetween(FROM, until)); // (120+240+60)/3
+        assertEquals(1, repository.dailySessions(FROM, until).size());
     }
 
     @Test
@@ -346,6 +364,15 @@ class GrowthMetricsRepositoryTest {
                                 .lesson(lesson)
                                 .build());
         return LessonBlockAttempt.builder().user(user).lessonBlock(block).isCorrect(true).build();
+    }
+
+    private UserSession session(User sessionUser, int durationSeconds) {
+        return UserSession.builder()
+                .user(sessionUser)
+                .startedAt(Instant.now())
+                .durationSeconds(durationSeconds)
+                .recordedAt(Instant.now())
+                .build();
     }
 
     private User saveUser() {

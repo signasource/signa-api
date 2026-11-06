@@ -46,6 +46,31 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
                     + "GROUP BY CAST(a.attemptedAt AS LocalDate)")
     List<Object[]> dailyActiveUsers(@Param("from") Instant from, @Param("until") Instant until);
 
+    // ── Sessions (client-reported app usage)
+    // ──────────────────────────────────────────────────────
+    @Query(
+            "SELECT COUNT(s) FROM UserSession s "
+                    + "WHERE s.startedAt >= :from AND s.startedAt < :until")
+    long countSessionsBetween(@Param("from") Instant from, @Param("until") Instant until);
+
+    @Query(
+            "SELECT COUNT(DISTINCT s.user.id) FROM UserSession s "
+                    + "WHERE s.startedAt >= :from AND s.startedAt < :until")
+    long countUsersWithSessionBetween(@Param("from") Instant from, @Param("until") Instant until);
+
+    @Query(
+            "SELECT AVG(s.durationSeconds) FROM UserSession s "
+                    + "WHERE s.startedAt >= :from AND s.startedAt < :until")
+    Double averageSessionDurationBetween(
+            @Param("from") Instant from, @Param("until") Instant until);
+
+    /** Rows of {@code [LocalDate day, long count]} of sessions started. */
+    @Query(
+            "SELECT CAST(s.startedAt AS LocalDate), COUNT(s) FROM UserSession s "
+                    + "WHERE s.startedAt >= :from AND s.startedAt < :until "
+                    + "GROUP BY CAST(s.startedAt AS LocalDate)")
+    List<Object[]> dailySessions(@Param("from") Instant from, @Param("until") Instant until);
+
     /** New users inside the window who actually started learning (made at least one attempt). */
     @Query(
             "SELECT COUNT(DISTINCT u.id) FROM User u "

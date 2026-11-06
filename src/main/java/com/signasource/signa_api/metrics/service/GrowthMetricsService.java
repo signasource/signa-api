@@ -12,6 +12,7 @@ import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.OrgUtilizatio
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.OrganizationsSection;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.RevenueSection;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.SeatsSection;
+import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.SessionsSection;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.UsersSection;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.WaitlistSection;
 import com.signasource.signa_api.metrics.repository.GrowthMetricsRepository;
@@ -60,6 +61,7 @@ public class GrowthMetricsService {
         return new GrowthMetricsResponse(
                 users(from, until, previousFrom),
                 engagement(from, until, previousFrom),
+                sessions(from, until),
                 cohorts(from, until),
                 waitlist(from, until),
                 revenue(from, until),
@@ -85,6 +87,21 @@ public class GrowthMetricsService {
                 activated,
                 percent(activated, newInRange),
                 toDailyCounts(repository.dailyNewUsers(from, until)));
+    }
+
+    /** Client-reported app-usage sessions: frequency (per user) and average duration. */
+    private SessionsSection sessions(Instant from, Instant until) {
+        long total = repository.countSessionsBetween(from, until);
+        long users = repository.countUsersWithSessionBetween(from, until);
+        double perUser = users == 0 ? 0.0 : Math.round((total * 10.0) / users) / 10.0;
+        Double avg = repository.averageSessionDurationBetween(from, until);
+        double averageDuration = avg == null ? 0.0 : Math.round(avg * 10.0) / 10.0;
+        return new SessionsSection(
+                total,
+                users,
+                perUser,
+                averageDuration,
+                toDailyCounts(repository.dailySessions(from, until)));
     }
 
     /** Rolling windows ending at the close of the period: DAU (24 h), WAU (7 d), MAU (30 d). */

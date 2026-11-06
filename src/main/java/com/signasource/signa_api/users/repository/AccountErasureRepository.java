@@ -32,6 +32,7 @@ public class AccountErasureRepository {
         delete("UserStats", "user", user);
 
         delete("UserDailyActivity", "user", user);
+        delete("UserSession", "user", user);
         delete("UserSettings", "user", user);
         delete("NotificationHistory", "user", user);
         delete("OrganizationMember", "user", user);
