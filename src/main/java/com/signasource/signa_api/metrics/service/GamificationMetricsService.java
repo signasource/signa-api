@@ -42,7 +42,7 @@ public class GamificationMetricsService {
                 new XpSection(
                         repository.sumXpBetween(fromDate, toDate),
                         toDailyCounts(repository.dailyXp(fromDate, toDate))),
-                streaks(),
+                streaks(from, until),
                 new AchievementsSection(
                         repository.countUnlockedBetween(from, until),
                         toDailyCounts(repository.dailyUnlocked(from, until)),
@@ -54,13 +54,16 @@ public class GamificationMetricsService {
                 shop(from, until));
     }
 
-    private StreaksSection streaks() {
-        Double average = repository.averageCurrentStreak();
-        double rounded = average == null ? 0.0 : Math.round(average * 10.0) / 10.0;
+    private StreaksSection streaks(Instant from, Instant until) {
         return new StreaksSection(
-                rounded,
+                round1(repository.averageCurrentStreak()),
+                round1(repository.averageStreakActive(from, until)),
                 repository.countStreakOver(STREAK_HABIT_DAYS),
                 repository.countActiveStreakers());
+    }
+
+    private static double round1(Double value) {
+        return value == null ? 0.0 : Math.round(value * 10.0) / 10.0;
     }
 
     private List<ChallengeClaim> challenges(Instant from, Instant until) {
@@ -86,7 +89,10 @@ public class GamificationMetricsService {
             }
             items.add(new ItemSpend(String.valueOf(row[0]), toLong(row[1]), toLong(row[2])));
         }
-        return new ShopSection(repository.sumGemsSpentBetween(from, until), items);
+        return new ShopSection(
+                repository.sumGemsSpentBetween(from, until),
+                items,
+                toDailyCounts(repository.dailyGemsSpent(from, until)));
     }
 
     private static List<NameCount> topNames(List<Object[]> rows) {

@@ -37,14 +37,16 @@ public class GrowthMetricsService {
 
         return new GrowthMetricsResponse(
                 users(from, until),
-                engagement(until),
+                engagement(from, until),
                 waitlist(from, until),
                 revenue(from, until),
                 new GemsSection(
                         repository.countGemPurchasesBetween(from, until),
-                        repository.sumGemsGrantedBetween(from, until)),
+                        repository.sumGemsGrantedBetween(from, until),
+                        toDailyCounts(repository.dailyGemPurchases(from, until))),
                 seats(until),
-                toCountItems(repository.organizationsByStatus(until)));
+                toCountItems(repository.organizationsByStatus(until)),
+                repository.countPaidCourseUsers(until));
     }
 
     private UsersSection users(Instant from, Instant until) {
@@ -55,12 +57,12 @@ public class GrowthMetricsService {
     }
 
     /** Rolling windows ending at the close of the period: DAU (24 h), WAU (7 d), MAU (30 d). */
-    private EngagementSection engagement(Instant until) {
+    private EngagementSection engagement(Instant from, Instant until) {
         long dau = repository.countActiveUsersBetween(until.minus(Duration.ofDays(1)), until);
         long wau = repository.countActiveUsersBetween(until.minus(Duration.ofDays(7)), until);
         long mau = repository.countActiveUsersBetween(until.minus(Duration.ofDays(30)), until);
-        List<DailyCount> dailyActive =
-                toDailyCounts(repository.dailyActiveUsers(until.minus(Duration.ofDays(30)), until));
+        // Range-based so the "usuarios activos por día" series follows the from/to filter.
+        List<DailyCount> dailyActive = toDailyCounts(repository.dailyActiveUsers(from, until));
         return new EngagementSection(dau, wau, mau, percent(dau, mau), dailyActive);
     }
 

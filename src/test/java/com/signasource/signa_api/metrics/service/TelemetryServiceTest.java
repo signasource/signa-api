@@ -81,6 +81,22 @@ class TelemetryServiceTest {
     }
 
     @Test
+    void clampsConfidenceToOneHundred() {
+        telemetryService.record(
+                batch(new TelemetryEventRequest("android", "ml_confidence", null, 150.0, "ok")));
+
+        verify(metricsService).recordClientConfidence("android", 100.0);
+    }
+
+    @Test
+    void recordsFpsAndClampsNegativeToZero() {
+        telemetryService.record(
+                batch(new TelemetryEventRequest("android", "ml_fps", null, -3.0, "ok")));
+
+        verify(metricsService).recordClientFps("android", 0.0);
+    }
+
+    @Test
     void dropsUnknownPlatform() {
         telemetryService.record(
                 batch(new TelemetryEventRequest("desktop", "web_vital", "LCP", 1.0, "ok")));

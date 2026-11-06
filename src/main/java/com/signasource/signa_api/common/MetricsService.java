@@ -1,6 +1,7 @@
 package com.signasource.signa_api.common;
 
 import com.signasource.signa_api.learning.entity.BlockType;
+import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.time.Duration;
@@ -127,11 +128,32 @@ public class MetricsService {
         timer("signa.client.inference", "platform", platform).record(duration);
     }
 
+    /** Model confidence of a recognition sample (0–100), reported by the mobile app. */
+    public void recordClientConfidence(String platform, double confidencePercent) {
+        summary("signa.client.recognition_confidence", platform).record(confidencePercent);
+    }
+
+    /** Camera frame rate during live recognition, reported by the mobile app. */
+    public void recordClientFps(String platform, double fps) {
+        summary("signa.client.recognition_fps", platform).record(fps);
+    }
+
     /**
      * A percentile-histogram timer, created once and cached by Micrometer per name+tags. The
      * histogram buckets are what let Grafana compute quantiles with {@code histogram_quantile}.
      */
     private Timer timer(String name, String... tags) {
         return Timer.builder(name).tags(tags).publishPercentileHistogram().register(registry);
+    }
+
+    /**
+     * A percentile-histogram distribution summary for non-duration client signals (confidence,
+     * fps).
+     */
+    private DistributionSummary summary(String name, String platform) {
+        return DistributionSummary.builder(name)
+                .tags("platform", platform)
+                .publishPercentileHistogram()
+                .register(registry);
     }
 }

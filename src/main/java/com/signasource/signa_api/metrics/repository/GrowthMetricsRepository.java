@@ -98,6 +98,18 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
                     + "WHERE g.verifiedAt >= :from AND g.verifiedAt < :until")
     long sumGemsGrantedBetween(@Param("from") Instant from, @Param("until") Instant until);
 
+    /** Rows of {@code [LocalDate day, long count]} of real-money gem purchases. */
+    @Query(
+            "SELECT CAST(g.verifiedAt AS LocalDate), COUNT(g) FROM GemPurchase g "
+                    + "WHERE g.verifiedAt >= :from AND g.verifiedAt < :until "
+                    + "GROUP BY CAST(g.verifiedAt AS LocalDate)")
+    List<Object[]> dailyGemPurchases(@Param("from") Instant from, @Param("until") Instant until);
+
+    @Query(
+            "SELECT COUNT(DISTINCT e.user.id) FROM UserCourseEnrollment e "
+                    + "WHERE e.courseVersion.course.isFree = false AND e.startedAt < :until")
+    long countPaidCourseUsers(@Param("until") Instant until);
+
     // ── Seats (B2B license utilization) ──────────────────────────────────────────────────────────
     @Query(
             "SELECT COUNT(s) FROM PurchaseSeat s "

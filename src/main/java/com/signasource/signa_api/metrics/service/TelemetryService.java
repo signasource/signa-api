@@ -70,6 +70,9 @@ public class TelemetryService {
                             platform, allowed(event.name(), ERROR_CATEGORIES, UNKNOWN));
             case "ml_inference" ->
                     metricsService.recordClientInference(platform, millis(event.valueMs()));
+            case "ml_confidence" ->
+                    metricsService.recordClientConfidence(platform, clampPercent(event.valueMs()));
+            case "ml_fps" -> metricsService.recordClientFps(platform, nonNegative(event.valueMs()));
             default -> {
                 // Unknown event type: ignore.
             }
@@ -82,6 +85,18 @@ public class TelemetryService {
 
     private static String allowed(String value, Set<String> allowList, String fallback) {
         return value != null && allowList.contains(value) ? value : fallback;
+    }
+
+    private static double clampPercent(Double value) {
+        double v = nonNegative(value);
+        return v > 100 ? 100 : v;
+    }
+
+    private static double nonNegative(Double value) {
+        if (value == null || value < 0 || value.isNaN() || value.isInfinite()) {
+            return 0;
+        }
+        return value;
     }
 
     private static Duration millis(Double valueMs) {

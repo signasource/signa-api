@@ -25,7 +25,10 @@ public record GamificationMetricsResponse(
     public record XpSection(long total, List<DailyCount> daily) {}
 
     public record StreaksSection(
-            double averageCurrentStreak, long usersOverSevenDays, long activeStreakers) {}
+            double averageCurrentStreak,
+            double averageStreakActive,
+            long usersOverSevenDays,
+            long activeStreakers) {}
 
     public record AchievementsSection(
             long unlocked, List<DailyCount> daily, List<NameCount> topUnlocked) {}
@@ -37,5 +40,6 @@ public record GamificationMetricsResponse(
 
     public record ItemSpend(String title, long purchases, long gemsSpent) {}
 
-    public record ShopSection(long totalGemsSpent, List<ItemSpend> topItems) {}
+    public record ShopSection(
+            long totalGemsSpent, List<ItemSpend> topItems, List<DailyCount> dailySpent) {}
 }

@@ -52,6 +52,9 @@ class GrowthMetricsServiceTest {
                                 }));
         when(repository.countGemPurchasesBetween(any(), any())).thenReturn(7L);
         when(repository.sumGemsGrantedBetween(any(), any())).thenReturn(3500L);
+        when(repository.dailyGemPurchases(any(), any()))
+                .thenReturn(List.<Object[]>of(new Object[] {LocalDate.of(2026, 11, 2), 2L}));
+        when(repository.countPaidCourseUsers(any())).thenReturn(33L);
         when(repository.countSeatsSoldBefore(any())).thenReturn(10L);
         when(repository.countSeatsActiveBefore(any())).thenReturn(6L);
         when(repository.organizationsByStatus(any()))
@@ -100,6 +103,8 @@ class GrowthMetricsServiceTest {
         assertEquals(60.0, r.seats().utilizationPercent());
         assertEquals(7L, r.gems().purchases());
         assertEquals(3500L, r.gems().gemsGranted());
+        assertEquals(1, r.gems().daily().size());
+        assertEquals(33L, r.paidCourseUsers());
         assertEquals("ACTIVE", r.organizations().get(0).key());
     }
 

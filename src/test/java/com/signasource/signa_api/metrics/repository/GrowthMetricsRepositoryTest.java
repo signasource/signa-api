@@ -10,11 +10,13 @@ import com.signasource.signa_api.gamification.repository.GemPurchaseRepository;
 import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.entity.Course;
 import com.signasource.signa_api.learning.entity.CourseVersion;
+import com.signasource.signa_api.learning.entity.EnrollmentStatus;
 import com.signasource.signa_api.learning.entity.Lesson;
 import com.signasource.signa_api.learning.entity.LessonBlock;
 import com.signasource.signa_api.learning.entity.LessonBlockAttempt;
 import com.signasource.signa_api.learning.entity.SignLanguage;
 import com.signasource.signa_api.learning.entity.Topic;
+import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import com.signasource.signa_api.learning.entity.VersionStatus;
 import com.signasource.signa_api.learning.repository.CourseRepository;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
@@ -23,6 +25,7 @@ import com.signasource.signa_api.learning.repository.LessonBlockRepository;
 import com.signasource.signa_api.learning.repository.LessonRepository;
 import com.signasource.signa_api.learning.repository.SignLanguageRepository;
 import com.signasource.signa_api.learning.repository.TopicRepository;
+import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
 import com.signasource.signa_api.organizations.entity.CoursePurchase;
 import com.signasource.signa_api.organizations.entity.Organization;
 import com.signasource.signa_api.organizations.entity.OrganizationStatus;
@@ -76,6 +79,7 @@ class GrowthMetricsRepositoryTest {
     @Autowired private PurchaseRefundRepository refundRepository;
     @Autowired private GemPackRepository gemPackRepository;
     @Autowired private GemPurchaseRepository gemPurchaseRepository;
+    @Autowired private UserCourseEnrollmentRepository enrollmentRepository;
 
     private static final Instant FROM = Instant.parse("2000-01-01T00:00:00Z");
     private final Instant until = Instant.now().plus(1, ChronoUnit.DAYS);
@@ -182,8 +186,30 @@ class GrowthMetricsRepositoryTest {
 
         assertEquals(1, repository.countGemPurchasesBetween(FROM, until));
         assertEquals(500, repository.sumGemsGrantedBetween(FROM, until));
+        assertEquals(1, repository.dailyGemPurchases(FROM, until).size());
         assertEquals(1, repository.organizationsByStatus(until).size());
         assertEquals(OrganizationStatus.ACTIVE, repository.organizationsByStatus(until).get(0)[0]);
+    }
+
+    @Test
+    void countsUsersInPaidCourses() {
+        // The course from setUp is not free (isFree defaults to false).
+        CourseVersion version =
+                courseVersionRepository.save(
+                        CourseVersion.builder()
+                                .version("1.0.0")
+                                .status(VersionStatus.PUBLISHED)
+                                .course(course)
+                                .build());
+        enrollmentRepository.save(
+                UserCourseEnrollment.builder()
+                        .user(saveUser())
+                        .courseVersion(version)
+                        .status(EnrollmentStatus.ENROLLED)
+                        .startedAt(Instant.now())
+                        .build());
+
+        assertEquals(1, repository.countPaidCourseUsers(until));
     }
 
     private CoursePurchase savePaidPurchase(BigDecimal total) {

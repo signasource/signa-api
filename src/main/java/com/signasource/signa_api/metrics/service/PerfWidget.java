@@ -63,7 +63,13 @@ public enum PerfWidget {
                     + " (rate(signa_client_screen_load_seconds_bucket[%1$s])))"),
     ML_INFERENCE_LATENCY(
             "histogram_quantile(0.95, sum by (le)"
-                    + " (rate(signa_client_inference_seconds_bucket[%1$s])))");
+                    + " (rate(signa_client_inference_seconds_bucket[%1$s])))"),
+    ML_CONFIDENCE(
+            "sum(rate(signa_client_recognition_confidence_sum[%1$s]))"
+                    + " / clamp_min(sum(rate(signa_client_recognition_confidence_count[%1$s])), 1)"),
+    ML_FPS(
+            "sum(rate(signa_client_recognition_fps_sum[%1$s]))"
+                    + " / clamp_min(sum(rate(signa_client_recognition_fps_count[%1$s])), 1)");
 
     private final String template;
 

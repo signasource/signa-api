@@ -18,7 +18,9 @@ public record GrowthMetricsResponse(
         RevenueSection revenue,
         GemsSection gems,
         SeatsSection seats,
-        List<CountItem> organizations) {
+        List<CountItem> organizations,
+        /** Distinct users enrolled in a non-free (paid) course, as of the window's close. */
+        long paidCourseUsers) {
 
     /** A named count, e.g. a status bucket. */
     public record CountItem(String key, long count) {}
@@ -43,7 +45,7 @@ public record GrowthMetricsResponse(
             double refundRatePercent,
             List<DailyAmount> daily) {}
 
-    public record GemsSection(long purchases, long gemsGranted) {}
+    public record GemsSection(long purchases, long gemsGranted, List<DailyCount> daily) {}
 
     public record SeatsSection(long sold, long active, double utilizationPercent) {}
 }

@@ -40,6 +40,13 @@ public interface GamificationMetricsRepository extends Repository<UserDailyXp, U
     @Query("SELECT COUNT(s) FROM UserStats s WHERE s.currentStreak > 0")
     long countActiveStreakers();
 
+    /** Average current streak among users who were active (had an attempt) within the window. */
+    @Query(
+            "SELECT AVG(s.currentStreak) FROM UserStats s WHERE s.currentStreak > 0 AND s.user.id IN "
+                    + "(SELECT DISTINCT a.user.id FROM LessonBlockAttempt a "
+                    + "WHERE a.attemptedAt >= :from AND a.attemptedAt < :until)")
+    Double averageStreakActive(@Param("from") Instant from, @Param("until") Instant until);
+
     // ── Achievements ─────────────────────────────────────────────────────────────────────────────
     @Query(
             "SELECT COUNT(a) FROM UserAchievement a "
@@ -92,4 +99,11 @@ public interface GamificationMetricsRepository extends Repository<UserDailyXp, U
                     + "WHERE p.purchasedAt >= :from AND p.purchasedAt < :until "
                     + "GROUP BY p.shopItem.title ORDER BY COUNT(p) DESC")
     List<Object[]> topShopItems(@Param("from") Instant from, @Param("until") Instant until);
+
+    /** Rows of {@code [LocalDate day, long gemsSpent]} spent in the shop. */
+    @Query(
+            "SELECT CAST(p.purchasedAt AS LocalDate), COALESCE(SUM(p.gemsSpent), 0) FROM Purchase p "
+                    + "WHERE p.purchasedAt >= :from AND p.purchasedAt < :until "
+                    + "GROUP BY CAST(p.purchasedAt AS LocalDate)")
+    List<Object[]> dailyGemsSpent(@Param("from") Instant from, @Param("until") Instant until);
 }

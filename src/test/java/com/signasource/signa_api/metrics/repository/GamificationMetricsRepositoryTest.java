@@ -1,6 +1,7 @@
 package com.signasource.signa_api.metrics.repository;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.firebase.messaging.FirebaseMessaging;
@@ -91,6 +92,8 @@ class GamificationMetricsRepositoryTest {
         assertEquals(1, repository.countActiveStreakers());
         assertEquals(1, repository.countStreakOver(7));
         assertTrue(repository.averageCurrentStreak() >= 10.0);
+        // No attempt in the window → the IN-subquery is empty → AVG is null (exercises the JPQL).
+        assertNull(repository.averageStreakActive(FROM, until));
     }
 
     @Test
@@ -180,6 +183,7 @@ class GamificationMetricsRepositoryTest {
         assertEquals(1, repository.countGiftsSentBetween(FROM, until));
         assertEquals(1, repository.countGiftsClaimedBetween(FROM, until));
         assertEquals(100L, repository.sumGemsSpentBetween(FROM, until));
+        assertEquals(1, repository.dailyGemsSpent(FROM, until).size());
         assertEquals(1, repository.topShopItems(FROM, until).size());
         assertEquals("Escudo", repository.topShopItems(FROM, until).get(0)[0]);
     }

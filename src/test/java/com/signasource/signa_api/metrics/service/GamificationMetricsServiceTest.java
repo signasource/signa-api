@@ -34,6 +34,7 @@ class GamificationMetricsServiceTest {
         when(repository.dailyXp(any(), any()))
                 .thenReturn(List.<Object[]>of(new Object[] {LocalDate.of(2026, 11, 2), 700L}));
         when(repository.averageCurrentStreak()).thenReturn(12.34);
+        when(repository.averageStreakActive(any(), any())).thenReturn(9.0);
         when(repository.countStreakOver(anyInt())).thenReturn(8L);
         when(repository.countActiveStreakers()).thenReturn(20L);
         when(repository.countUnlockedBetween(any(), any())).thenReturn(15L);
@@ -51,6 +52,8 @@ class GamificationMetricsServiceTest {
         when(repository.countGiftsSentBetween(any(), any())).thenReturn(40L);
         when(repository.countGiftsClaimedBetween(any(), any())).thenReturn(30L);
         when(repository.sumGemsSpentBetween(any(), any())).thenReturn(1200L);
+        when(repository.dailyGemsSpent(any(), any()))
+                .thenReturn(List.<Object[]>of(new Object[] {LocalDate.of(2026, 11, 2), 200L}));
         when(repository.topShopItems(any(), any()))
                 .thenReturn(
                         List.<Object[]>of(
@@ -65,6 +68,7 @@ class GamificationMetricsServiceTest {
         assertEquals(5000L, r.xp().total());
         assertEquals(1, r.xp().daily().size());
         assertEquals(12.3, r.streaks().averageCurrentStreak());
+        assertEquals(9.0, r.streaks().averageStreakActive());
         assertEquals(8L, r.streaks().usersOverSevenDays());
         assertEquals(20L, r.streaks().activeStreakers());
     }
@@ -88,6 +92,7 @@ class GamificationMetricsServiceTest {
         assertEquals(40L, r.gifts().sent());
         assertEquals(30L, r.gifts().claimed());
         assertEquals(1200L, r.shop().totalGemsSpent());
+        assertEquals(1, r.shop().dailySpent().size());
         assertEquals("Escudo", r.shop().topItems().get(0).title());
         assertEquals(500L, r.shop().topItems().get(0).gemsSpent());
     }
