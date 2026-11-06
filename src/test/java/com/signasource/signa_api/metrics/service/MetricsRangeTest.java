@@ -71,4 +71,21 @@ class MetricsRangeTest {
         Instant end = MetricsRange.ALL_TIME.end();
         assertTrue(!end.isBefore(before));
     }
+
+    @Test
+    void bucketSecondsScalesWithSpan() {
+        assertEquals(
+                60L,
+                MetricsRange.of(FROM, FROM.plus(30, java.time.temporal.ChronoUnit.MINUTES))
+                        .bucketSeconds());
+        assertEquals(
+                3600L,
+                MetricsRange.of(FROM, FROM.plus(2, java.time.temporal.ChronoUnit.DAYS))
+                        .bucketSeconds());
+        assertEquals(
+                86400L,
+                MetricsRange.of(FROM, FROM.plus(30, java.time.temporal.ChronoUnit.DAYS))
+                        .bucketSeconds());
+        assertEquals(86400L, MetricsRange.ALL_TIME.bucketSeconds());
+    }
 }

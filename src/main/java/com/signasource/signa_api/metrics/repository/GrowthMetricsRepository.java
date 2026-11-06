@@ -25,12 +25,17 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
     @Query("SELECT COUNT(u) FROM User u WHERE u.createdAt >= :from AND u.createdAt < :until")
     long countNewUsersBetween(@Param("from") Instant from, @Param("until") Instant until);
 
-    /** Rows of {@code [LocalDate day, long count]} of new accounts. */
+    /**
+     * Rows of {@code [long bucketIndex, long count]} of new accounts (index × bucket = epoch s).
+     */
     @Query(
-            "SELECT CAST(u.createdAt AS LocalDate), COUNT(u) FROM User u "
+            "SELECT FLOOR(extract(epoch from u.createdAt) / :bucket), COUNT(u) FROM User u "
                     + "WHERE u.createdAt >= :from AND u.createdAt < :until "
-                    + "GROUP BY CAST(u.createdAt AS LocalDate)")
-    List<Object[]> dailyNewUsers(@Param("from") Instant from, @Param("until") Instant until);
+                    + "GROUP BY FLOOR(extract(epoch from u.createdAt) / :bucket)")
+    List<Object[]> dailyNewUsers(
+            @Param("from") Instant from,
+            @Param("until") Instant until,
+            @Param("bucket") long bucket);
 
     // ── Engagement (active users) ────────────────────────────────────────────────────────────────
     @Query(
@@ -38,13 +43,16 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
                     + "WHERE a.attemptedAt >= :from AND a.attemptedAt < :until")
     long countActiveUsersBetween(@Param("from") Instant from, @Param("until") Instant until);
 
-    /** Rows of {@code [LocalDate day, long distinctActiveUsers]}. */
+    /** Rows of {@code [long bucketIndex, long distinctActiveUsers]}. */
     @Query(
-            "SELECT CAST(a.attemptedAt AS LocalDate), COUNT(DISTINCT a.user.id) "
+            "SELECT FLOOR(extract(epoch from a.attemptedAt) / :bucket), COUNT(DISTINCT a.user.id) "
                     + "FROM LessonBlockAttempt a "
                     + "WHERE a.attemptedAt >= :from AND a.attemptedAt < :until "
-                    + "GROUP BY CAST(a.attemptedAt AS LocalDate)")
-    List<Object[]> dailyActiveUsers(@Param("from") Instant from, @Param("until") Instant until);
+                    + "GROUP BY FLOOR(extract(epoch from a.attemptedAt) / :bucket)")
+    List<Object[]> dailyActiveUsers(
+            @Param("from") Instant from,
+            @Param("until") Instant until,
+            @Param("bucket") long bucket);
 
     // ── Sessions (client-reported app usage)
     // ──────────────────────────────────────────────────────
@@ -64,12 +72,15 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
     Double averageSessionDurationBetween(
             @Param("from") Instant from, @Param("until") Instant until);
 
-    /** Rows of {@code [LocalDate day, long count]} of sessions started. */
+    /** Rows of {@code [long bucketIndex, long count]} of sessions started. */
     @Query(
-            "SELECT CAST(s.startedAt AS LocalDate), COUNT(s) FROM UserSession s "
+            "SELECT FLOOR(extract(epoch from s.startedAt) / :bucket), COUNT(s) FROM UserSession s "
                     + "WHERE s.startedAt >= :from AND s.startedAt < :until "
-                    + "GROUP BY CAST(s.startedAt AS LocalDate)")
-    List<Object[]> dailySessions(@Param("from") Instant from, @Param("until") Instant until);
+                    + "GROUP BY FLOOR(extract(epoch from s.startedAt) / :bucket)")
+    List<Object[]> dailySessions(
+            @Param("from") Instant from,
+            @Param("until") Instant until,
+            @Param("bucket") long bucket);
 
     /** New users inside the window who actually started learning (made at least one attempt). */
     @Query(
@@ -100,12 +111,15 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
                     + "WHERE w.createdAt >= :from AND w.createdAt < :until")
     long countNewWaitlistBetween(@Param("from") Instant from, @Param("until") Instant until);
 
-    /** Rows of {@code [LocalDate day, long count]} of waitlist sign-ups. */
+    /** Rows of {@code [long bucketIndex, long count]} of waitlist sign-ups. */
     @Query(
-            "SELECT CAST(w.createdAt AS LocalDate), COUNT(w) FROM WaitlistEntry w "
+            "SELECT FLOOR(extract(epoch from w.createdAt) / :bucket), COUNT(w) FROM WaitlistEntry w "
                     + "WHERE w.createdAt >= :from AND w.createdAt < :until "
-                    + "GROUP BY CAST(w.createdAt AS LocalDate)")
-    List<Object[]> dailyWaitlist(@Param("from") Instant from, @Param("until") Instant until);
+                    + "GROUP BY FLOOR(extract(epoch from w.createdAt) / :bucket)")
+    List<Object[]> dailyWaitlist(
+            @Param("from") Instant from,
+            @Param("until") Instant until,
+            @Param("bucket") long bucket);
 
     // ── Revenue (B2B course purchases) ───────────────────────────────────────────────────────────
     @Query(
@@ -118,13 +132,16 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
                     + "WHERE p.paidAt IS NOT NULL AND p.paidAt >= :from AND p.paidAt < :until")
     long countPaidBetween(@Param("from") Instant from, @Param("until") Instant until);
 
-    /** Rows of {@code [LocalDate day, BigDecimal amount]} of confirmed revenue. */
+    /** Rows of {@code [long bucketIndex, BigDecimal amount]} of confirmed revenue. */
     @Query(
-            "SELECT CAST(p.paidAt AS LocalDate), COALESCE(SUM(p.totalAmount), 0) "
+            "SELECT FLOOR(extract(epoch from p.paidAt) / :bucket), COALESCE(SUM(p.totalAmount), 0) "
                     + "FROM CoursePurchase p "
                     + "WHERE p.paidAt IS NOT NULL AND p.paidAt >= :from AND p.paidAt < :until "
-                    + "GROUP BY CAST(p.paidAt AS LocalDate)")
-    List<Object[]> dailyRevenue(@Param("from") Instant from, @Param("until") Instant until);
+                    + "GROUP BY FLOOR(extract(epoch from p.paidAt) / :bucket)")
+    List<Object[]> dailyRevenue(
+            @Param("from") Instant from,
+            @Param("until") Instant until,
+            @Param("bucket") long bucket);
 
     @Query(
             "SELECT COALESCE(SUM(r.amount), 0) FROM PurchaseRefund r "
@@ -143,12 +160,15 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
                     + "WHERE g.verifiedAt >= :from AND g.verifiedAt < :until")
     long sumGemsGrantedBetween(@Param("from") Instant from, @Param("until") Instant until);
 
-    /** Rows of {@code [LocalDate day, long count]} of real-money gem purchases. */
+    /** Rows of {@code [long bucketIndex, long count]} of real-money gem purchases. */
     @Query(
-            "SELECT CAST(g.verifiedAt AS LocalDate), COUNT(g) FROM GemPurchase g "
+            "SELECT FLOOR(extract(epoch from g.verifiedAt) / :bucket), COUNT(g) FROM GemPurchase g "
                     + "WHERE g.verifiedAt >= :from AND g.verifiedAt < :until "
-                    + "GROUP BY CAST(g.verifiedAt AS LocalDate)")
-    List<Object[]> dailyGemPurchases(@Param("from") Instant from, @Param("until") Instant until);
+                    + "GROUP BY FLOOR(extract(epoch from g.verifiedAt) / :bucket)")
+    List<Object[]> dailyGemPurchases(
+            @Param("from") Instant from,
+            @Param("until") Instant until,
+            @Param("bucket") long bucket);
 
     @Query(
             "SELECT COUNT(DISTINCT e.user.id) FROM UserCourseEnrollment e "
@@ -208,12 +228,15 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
                     + "GROUP BY s.purchase.organization.id, s.purchase.organization.name")
     List<Object[]> seatsByOrg(@Param("until") Instant until);
 
-    /** Rows of {@code [LocalDate day, long count]} of confirmed purchases. */
+    /** Rows of {@code [long bucketIndex, long count]} of confirmed purchases. */
     @Query(
-            "SELECT CAST(p.paidAt AS LocalDate), COUNT(p) FROM CoursePurchase p "
+            "SELECT FLOOR(extract(epoch from p.paidAt) / :bucket), COUNT(p) FROM CoursePurchase p "
                     + "WHERE p.paidAt IS NOT NULL AND p.paidAt >= :from AND p.paidAt < :until "
-                    + "GROUP BY CAST(p.paidAt AS LocalDate)")
-    List<Object[]> dailyPurchases(@Param("from") Instant from, @Param("until") Instant until);
+                    + "GROUP BY FLOOR(extract(epoch from p.paidAt) / :bucket)")
+    List<Object[]> dailyPurchases(
+            @Param("from") Instant from,
+            @Param("until") Instant until,
+            @Param("bucket") long bucket);
 
     /** Distinct users enrolled in a free course, as of the window's close (the conversion base). */
     @Query(

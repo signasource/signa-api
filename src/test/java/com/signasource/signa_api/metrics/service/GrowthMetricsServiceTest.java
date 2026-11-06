@@ -2,6 +2,7 @@ package com.signasource.signa_api.metrics.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse;
@@ -33,29 +34,40 @@ class GrowthMetricsServiceTest {
         when(repository.countUsersBefore(any())).thenReturn(500L);
         when(repository.countNewUsersBetween(any(), any())).thenReturn(40L);
         when(repository.countActivatedNewUsersBetween(any(), any())).thenReturn(24L);
-        when(repository.dailyNewUsers(any(), any()))
-                .thenReturn(List.<Object[]>of(new Object[] {LocalDate.of(2026, 11, 2), 10L}));
+        // Daily series now return [bucketIndex, value]; for a day bucket the index is the epoch
+        // day.
+        when(repository.dailyNewUsers(any(), any(), anyLong()))
+                .thenReturn(
+                        List.<Object[]>of(
+                                new Object[] {LocalDate.of(2026, 11, 2).toEpochDay(), 10L}));
         // Three rolling windows, called in order: DAU, WAU, MAU.
         when(repository.countActiveUsersBetween(any(), any())).thenReturn(3L, 10L, 25L);
-        when(repository.dailyActiveUsers(any(), any()))
-                .thenReturn(List.<Object[]>of(new Object[] {LocalDate.of(2026, 11, 2), 8L}));
+        when(repository.dailyActiveUsers(any(), any(), anyLong()))
+                .thenReturn(
+                        List.<Object[]>of(
+                                new Object[] {LocalDate.of(2026, 11, 2).toEpochDay(), 8L}));
         when(repository.countWaitlistBefore(any())).thenReturn(800L);
         when(repository.countNewWaitlistBetween(any(), any())).thenReturn(50L);
-        when(repository.dailyWaitlist(any(), any()))
-                .thenReturn(List.<Object[]>of(new Object[] {LocalDate.of(2026, 11, 3), 5L}));
+        when(repository.dailyWaitlist(any(), any(), anyLong()))
+                .thenReturn(
+                        List.<Object[]>of(
+                                new Object[] {LocalDate.of(2026, 11, 3).toEpochDay(), 5L}));
         when(repository.sumPaidAmountBetween(any(), any())).thenReturn(new BigDecimal("10000.00"));
         when(repository.countPaidBetween(any(), any())).thenReturn(4L);
         when(repository.sumRefundedBetween(any(), any())).thenReturn(new BigDecimal("1000.00"));
-        when(repository.dailyRevenue(any(), any()))
+        when(repository.dailyRevenue(any(), any(), anyLong()))
                 .thenReturn(
                         List.<Object[]>of(
                                 new Object[] {
-                                    LocalDate.of(2026, 11, 4), new BigDecimal("6000.00")
+                                    LocalDate.of(2026, 11, 4).toEpochDay(),
+                                    new BigDecimal("6000.00")
                                 }));
         when(repository.countGemPurchasesBetween(any(), any())).thenReturn(7L);
         when(repository.sumGemsGrantedBetween(any(), any())).thenReturn(3500L);
-        when(repository.dailyGemPurchases(any(), any()))
-                .thenReturn(List.<Object[]>of(new Object[] {LocalDate.of(2026, 11, 2), 2L}));
+        when(repository.dailyGemPurchases(any(), any(), anyLong()))
+                .thenReturn(
+                        List.<Object[]>of(
+                                new Object[] {LocalDate.of(2026, 11, 2).toEpochDay(), 2L}));
         when(repository.countPaidCourseUsers(any())).thenReturn(33L);
         when(repository.countSeatsSoldBefore(any())).thenReturn(10L);
         when(repository.countSeatsActiveBefore(any())).thenReturn(6L);
@@ -72,6 +84,10 @@ class GrowthMetricsServiceTest {
         assertEquals(500L, r.users().total());
         assertEquals(40L, r.users().newInRange());
         assertEquals(1, r.users().daily().size());
+        // The epoch-day bucket index maps back to that day's UTC-midnight instant.
+        assertEquals(
+                LocalDate.of(2026, 11, 2).atStartOfDay(java.time.ZoneOffset.UTC).toInstant(),
+                r.users().daily().get(0).t());
         assertEquals(800L, r.waitlist().total());
         assertEquals(50L, r.waitlist().newInRange());
     }
@@ -81,8 +97,10 @@ class GrowthMetricsServiceTest {
         when(repository.countSessionsBetween(any(), any())).thenReturn(30L);
         when(repository.countUsersWithSessionBetween(any(), any())).thenReturn(12L);
         when(repository.averageSessionDurationBetween(any(), any())).thenReturn(184.4);
-        when(repository.dailySessions(any(), any()))
-                .thenReturn(List.<Object[]>of(new Object[] {LocalDate.of(2026, 11, 2), 7L}));
+        when(repository.dailySessions(any(), any(), anyLong()))
+                .thenReturn(
+                        List.<Object[]>of(
+                                new Object[] {LocalDate.of(2026, 11, 2).toEpochDay(), 7L}));
 
         var sessions = service.getGrowthMetrics(range).sessions();
 
@@ -173,8 +191,10 @@ class GrowthMetricsServiceTest {
                         List.<Object[]>of(
                                 new Object[] {a, "Org A", 100L, 5L}, // 5% occupancy, 100 seats
                                 new Object[] {b, "Org B", 20L, 18L})); // 90% occupancy
-        when(repository.dailyPurchases(any(), any()))
-                .thenReturn(List.<Object[]>of(new Object[] {LocalDate.of(2026, 11, 4), 2L}));
+        when(repository.dailyPurchases(any(), any(), anyLong()))
+                .thenReturn(
+                        List.<Object[]>of(
+                                new Object[] {LocalDate.of(2026, 11, 4).toEpochDay(), 2L}));
         when(repository.countFreeCourseUsers(any())).thenReturn(200L); // paid 33 → 16.5%
 
         var orgs = service.getGrowthMetrics(range).orgs();

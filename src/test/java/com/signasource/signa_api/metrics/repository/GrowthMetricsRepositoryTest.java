@@ -93,6 +93,7 @@ class GrowthMetricsRepositoryTest {
     @Autowired private UserSessionRepository userSessionRepository;
 
     private static final Instant FROM = Instant.parse("2000-01-01T00:00:00Z");
+    private static final long BUCKET = 86400L; // day resolution for the wide test window
     private final Instant until = Instant.now().plus(1, ChronoUnit.DAYS);
 
     private Course course;
@@ -122,9 +123,9 @@ class GrowthMetricsRepositoryTest {
 
         assertEquals(1, repository.countNewUsersBetween(FROM, until));
         assertEquals(1, repository.countUsersBefore(until));
-        assertEquals(1, repository.dailyNewUsers(FROM, until).size());
+        assertEquals(1, repository.dailyNewUsers(FROM, until, BUCKET).size());
         assertEquals(1, repository.countActiveUsersBetween(FROM, until));
-        assertEquals(1, repository.dailyActiveUsers(FROM, until).size());
+        assertEquals(1, repository.dailyActiveUsers(FROM, until, BUCKET).size());
     }
 
     @Test
@@ -157,7 +158,7 @@ class GrowthMetricsRepositoryTest {
         assertEquals(2, repository.countUsersWithSessionBetween(FROM, until));
         assertEquals(
                 140.0, repository.averageSessionDurationBetween(FROM, until)); // (120+240+60)/3
-        assertEquals(1, repository.dailySessions(FROM, until).size());
+        assertEquals(1, repository.dailySessions(FROM, until, BUCKET).size());
     }
 
     @Test
@@ -170,7 +171,7 @@ class GrowthMetricsRepositoryTest {
 
         assertEquals(1, repository.countWaitlistBefore(until));
         assertEquals(1, repository.countNewWaitlistBetween(FROM, until));
-        assertEquals(1, repository.dailyWaitlist(FROM, until).size());
+        assertEquals(1, repository.dailyWaitlist(FROM, until, BUCKET).size());
     }
 
     @Test
@@ -191,7 +192,7 @@ class GrowthMetricsRepositoryTest {
                 0,
                 new BigDecimal("12000.00").compareTo(repository.sumPaidAmountBetween(FROM, until)));
         assertEquals(1, repository.countPaidBetween(FROM, until));
-        assertEquals(1, repository.dailyRevenue(FROM, until).size());
+        assertEquals(1, repository.dailyRevenue(FROM, until, BUCKET).size());
         assertEquals(
                 0, new BigDecimal("2000.00").compareTo(repository.sumRefundedBetween(FROM, until)));
     }
@@ -230,7 +231,7 @@ class GrowthMetricsRepositoryTest {
 
         assertEquals(1, repository.countGemPurchasesBetween(FROM, until));
         assertEquals(500, repository.sumGemsGrantedBetween(FROM, until));
-        assertEquals(1, repository.dailyGemPurchases(FROM, until).size());
+        assertEquals(1, repository.dailyGemPurchases(FROM, until, BUCKET).size());
         assertEquals(1, repository.organizationsByStatus(until).size());
         assertEquals(OrganizationStatus.ACTIVE, repository.organizationsByStatus(until).get(0)[0]);
     }
@@ -301,7 +302,7 @@ class GrowthMetricsRepositoryTest {
         var seats = repository.seatsByOrg(until).get(0);
         assertEquals(2L, ((Number) seats[2]).longValue()); // sold
         assertEquals(1L, ((Number) seats[3]).longValue()); // active
-        assertEquals(1, repository.dailyPurchases(FROM, until).size());
+        assertEquals(1, repository.dailyPurchases(FROM, until, BUCKET).size());
         assertEquals(1, repository.countFreeCourseUsers(until));
     }
 

@@ -1,6 +1,7 @@
 package com.signasource.signa_api.metrics.service;
 
 import com.signasource.signa_api.exceptions.InvalidInputException;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
@@ -71,5 +72,22 @@ public record MetricsRange(Instant from, Instant to) {
     /** First instant after the window (exclusive); now for the whole history. */
     public Instant end() {
         return isOpen() ? Instant.now() : to;
+    }
+
+    /**
+     * Resolution (in seconds) of the dashboard time-series for this window, so a short window reads
+     * minute-by-minute and a long one day-by-day: minute (span ≤ 6 h), hour (≤ 3 d), else day. The
+     * repositories bucket by {@code floor(epoch / bucketSeconds)}; the open (all-time) range, whose
+     * span is the whole history, falls through to daily.
+     */
+    public long bucketSeconds() {
+        long span = Duration.between(start(), end()).getSeconds();
+        if (span <= 6 * 3600) {
+            return 60;
+        }
+        if (span <= 3 * 86400) {
+            return 3600;
+        }
+        return 86400;
     }
 }

@@ -1,6 +1,7 @@
 package com.signasource.signa_api.metrics.dto;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -8,8 +9,9 @@ import java.util.List;
  * Global growth & business snapshot for the usage dashboard's "Negocio" apartado: audience growth
  * (signups), engagement (DAU/WAU/MAU + stickiness), the waitlist funnel, B2B revenue and refunds,
  * the gem economy, seat utilization and the organization pipeline. State counts are measured as of
- * the end of the window; things that happened are counted inside it. Day-resolution series back the
- * charts (Argentina day via the stored instants).
+ * the end of the window; things that happened are counted inside it. The time-series back the
+ * charts at an adaptive resolution (minute/hour/day by the window span, see {@code MetricsRange}):
+ * each point's {@code t} is the UTC start instant of its bucket.
  */
 public record GrowthMetricsResponse(
         UsersSection users,
@@ -29,9 +31,10 @@ public record GrowthMetricsResponse(
     /** A named count, e.g. a status bucket. */
     public record CountItem(String key, long count) {}
 
-    public record DailyCount(LocalDate day, long count) {}
+    /** One time-series point: {@code t} is the bucket's UTC start instant. */
+    public record DailyCount(Instant t, long count) {}
 
-    public record DailyAmount(LocalDate day, BigDecimal amount) {}
+    public record DailyAmount(Instant t, BigDecimal amount) {}
 
     /**
      * Signups: the audience total as of the window's close, how many are new inside it (with the

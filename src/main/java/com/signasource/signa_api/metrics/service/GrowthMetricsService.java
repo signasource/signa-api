@@ -52,6 +52,8 @@ public class GrowthMetricsService {
     public GrowthMetricsResponse getGrowthMetrics(MetricsRange range) {
         Instant from = range.start();
         Instant until = range.end();
+        // Series resolution for this window (minute/hour/day); the daily queries bucket by it.
+        long bucket = range.bucketSeconds();
         // Immediately preceding, equal-length window for "+X% vs. período anterior"; absent for the
         // whole history (an open range has no comparable prior span).
         Instant previousFrom = range.isOpen() ? null : from.minus(Duration.between(from, until));
@@ -59,23 +61,23 @@ public class GrowthMetricsService {
         long paidCourseUsers = repository.countPaidCourseUsers(until);
 
         return new GrowthMetricsResponse(
-                users(from, until, previousFrom),
-                engagement(from, until, previousFrom),
-                sessions(from, until),
+                users(from, until, previousFrom, bucket),
+                engagement(from, until, previousFrom, bucket),
+                sessions(from, until, bucket),
                 cohorts(from, until),
-                waitlist(from, until),
-                revenue(from, until),
+                waitlist(from, until, bucket),
+                revenue(from, until, bucket),
                 new GemsSection(
                         repository.countGemPurchasesBetween(from, until),
                         repository.sumGemsGrantedBetween(from, until),
-                        toDailyCounts(repository.dailyGemPurchases(from, until))),
+                        toDailyCounts(repository.dailyGemPurchases(from, until, bucket), bucket)),
                 seats(until),
                 statusItems,
-                orgs(from, until, statusItems, paidCourseUsers),
+                orgs(from, until, statusItems, paidCourseUsers, bucket),
                 paidCourseUsers);
     }
 
-    private UsersSection users(Instant from, Instant until, Instant previousFrom) {
+    private UsersSection users(Instant from, Instant until, Instant previousFrom, long bucket) {
         long newInRange = repository.countNewUsersBetween(from, until);
         long activated = repository.countActivatedNewUsersBetween(from, until);
         Long previousNew =
@@ -86,11 +88,11 @@ public class GrowthMetricsService {
                 previousNew,
                 activated,
                 percent(activated, newInRange),
-                toDailyCounts(repository.dailyNewUsers(from, until)));
+                toDailyCounts(repository.dailyNewUsers(from, until, bucket), bucket));
     }
 
     /** Client-reported app-usage sessions: frequency (per user) and average duration. */
-    private SessionsSection sessions(Instant from, Instant until) {
+    private SessionsSection sessions(Instant from, Instant until, long bucket) {
         long total = repository.countSessionsBetween(from, until);
         long users = repository.countUsersWithSessionBetween(from, until);
         double perUser = users == 0 ? 0.0 : Math.round((total * 10.0) / users) / 10.0;
@@ -101,11 +103,12 @@ public class GrowthMetricsService {
                 users,
                 perUser,
                 averageDuration,
-                toDailyCounts(repository.dailySessions(from, until)));
+                toDailyCounts(repository.dailySessions(from, until, bucket), bucket));
     }
 
     /** Rolling windows ending at the close of the period: DAU (24 h), WAU (7 d), MAU (30 d). */
-    private EngagementSection engagement(Instant from, Instant until, Instant previousFrom) {
+    private EngagementSection engagement(
+            Instant from, Instant until, Instant previousFrom, long bucket) {
         long dau = repository.countActiveUsersBetween(until.minus(Duration.ofDays(1)), until);
         long wau = repository.countActiveUsersBetween(until.minus(Duration.ofDays(7)), until);
         long mau = repository.countActiveUsersBetween(until.minus(Duration.ofDays(30)), until);
@@ -114,8 +117,9 @@ public class GrowthMetricsService {
                 previousFrom == null
                         ? null
                         : repository.countActiveUsersBetween(previousFrom, from);
-        // Range-based so the "usuarios activos por día" series follows the from/to filter.
-        List<DailyCount> dailyActive = toDailyCounts(repository.dailyActiveUsers(from, until));
+        // Range-based so the "usuarios activos" series follows the from/to filter.
+        List<DailyCount> dailyActive =
+                toDailyCounts(repository.dailyActiveUsers(from, until, bucket), bucket);
         return new EngagementSection(
                 dau, wau, mau, percent(dau, mau), activeInRange, previousActive, dailyActive);
     }
@@ -202,14 +206,14 @@ public class GrowthMetricsService {
         return members.isEmpty() ? 0.0 : Math.round((count * 1000.0) / members.size()) / 10.0;
     }
 
-    private WaitlistSection waitlist(Instant from, Instant until) {
+    private WaitlistSection waitlist(Instant from, Instant until, long bucket) {
         return new WaitlistSection(
                 repository.countWaitlistBefore(until),
                 repository.countNewWaitlistBetween(from, until),
-                toDailyCounts(repository.dailyWaitlist(from, until)));
+                toDailyCounts(repository.dailyWaitlist(from, until, bucket), bucket));
     }
 
-    private RevenueSection revenue(Instant from, Instant until) {
+    private RevenueSection revenue(Instant from, Instant until, long bucket) {
         BigDecimal paid = nonNull(repository.sumPaidAmountBetween(from, until));
         long paidCount = repository.countPaidBetween(from, until);
         BigDecimal refunded = nonNull(repository.sumRefundedBetween(from, until));
@@ -229,7 +233,7 @@ public class GrowthMetricsService {
                 averageTicket,
                 refunded,
                 refundRate,
-                toDailyAmounts(repository.dailyRevenue(from, until)));
+                toDailyAmounts(repository.dailyRevenue(from, until, bucket), bucket));
     }
 
     private SeatsSection seats(Instant until) {
@@ -240,7 +244,11 @@ public class GrowthMetricsService {
 
     /** B2B deep-dive: pipeline, per-org license utilization and free→premium conversion. */
     private OrganizationsSection orgs(
-            Instant from, Instant until, List<CountItem> statusItems, long paidCourseUsers) {
+            Instant from,
+            Instant until,
+            List<CountItem> statusItems,
+            long paidCourseUsers,
+            long bucket) {
         long pending =
                 statusItems.stream()
                         .filter(i -> "PENDING".equals(i.key()))
@@ -306,7 +314,7 @@ public class GrowthMetricsService {
                 avgUsersPerOrg,
                 avgRevenuePerOrg,
                 repository.countPaidBetween(from, until),
-                toDailyCounts(repository.dailyPurchases(from, until)),
+                toDailyCounts(repository.dailyPurchases(from, until, bucket), bucket),
                 utilization,
                 conversion);
     }
@@ -319,22 +327,27 @@ public class GrowthMetricsService {
         return items;
     }
 
-    private static List<DailyCount> toDailyCounts(List<Object[]> rows) {
+    private static List<DailyCount> toDailyCounts(List<Object[]> rows, long bucket) {
         List<DailyCount> series = new ArrayList<>(rows.size());
         for (Object[] row : rows) {
-            series.add(new DailyCount((LocalDate) row[0], toLong(row[1])));
+            series.add(new DailyCount(bucketStart(row[0], bucket), toLong(row[1])));
         }
-        series.sort(Comparator.comparing(DailyCount::day));
+        series.sort(Comparator.comparing(DailyCount::t));
         return series;
     }
 
-    private static List<DailyAmount> toDailyAmounts(List<Object[]> rows) {
+    private static List<DailyAmount> toDailyAmounts(List<Object[]> rows, long bucket) {
         List<DailyAmount> series = new ArrayList<>(rows.size());
         for (Object[] row : rows) {
-            series.add(new DailyAmount((LocalDate) row[0], nonNull((BigDecimal) row[1])));
+            series.add(new DailyAmount(bucketStart(row[0], bucket), nonNull((BigDecimal) row[1])));
         }
-        series.sort(Comparator.comparing(DailyAmount::day));
+        series.sort(Comparator.comparing(DailyAmount::t));
         return series;
+    }
+
+    /** The UTC start instant of a bucket from its index ({@code index × bucketSeconds}). */
+    private static Instant bucketStart(Object index, long bucket) {
+        return Instant.ofEpochSecond(((Number) index).longValue() * bucket);
     }
 
     private static long toLong(Object value) {
