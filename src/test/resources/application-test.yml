@@ -42,8 +42,6 @@ auth:
 firebase:
   enabled: false
 
-google-play:
-  enabled: false
   global-topic: test-global
 
 app:

@@ -1,0 +1,86 @@
+package com.signasource.signa_api.gamification.entity;
+
+import com.signasource.signa_api.users.entity.User;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.UUID;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
+import lombok.ToString;
+
+/**
+ * A user's attempt to buy a {@link GemPack} with Mercado Pago. Gems and price are frozen when the
+ * order is created, so a later price change never alters what an open checkout pays. The gems are
+ * credited once, when Mercado Pago confirms the payment ({@link GemOrderStatus#PAID}).
+ */
+@Data
+@Entity
+@Table(name = "gem_orders")
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class GemOrder {
+
+    /**
+     * Prefix of the Mercado Pago {@code external_reference}: tells gem orders from seat purchases.
+     */
+    public static final String REFERENCE_PREFIX = "gems:";
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private User user;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "gem_pack_id", nullable = false)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private GemPack gemPack;
+
+    @Column(nullable = false)
+    private int gems;
+
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal amount;
+
+    @Column(nullable = false, length = 3)
+    private String currency;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private GemOrderStatus status = GemOrderStatus.PENDING;
+
+    /** Id of the Mercado Pago order that charges this one. */
+    @Column(length = 100)
+    private String mercadoPagoOrderId;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Instant createdAt = Instant.now();
+
+    private Instant paidAt;
+
+    public String reference() {
+        return REFERENCE_PREFIX + id;
+    }
+}

@@ -711,48 +711,38 @@ sequenceDiagram
     end
 ```
 
-## Tienda: compra de gemas con dinero real (Google Play)
+## Tienda: compra de gemas con dinero real (Mercado Pago)
 
-La app nunca acredita gemas por su cuenta: paga en Google Play, le pasa el comprobante a la API y
-sólo cuando la API confirma la acreditación le avisa a Google que el producto fue consumido. Si la
-app se cierra entre el pago y la acreditación, al volver a abrir la tienda reintenta con el mismo
-comprobante y la API responde lo mismo sin acreditar de nuevo.
+La app nunca acredita gemas por su cuenta: la API crea una orden en Mercado Pago, la app abre el
+checkout y las gemas se acreditan sólo cuando la API lee la orden desde Mercado Pago y la ve
+aprobada, con el monto esperado. Dos caminos llegan a ese punto —el webhook y el chequeo que hace la
+app al volver— y la orden queda bloqueada, así que no se acredita dos veces.
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant C as Cliente
-    participant GP as Google Play
     participant API as API
-    participant G as Google Play Developer API
+    participant MP as Mercado Pago
     participant DB as Base de datos
 
     C->>API: Listar packs de gemas
-    API->>DB: Traer packs activos
-    API-->>C: Packs (id de producto + cantidad de gemas)
-    C->>GP: Precio localizado de cada producto y compra
-    GP-->>C: Compra completada (token de compra)
-    C->>API: Canjear compra (producto + token)
-    API->>DB: ¿Ya existe una compra con ese token?
-    alt ya canjeado por este usuario
-        API-->>C: Compra ya acreditada (sin acreditar de nuevo) + inventario
-    else canjeado por otro usuario
-        API-->>C: Conflicto (409)
-    else token nuevo
-        API->>G: Consultar el estado de la compra
-        alt token inválido o de otro producto
-            API-->>C: Solicitud inválida (400)
-        else pago pendiente o cancelado
-            API-->>C: Solicitud inválida (400)
-        else ya consumido sin haberse acreditado
-            API-->>C: Conflicto (409)
-        else pagado y sin consumir
-            API->>DB: Acreditar gemas y registrar la compra (token único)
-            Note over API,DB: Si dos requests con el mismo token corren a la vez,<br/>la restricción de unicidad hace ganar a una sola;<br/>la otra devuelve la compra ya acreditada
-            API-->>C: Compra acreditada + inventario actualizado
-        end
-    end
-    C->>GP: Marcar el producto como consumido
+    API-->>C: Packs (gemas + precio en pesos)
+    C->>API: Comprar un pack
+    API->>DB: Crear la orden (PENDING, gemas y precio congelados)
+    API->>MP: Crear order de checkout
+    MP-->>API: Id de la order + URL de pago
+    API-->>C: Id de orden + URL de pago
+    C->>MP: Abrir el checkout y pagar
+    MP-->>API: Webhook (tema order)
+    API->>MP: Releer la order
+    MP-->>API: Estado, monto y moneda
+    API->>DB: Orden bloqueada: si está aprobada y coincide, PAID y acreditar gemas
+    MP-->>C: Volver a la app (página de la API + deep link)
+    C->>API: Verificar la orden
+    API->>MP: Releer la order
+    API->>DB: Mismo paso; si ya estaba PAID no acredita de nuevo
+    API-->>C: Estado de la orden + inventario
 ```
 
 ## Obtención de la animación de una seña

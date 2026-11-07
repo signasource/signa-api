@@ -10,7 +10,5 @@ public interface GemPackRepository extends JpaRepository<GemPack, UUID> {
 
     List<GemPack> findByActiveTrueOrderBySortOrderAsc();
 
-    Optional<GemPack> findByProductIdAndActiveTrue(String productId);
-
-    boolean existsByProductId(String productId);
+    Optional<GemPack> findByProductId(String productId);
 }

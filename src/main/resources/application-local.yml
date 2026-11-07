@@ -8,6 +8,3 @@ app:
   panel-url: http://localhost:5173
   cors:
     allowed-origins: http://localhost:5173
-
-google-play:
-  enabled: false

@@ -256,10 +256,11 @@ rachas y XP). `ACHIEVEMENT` es el catálogo de logros; `USER_ACHIEVEMENT` regist
 desbloqueó (con `earnedAt`). `SHOP_ITEM` es el catálogo de la tienda (multiplicadores de XP, vidas
 ilimitadas por tiempo, recargas de vida, escudos de racha y el cofre sorpresa); `PURCHASE` es el
 historial de compras (para uno mismo o al comprar un regalo) y `GIFT` el regalo enviado a un amigo,
-pendiente de reclamar. `GEM_PACK` es el catálogo de packs de gemas que se compran con dinero real a
-través de la tienda de Google Play (cada uno referencia el producto in-app de Play y cuánta gema
-entrega); `GEM_PURCHASE` es el registro de cada compra verificada con Google y ya acreditada — su
-token de compra es único, y eso es lo que impide acreditar dos veces la misma compra.
+pendiente de reclamar. `GEM_PACK` es el catálogo de packs de gemas que se compran con dinero real a través de Mercado Pago
+(cada uno trae cuánta gema entrega y su precio en pesos); `GEM_ORDER` es cada intento de compra de un
+pack: congela gemas y precio, guarda la order de Mercado Pago que la cobra y recién pasa a `PAID`
+(y acredita) cuando Mercado Pago confirma el pago. La tabla vieja `gem_purchases` (comprobantes de
+Google Play) ya no se usa.
 
 ```mermaid
 erDiagram
@@ -273,8 +274,8 @@ erDiagram
     CHALLENGE ||--o{ USER_CHALLENGE : "referido por"
     SHOP_ITEM ||--o{ PURCHASE : "referido por"
     SHOP_ITEM ||--o{ GIFT : "referido por"
-    USER ||--o{ GEM_PURCHASE : "compra con dinero real"
-    GEM_PACK ||--o{ GEM_PURCHASE : "referido por"
+    USER ||--o{ GEM_ORDER : "compra con dinero real"
+    GEM_PACK ||--o{ GEM_ORDER : "referido por"
 
     USER_STATS {
         uuid id PK
@@ -372,21 +373,24 @@ erDiagram
     }
     GEM_PACK {
         uuid id PK
-        string productId UK "producto in-app de Google Play"
+        string productId UK "código estable del pack"
         int gems
+        decimal price
+        string currency
         int sortOrder
         boolean active
     }
-    GEM_PURCHASE {
+    GEM_ORDER {
         uuid id PK
         uuid user_id FK
         uuid gem_pack_id FK
-        string productId
-        text purchaseToken UK
-        string orderId
-        int gemsGranted
-        instant purchasedAt
-        instant verifiedAt
+        int gems
+        decimal amount
+        string currency
+        enum status "PENDING, PAID, REFUNDED"
+        string mercadoPagoOrderId UK
+        instant createdAt
+        instant paidAt
     }
 ```
 
