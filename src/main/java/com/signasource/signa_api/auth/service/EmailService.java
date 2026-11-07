@@ -1,5 +1,6 @@
 package com.signasource.signa_api.auth.service;
 
+import com.signasource.signa_api.common.MetricsService;
 import jakarta.mail.internet.MimeMessage;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -28,6 +29,7 @@ public class EmailService {
                     .withZone(ZoneId.of("America/Argentina/Buenos_Aires"));
 
     private final JavaMailSender mailSender;
+    private final MetricsService metricsService;
 
     @Value("${app.panel-url:}")
     private String panelUrl;
@@ -35,7 +37,7 @@ public class EmailService {
     @Value("${app.base-url}")
     private String baseUrl;
 
-    @Value("${spring.mail.username}")
+    @Value("${app.mail.from:${spring.mail.username}}")
     private String fromEmail;
 
     @Async
@@ -139,6 +141,9 @@ public class EmailService {
             mailSender.send(message);
 
         } catch (Exception e) {
+            // Sends run @Async, so this failure is otherwise invisible: the counter makes a mail
+            // outage (e.g. the SMTP egress block) observable and alertable in Grafana.
+            metricsService.recordEmailFailure();
             log.error("Error sending email to {}", to, e);
             throw new RuntimeException("Failed to send email");
         }

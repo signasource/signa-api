@@ -21,8 +21,8 @@ spring:
     baseline-description: baseline
 
   mail:
-    host: smtp.gmail.com
-    port: 587
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
     username: ${MAIL_USERNAME}
     password: ${MAIL_PASSWORD}
     properties:
@@ -52,10 +52,21 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+    distribution:
+      # Percentile histograms let Grafana compute p50/p95/p99 latency with histogram_quantile,
+      # both for HTTP requests and for the custom client/R2 timers (publishPercentileHistogram).
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 50ms,100ms,200ms,500ms,1s,2s,5s
 
 app:
   base-url:
   panel-url: ${PANEL_URL:}
+  mail:
+    # Sender address. Defaults to the SMTP username (Gmail), but relays like Brevo authenticate
+    # with an account login that is not a valid From, so the sender is set independently there.
+    from: ${MAIL_FROM:${spring.mail.username}}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:}
   content:
@@ -71,6 +82,14 @@ auth:
         access: 900000               # 15 minutes
         refresh: 604800000           # 7 days
         email-verification: 86400000 # 24 hours
+
+grafana-cloud:
+  # Read access to Grafana Cloud Prometheus, used by the admin usage dashboard to proxy the
+  # performance panels (query_range). Unset = perf panels degrade to "sin datos"; business panels
+  # (Postgres) keep working. The token is a metrics:read access policy, NOT the Alloy write key.
+  query-url: ${GRAFANA_CLOUD_PROM_QUERY_URL:}
+  user: ${GRAFANA_CLOUD_PROM_USER:}
+  token: ${GRAFANA_CLOUD_READ_TOKEN:}
 
 firebase:
   enabled: true

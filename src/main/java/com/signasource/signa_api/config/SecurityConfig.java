@@ -60,6 +60,8 @@ public class SecurityConfig {
                                         .permitAll()
                                         .requestMatchers(HttpMethod.POST, "/waitlist")
                                         .permitAll()
+                                        .requestMatchers(HttpMethod.POST, "/telemetry/events")
+                                        .permitAll()
                                         .requestMatchers(
                                                 HttpMethod.POST, "/payments/mercado-pago/webhook")
                                         .permitAll()

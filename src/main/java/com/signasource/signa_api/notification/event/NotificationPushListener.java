@@ -1,5 +1,6 @@
 package com.signasource.signa_api.notification.event;
 
+import com.signasource.signa_api.common.MetricsService;
 import com.signasource.signa_api.notification.dto.FcmResult;
 import com.signasource.signa_api.notification.service.DeviceTokenService;
 import com.signasource.signa_api.notification.service.FirebaseService;
@@ -21,6 +22,7 @@ public class NotificationPushListener {
 
     private final DeviceTokenService deviceTokenService;
     private final FirebaseService firebaseService;
+    private final MetricsService metricsService;
 
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -31,6 +33,9 @@ public class NotificationPushListener {
         }
 
         FcmResult result = firebaseService.sendToTokens(tokens, event.message());
+        if (result.failureCount() > 0) {
+            metricsService.recordPushFailure();
+        }
         if (!result.invalidTokens().isEmpty()) {
             deviceTokenService.purgeInvalidTokens(result.invalidTokens());
         }

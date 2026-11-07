@@ -2,18 +2,20 @@ package com.signasource.signa_api.admin.service;
 
 import com.signasource.signa_api.admin.dto.AdminCourseResponse;
 import com.signasource.signa_api.admin.dto.AdminOrganizationResponse;
-import com.signasource.signa_api.admin.dto.AdminSignReportGroupResponse;
+import com.signasource.signa_api.admin.dto.AdminSignDetailResponse;
+import com.signasource.signa_api.admin.dto.AdminSignReportResponse;
 import com.signasource.signa_api.admin.dto.AdminSignResponse;
 import com.signasource.signa_api.admin.dto.AdminStatsResponse;
 import com.signasource.signa_api.admin.dto.AdminUserResponse;
 import com.signasource.signa_api.admin.dto.AdminWaitlistEntryResponse;
 import com.signasource.signa_api.admin.dto.CreateAdminRequest;
 import com.signasource.signa_api.admin.dto.UpdateOrganizationStatusRequest;
-import com.signasource.signa_api.admin.dto.UpdateSignReportGroupRequest;
+import com.signasource.signa_api.admin.dto.UpdateSignReportRequest;
 import com.signasource.signa_api.admin.dto.UpdateUserRequest;
+import com.signasource.signa_api.auth.entity.TokenType;
+import com.signasource.signa_api.auth.repository.TokenRepository;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
-import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.gamification.entity.UserStats;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
 import com.signasource.signa_api.learning.entity.ReportReason;
@@ -36,18 +38,27 @@ import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.entity.UserSettings;
 import com.signasource.signa_api.users.repository.UserRepository;
 import com.signasource.signa_api.users.repository.UserSettingsRepository;
+import com.signasource.signa_api.users.service.UserService;
 import com.signasource.signa_api.waitlist.repository.WaitlistRepository;
+import jakarta.persistence.criteria.Fetch;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Comparator;
+import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
+import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -65,6 +76,8 @@ public class AdminService {
     private final CourseRepository courseRepository;
     private final SignRepository signRepository;
     private final UserStatsRepository userStatsRepository;
+    private final TokenRepository tokenRepository;
+    private final UserService userService;
     private final PasswordEncoder passwordEncoder;
 
     // ── Stats ────────────────────────────────────────────────────────────────
@@ -172,98 +185,79 @@ public class AdminService {
     // ── Sign Reports ─────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
-    public List<AdminSignReportGroupResponse> getSignReportGroups(ReportStatus statusFilter) {
-        List<ReportStatus> statuses =
-                statusFilter != null
-                        ? List.of(statusFilter)
-                        : List.of(
-                                ReportStatus.PENDING,
-                                ReportStatus.REVIEWED,
-                                ReportStatus.RESOLVED,
-                                ReportStatus.REJECTED);
+    public List<AdminSignReportResponse> getSignReports(
+            ReportStatus status,
+            ReportReason reason,
+            String signQuery,
+            LocalDate from,
+            LocalDate to) {
+        LocalDateTime fromDateTime = from != null ? from.atStartOfDay() : null;
+        LocalDateTime toDateTime = to != null ? to.atTime(LocalTime.MAX) : null;
+        String query = (signQuery != null && !signQuery.isBlank()) ? signQuery.trim() : null;
 
-        List<SignReport> reports = signReportRepository.findByStatusIn(statuses);
-
-        Map<UUID, List<SignReport>> bySign =
-                reports.stream().collect(Collectors.groupingBy(r -> r.getSign().getId()));
-
-        return bySign.entrySet().stream()
-                .map(e -> buildGroup(e.getValue()))
-                .sorted(Comparator.comparingInt(g -> -g.reportCount()))
+        return signReportRepository
+                .findAll(signReportSpec(status, reason, query, fromDateTime, toDateTime))
+                .stream()
+                .map(AdminSignReportResponse::from)
                 .toList();
     }
 
-    private AdminSignReportGroupResponse buildGroup(List<SignReport> reports) {
-        Sign sign = reports.get(0).getSign();
-        ReportReason topReason =
-                reports.stream()
-                        .collect(
-                                Collectors.groupingBy(SignReport::getReason, Collectors.counting()))
-                        .entrySet()
-                        .stream()
-                        .max(Map.Entry.comparingByValue())
-                        .map(Map.Entry::getKey)
-                        .orElse(ReportReason.OTHER);
+    /**
+     * Builds the admin report query as a Specification so only the filters actually provided add a
+     * predicate. A JPQL {@code :param IS NULL OR ...} query binds typed nulls that PostgreSQL
+     * cannot infer (e.g. a null string parameter is read as {@code bytea}, breaking {@code
+     * lower(...)}).
+     */
+    private Specification<SignReport> signReportSpec(
+            ReportStatus status,
+            ReportReason reason,
+            String signQuery,
+            LocalDateTime from,
+            LocalDateTime to) {
+        return (root, query, cb) -> {
+            Fetch<SignReport, Sign> signFetch = root.fetch("sign", JoinType.INNER);
+            signFetch.fetch("signLanguage", JoinType.INNER);
+            root.fetch("user", JoinType.INNER);
+            root.fetch("resolvedBy", JoinType.LEFT);
+            query.orderBy(cb.desc(root.get("createdAt")));
 
-        ReportStatus groupStatus = deriveGroupStatus(reports);
-        LocalDateTime lastAt =
-                reports.stream()
-                        .map(SignReport::getCreatedAt)
-                        .max(Comparator.naturalOrder())
-                        .orElse(null);
-
-        List<AdminSignReportGroupResponse.ReportItem> items =
-                reports.stream()
-                        .sorted(Comparator.comparing(SignReport::getCreatedAt).reversed())
-                        .map(
-                                r ->
-                                        new AdminSignReportGroupResponse.ReportItem(
-                                                r.getId(),
-                                                r.getUser().getUsername(),
-                                                r.getReason(),
-                                                r.getDescription(),
-                                                r.getStatus(),
-                                                r.getCreatedAt()))
-                        .toList();
-
-        return new AdminSignReportGroupResponse(
-                sign.getId(),
-                sign.getMeaning(),
-                sign.getSignLanguage().getName(),
-                sign.getHandedness().name(),
-                reports.size(),
-                topReason,
-                groupStatus,
-                lastAt,
-                items);
-    }
-
-    private ReportStatus deriveGroupStatus(List<SignReport> reports) {
-        Set<ReportStatus> statuses =
-                reports.stream().map(SignReport::getStatus).collect(Collectors.toSet());
-        if (statuses.contains(ReportStatus.PENDING)) return ReportStatus.PENDING;
-        if (statuses.contains(ReportStatus.REVIEWED)) return ReportStatus.REVIEWED;
-        if (statuses.contains(ReportStatus.RESOLVED)) return ReportStatus.RESOLVED;
-        return ReportStatus.REJECTED;
+            List<Predicate> predicates = new ArrayList<>();
+            if (status != null) predicates.add(cb.equal(root.get("status"), status));
+            if (reason != null) predicates.add(cb.equal(root.get("reason"), reason));
+            if (signQuery != null) {
+                Join<SignReport, Sign> sign = root.join("sign", JoinType.INNER);
+                predicates.add(
+                        cb.like(
+                                cb.lower(sign.get("meaning")),
+                                "%" + signQuery.toLowerCase(Locale.ROOT) + "%"));
+            }
+            if (from != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.<LocalDateTime>get("createdAt"), from));
+            }
+            if (to != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.<LocalDateTime>get("createdAt"), to));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
     }
 
     @Transactional
-    public AdminSignReportGroupResponse updateSignReportGroup(
-            UUID signId, UpdateSignReportGroupRequest request, User actor) {
-        List<SignReport> reports = signReportRepository.findBySignId(signId);
-        if (reports.isEmpty()) throw new NotFoundException("No reports found for sign " + signId);
+    public AdminSignReportResponse updateSignReport(
+            UUID reportId, UpdateSignReportRequest request, User actor) {
+        SignReport report =
+                signReportRepository
+                        .findById(reportId)
+                        .orElseThrow(() -> new NotFoundException("Report not found: " + reportId));
 
-        for (SignReport report : reports) {
-            report.setStatus(request.status());
-            if (request.adminNote() != null) report.setAdminNote(request.adminNote());
-            if (request.status() == ReportStatus.RESOLVED
-                    || request.status() == ReportStatus.REJECTED) {
-                report.setResolvedBy(actor);
-                report.setResolvedAt(LocalDateTime.now());
-            }
+        report.setStatus(request.status());
+        if (request.adminNote() != null) report.setAdminNote(request.adminNote());
+        if (request.status() == ReportStatus.RESOLVED
+                || request.status() == ReportStatus.REJECTED) {
+            report.setResolvedBy(actor);
+            report.setResolvedAt(LocalDateTime.now());
         }
-        signReportRepository.saveAll(reports);
-        return buildGroup(reports);
+        signReportRepository.save(report);
+        return AdminSignReportResponse.from(report);
     }
 
     // ── Users ────────────────────────────────────────────────────────────────
@@ -299,12 +293,37 @@ public class AdminService {
     }
 
     @Transactional
-    public AdminUserResponse updateUser(UUID userId, UpdateUserRequest request) {
-        User user = findUser(userId);
+    public AdminUserResponse updateUser(User actor, UUID userId, UpdateUserRequest request) {
+        User user = findExistingUser(userId);
+        boolean losesAccess =
+                Boolean.FALSE.equals(request.enabled())
+                        || (request.role() != null && request.role() != Role.ADMIN);
+        if (actor.getId().equals(userId) && losesAccess) {
+            throw new InvalidInputException("You cannot disable or demote your own account");
+        }
         if (request.role() != null) user.setRole(request.role());
         if (request.enabled() != null) user.setEnabled(request.enabled());
         userRepository.save(user);
+        if (Boolean.FALSE.equals(request.enabled())) {
+            tokenRepository.deleteByUserAndType(user, TokenType.REFRESH);
+        }
         return getUser(userId);
+    }
+
+    @Transactional
+    public void deleteUser(User actor, UUID userId) {
+        if (actor.getId().equals(userId)) {
+            throw new InvalidInputException("You cannot delete your own account");
+        }
+        userService.deleteAccount(findExistingUser(userId));
+    }
+
+    private User findExistingUser(UUID userId) {
+        User user = findUser(userId);
+        if (user.getEmail().endsWith(UserService.DELETED_EMAIL_DOMAIN)) {
+            throw new NotFoundException("User not found");
+        }
+        return user;
     }
 
     // ── Admins ───────────────────────────────────────────────────────────────
@@ -324,8 +343,9 @@ public class AdminService {
 
     @Transactional
     public AdminUserResponse createAdmin(CreateAdminRequest request) {
-        if (userRepository.existsByEmail(request.email())) {
-            throw new ResourceAlreadyInUseException("Email already in use");
+        Optional<User> existing = userRepository.findFirstByEmailIgnoreCase(request.email().trim());
+        if (existing.isPresent()) {
+            return promoteToAdmin(existing.get(), request.password());
         }
         String base = request.name().toLowerCase().replaceAll("[^a-z0-9]", "");
         if (base.length() > 20) base = base.substring(0, 20);
@@ -351,6 +371,18 @@ public class AdminService {
         userRepository.save(admin);
         userSettingsRepository.save(UserSettings.builder().user(admin).build());
         return AdminUserResponse.from(admin, null, null);
+    }
+
+    private AdminUserResponse promoteToAdmin(User user, String password) {
+        user.setRole(Role.ADMIN);
+        user.setEnabled(true);
+        user.setVerified(true);
+        if (user.getPasswordHash() == null) {
+            user.setPasswordHash(passwordEncoder.encode(password));
+            user.getProviders().add(AuthProvider.LOCAL);
+        }
+        userRepository.save(user);
+        return getUser(user.getId());
     }
 
     // ── Waitlist ─────────────────────────────────────────────────────────────
@@ -393,6 +425,38 @@ public class AdminService {
         return new PageImpl<>(content, pageable, page.getTotalElements());
     }
 
+    private static final Pattern YOUTUBE_URL_PATTERN =
+            Pattern.compile("^https?://(www\\.|m\\.)?(youtube\\.com|youtu\\.be)/.+");
+
+    @Transactional(readOnly = true)
+    public AdminSignDetailResponse getSign(UUID id) {
+        Sign sign =
+                signRepository
+                        .findById(id)
+                        .orElseThrow(() -> new NotFoundException("Sign not found: " + id));
+        return AdminSignDetailResponse.from(sign, countOpenReports(id));
+    }
+
+    @Transactional
+    public AdminSignDetailResponse updateSign(UUID id, String youtubeUrl) {
+        Sign sign =
+                signRepository
+                        .findById(id)
+                        .orElseThrow(() -> new NotFoundException("Sign not found: " + id));
+        String normalized = (youtubeUrl == null || youtubeUrl.isBlank()) ? null : youtubeUrl.trim();
+        if (normalized != null && !YOUTUBE_URL_PATTERN.matcher(normalized).matches()) {
+            throw new InvalidInputException("Invalid YouTube URL: " + normalized);
+        }
+        sign.setYoutubeUrl(normalized);
+        signRepository.save(sign);
+        return AdminSignDetailResponse.from(sign, countOpenReports(id));
+    }
+
+    private long countOpenReports(UUID signId) {
+        return signReportRepository.countBySignIdAndStatusIn(
+                signId, List.of(ReportStatus.PENDING, ReportStatus.REVIEWED));
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private Organization findOrg(UUID id) {
@@ -404,7 +468,6 @@ public class AdminService {
     private User findUser(UUID id) {
         return userRepository
                 .findById(id)
-                .filter(User::isEnabled)
                 .orElseThrow(() -> new NotFoundException("User not found"));
     }
 }

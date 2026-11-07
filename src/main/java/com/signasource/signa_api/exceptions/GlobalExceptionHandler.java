@@ -1,6 +1,8 @@
 package com.signasource.signa_api.exceptions;
 
+import com.signasource.signa_api.common.MetricsService;
 import jakarta.validation.ConstraintViolationException;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.AuthenticationException;
@@ -13,8 +15,12 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
+@RequiredArgsConstructor
 @Slf4j
 public class GlobalExceptionHandler {
+
+    private final MetricsService metricsService;
+
     @ExceptionHandler(InvalidCredentialsException.class)
     public ResponseEntity<ErrorResponse> handleInvalidCredentials(InvalidCredentialsException ex) {
         return ResponseEntity.status(401).body(ErrorResponse.of(ex.getMessage(), 401));
@@ -49,6 +55,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(PaymentProviderException.class)
     public ResponseEntity<ErrorResponse> handlePaymentProvider(PaymentProviderException ex) {
         log.error("Payment provider error", ex);
+        metricsService.recordHttpError("PaymentProviderException", 503);
         return ResponseEntity.status(503).body(ErrorResponse.of(ex.getMessage(), 503));
     }
 
@@ -111,12 +118,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ErrorResponse> handleBadCredentials(AuthenticationException ex) {
         log.error("Authentication error", ex);
+        metricsService.recordHttpError("AuthenticationException", 401);
         return ResponseEntity.status(401).body(ErrorResponse.of("Invalid credentials", 401));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleException(Exception ex) {
         log.error("Unexpected error", ex);
+        metricsService.recordHttpError(ex.getClass().getSimpleName(), 500);
         return ResponseEntity.status(500).body(ErrorResponse.of("Internal server error", 500));
     }
 }

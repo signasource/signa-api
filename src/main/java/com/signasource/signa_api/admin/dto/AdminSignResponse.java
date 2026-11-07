@@ -8,6 +8,7 @@ public record AdminSignResponse(
         String meaning,
         String handedness,
         boolean hasAnimation,
+        boolean hasYoutube,
         long openReports,
         long lessonCount) {
 
@@ -17,6 +18,7 @@ public record AdminSignResponse(
                 sign.getMeaning(),
                 sign.getHandedness().name(),
                 sign.getAnimationUrl() != null && !sign.getAnimationUrl().isBlank(),
+                sign.getYoutubeUrl() != null && !sign.getYoutubeUrl().isBlank(),
                 openReports,
                 lessonCount);
     }

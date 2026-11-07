@@ -6,9 +6,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.admin.dto.AdminCourseResponse;
+import com.signasource.signa_api.admin.dto.AdminSignDetailResponse;
 import com.signasource.signa_api.admin.dto.AdminSignResponse;
 import com.signasource.signa_api.admin.dto.AdminWaitlistEntryResponse;
 import com.signasource.signa_api.admin.dto.ContentImportRunResponse;
+import com.signasource.signa_api.admin.dto.UpdateSignRequest;
 import com.signasource.signa_api.admin.service.AdminService;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.content.entity.ContentImportRun;
@@ -48,7 +50,7 @@ class AdminContentControllerTest {
     @Test
     void shouldGetSigns() {
         AdminSignResponse sign =
-                new AdminSignResponse(UUID.randomUUID(), "hola", "ONE_HANDED", true, 0, 0);
+                new AdminSignResponse(UUID.randomUUID(), "hola", "ONE_HANDED", true, false, 0, 0);
         when(adminService.getSigns(any(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(sign)));
 
@@ -67,6 +69,36 @@ class AdminContentControllerTest {
         ResponseEntity<?> resp = controller.getWaitlist(Pageable.unpaged());
 
         assertEquals(HttpStatus.OK, resp.getStatusCode());
+    }
+
+    @Test
+    void shouldGetSignDetail() {
+        UUID id = UUID.randomUUID();
+        AdminSignDetailResponse detail =
+                new AdminSignDetailResponse(
+                        id, "hola", "ONE_HANDED", "LSA", "lsa/hola.glb", true, null, 0);
+        when(adminService.getSign(id)).thenReturn(detail);
+
+        ResponseEntity<AdminSignDetailResponse> resp = controller.getSign(id);
+
+        assertEquals(HttpStatus.OK, resp.getStatusCode());
+        assertEquals("hola", resp.getBody().meaning());
+    }
+
+    @Test
+    void shouldUpdateSignYoutube() {
+        UUID id = UUID.randomUUID();
+        String url = "https://youtu.be/abc";
+        AdminSignDetailResponse detail =
+                new AdminSignDetailResponse(id, "hola", "ONE_HANDED", "LSA", null, false, url, 0);
+        when(adminService.updateSign(id, url)).thenReturn(detail);
+
+        ResponseEntity<AdminSignDetailResponse> resp =
+                controller.updateSign(id, new UpdateSignRequest(url));
+
+        assertEquals(HttpStatus.OK, resp.getStatusCode());
+        assertEquals(url, resp.getBody().youtubeUrl());
+        verify(adminService).updateSign(id, url);
     }
 
     @Test

@@ -21,8 +21,11 @@ services:
       DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
+      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USERNAME: ${MAIL_USERNAME}
       MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_FROM: ${MAIL_FROM:-${MAIL_USERNAME}}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       BASE_URL: ${BASE_URL}
       FIREBASE_CREDENTIALS_JSON: ${FIREBASE_CREDENTIALS_JSON}
@@ -37,6 +40,10 @@ services:
       ORG_OPS_ALERT_EMAIL: ${ORG_OPS_ALERT_EMAIL}
       ADMIN_SEED_EMAIL: ${ADMIN_SEED_EMAIL}
       ADMIN_SEED_PASSWORD: ${ADMIN_SEED_PASSWORD}
+      # Grafana Cloud read access for the admin usage dashboard's performance panels (optional).
+      GRAFANA_CLOUD_PROM_QUERY_URL: ${GRAFANA_CLOUD_PROM_QUERY_URL:-}
+      GRAFANA_CLOUD_PROM_USER: ${GRAFANA_CLOUD_PROM_USER:-}
+      GRAFANA_CLOUD_READ_TOKEN: ${GRAFANA_CLOUD_READ_TOKEN:-}
     depends_on:
       - postgres
 
@@ -51,6 +58,42 @@ services:
     depends_on:
       - signa-api
 
+  # Host CPU/memory/disk/network of the droplet.
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: signa-node-exporter
+    restart: unless-stopped
+    command:
+      - '--path.rootfs=/host'
+    pid: host
+    volumes:
+      - '/:/host:ro,rslave'
+
+  # Per-container CPU/memory/IO (signa-api vs postgres vs nginx).
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: signa-cadvisor
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+
+  # PostgreSQL internals: connections, DB size, tuples, cache hit ratio.
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:latest
+    container_name: signa-postgres-exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${DB_USERNAME}:${DB_PASSWORD}@postgres:5432/${DB_NAME}?sslmode=disable"
+    depends_on:
+      - postgres
+
   alloy:
     image: grafana/alloy:latest
     container_name: signa-alloy
@@ -63,6 +106,9 @@ services:
     command: ["run", "--storage.path=/var/lib/alloy/data", "/etc/alloy/config.alloy"]
     depends_on:
       - signa-api
+      - node-exporter
+      - cadvisor
+      - postgres-exporter
 
 volumes:
   postgres_data: {}

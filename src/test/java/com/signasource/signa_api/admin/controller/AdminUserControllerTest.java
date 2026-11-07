@@ -3,13 +3,16 @@ package com.signasource.signa_api.admin.controller;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.admin.dto.AdminUserResponse;
 import com.signasource.signa_api.admin.dto.CreateAdminRequest;
 import com.signasource.signa_api.admin.dto.UpdateUserRequest;
 import com.signasource.signa_api.admin.service.AdminService;
+import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.users.entity.Role;
+import com.signasource.signa_api.users.entity.User;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -42,6 +45,17 @@ class AdminUserControllerTest {
                 "EMAIL",
                 0,
                 null);
+    }
+
+    @Test
+    void shouldDeleteUser() {
+        UUID id = UUID.randomUUID();
+        User actor = User.builder().id(UUID.randomUUID()).build();
+
+        ResponseEntity<Void> resp = controller.deleteUser(id, new CustomUserDetails(actor));
+
+        assertEquals(HttpStatus.NO_CONTENT, resp.getStatusCode());
+        verify(adminService).deleteUser(actor, id);
     }
 
     @Test
@@ -83,9 +97,11 @@ class AdminUserControllerTest {
                         "EMAIL",
                         0,
                         null);
-        when(adminService.updateUser(eq(id), any())).thenReturn(updated);
+        User actor = User.builder().id(UUID.randomUUID()).build();
+        when(adminService.updateUser(eq(actor), eq(id), any())).thenReturn(updated);
 
-        ResponseEntity<AdminUserResponse> resp = controller.updateUser(id, req);
+        ResponseEntity<AdminUserResponse> resp =
+                controller.updateUser(id, req, new CustomUserDetails(actor));
 
         assertEquals(HttpStatus.OK, resp.getStatusCode());
         assertEquals(Role.ADMIN, resp.getBody().role());
