@@ -25,7 +25,6 @@ import org.springframework.web.util.HtmlUtils;
 @RequiredArgsConstructor
 @Slf4j
 public class EmailService {
-    private static final String VERIFICATION_PATH = "/auth/verify";
     private static final String ADMIN_INVITE_PATH = "/accept-invite";
     private static final String SEAT_INVITATION_PATH = "/invitacion";
     private static final String PURCHASE_PATH = "/dashboard/purchases/";
@@ -34,11 +33,16 @@ public class EmailService {
                     .withZone(ZoneId.of("America/Argentina/Buenos_Aires"));
 
     private static final String PASSWORD_RESET_TEMPLATE = "email/password-reset.html";
+    private static final String VERIFICATION_TEMPLATE = "email/verification.html";
     // Inline (CID) images: no public hosting needed and they render without "load images".
     private static final Map<String, String> PASSWORD_RESET_IMAGES =
             Map.of(
                     "signa-logo", "email/signa-logo.png",
                     "lisa", "email/lisa-arms-crossed.png");
+    private static final Map<String, String> VERIFICATION_IMAGES =
+            Map.of(
+                    "signa-logo", "email/signa-logo.png",
+                    "lisa", "email/lisa-waving.png");
 
     private final JavaMailSender mailSender;
     private final MetricsService metricsService;
@@ -46,18 +50,16 @@ public class EmailService {
     @Value("${app.panel-url:}")
     private String panelUrl;
 
-    @Value("${app.base-url}")
-    private String baseUrl;
-
     @Value("${app.mail.from:${spring.mail.username}}")
     private String fromEmail;
 
     @Async
-    public void sendVerificationEmail(String to, String token) {
+    public void sendVerificationEmail(String to, String code) {
         sendEmail(
                 to,
                 "Verificá tu cuenta",
-                buildVerificationHtml(buildUrl(VERIFICATION_PATH, token)));
+                renderCodeTemplate(VERIFICATION_TEMPLATE, code),
+                VERIFICATION_IMAGES);
     }
 
     // Async so /auth/forgot-password answers in the same time (and status) whether or not the
@@ -67,7 +69,7 @@ public class EmailService {
         sendEmail(
                 to,
                 "Tu código para restablecer la contraseña",
-                buildPasswordResetHtml(code),
+                renderCodeTemplate(PASSWORD_RESET_TEMPLATE, code),
                 PASSWORD_RESET_IMAGES);
     }
 
@@ -174,29 +176,7 @@ public class EmailService {
         }
     }
 
-    private String buildUrl(String path, String token) {
-        return String.format("%s%s?token=%s", baseUrl, path, token);
-    }
-
-    private String buildVerificationHtml(String link) {
-        return """
-				<div style="font-family: Arial;">
-				    <h2>Bienvenido/a 👋</h2>
-				    <p>Por favor, verifica tu cuenta:</p>
-				    <a href="%s" style="
-				        background-color:#4CAF50;
-				        color:white;
-				        padding:10px 20px;
-				        text-decoration:none;
-				        border-radius:5px;">
-				        Verificar cuenta
-				    </a>
-				</div>
-				"""
-                .formatted(link);
-    }
-
-    private String buildPasswordResetHtml(String code) {
+    private String renderCodeTemplate(String template, String code) {
         StringBuilder cells = new StringBuilder();
         for (int i = 0; i < code.length(); i++) {
             if (i > 0) {
@@ -211,7 +191,7 @@ public class EmailService {
                             .formatted(
                                     i + 1, HtmlUtils.htmlEscape(String.valueOf(code.charAt(i)))));
         }
-        return loadTemplate(PASSWORD_RESET_TEMPLATE)
+        return loadTemplate(template)
                 .replace("{{DIGIT_CELLS}}", cells)
                 .replace("{{CODE_SPACED}}", HtmlUtils.htmlEscape(String.join(" ", code.split(""))))
                 .replace("{{CODE}}", HtmlUtils.htmlEscape(code));

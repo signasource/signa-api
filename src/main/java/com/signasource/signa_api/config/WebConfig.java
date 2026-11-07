@@ -25,6 +25,7 @@ public class WebConfig implements WebMvcConfigurer {
                 .addPathPatterns(
                         "/auth/forgot-password",
                         "/auth/reset-password",
+                        "/auth/verify-email",
                         "/auth/resend-verification-email");
     }
 }

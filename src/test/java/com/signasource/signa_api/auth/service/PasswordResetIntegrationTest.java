@@ -80,7 +80,7 @@ class PasswordResetIntegrationTest {
     void codeIsDiscardedAfterMaxFailedAttempts() {
         String code = requestCode();
 
-        for (int i = 0; i < AuthService.MAX_RESET_CODE_ATTEMPTS; i++) {
+        for (int i = 0; i < AuthService.MAX_CODE_ATTEMPTS; i++) {
             assertThatThrownBy(() -> reset(wrongCode(code)))
                     .isInstanceOf(InvalidResetCodeException.class);
         }

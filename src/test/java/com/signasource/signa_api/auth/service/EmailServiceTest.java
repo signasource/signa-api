@@ -20,7 +20,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 @ExtendWith(MockitoExtension.class)
 class EmailServiceTest {
 
-    private static final String BASE_URL = "https://example.com";
     private static final String FROM_EMAIL = "noreply@example.com";
 
     private static final String TO_EMAIL = "user@example.com";
@@ -36,7 +35,6 @@ class EmailServiceTest {
 
     @BeforeEach
     void setUp() {
-        ReflectionTestUtils.setField(emailService, "baseUrl", BASE_URL);
         ReflectionTestUtils.setField(emailService, "fromEmail", FROM_EMAIL);
 
         lenient().when(mailSender.createMimeMessage()).thenReturn(mimeMessage);
@@ -59,12 +57,30 @@ class EmailServiceTest {
     @Test
     void passwordResetHtmlRendersOneCellPerDigitAndInlineImages() {
         String html =
-                ReflectionTestUtils.invokeMethod(emailService, "buildPasswordResetHtml", "482917");
+                ReflectionTestUtils.invokeMethod(
+                        emailService, "renderCodeTemplate", "email/password-reset.html", "482917");
 
         assertThat(html).isNotNull();
         assertThat(html)
                 .contains("Código 4 8 2 9 1 7")
                 .contains("Tu código es 482917")
+                .contains("cid:signa-logo")
+                .contains("cid:lisa")
+                .doesNotContain("{{");
+        assertThat(html.split("class=\"sg-digit sg-d", -1)).hasSize(7);
+    }
+
+    @Test
+    void verificationHtmlRendersOneCellPerDigitAndInlineImages() {
+        String html =
+                ReflectionTestUtils.invokeMethod(
+                        emailService, "renderCodeTemplate", "email/verification.html", "482917");
+
+        assertThat(html).isNotNull();
+        assertThat(html)
+                .contains("Código 4 8 2 9 1 7")
+                .contains("Tu código es 482917")
+                .contains("Vence en 24 horas")
                 .contains("cid:signa-logo")
                 .contains("cid:lisa")
                 .doesNotContain("{{");
