@@ -112,7 +112,9 @@ class GemOrderServiceTest {
         assertEquals("https://mp.test/checkout", response.checkoutUrl());
         ArgumentCaptor<OrderRequest> request = ArgumentCaptor.forClass(OrderRequest.class);
         verify(mercadoPago).createOrder(request.capture());
-        assertEquals("gems:" + response.orderId(), request.getValue().externalReference());
+        assertEquals("gems_" + response.orderId(), request.getValue().externalReference());
+        // Mercado Pago only accepts letters, digits, - and _ (max 64) in external_reference.
+        assertTrue(request.getValue().externalReference().matches("[A-Za-z0-9_-]{1,64}"));
         assertEquals(1, request.getValue().quantity());
         assertEquals(new BigDecimal("3300"), request.getValue().unitPrice());
         assertTrue(request.getValue().successUrl().startsWith(BASE_URL));
@@ -228,7 +230,7 @@ class GemOrderServiceTest {
 
     @Test
     void referencesOfSeatPurchasesAreNotGemReferences() {
-        assertTrue(GemOrderService.isGemReference("gems:" + UUID.randomUUID()));
+        assertTrue(GemOrderService.isGemReference("gems_" + UUID.randomUUID()));
         assertFalse(GemOrderService.isGemReference(UUID.randomUUID().toString()));
         assertFalse(GemOrderService.isGemReference(null));
     }

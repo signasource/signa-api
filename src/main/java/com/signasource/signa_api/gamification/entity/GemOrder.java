@@ -36,9 +36,10 @@ import lombok.ToString;
 public class GemOrder {
 
     /**
-     * Prefix of the Mercado Pago {@code external_reference}: tells gem orders from seat purchases.
+     * Prefix of the Mercado Pago {@code external_reference} (letters, digits, - and _ only): tells
+     * gem orders from seat purchases.
      */
-    public static final String REFERENCE_PREFIX = "gems:";
+    public static final String REFERENCE_PREFIX = "gems_";
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
