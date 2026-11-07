@@ -1,0 +1,92 @@
+topic:
+  code: unidad-2
+  title: "Unidad 2"
+  subtitle: "¿A dónde voy? Lugares de atención y trámites"
+  description: "Conocé los lugares donde te atienden y los trámites de la obra social."
+
+lessons:
+  - code: leccion-1
+    name: "Lugares y trámites"
+    description: "Los lugares de atención y los trámites de la obra social."
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: hospital
+          word: hospital
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: clinica
+          word: clinica
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: guardia
+          word: guardia
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: internacion
+          word: internacion
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: obra social
+          word: obra social
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: autorizacion
+          word: autorizacion
+
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: hospital
+          options:
+            - hospital
+            - clinica
+            - guardia
+            - internacion
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: guardia
+          options:
+            - guardia
+            - internacion
+            - hospital
+            - clinica
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: obra social
+          options:
+            - autorizacion
+            - obra social
+            - internacion
+            - clinica
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: autorizacion
+          options:
+            - obra social
+            - autorizacion
+            - hospital
+            - guardia
+      - type: CONTEXT_RESPONSE
+        xp: 15
+        config:
+          question: "¿A dónde vas si tenés una urgencia y necesitás atención inmediata?"
+          answer: guardia
+          options:
+            - obra social
+            - internacion
+            - guardia
+            - autorizacion
+      - type: MATCH
+        xp: 20
+        config:
+          concepts:
+            - hospital
+            - clinica
+            - guardia
+            - internacion
+            - obra social
+            - autorizacion

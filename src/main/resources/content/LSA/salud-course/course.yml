@@ -1,0 +1,17 @@
+course:
+  code: salud-course
+  name: La salud
+  description: Aprendé el vocabulario de la salud en LSA para contar cómo te sentís, moverte por los lugares de atención y comunicarte con los profesionales.
+  free: false
+  price: 3500
+  cover: "mock-cover"
+
+version:
+  version: "0.1.0"
+  status: PUBLISHED
+
+topics:
+  - topic-01.yml
+  - topic-02.yml
+  - topic-03.yml
+  - topic-04.yml

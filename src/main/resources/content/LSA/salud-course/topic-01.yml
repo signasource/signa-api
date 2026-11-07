@@ -1,0 +1,168 @@
+topic:
+  code: unidad-1
+  title: "Unidad 1"
+  subtitle: "¿Cómo te sentís? Estados de salud y síntomas"
+  description: "Aprendé a decir si estás sano o enfermo y a contar qué te pasa."
+
+lessons:
+  - code: leccion-1
+    name: "Estar sano o enfermo"
+    description: "Vocabulario para hablar de tu estado de salud."
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: salud
+          word: salud
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: sano
+          word: sano
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: enfermo
+          word: enfermo
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: enfermedades
+          word: enfermedades
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: embarazo
+          word: embarazo
+
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: sano
+          options:
+            - sano
+            - enfermo
+            - salud
+            - embarazo
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: enfermo
+          options:
+            - sano
+            - enfermo
+            - enfermedades
+            - salud
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: embarazo
+          options:
+            - salud
+            - embarazo
+            - enfermedades
+            - sano
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: salud
+          options:
+            - enfermedades
+            - embarazo
+            - salud
+            - enfermo
+      - type: CONTEXT_RESPONSE
+        xp: 15
+        config:
+          question: "¿Cómo está alguien que no está enfermo?"
+          answer: sano
+          options:
+            - enfermo
+            - embarazo
+            - sano
+            - enfermedades
+      - type: MATCH
+        xp: 20
+        config:
+          concepts:
+            - salud
+            - sano
+            - enfermo
+            - enfermedades
+            - embarazo
+
+  - code: leccion-2
+    name: "Síntomas"
+    description: "Contá qué te pasa cuando no te sentís bien."
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: dolor
+          word: dolor
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: fiebre
+          word: fiebre
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: mareado
+          word: mareado
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: vomitar
+          word: vomitar
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: lastimado
+          word: lastimado
+
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: fiebre
+          options:
+            - fiebre
+            - dolor
+            - mareado
+            - vomitar
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: dolor
+          options:
+            - dolor
+            - lastimado
+            - fiebre
+            - mareado
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: mareado
+          options:
+            - vomitar
+            - mareado
+            - dolor
+            - lastimado
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: vomitar
+          options:
+            - fiebre
+            - mareado
+            - vomitar
+            - lastimado
+      - type: CONTEXT_RESPONSE
+        xp: 15
+        config:
+          question: "¿Qué síntoma tenés cuando el cuerpo está muy caliente?"
+          answer: fiebre
+          options:
+            - mareado
+            - fiebre
+            - vomitar
+            - dolor
+      - type: MATCH
+        xp: 20
+        config:
+          concepts:
+            - dolor
+            - fiebre
+            - mareado
+            - vomitar
+            - lastimado

@@ -1,0 +1,163 @@
+topic:
+  code: unidad-3
+  title: "Unidad 3"
+  subtitle: "¿Quién me atiende? Profesionales de la salud"
+  description: "Identificá a los profesionales y a los médicos especialistas."
+
+lessons:
+  - code: leccion-1
+    name: "Profesionales de la salud"
+    description: "Las personas que te atienden en el sistema de salud."
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: medico
+          word: medico
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: enfermero
+          word: enfermero
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: psicologo
+          word: psicologo
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: fonoaudiologo
+          word: fonoaudiologo
+
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: medico
+          options:
+            - medico
+            - enfermero
+            - psicologo
+            - fonoaudiologo
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: enfermero
+          options:
+            - medico
+            - enfermero
+            - psicologo
+            - fonoaudiologo
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: psicologo
+          options:
+            - fonoaudiologo
+            - psicologo
+            - medico
+            - enfermero
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: fonoaudiologo
+          options:
+            - enfermero
+            - medico
+            - fonoaudiologo
+            - psicologo
+      - type: CONTEXT_RESPONSE
+        xp: 15
+        config:
+          question: "¿Quién te acompaña en la salud emocional y mental?"
+          answer: psicologo
+          options:
+            - medico
+            - enfermero
+            - psicologo
+            - fonoaudiologo
+      - type: MATCH
+        xp: 20
+        config:
+          concepts:
+            - medico
+            - enfermero
+            - psicologo
+            - fonoaudiologo
+
+  - code: leccion-2
+    name: "Médicos especialistas"
+    description: "Los médicos especializados en cada parte del cuerpo."
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: cirujano
+          word: cirujano
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: ginecologo
+          word: ginecologo
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: odontologo
+          word: odontologo
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: oftalmologo
+          word: oftalmologo
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: traumatologo
+          word: traumatologo
+
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: odontologo
+          options:
+            - odontologo
+            - oftalmologo
+            - cirujano
+            - ginecologo
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: oftalmologo
+          options:
+            - oftalmologo
+            - odontologo
+            - traumatologo
+            - cirujano
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: cirujano
+          options:
+            - ginecologo
+            - cirujano
+            - traumatologo
+            - odontologo
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: traumatologo
+          options:
+            - cirujano
+            - ginecologo
+            - traumatologo
+            - oftalmologo
+      - type: CONTEXT_RESPONSE
+        xp: 15
+        config:
+          question: "¿A qué especialista vas por un problema en los dientes?"
+          answer: odontologo
+          options:
+            - oftalmologo
+            - traumatologo
+            - odontologo
+            - ginecologo
+      - type: MATCH
+        xp: 20
+        config:
+          concepts:
+            - cirujano
+            - ginecologo
+            - odontologo
+            - oftalmologo
+            - traumatologo
