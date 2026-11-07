@@ -3,6 +3,7 @@ course:
   name: Curso de prueba (pago)
   description: Curso mínimo para probar la compra de cupos. No es contenido real.
   free: false
+  price: 1500
   cover: "mock-cover"
 
 version:

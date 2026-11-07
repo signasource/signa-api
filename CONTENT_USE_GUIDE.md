@@ -40,6 +40,7 @@ course:
   name: Curso Básico
   description: Aprende las bases de la Lengua de Señas Argentina.
   free: true
+  # price: 2900   # sólo en cursos pagos (free: false), en ARS
   cover: "mock-cover"
 
 version:
@@ -58,6 +59,7 @@ topics:
 | `name` | Sí | Nombre que ve el usuario. |
 | `description` | No | Descripción del curso. |
 | `free` | No | `true` (gratis) o `false` (pago). |
+| `price` | No | Precio del pago único en ARS (p. ej. `2900`) para cursos pagos (`free: false`). Se ignora si el curso es gratis. Lo usa la compra individual por Mercado Pago. |
 | `cover` | No | Referencia a la imagen de portada. |
 | `version` | Sí | Número de versión, como texto entre comillas: `"0.1.0"`. |
 | `status` | Sí | `DRAFT`, `PUBLISHED` o `ARCHIVED` (ver abajo). |

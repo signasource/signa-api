@@ -5,6 +5,7 @@ import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.PaymentProviderException;
 import com.signasource.signa_api.gamification.service.GemOrderService;
+import com.signasource.signa_api.learning.service.CourseOrderService;
 import com.signasource.signa_api.organizations.dto.CheckoutResponse;
 import com.signasource.signa_api.organizations.dto.PaymentSyncResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseDetailResponse;
@@ -50,6 +51,7 @@ public class MercadoPagoCheckoutService {
     private final MercadoPagoSignatureVerifier signatureVerifier;
     private final PurchaseNotificationService notifications;
     private final GemOrderService gemOrders;
+    private final CourseOrderService courseOrders;
     private final String panelUrl;
 
     public MercadoPagoCheckoutService(
@@ -61,6 +63,7 @@ public class MercadoPagoCheckoutService {
             MercadoPagoSignatureVerifier signatureVerifier,
             PurchaseNotificationService notifications,
             GemOrderService gemOrders,
+            CourseOrderService courseOrders,
             @Value("${app.panel-url:}") String panelUrl) {
         this.purchaseRepository = purchaseRepository;
         this.accessService = accessService;
@@ -70,6 +73,7 @@ public class MercadoPagoCheckoutService {
         this.signatureVerifier = signatureVerifier;
         this.notifications = notifications;
         this.gemOrders = gemOrders;
+        this.courseOrders = courseOrders;
         this.panelUrl = panelUrl;
     }
 
@@ -196,6 +200,10 @@ public class MercadoPagoCheckoutService {
     private void apply(Payment payment) {
         if (GemOrderService.isGemReference(payment.externalReference())) {
             gemOrders.applyPayment(payment);
+            return;
+        }
+        if (CourseOrderService.isCourseReference(payment.externalReference())) {
+            courseOrders.applyPayment(payment);
             return;
         }
         if (payment.isRefunded() || payment.isChargedBack()) {

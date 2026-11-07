@@ -12,11 +12,15 @@ import com.signasource.signa_api.learning.dto.CourseDetailResponse;
 import com.signasource.signa_api.learning.dto.CourseSummaryResponse;
 import com.signasource.signa_api.learning.entity.Course;
 import com.signasource.signa_api.learning.entity.CourseVersion;
+import com.signasource.signa_api.learning.entity.EnrollmentStatus;
 import com.signasource.signa_api.learning.entity.SignLanguage;
 import com.signasource.signa_api.learning.entity.Topic;
+import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import com.signasource.signa_api.learning.entity.VersionStatus;
 import com.signasource.signa_api.learning.repository.CourseRepository;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
+import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
+import com.signasource.signa_api.users.entity.User;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -39,10 +43,14 @@ class CourseServiceTest {
 
     @Mock private CourseVersionRepository courseVersionRepository;
 
+    @Mock private UserCourseEnrollmentRepository enrollmentRepository;
+
     @InjectMocks private CourseService courseService;
 
     private UUID signLanguageId;
     private UUID courseId;
+    private UUID userId;
+    private User user;
     private SignLanguage signLanguage;
     private Course course;
     private CourseVersion activeVersion;
@@ -52,6 +60,8 @@ class CourseServiceTest {
     void setUp() {
         signLanguageId = UUID.randomUUID();
         courseId = UUID.randomUUID();
+        userId = UUID.randomUUID();
+        user = User.builder().id(userId).build();
 
         signLanguage =
                 SignLanguage.builder()
@@ -99,9 +109,10 @@ class CourseServiceTest {
 
         when(courseRepository.findBySignLanguageId(eq(signLanguageId), any(Pageable.class)))
                 .thenReturn(coursePage);
+        when(enrollmentRepository.findWithCourseByUserId(userId)).thenReturn(List.of());
 
         Page<CourseSummaryResponse> response =
-                courseService.getCoursesCatalog(signLanguageId, pageable);
+                courseService.getCoursesCatalog(user, signLanguageId, pageable);
 
         assertNotNull(response);
         assertEquals(1, response.getContent().size());
@@ -110,8 +121,30 @@ class CourseServiceTest {
         assertEquals(course.getId(), summary.id());
         assertEquals(course.getName(), summary.name());
         assertEquals(signLanguage.getCode(), summary.signLanguageCode());
+        assertFalse(summary.owned());
 
         verify(courseRepository).findBySignLanguageId(signLanguageId, pageable);
+    }
+
+    @Test
+    void shouldMarkCourseOwnedWhenUserHasAccess() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Course> coursePage = new PageImpl<>(List.of(course));
+        UserCourseEnrollment enrollment =
+                UserCourseEnrollment.builder()
+                        .user(user)
+                        .courseVersion(activeVersion)
+                        .status(EnrollmentStatus.ENROLLED)
+                        .build();
+
+        when(courseRepository.findBySignLanguageId(eq(signLanguageId), any(Pageable.class)))
+                .thenReturn(coursePage);
+        when(enrollmentRepository.findWithCourseByUserId(userId)).thenReturn(List.of(enrollment));
+
+        Page<CourseSummaryResponse> response =
+                courseService.getCoursesCatalog(user, signLanguageId, pageable);
+
+        assertTrue(response.getContent().get(0).owned());
     }
 
     @Test
@@ -121,12 +154,14 @@ class CourseServiceTest {
 
         when(courseVersionRepository.findByCourseIdAndStatus(courseId, VersionStatus.PUBLISHED))
                 .thenReturn(Optional.of(activeVersion));
+        when(enrollmentRepository.findWithCourseByUserId(userId)).thenReturn(List.of());
 
-        CourseDetailResponse response = courseService.getCourseDetail(courseId);
+        CourseDetailResponse response = courseService.getCourseDetail(user, courseId);
 
         assertNotNull(response);
         assertEquals(course.getId(), response.id());
         assertEquals("v1.0", response.activeVersion());
+        assertFalse(response.owned());
         assertEquals(1, response.topics().size());
         assertEquals(topic.getTitle(), response.topics().get(0).title());
         assertEquals(topic.getSubtitle(), response.topics().get(0).subtitle());
@@ -142,7 +177,8 @@ class CourseServiceTest {
 
         NotFoundException exception =
                 assertThrows(
-                        NotFoundException.class, () -> courseService.getCourseDetail(courseId));
+                        NotFoundException.class,
+                        () -> courseService.getCourseDetail(user, courseId));
 
         assertTrue(exception.getMessage().contains("Active published version not found"));
         verify(courseVersionRepository).findByCourseIdAndStatus(courseId, VersionStatus.PUBLISHED);

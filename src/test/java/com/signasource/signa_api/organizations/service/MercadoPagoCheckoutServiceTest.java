@@ -22,6 +22,7 @@ import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.PaymentProviderException;
 import com.signasource.signa_api.gamification.service.GemOrderService;
 import com.signasource.signa_api.learning.entity.Course;
+import com.signasource.signa_api.learning.service.CourseOrderService;
 import com.signasource.signa_api.organizations.dto.CheckoutResponse;
 import com.signasource.signa_api.organizations.dto.PaymentSyncResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseDetailResponse;
@@ -60,6 +61,7 @@ class MercadoPagoCheckoutServiceTest {
     @Mock private MercadoPagoSignatureVerifier signatureVerifier;
     @Mock private PurchaseNotificationService notifications;
     @Mock private GemOrderService gemOrders;
+    @Mock private CourseOrderService courseOrders;
 
     private MercadoPagoCheckoutService service;
     private User actor;
@@ -101,6 +103,7 @@ class MercadoPagoCheckoutServiceTest {
                 signatureVerifier,
                 notifications,
                 gemOrders,
+                courseOrders,
                 panelUrl);
     }
 

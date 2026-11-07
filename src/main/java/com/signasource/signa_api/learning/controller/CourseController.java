@@ -1,5 +1,6 @@
 package com.signasource.signa_api.learning.controller;
 
+import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.learning.dto.CourseDetailResponse;
 import com.signasource.signa_api.learning.dto.CourseSummaryResponse;
 import com.signasource.signa_api.learning.service.CourseService;
@@ -10,6 +11,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,14 +26,18 @@ public class CourseController {
 
     @GetMapping
     public ResponseEntity<Page<CourseSummaryResponse>> getCoursesCatalog(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestParam UUID signLanguageId,
             @PageableDefault(size = 10, page = 0) Pageable pageable) {
 
-        return ResponseEntity.ok(courseService.getCoursesCatalog(signLanguageId, pageable));
+        return ResponseEntity.ok(
+                courseService.getCoursesCatalog(userDetails.getUser(), signLanguageId, pageable));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<CourseDetailResponse> getCourseDetail(@NonNull @PathVariable UUID id) {
-        return ResponseEntity.ok(courseService.getCourseDetail(id));
+    public ResponseEntity<CourseDetailResponse> getCourseDetail(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @NonNull @PathVariable UUID id) {
+        return ResponseEntity.ok(courseService.getCourseDetail(userDetails.getUser(), id));
     }
 }

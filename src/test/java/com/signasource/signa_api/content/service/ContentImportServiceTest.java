@@ -38,7 +38,9 @@ class ContentImportServiceTest {
     private LoadedCourse loadedWithCode(String code) {
         CourseYaml yaml =
                 new CourseYaml(
-                        new CourseMetadataDto(code, code, null, false, null), null, List.of());
+                        new CourseMetadataDto(code, code, null, false, null, null),
+                        null,
+                        List.of());
         return new LoadedCourse("LSA", yaml, List.of());
     }
 

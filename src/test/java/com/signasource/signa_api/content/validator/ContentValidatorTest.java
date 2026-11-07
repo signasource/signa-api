@@ -58,14 +58,14 @@ class ContentValidatorTest {
     @Test
     void shouldFailWhenCourseCodeIsBlank() {
         assertValidationFails(
-                courseWithMeta(new CourseMetadataDto("", "Name", null, false, null)),
+                courseWithMeta(new CourseMetadataDto("", "Name", null, false, null, null)),
                 "Course: code is required");
     }
 
     @Test
     void shouldFailWhenCourseNameIsBlank() {
         assertValidationFails(
-                courseWithMeta(new CourseMetadataDto("code", null, null, false, null)),
+                courseWithMeta(new CourseMetadataDto("code", null, null, false, null, null)),
                 "Course: name is required");
     }
 
@@ -171,7 +171,7 @@ class ContentValidatorTest {
 
     @Test
     void shouldAccumulateAllErrorsBeforeThrowing() {
-        var meta = new CourseMetadataDto("", "", null, false, null);
+        var meta = new CourseMetadataDto("", "", null, false, null, null);
         var version = new CourseVersionDto("", VersionStatus.DRAFT);
         var yaml = new CourseYaml(meta, version, List.of());
         var course = new LoadedCourse("LSA", yaml, List.of());
@@ -215,7 +215,7 @@ class ContentValidatorTest {
     }
 
     private CourseMetadataDto validMeta() {
-        return new CourseMetadataDto("course-01", "My Course", "Desc", false, null);
+        return new CourseMetadataDto("course-01", "My Course", "Desc", false, null, null);
     }
 
     private CourseVersionDto validVersion() {

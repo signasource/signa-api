@@ -7,11 +7,15 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.learning.dto.CourseDetailResponse;
 import com.signasource.signa_api.learning.dto.CourseSummaryResponse;
 import com.signasource.signa_api.learning.service.CourseService;
+import com.signasource.signa_api.users.entity.User;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -29,25 +33,35 @@ class CourseControllerTest {
 
     @Mock private CourseService courseService;
 
+    @Mock private CustomUserDetails userDetails;
+
     @InjectMocks private CourseController courseController;
 
     private final UUID signLanguageId = UUID.randomUUID();
     private final UUID courseId = UUID.randomUUID();
+    private User user;
+
+    @BeforeEach
+    void setUp() {
+        user = User.builder().id(UUID.randomUUID()).build();
+        when(userDetails.getUser()).thenReturn(user);
+    }
 
     @Test
     void testGetCoursesCatalog() {
         Pageable pageable = PageRequest.of(0, 10);
         CourseSummaryResponse summary =
-                new CourseSummaryResponse(courseId, "LSA Básico", "Desc", "url", true, "LSA");
+                new CourseSummaryResponse(
+                        courseId, "LSA Básico", "Desc", "url", true, null, false, "LSA");
         Page<CourseSummaryResponse> mockPage = new PageImpl<>(List.of(summary));
 
-        when(courseService.getCoursesCatalog(eq(signLanguageId), any(Pageable.class)))
+        when(courseService.getCoursesCatalog(eq(user), eq(signLanguageId), any(Pageable.class)))
                 .thenReturn(mockPage);
 
         ResponseEntity<Page<CourseSummaryResponse>> response =
-                courseController.getCoursesCatalog(signLanguageId, pageable);
+                courseController.getCoursesCatalog(userDetails, signLanguageId, pageable);
 
-        verify(courseService).getCoursesCatalog(signLanguageId, pageable);
+        verify(courseService).getCoursesCatalog(user, signLanguageId, pageable);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
         assertEquals(1, response.getBody().getContent().size());
@@ -56,13 +70,23 @@ class CourseControllerTest {
     @Test
     void testGetCourseDetail() {
         CourseDetailResponse mockDetail =
-                new CourseDetailResponse(courseId, "LSA Básico", "Desc", "url", "v1.0", List.of());
+                new CourseDetailResponse(
+                        courseId,
+                        "Curso Pago",
+                        "Desc",
+                        "url",
+                        false,
+                        new BigDecimal("2900.00"),
+                        false,
+                        "v1.0",
+                        List.of());
 
-        when(courseService.getCourseDetail(courseId)).thenReturn(mockDetail);
+        when(courseService.getCourseDetail(user, courseId)).thenReturn(mockDetail);
 
-        ResponseEntity<CourseDetailResponse> response = courseController.getCourseDetail(courseId);
+        ResponseEntity<CourseDetailResponse> response =
+                courseController.getCourseDetail(userDetails, courseId);
 
-        verify(courseService).getCourseDetail(courseId);
+        verify(courseService).getCourseDetail(user, courseId);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(mockDetail, response.getBody());
     }
