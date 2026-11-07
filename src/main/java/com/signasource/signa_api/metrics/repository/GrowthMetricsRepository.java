@@ -151,19 +151,22 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
 
     // ── Gems (real-money gem packs) ──────────────────────────────────────────────────────────────
     @Query(
-            "SELECT COUNT(g) FROM GemPurchase g "
-                    + "WHERE g.verifiedAt >= :from AND g.verifiedAt < :until")
+            "SELECT COUNT(g) FROM GemOrder g "
+                    + "WHERE g.paidAt >= :from AND g.paidAt < :until "
+                    + "AND g.status = com.signasource.signa_api.gamification.entity.GemOrderStatus.PAID ")
     long countGemPurchasesBetween(@Param("from") Instant from, @Param("until") Instant until);
 
     @Query(
-            "SELECT COALESCE(SUM(g.gemsGranted), 0) FROM GemPurchase g "
-                    + "WHERE g.verifiedAt >= :from AND g.verifiedAt < :until")
+            "SELECT COALESCE(SUM(g.gems), 0) FROM GemOrder g "
+                    + "WHERE g.paidAt >= :from AND g.paidAt < :until "
+                    + "AND g.status = com.signasource.signa_api.gamification.entity.GemOrderStatus.PAID ")
     long sumGemsGrantedBetween(@Param("from") Instant from, @Param("until") Instant until);
 
-    /** Rows of {@code [long bucketIndex, long count]} of real-money gem purchases. */
+    /** Rows of {@code [long bucketIndex, long count]} of paid real-money gem orders. */
     @Query(
-            "SELECT FLOOR(extract(epoch from g.verifiedAt) / :bucket), COUNT(g) FROM GemPurchase g "
-                    + "WHERE g.verifiedAt >= :from AND g.verifiedAt < :until "
+            "SELECT FLOOR(extract(epoch from g.paidAt) / :bucket), COUNT(g) FROM GemOrder g "
+                    + "WHERE g.paidAt >= :from AND g.paidAt < :until "
+                    + "AND g.status = com.signasource.signa_api.gamification.entity.GemOrderStatus.PAID "
                     + "GROUP BY 1")
     List<Object[]> dailyGemPurchases(
             @Param("from") Instant from,

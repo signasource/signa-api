@@ -3,10 +3,11 @@ package com.signasource.signa_api.metrics.repository;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.google.firebase.messaging.FirebaseMessaging;
+import com.signasource.signa_api.gamification.entity.GemOrder;
+import com.signasource.signa_api.gamification.entity.GemOrderStatus;
 import com.signasource.signa_api.gamification.entity.GemPack;
-import com.signasource.signa_api.gamification.entity.GemPurchase;
+import com.signasource.signa_api.gamification.repository.GemOrderRepository;
 import com.signasource.signa_api.gamification.repository.GemPackRepository;
-import com.signasource.signa_api.gamification.repository.GemPurchaseRepository;
 import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.entity.Course;
 import com.signasource.signa_api.learning.entity.CourseVersion;
@@ -87,7 +88,7 @@ class GrowthMetricsRepositoryTest {
     @Autowired private PurchaseSeatRepository seatRepository;
     @Autowired private PurchaseRefundRepository refundRepository;
     @Autowired private GemPackRepository gemPackRepository;
-    @Autowired private GemPurchaseRepository gemPurchaseRepository;
+    @Autowired private GemOrderRepository gemOrderRepository;
     @Autowired private UserCourseEnrollmentRepository enrollmentRepository;
     @Autowired private UserDailyActivityRepository dailyActivityRepository;
     @Autowired private UserSessionRepository userSessionRepository;
@@ -212,16 +213,20 @@ class GrowthMetricsRepositoryTest {
         User user = saveUser();
         GemPack pack =
                 gemPackRepository.save(
-                        GemPack.builder().productId("gems_" + UUID.randomUUID()).gems(500).build());
-        gemPurchaseRepository.save(
-                GemPurchase.builder()
+                        GemPack.builder()
+                                .productId("gems_" + UUID.randomUUID())
+                                .gems(500)
+                                .price(new java.math.BigDecimal("5000"))
+                                .build());
+        gemOrderRepository.save(
+                GemOrder.builder()
                         .user(user)
                         .gemPack(pack)
-                        .productId(pack.getProductId())
-                        .purchaseToken("tok-" + UUID.randomUUID())
-                        .gemsGranted(500)
-                        .purchasedAt(Instant.now())
-                        .verifiedAt(Instant.now())
+                        .gems(500)
+                        .amount(new java.math.BigDecimal("5000"))
+                        .currency("ARS")
+                        .status(GemOrderStatus.PAID)
+                        .paidAt(Instant.now())
                         .build());
         organizationRepository.save(
                 Organization.builder()

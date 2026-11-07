@@ -116,10 +116,11 @@ public interface GamificationMetricsRepository extends Repository<UserDailyXp, U
                     + "com.signasource.signa_api.gamification.entity.ChallengeRewardType.GEMS")
     long sumChallengeRewardGemsBetween(@Param("from") Instant from, @Param("until") Instant until);
 
-    /** Gems granted by verified real-money gem purchases in the window. */
+    /** Gems granted by paid real-money gem orders in the window. */
     @Query(
-            "SELECT COALESCE(SUM(g.gemsGranted), 0) FROM GemPurchase g "
-                    + "WHERE g.verifiedAt >= :from AND g.verifiedAt < :until")
+            "SELECT COALESCE(SUM(g.gems), 0) FROM GemOrder g "
+                    + "WHERE g.paidAt >= :from AND g.paidAt < :until "
+                    + "AND g.status = com.signasource.signa_api.gamification.entity.GemOrderStatus.PAID ")
     long sumGemPurchaseGemsBetween(@Param("from") Instant from, @Param("until") Instant until);
 
     // ── Challenges ───────────────────────────────────────────────────────────────────────────────

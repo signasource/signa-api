@@ -4,6 +4,7 @@ import com.signasource.signa_api.exceptions.ForbiddenException;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.PaymentProviderException;
+import com.signasource.signa_api.gamification.service.GemOrderService;
 import com.signasource.signa_api.organizations.dto.CheckoutResponse;
 import com.signasource.signa_api.organizations.dto.PaymentSyncResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseDetailResponse;
@@ -31,7 +32,9 @@ import org.springframework.stereotype.Service;
  * external_reference} is the purchase and whose amount and currency match its total confirms the
  * purchase through {@link PurchasePaymentService#confirmPayment}, which is idempotent. Two paths
  * get there: the webhook (source of truth) and the panel's sync on return, so the admin does not
- * wait for the notification. No method here is transactional: they call Mercado Pago over HTTP.
+ * wait for the notification. Gem-pack orders (see {@link GemOrderService}) share the same webhook
+ * and are told apart by their {@code external_reference}. No method here is transactional: they
+ * call Mercado Pago over HTTP.
  */
 @Slf4j
 @Service
@@ -46,6 +49,7 @@ public class MercadoPagoCheckoutService {
     private final MercadoPagoClient mercadoPago;
     private final MercadoPagoSignatureVerifier signatureVerifier;
     private final PurchaseNotificationService notifications;
+    private final GemOrderService gemOrders;
     private final String panelUrl;
 
     public MercadoPagoCheckoutService(
@@ -56,6 +60,7 @@ public class MercadoPagoCheckoutService {
             MercadoPagoClient mercadoPago,
             MercadoPagoSignatureVerifier signatureVerifier,
             PurchaseNotificationService notifications,
+            GemOrderService gemOrders,
             @Value("${app.panel-url:}") String panelUrl) {
         this.purchaseRepository = purchaseRepository;
         this.accessService = accessService;
@@ -64,6 +69,7 @@ public class MercadoPagoCheckoutService {
         this.mercadoPago = mercadoPago;
         this.signatureVerifier = signatureVerifier;
         this.notifications = notifications;
+        this.gemOrders = gemOrders;
         this.panelUrl = panelUrl;
     }
 
@@ -179,6 +185,10 @@ public class MercadoPagoCheckoutService {
      * stays pending and the exception (503) makes Mercado Pago retry the notification.
      */
     private void apply(Payment payment) {
+        if (GemOrderService.isGemReference(payment.externalReference())) {
+            gemOrders.applyPayment(payment);
+            return;
+        }
         if (payment.isRefunded() || payment.isChargedBack()) {
             paymentService.reverse(
                     payment.id(), payment.isChargedBack(), payment.transactionAmount());

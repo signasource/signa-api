@@ -19,7 +19,7 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addInterceptor(new RateLimitInterceptor(objectMapper, metricsService))
                 .addPathPatterns(
                         "/users/username-availability",
-                        "/store/gem-purchases",
+                        "/store/gem-orders/**",
                         "/telemetry/events");
         registry.addInterceptor(RateLimitInterceptor.forAuthEmail(objectMapper, metricsService))
                 .addPathPatterns(
