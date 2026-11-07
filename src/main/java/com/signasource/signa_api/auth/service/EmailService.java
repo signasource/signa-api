@@ -2,14 +2,19 @@ package com.signasource.signa_api.auth.service;
 
 import com.signasource.signa_api.common.MetricsService;
 import jakarta.mail.internet.MimeMessage;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
@@ -27,6 +32,13 @@ public class EmailService {
     private static final DateTimeFormatter DEADLINE_FORMAT =
             DateTimeFormatter.ofPattern("dd/MM/yyyy")
                     .withZone(ZoneId.of("America/Argentina/Buenos_Aires"));
+
+    private static final String PASSWORD_RESET_TEMPLATE = "email/password-reset.html";
+    // Inline (CID) images: no public hosting needed and they render without "load images".
+    private static final Map<String, String> PASSWORD_RESET_IMAGES =
+            Map.of(
+                    "signa-logo", "email/signa-logo.png",
+                    "lisa", "email/lisa-arms-crossed.png");
 
     private final JavaMailSender mailSender;
     private final MetricsService metricsService;
@@ -52,7 +64,11 @@ public class EmailService {
     // email belongs to an account; sending inline made registered emails measurably slower.
     @Async
     public void sendPasswordResetEmail(String to, String code) {
-        sendEmail(to, "Tu código para restablecer la contraseña", buildPasswordResetHtml(code));
+        sendEmail(
+                to,
+                "Tu código para restablecer la contraseña",
+                buildPasswordResetHtml(code),
+                PASSWORD_RESET_IMAGES);
     }
 
     @Async
@@ -129,6 +145,11 @@ public class EmailService {
     }
 
     private void sendEmail(String to, String subject, String html) {
+        sendEmail(to, subject, html, Map.of());
+    }
+
+    private void sendEmail(
+            String to, String subject, String html, Map<String, String> inlineImages) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
@@ -137,6 +158,10 @@ public class EmailService {
             helper.setTo(to);
             helper.setSubject(subject);
             helper.setText(html, true);
+            // Must come after setText so the images attach to the HTML part.
+            for (Map.Entry<String, String> image : inlineImages.entrySet()) {
+                helper.addInline(image.getKey(), new ClassPathResource(image.getValue()));
+            }
 
             mailSender.send(message);
 
@@ -172,15 +197,32 @@ public class EmailService {
     }
 
     private String buildPasswordResetHtml(String code) {
-        return """
-				<div style="font-family: Arial;">
-				    <h2>¡Hola!</h2>
-				    <p>Ingresá este código en la app para restablecer tu contraseña:</p>
-				    <p style="font-size:32px; font-weight:bold; letter-spacing:8px;">%s</p>
-				    <p>Vence en 15 minutos. Si no lo pediste, ignorá este correo.</p>
-				</div>
-				"""
-                .formatted(code);
+        StringBuilder cells = new StringBuilder();
+        for (int i = 0; i < code.length(); i++) {
+            if (i > 0) {
+                cells.append(
+                        "<td class=\"sg-gap\" width=\"8\" style=\"width:8px;font-size:0;line-height:0;\">&nbsp;</td>\n");
+            }
+            cells.append(
+                    ("<td class=\"sg-digit sg-d%d\" width=\"52\" height=\"64\" align=\"center\" valign=\"middle\" bgcolor=\"#FAF6F2\""
+                                    + " style=\"width:52px;height:64px;background-color:#FAF6F2;border:2px solid #ECE5DE;border-radius:14px;"
+                                    + "font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:32px;line-height:64px;font-weight:800;"
+                                    + "color:#241A16;mso-line-height-rule:exactly;\">%s</td>\n")
+                            .formatted(
+                                    i + 1, HtmlUtils.htmlEscape(String.valueOf(code.charAt(i)))));
+        }
+        return loadTemplate(PASSWORD_RESET_TEMPLATE)
+                .replace("{{DIGIT_CELLS}}", cells)
+                .replace("{{CODE_SPACED}}", HtmlUtils.htmlEscape(String.join(" ", code.split(""))))
+                .replace("{{CODE}}", HtmlUtils.htmlEscape(code));
+    }
+
+    private String loadTemplate(String path) {
+        try (var in = new ClassPathResource(path).getInputStream()) {
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Missing email template " + path, e);
+        }
     }
 
     private String buildSeatInvitationHtml(
