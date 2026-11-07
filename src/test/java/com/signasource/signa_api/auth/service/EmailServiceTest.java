@@ -20,6 +20,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 @ExtendWith(MockitoExtension.class)
 class EmailServiceTest {
 
+    private static final String BASE_URL = "https://example.com";
     private static final String FROM_EMAIL = "noreply@example.com";
 
     private static final String TO_EMAIL = "user@example.com";
@@ -35,6 +36,7 @@ class EmailServiceTest {
 
     @BeforeEach
     void setUp() {
+        ReflectionTestUtils.setField(emailService, "baseUrl", BASE_URL);
         ReflectionTestUtils.setField(emailService, "fromEmail", FROM_EMAIL);
 
         lenient().when(mailSender.createMimeMessage()).thenReturn(mimeMessage);
@@ -66,6 +68,8 @@ class EmailServiceTest {
                 .contains("Tu código es 482917")
                 .contains("cid:signa-logo")
                 .contains("cid:lisa")
+                .contains("cid:copy-icon")
+                .contains("href=\"https://example.com/codigo#c=482917\"")
                 .doesNotContain("{{");
         assertThat(html.split("class=\"sg-digit sg-d", -1)).hasSize(7);
     }
@@ -83,6 +87,8 @@ class EmailServiceTest {
                 .contains("Vence en 24 horas")
                 .contains("cid:signa-logo")
                 .contains("cid:lisa")
+                .contains("cid:copy-icon")
+                .contains("href=\"https://example.com/codigo#c=482917\"")
                 .doesNotContain("{{");
         assertThat(html.split("class=\"sg-digit sg-d", -1)).hasSize(7);
     }

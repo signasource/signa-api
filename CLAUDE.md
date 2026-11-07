@@ -263,8 +263,11 @@ Resumen de alta prioridad; el detalle y los ejemplos están en los bloques sigui
   para que el intento fallido no se pierda en el rollback (`PasswordResetIntegrationTest`).
   El mail se arma desde `resources/email/password-reset.html` (diseño de Claude Design; placeholders
   `{{CODE}}`, `{{CODE_SPACED}}`, `{{DIGIT_CELLS}}`) y las imágenes (logo y Lisa) viajan como adjuntos
-  inline `cid:` desde `resources/email/`, sin depender de hosting público. No lleva botón "copiar":
-  el diseño original apuntaba a una página web que no existe.
+  inline `cid:` desde `resources/email/`, sin depender de hosting público. Ambos mails (reset y
+  verificación) tienen un botón "copiar" a la derecha del código: los clientes de mail bloquean JS,
+  así que abre `GET /codigo#c=<código>` (`CopyCodeController`, público), una página estática que lo
+  copia al portapapeles. El código va en el **fragmento** (`#`), que el navegador no envía al servidor:
+  no queda en logs de nginx ni de la API. Esa ruta es pública en `SecurityConfig` y usa `app.base-url`.
 - **Verificación de email por código:** igual que el reset. `register` y `resend-verification-email`
   generan un código de 6 dígitos (vence a las 24 h, `auth.token-expirations.email-verification`), lo
   guardan hasheado con BCrypt en `tokens` (tipo `EMAIL_VERIFICATION`) y lo mandan con

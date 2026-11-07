@@ -32,23 +32,30 @@ public class EmailService {
             DateTimeFormatter.ofPattern("dd/MM/yyyy")
                     .withZone(ZoneId.of("America/Argentina/Buenos_Aires"));
 
+    // Public page that copies the code to the clipboard (see CopyCodeController).
+    private static final String COPY_CODE_PATH = "/codigo";
     private static final String PASSWORD_RESET_TEMPLATE = "email/password-reset.html";
     private static final String VERIFICATION_TEMPLATE = "email/verification.html";
     // Inline (CID) images: no public hosting needed and they render without "load images".
     private static final Map<String, String> PASSWORD_RESET_IMAGES =
             Map.of(
                     "signa-logo", "email/signa-logo.png",
-                    "lisa", "email/lisa-arms-crossed.png");
+                    "lisa", "email/lisa-arms-crossed.png",
+                    "copy-icon", "email/copy-icon.png");
     private static final Map<String, String> VERIFICATION_IMAGES =
             Map.of(
                     "signa-logo", "email/signa-logo.png",
-                    "lisa", "email/lisa-waving.png");
+                    "lisa", "email/lisa-waving.png",
+                    "copy-icon", "email/copy-icon.png");
 
     private final JavaMailSender mailSender;
     private final MetricsService metricsService;
 
     @Value("${app.panel-url:}")
     private String panelUrl;
+
+    @Value("${app.base-url}")
+    private String baseUrl;
 
     @Value("${app.mail.from:${spring.mail.username}}")
     private String fromEmail;
@@ -193,6 +200,9 @@ public class EmailService {
         }
         return loadTemplate(template)
                 .replace("{{DIGIT_CELLS}}", cells)
+                .replace(
+                        "{{COPY_URL}}",
+                        HtmlUtils.htmlEscape(baseUrl + COPY_CODE_PATH + "#c=" + code))
                 .replace("{{CODE_SPACED}}", HtmlUtils.htmlEscape(String.join(" ", code.split(""))))
                 .replace("{{CODE}}", HtmlUtils.htmlEscape(code));
     }
