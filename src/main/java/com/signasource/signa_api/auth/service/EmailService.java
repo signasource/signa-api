@@ -37,7 +37,7 @@ public class EmailService {
     @Value("${app.base-url}")
     private String baseUrl;
 
-    @Value("${spring.mail.username}")
+    @Value("${app.mail.from:${spring.mail.username}}")
     private String fromEmail;
 
     @Async
