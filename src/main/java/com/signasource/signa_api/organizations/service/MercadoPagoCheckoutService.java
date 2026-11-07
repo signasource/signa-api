@@ -174,7 +174,16 @@ public class MercadoPagoCheckoutService {
         if (!"order".equals(type) || dataId == null || dataId.isBlank()) {
             return;
         }
-        apply(mercadoPago.getOrder(dataId));
+        Payment payment;
+        try {
+            payment = mercadoPago.getOrder(dataId);
+        } catch (InvalidInputException e) {
+            // An order that is not ours (e.g. the panel's test notification): acknowledge it, so
+            // Mercado Pago does not count the delivery as failed or retry it.
+            log.warn("Ignoring notification of unknown Mercado Pago order {}", dataId);
+            return;
+        }
+        apply(payment);
     }
 
     /**

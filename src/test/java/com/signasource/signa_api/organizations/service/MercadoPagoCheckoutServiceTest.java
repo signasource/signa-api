@@ -280,6 +280,15 @@ class MercadoPagoCheckoutServiceTest {
     }
 
     @Test
+    void shouldAcknowledgeANotificationOfAnUnknownOrder() {
+        when(mercadoPago.getOrder("123456")).thenThrow(new InvalidInputException("unknown"));
+
+        service.handleNotification("order", "123456", null, null);
+
+        verify(paymentService, never()).settle(any(), anyString(), any(), anyString());
+    }
+
+    @Test
     void shouldLeaveTheRefundPendingWhenMercadoPagoFails() {
         when(mercadoPago.getOrder("987")).thenReturn(approved());
         when(paymentService.settle(purchase.getId(), "987", new BigDecimal("243000"), "ARS"))
