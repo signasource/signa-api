@@ -1,8 +1,9 @@
 package com.signasource.signa_api.auth.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.common.MetricsService;
 import jakarta.mail.internet.MimeMessage;
@@ -38,7 +39,7 @@ class EmailServiceTest {
         ReflectionTestUtils.setField(emailService, "baseUrl", BASE_URL);
         ReflectionTestUtils.setField(emailService, "fromEmail", FROM_EMAIL);
 
-        when(mailSender.createMimeMessage()).thenReturn(mimeMessage);
+        lenient().when(mailSender.createMimeMessage()).thenReturn(mimeMessage);
     }
 
     @Test
@@ -53,6 +54,21 @@ class EmailServiceTest {
         emailService.sendPasswordResetEmail(TO_EMAIL, TOKEN);
 
         verify(mailSender).send(mimeMessage);
+    }
+
+    @Test
+    void passwordResetHtmlRendersOneCellPerDigitAndInlineImages() {
+        String html =
+                ReflectionTestUtils.invokeMethod(emailService, "buildPasswordResetHtml", "482917");
+
+        assertThat(html).isNotNull();
+        assertThat(html)
+                .contains("Código 4 8 2 9 1 7")
+                .contains("Tu código es 482917")
+                .contains("cid:signa-logo")
+                .contains("cid:lisa")
+                .doesNotContain("{{");
+        assertThat(html.split("class=\"sg-digit sg-d", -1)).hasSize(7);
     }
 
     @Test
