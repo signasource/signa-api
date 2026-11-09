@@ -28,7 +28,7 @@ public class MercadoPagoReturnController {
             a{display:inline-block;margin-top:24px;padding:14px 28px;border-radius:12px;background:#1D283C;color:#fff;text-decoration:none;font-weight:600}</style>
             </head><body>
             <h1>Volvé a Signa</h1>
-            <p>Estamos confirmando tu pago. Las gemas aparecen en la app en unos segundos.</p>
+            <p>Estamos confirmando tu pago. Tu compra aparece en la app en unos segundos.</p>
             <a href="{{url}}">Abrir Signa</a>
             <script>location.replace("{{url}}")</script>
             </body></html>
