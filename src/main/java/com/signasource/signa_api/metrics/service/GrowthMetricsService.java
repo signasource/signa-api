@@ -4,6 +4,7 @@ import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.CohortRetention;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.ConversionSection;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.CountItem;
+import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.CourseSalesSection;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.DailyAmount;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.DailyCount;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.EngagementSection;
@@ -67,10 +68,8 @@ public class GrowthMetricsService {
                 cohorts(from, until),
                 waitlist(from, until, bucket),
                 revenue(from, until, bucket),
-                new GemsSection(
-                        repository.countGemPurchasesBetween(from, until),
-                        repository.sumGemsGrantedBetween(from, until),
-                        toDailyCounts(repository.dailyGemPurchases(from, until, bucket), bucket)),
+                gems(from, until, bucket),
+                courseSales(from, until, bucket),
                 seats(until),
                 statusItems,
                 orgs(from, until, statusItems, paidCourseUsers, bucket),
@@ -234,6 +233,29 @@ public class GrowthMetricsService {
                 refunded,
                 refundRate,
                 toDailyAmounts(repository.dailyRevenue(from, until, bucket), bucket));
+    }
+
+    /**
+     * Real-money gem economy (end users, no org): money in, gems granted and refunds in the window.
+     */
+    private GemsSection gems(Instant from, Instant until, long bucket) {
+        return new GemsSection(
+                repository.countGemPurchasesBetween(from, until),
+                repository.sumGemsGrantedBetween(from, until),
+                nonNull(repository.sumGemRevenueBetween(from, until)),
+                nonNull(repository.sumGemRefundedBetween(from, until)),
+                repository.countGemRefundsBetween(from, until),
+                toDailyAmounts(repository.dailyGemRevenue(from, until, bucket), bucket));
+    }
+
+    /** Individual paid-course purchases (end users, no org): money in, count and refunds. */
+    private CourseSalesSection courseSales(Instant from, Instant until, long bucket) {
+        return new CourseSalesSection(
+                repository.countCoursePurchasesBetween(from, until),
+                nonNull(repository.sumCourseRevenueBetween(from, until)),
+                nonNull(repository.sumCourseRefundedBetween(from, until)),
+                repository.countCourseRefundsBetween(from, until),
+                toDailyAmounts(repository.dailyCourseRevenue(from, until, bucket), bucket));
     }
 
     private SeatsSection seats(Instant until) {

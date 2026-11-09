@@ -81,6 +81,9 @@ public class GemOrder {
 
     private Instant paidAt;
 
+    /** When the payment was given back (refund or chargeback); null unless {@code REFUNDED}. */
+    private Instant refundedAt;
+
     public String reference() {
         return REFERENCE_PREFIX + id;
     }

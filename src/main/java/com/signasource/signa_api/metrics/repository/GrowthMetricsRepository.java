@@ -173,6 +173,77 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
             @Param("until") Instant until,
             @Param("bucket") long bucket);
 
+    /**
+     * Confirmed real-money revenue from gem packs (sum of the frozen order amount) in the window.
+     */
+    @Query(
+            "SELECT COALESCE(SUM(g.amount), 0) FROM GemOrder g "
+                    + "WHERE g.paidAt >= :from AND g.paidAt < :until "
+                    + "AND g.status = com.signasource.signa_api.gamification.entity.GemOrderStatus.PAID ")
+    BigDecimal sumGemRevenueBetween(@Param("from") Instant from, @Param("until") Instant until);
+
+    /** Rows of {@code [long bucketIndex, BigDecimal amount]} of confirmed gem revenue. */
+    @Query(
+            "SELECT FLOOR(extract(epoch from g.paidAt) / :bucket), COALESCE(SUM(g.amount), 0) "
+                    + "FROM GemOrder g "
+                    + "WHERE g.paidAt >= :from AND g.paidAt < :until "
+                    + "AND g.status = com.signasource.signa_api.gamification.entity.GemOrderStatus.PAID "
+                    + "GROUP BY 1")
+    List<Object[]> dailyGemRevenue(
+            @Param("from") Instant from,
+            @Param("until") Instant until,
+            @Param("bucket") long bucket);
+
+    @Query(
+            "SELECT COALESCE(SUM(g.amount), 0) FROM GemOrder g "
+                    + "WHERE g.refundedAt >= :from AND g.refundedAt < :until "
+                    + "AND g.status = com.signasource.signa_api.gamification.entity.GemOrderStatus.REFUNDED ")
+    BigDecimal sumGemRefundedBetween(@Param("from") Instant from, @Param("until") Instant until);
+
+    @Query(
+            "SELECT COUNT(g) FROM GemOrder g "
+                    + "WHERE g.refundedAt >= :from AND g.refundedAt < :until "
+                    + "AND g.status = com.signasource.signa_api.gamification.entity.GemOrderStatus.REFUNDED ")
+    long countGemRefundsBetween(@Param("from") Instant from, @Param("until") Instant until);
+
+    // ── Paid-course orders (individual, non-organization course purchases)
+    // ──────────────────────────
+    @Query(
+            "SELECT COALESCE(SUM(c.amount), 0) FROM CourseOrder c "
+                    + "WHERE c.paidAt >= :from AND c.paidAt < :until "
+                    + "AND c.status = com.signasource.signa_api.learning.entity.CourseOrderStatus.PAID ")
+    BigDecimal sumCourseRevenueBetween(@Param("from") Instant from, @Param("until") Instant until);
+
+    @Query(
+            "SELECT COUNT(c) FROM CourseOrder c "
+                    + "WHERE c.paidAt >= :from AND c.paidAt < :until "
+                    + "AND c.status = com.signasource.signa_api.learning.entity.CourseOrderStatus.PAID ")
+    long countCoursePurchasesBetween(@Param("from") Instant from, @Param("until") Instant until);
+
+    /** Rows of {@code [long bucketIndex, BigDecimal amount]} of confirmed paid-course revenue. */
+    @Query(
+            "SELECT FLOOR(extract(epoch from c.paidAt) / :bucket), COALESCE(SUM(c.amount), 0) "
+                    + "FROM CourseOrder c "
+                    + "WHERE c.paidAt >= :from AND c.paidAt < :until "
+                    + "AND c.status = com.signasource.signa_api.learning.entity.CourseOrderStatus.PAID "
+                    + "GROUP BY 1")
+    List<Object[]> dailyCourseRevenue(
+            @Param("from") Instant from,
+            @Param("until") Instant until,
+            @Param("bucket") long bucket);
+
+    @Query(
+            "SELECT COALESCE(SUM(c.amount), 0) FROM CourseOrder c "
+                    + "WHERE c.refundedAt >= :from AND c.refundedAt < :until "
+                    + "AND c.status = com.signasource.signa_api.learning.entity.CourseOrderStatus.REFUNDED ")
+    BigDecimal sumCourseRefundedBetween(@Param("from") Instant from, @Param("until") Instant until);
+
+    @Query(
+            "SELECT COUNT(c) FROM CourseOrder c "
+                    + "WHERE c.refundedAt >= :from AND c.refundedAt < :until "
+                    + "AND c.status = com.signasource.signa_api.learning.entity.CourseOrderStatus.REFUNDED ")
+    long countCourseRefundsBetween(@Param("from") Instant from, @Param("until") Instant until);
+
     @Query(
             "SELECT COUNT(DISTINCT e.user.id) FROM UserCourseEnrollment e "
                     + "WHERE e.courseVersion.course.isFree = false AND e.startedAt < :until")

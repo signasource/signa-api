@@ -84,6 +84,7 @@ public class GemOrderSettlementService {
         stats.setUpdatedAt(Instant.now());
         userStatsRepository.save(stats);
         order.setStatus(GemOrderStatus.REFUNDED);
+        order.setRefundedAt(Instant.now());
         orderRepository.save(order);
         log.warn("Gem order {} refunded or charged back: gems taken back", order.getId());
     }

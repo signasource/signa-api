@@ -21,6 +21,8 @@ public record GrowthMetricsResponse(
         WaitlistSection waitlist,
         RevenueSection revenue,
         GemsSection gems,
+        /** Individual paid-course orders bought directly by end users (no organization). */
+        CourseSalesSection courseSales,
         SeatsSection seats,
         List<CountItem> organizations,
         /** B2B deep-dive: pipeline, per-org utilization and the free→premium conversion. */
@@ -102,7 +104,29 @@ public record GrowthMetricsResponse(
             double refundRatePercent,
             List<DailyAmount> daily) {}
 
-    public record GemsSection(long purchases, long gemsGranted, List<DailyCount> daily) {}
+    /**
+     * Real-money gem-pack economy (end users, no organization): paid orders and gems granted, the
+     * money taken in and given back (refunds/chargebacks) in the window, and the revenue
+     * time-series.
+     */
+    public record GemsSection(
+            long purchases,
+            long gemsGranted,
+            BigDecimal paidAmount,
+            BigDecimal refundedAmount,
+            long refundedCount,
+            List<DailyAmount> daily) {}
+
+    /**
+     * Individual paid-course purchases (end users, no organization): how many courses were bought
+     * and for how much, the money refunded in the window, and the revenue time-series.
+     */
+    public record CourseSalesSection(
+            long purchases,
+            BigDecimal paidAmount,
+            BigDecimal refundedAmount,
+            long refundedCount,
+            List<DailyAmount> daily) {}
 
     public record SeatsSection(long sold, long active, double utilizationPercent) {}
 

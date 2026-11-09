@@ -34,7 +34,10 @@ class GrowthMetricsControllerTest {
                     new GrowthMetricsResponse.WaitlistSection(0, 0, List.of()),
                     new GrowthMetricsResponse.RevenueSection(
                             BigDecimal.ZERO, 0, BigDecimal.ZERO, BigDecimal.ZERO, 0, List.of()),
-                    new GrowthMetricsResponse.GemsSection(0, 0, List.of()),
+                    new GrowthMetricsResponse.GemsSection(
+                            0, 0, BigDecimal.ZERO, BigDecimal.ZERO, 0, List.of()),
+                    new GrowthMetricsResponse.CourseSalesSection(
+                            0, BigDecimal.ZERO, BigDecimal.ZERO, 0, List.of()),
                     new GrowthMetricsResponse.SeatsSection(0, 0, 0),
                     List.of(),
                     new GrowthMetricsResponse.OrganizationsSection(

@@ -64,10 +64,28 @@ class GrowthMetricsServiceTest {
                                 }));
         when(repository.countGemPurchasesBetween(any(), any())).thenReturn(7L);
         when(repository.sumGemsGrantedBetween(any(), any())).thenReturn(3500L);
-        when(repository.dailyGemPurchases(any(), any(), anyLong()))
+        when(repository.sumGemRevenueBetween(any(), any())).thenReturn(new BigDecimal("20000.00"));
+        when(repository.sumGemRefundedBetween(any(), any())).thenReturn(new BigDecimal("500.00"));
+        when(repository.countGemRefundsBetween(any(), any())).thenReturn(1L);
+        when(repository.dailyGemRevenue(any(), any(), anyLong()))
                 .thenReturn(
                         List.<Object[]>of(
-                                new Object[] {LocalDate.of(2026, 11, 2).toEpochDay(), 2L}));
+                                new Object[] {
+                                    LocalDate.of(2026, 11, 2).toEpochDay(),
+                                    new BigDecimal("8000.00")
+                                }));
+        when(repository.sumCourseRevenueBetween(any(), any()))
+                .thenReturn(new BigDecimal("50000.00"));
+        when(repository.countCoursePurchasesBetween(any(), any())).thenReturn(3L);
+        when(repository.sumCourseRefundedBetween(any(), any())).thenReturn(BigDecimal.ZERO);
+        when(repository.countCourseRefundsBetween(any(), any())).thenReturn(0L);
+        when(repository.dailyCourseRevenue(any(), any(), anyLong()))
+                .thenReturn(
+                        List.<Object[]>of(
+                                new Object[] {
+                                    LocalDate.of(2026, 11, 5).toEpochDay(),
+                                    new BigDecimal("50000.00")
+                                }));
         when(repository.countPaidCourseUsers(any())).thenReturn(33L);
         when(repository.countSeatsSoldBefore(any())).thenReturn(10L);
         when(repository.countSeatsActiveBefore(any())).thenReturn(6L);
@@ -258,6 +276,21 @@ class GrowthMetricsServiceTest {
         assertEquals(1, r.gems().daily().size());
         assertEquals(33L, r.paidCourseUsers());
         assertEquals("ACTIVE", r.organizations().get(0).key());
+    }
+
+    @Test
+    void computesEndUserGemAndCourseSales() {
+        GrowthMetricsResponse r = service.getGrowthMetrics(range);
+
+        assertEquals(0, new BigDecimal("20000.00").compareTo(r.gems().paidAmount()));
+        assertEquals(0, new BigDecimal("500.00").compareTo(r.gems().refundedAmount()));
+        assertEquals(1L, r.gems().refundedCount());
+
+        assertEquals(3L, r.courseSales().purchases());
+        assertEquals(0, new BigDecimal("50000.00").compareTo(r.courseSales().paidAmount()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(r.courseSales().refundedAmount()));
+        assertEquals(0L, r.courseSales().refundedCount());
+        assertEquals(1, r.courseSales().daily().size());
     }
 
     @Test

@@ -104,6 +104,7 @@ public class CourseOrderSettlementService {
                             });
         }
         order.setStatus(CourseOrderStatus.REFUNDED);
+        order.setRefundedAt(Instant.now());
         orderRepository.save(order);
         log.warn("Course order {} refunded or charged back: access revoked", order.getId());
     }
