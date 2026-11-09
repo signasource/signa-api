@@ -79,6 +79,12 @@ class CourseControllerTest {
                         new BigDecimal("2900.00"),
                         false,
                         "v1.0",
+                        0,
+                        0,
+                        0,
+                        false,
+                        List.of(),
+                        null,
                         List.of());
 
         when(courseService.getCourseDetail(user, courseId)).thenReturn(mockDetail);
