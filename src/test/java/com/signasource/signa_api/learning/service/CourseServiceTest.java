@@ -10,9 +10,12 @@ import static org.mockito.Mockito.when;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.learning.dto.CourseDetailResponse;
 import com.signasource.signa_api.learning.dto.CourseSummaryResponse;
+import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.entity.Course;
 import com.signasource.signa_api.learning.entity.CourseVersion;
 import com.signasource.signa_api.learning.entity.EnrollmentStatus;
+import com.signasource.signa_api.learning.entity.Lesson;
+import com.signasource.signa_api.learning.entity.LessonBlock;
 import com.signasource.signa_api.learning.entity.SignLanguage;
 import com.signasource.signa_api.learning.entity.Topic;
 import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
@@ -44,6 +47,8 @@ class CourseServiceTest {
     @Mock private CourseVersionRepository courseVersionRepository;
 
     @Mock private UserCourseEnrollmentRepository enrollmentRepository;
+
+    @Mock private com.signasource.signa_api.learning.util.BlockSignExtractor blockSignExtractor;
 
     @InjectMocks private CourseService courseService;
 
@@ -183,5 +188,44 @@ class CourseServiceTest {
         assertTrue(exception.getMessage().contains("Active published version not found"));
         verify(courseVersionRepository).findByCourseIdAndStatus(courseId, VersionStatus.PUBLISHED);
         verifyNoInteractions(courseRepository);
+    }
+
+    @Test
+    void shouldSummarizeCourseContentInDetail() {
+        LessonBlock intro1 =
+                LessonBlock.builder().id(UUID.randomUUID()).type(BlockType.INTRODUCE_SIGN).build();
+        LessonBlock intro2 =
+                LessonBlock.builder().id(UUID.randomUUID()).type(BlockType.INTRODUCE_SIGN).build();
+        LessonBlock quiz = LessonBlock.builder().type(BlockType.SELECT_MEANING).build();
+        LessonBlock camera = LessonBlock.builder().type(BlockType.PERFORM_SIGN).build();
+        Lesson lesson =
+                Lesson.builder()
+                        .name("Personas")
+                        .lessonBlocks(List.of(intro1, intro2, quiz, camera))
+                        .build();
+        topic.setLessons(List.of(lesson));
+        activeVersion.setCourse(course);
+        activeVersion.setTopics(List.of(topic));
+
+        when(courseVersionRepository.findByCourseIdAndStatus(courseId, VersionStatus.PUBLISHED))
+                .thenReturn(Optional.of(activeVersion));
+        when(enrollmentRepository.findWithCourseByUserId(userId)).thenReturn(List.of());
+        when(blockSignExtractor.extract(intro1)).thenReturn(List.of("alumnos"));
+        when(blockSignExtractor.extract(intro2)).thenReturn(List.of("maestro"));
+        when(blockSignExtractor.extract(quiz)).thenReturn(List.of("alumnos"));
+        when(blockSignExtractor.extract(camera)).thenReturn(List.of());
+
+        CourseDetailResponse response = courseService.getCourseDetail(user, courseId);
+
+        assertEquals(1, response.unitCount());
+        assertEquals(1, response.lessonCount());
+        assertEquals(2, response.signCount());
+        assertTrue(response.hasCameraPractice());
+        assertEquals(
+                List.of(BlockType.SELECT_MEANING, BlockType.PERFORM_SIGN),
+                response.exerciseTypes());
+        assertEquals("alumnos", response.sampleSign());
+        assertEquals(
+                List.of("alumnos", "maestro"), response.topics().get(0).lessons().get(0).signs());
     }
 }
