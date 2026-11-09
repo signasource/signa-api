@@ -19,7 +19,7 @@ sequenceDiagram
         API-->>C: Conflicto (409)
     else disponible
         API->>DB: Crear cuenta (activa, correo sin verificar, contraseña cifrada)
-        API->>DB: Generar token de verificación
+        API->>DB: Generar código de verificación de 6 dígitos (cifrado)
         API->>Mail: Enviar correo de verificación
         API->>API: Emitir token de acceso
         API->>DB: Generar token de renovación
