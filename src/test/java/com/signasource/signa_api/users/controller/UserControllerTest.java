@@ -16,6 +16,7 @@ import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.service.AuthService;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.gamification.dto.DailyXpResponse;
+import com.signasource.signa_api.gamification.dto.StreakDayResponse;
 import com.signasource.signa_api.gamification.dto.UserStatsResponse;
 import com.signasource.signa_api.gamification.entity.LivesMode;
 import com.signasource.signa_api.gamification.service.UserStatsService;
@@ -409,5 +410,24 @@ class UserControllerTest {
         verify(userStatsService).getStats(user);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(expected, response.getBody());
+    }
+
+    @Test
+    void shouldReturnStreakDay() {
+        StreakDayResponse expected = new StreakDayResponse(true, 4);
+        when(userStatsService.getStreakDay(user)).thenReturn(expected);
+
+        ResponseEntity<StreakDayResponse> response = userController.getStreakDay(userDetails);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(expected, response.getBody());
+    }
+
+    @Test
+    void shouldMarkStreakDaySeen() {
+        ResponseEntity<Void> response = userController.markStreakDaySeen(userDetails);
+
+        verify(userStatsService).markStreakDaySeen(user);
+        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
     }
 }
