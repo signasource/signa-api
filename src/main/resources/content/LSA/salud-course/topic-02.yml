@@ -1,4 +1,4 @@
-topic:
+﻿topic:
   code: unidad-2
   title: "Unidad 2"
   subtitle: "¿A dónde voy? Lugares de atención y trámites"
@@ -12,27 +12,21 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: hospital
-          word: hospital
       - type: INTRODUCE_SIGN
         config:
           meaning: clinica
-          word: clinica
       - type: INTRODUCE_SIGN
         config:
           meaning: guardia
-          word: guardia
       - type: INTRODUCE_SIGN
         config:
           meaning: internacion
-          word: internacion
       - type: INTRODUCE_SIGN
         config:
           meaning: obra social
-          word: obra social
       - type: INTRODUCE_SIGN
         config:
           meaning: autorizacion
-          word: autorizacion
 
       - type: SELECT_MEANING
         xp: 10
@@ -46,7 +40,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 10
         config:
-          word: guardia
           options:
             - guardia
             - internacion
@@ -64,7 +57,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 10
         config:
-          word: autorizacion
           options:
             - obra social
             - autorizacion

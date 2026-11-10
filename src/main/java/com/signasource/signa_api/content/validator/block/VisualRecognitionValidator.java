@@ -50,9 +50,5 @@ public class VisualRecognitionValidator implements BlockValidator {
         } else if (config.options().isEmpty()) {
             errors.add(new ValidationError(ctx.location(), "options must have at least 1 element"));
         }
-
-        if (config.keepOrder() == null) {
-            errors.add(new ValidationError(ctx.location(), "keepOrder is required"));
-        }
     }
 }

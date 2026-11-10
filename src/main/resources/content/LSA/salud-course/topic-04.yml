@@ -1,4 +1,4 @@
-topic:
+﻿topic:
   code: unidad-4
   title: "Unidad 4"
   subtitle: "¿Qué me hacen? Estudios, tratamientos y elementos"
@@ -12,19 +12,15 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: revisar
-          word: revisar
       - type: INTRODUCE_SIGN
         config:
           meaning: hacer analisis
-          word: hacer analisis
       - type: INTRODUCE_SIGN
         config:
           meaning: sacar radiografia
-          word: sacar radiografia
       - type: INTRODUCE_SIGN
         config:
           meaning: resonancia
-          word: resonancia
 
       - type: SELECT_MEANING
         xp: 10
@@ -38,7 +34,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 10
         config:
-          word: resonancia
           options:
             - revisar
             - hacer analisis
@@ -56,7 +51,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 10
         config:
-          word: sacar radiografia
           options:
             - revisar
             - resonancia
@@ -88,23 +82,18 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: tratamiento
-          word: tratamiento
       - type: INTRODUCE_SIGN
         config:
           meaning: remedio
-          word: remedio
       - type: INTRODUCE_SIGN
         config:
           meaning: inyeccion
-          word: inyeccion
       - type: INTRODUCE_SIGN
         config:
           meaning: curar
-          word: curar
       - type: INTRODUCE_SIGN
         config:
           meaning: mejorar
-          word: mejorar
 
       - type: SELECT_MEANING
         xp: 10
@@ -118,7 +107,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 10
         config:
-          word: inyeccion
           options:
             - remedio
             - inyeccion
@@ -136,7 +124,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 10
         config:
-          word: mejorar
           options:
             - tratamiento
             - curar
@@ -169,19 +156,15 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: termometro
-          word: termometro
       - type: INTRODUCE_SIGN
         config:
           meaning: yeso
-          word: yeso
       - type: INTRODUCE_SIGN
         config:
           meaning: audifono
-          word: audifono
       - type: INTRODUCE_SIGN
         config:
           meaning: anteojos
-          word: anteojos
 
       - type: SELECT_MEANING
         xp: 10
@@ -195,7 +178,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 10
         config:
-          word: anteojos
           options:
             - termometro
             - yeso
@@ -213,7 +195,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 10
         config:
-          word: audifono
           options:
             - anteojos
             - termometro

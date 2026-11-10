@@ -1,4 +1,4 @@
-topic:
+﻿topic:
   code: unidad-1
   title: "Unidad 1"
   subtitle: "Prueba de compra"
@@ -12,12 +12,9 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: alumnos
-          word: alumnos
       - type: INTRODUCE_SIGN
         config:
           meaning: director
-          word: director
       - type: INTRODUCE_SIGN
         config:
           meaning: maestro
-          word: maestro

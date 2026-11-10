@@ -1,4 +1,4 @@
-topic:
+﻿topic:
   code: unidad-3
   title: "Unidad 3"
   subtitle: "¿Quién me atiende? Profesionales de la salud"
@@ -12,19 +12,15 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: medico
-          word: medico
       - type: INTRODUCE_SIGN
         config:
           meaning: enfermero
-          word: enfermero
       - type: INTRODUCE_SIGN
         config:
           meaning: psicologo
-          word: psicologo
       - type: INTRODUCE_SIGN
         config:
           meaning: fonoaudiologo
-          word: fonoaudiologo
 
       - type: SELECT_MEANING
         xp: 10
@@ -38,7 +34,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 10
         config:
-          word: enfermero
           options:
             - medico
             - enfermero
@@ -56,7 +51,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 10
         config:
-          word: fonoaudiologo
           options:
             - enfermero
             - medico
@@ -88,23 +82,18 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: cirujano
-          word: cirujano
       - type: INTRODUCE_SIGN
         config:
           meaning: ginecologo
-          word: ginecologo
       - type: INTRODUCE_SIGN
         config:
           meaning: odontologo
-          word: odontologo
       - type: INTRODUCE_SIGN
         config:
           meaning: oftalmologo
-          word: oftalmologo
       - type: INTRODUCE_SIGN
         config:
           meaning: traumatologo
-          word: traumatologo
 
       - type: SELECT_MEANING
         xp: 10
@@ -118,7 +107,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 10
         config:
-          word: oftalmologo
           options:
             - oftalmologo
             - odontologo
@@ -136,7 +124,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 10
         config:
-          word: traumatologo
           options:
             - cirujano
             - ginecologo

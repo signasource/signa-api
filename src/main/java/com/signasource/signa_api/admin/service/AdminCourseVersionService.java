@@ -253,6 +253,34 @@ public class AdminCourseVersionService {
         return AdminCourseVersionDetailResponse.from(version, objectMapper);
     }
 
+    @Transactional
+    public AdminCourseVersionDetailResponse archiveVersion(UUID id) {
+        CourseVersion version =
+                courseVersionRepository
+                        .findWithFullTreeById(id)
+                        .orElseThrow(() -> new NotFoundException("Course version not found"));
+        if (version.getStatus() != VersionStatus.PUBLISHED) {
+            throw new InvalidInputException("Only published versions can be archived");
+        }
+
+        version.setStatus(VersionStatus.ARCHIVED);
+        courseVersionRepository.save(version);
+
+        return AdminCourseVersionDetailResponse.from(version, objectMapper);
+    }
+
+    @Transactional
+    public void deleteVersion(UUID id) {
+        CourseVersion version =
+                courseVersionRepository
+                        .findById(id)
+                        .orElseThrow(() -> new NotFoundException("Course version not found"));
+        if (version.getStatus() != VersionStatus.DRAFT) {
+            throw new InvalidInputException("Only draft versions can be deleted");
+        }
+        courseVersionRepository.delete(version);
+    }
+
     private int nextVersionNumber(UUID courseId) {
         return courseVersionRepository.findByCourseId(courseId).stream()
                         .mapToInt(

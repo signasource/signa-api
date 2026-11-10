@@ -1,4 +1,4 @@
-topic:
+﻿topic:
   code: unidad-1
   title: "Unidad 1"
   subtitle: "Presentándonos"
@@ -49,7 +49,6 @@ lessons:
       - type: SPELL_NAME
         xp: 20
         config:
-          max_letters: 10
 
       - type: INVISIBLE_SIGNS
         config:
@@ -90,27 +89,22 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: yo
-          word: yo
 
       - type: INTRODUCE_SIGN
         config:
           meaning: vos
-          word: vos
 
       - type: INTRODUCE_SIGN
         config:
           meaning: nombre
-          word: nombre
 
       - type: INTRODUCE_SIGN
         config:
           meaning: sordo
-          word: sordo
 
       - type: INTRODUCE_SIGN
         config:
           meaning: oyente
-          word: oyente
 
       - type: SELECT_MEANING
         xp: 5
@@ -125,7 +119,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 5
         config:
-          word: vos
           options:
             - yo
             - vos
@@ -171,27 +164,22 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: hola
-          word: hola
 
       - type: INTRODUCE_SIGN
         config:
           meaning: chau
-          word: chau
 
       - type: INTRODUCE_SIGN
         config:
           meaning: "cómo estás"
-          word: "cómo estás"
 
       - type: INTRODUCE_SIGN
         config:
           meaning: bien
-          word: bien
 
       - type: INTRODUCE_SIGN
         config:
           meaning: mal
-          word: mal
 
       - type: SELECT_MEANING
         xp: 5
@@ -206,7 +194,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 5
         config:
-          word: chau
           options:
             - hola
             - chau
@@ -227,7 +214,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 5
         config:
-          word: bien
           options:
             - bien
             - mal
@@ -257,7 +243,6 @@ lessons:
             - "cómo estás"
             - bien
             - mal
-          keep_order: false
 
   - code: leccion-4
     name: "Fórmulas de cortesía"
@@ -267,22 +252,18 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: gracias
-          word: gracias
 
       - type: INTRODUCE_SIGN
         config:
           meaning: por favor
-          word: por favor
 
       - type: INTRODUCE_SIGN
         config:
           meaning: "perdón"
-          word: "perdón"
 
       - type: INTRODUCE_SIGN
         config:
           meaning: de nada
-          word: de nada
 
       - type: SELECT_MEANING
         xp: 5
@@ -297,7 +278,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 5
         config:
-          word: por favor
           options:
             - gracias
             - por favor

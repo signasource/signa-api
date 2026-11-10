@@ -1,4 +1,4 @@
-topic:
+﻿topic:
   code: unidad-3
   title: "Unidad 3"
   subtitle: "Lugares"
@@ -13,22 +13,18 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: escuela
-          word: escuela
 
       - type: INTRODUCE_SIGN
         config:
           meaning: universidad
-          word: universidad
 
       - type: INTRODUCE_SIGN
         config:
           meaning: museo
-          word: museo
 
       - type: INTRODUCE_SIGN
         config:
           meaning: "jardín de infantes"
-          word: "jardín de infantes"
 
       - type: SELECT_MEANING
         xp: 5
@@ -43,7 +39,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 5
         config:
-          word: universidad
           options:
             - escuela
             - universidad
@@ -92,7 +87,6 @@ lessons:
             - universidad
             - museo
             - "jardín de infantes"
-          keep_order: false
 
   - code: leccion-9
     name: "En la ciudad"
@@ -102,22 +96,18 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: comercio
-          word: comercio
 
       - type: INTRODUCE_SIGN
         config:
           meaning: plaza
-          word: plaza
 
       - type: INTRODUCE_SIGN
         config:
           meaning: "comisaría"
-          word: "comisaría"
 
       - type: INTRODUCE_SIGN
         config:
           meaning: hospital
-          word: hospital
 
       - type: SELECT_MEANING
         xp: 5
@@ -132,7 +122,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 5
         config:
-          word: plaza
           options:
             - comercio
             - plaza
@@ -181,4 +170,3 @@ lessons:
             - plaza
             - "comisaría"
             - hospital
-          keep_order: false

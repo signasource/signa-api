@@ -1,4 +1,4 @@
-topic:
+﻿topic:
   code: unidad-1
   title: "Unidad 1"
   subtitle: "Personas, espacios y rutinas escolares"
@@ -12,19 +12,15 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: alumnos
-          word: alumnos
       - type: INTRODUCE_SIGN
         config:
           meaning: director
-          word: director
       - type: INTRODUCE_SIGN
         config:
           meaning: maestro
-          word: maestro
       - type: INTRODUCE_SIGN
         config:
           meaning: profesor
-          word: profesor
 
       - type: SELECT_MEANING
         xp: 10
@@ -38,7 +34,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 10
         config:
-          word: maestro
           options:
             - director
             - maestro
@@ -56,7 +51,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 10
         config:
-          word: profesor
           options:
             - alumnos
             - director
@@ -88,24 +82,19 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: escuela
-          word: escuela
       - type: INTRODUCE_SIGN
         config:
           meaning: aula
-          word: aula
       - type: INTRODUCE_SIGN
         config:
           meaning: clase
-          word: clase
       - type: INTRODUCE_SIGN
         config:
           meaning: silla de ruedas
-          word: silla de ruedas
 
       - type: SELECT_SIGN
         xp: 10
         config:
-          word: aula
           options:
             - aula
             - escuela
@@ -132,7 +121,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 10
         config:
-          word: clase
           options:
             - escuela
             - silla de ruedas
@@ -154,31 +142,24 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: recreo
-          word: recreo
       - type: INTRODUCE_SIGN
         config:
           meaning: izar la bandera
-          word: izar la bandera
       - type: INTRODUCE_SIGN
         config:
           meaning: formar fila
-          word: formar fila
       - type: INTRODUCE_SIGN
         config:
           meaning: hamaca
-          word: hamaca
       - type: INTRODUCE_SIGN
         config:
           meaning: tobogan
-          word: tobogan
       - type: INTRODUCE_SIGN
         config:
           meaning: pelota
-          word: pelota
       - type: INTRODUCE_SIGN
         config:
           meaning: soga
-          word: soga
 
       - type: SELECT_MEANING
         xp: 10
@@ -192,7 +173,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 10
         config:
-          word: pelota
           options:
             - pelota
             - soga
@@ -210,7 +190,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 10
         config:
-          word: soga
           options:
             - recreo
             - tobogan

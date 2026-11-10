@@ -1,4 +1,4 @@
-topic:
+﻿topic:
   code: unidad-4
   title: "Unidad 4"
   subtitle: "El tiempo"
@@ -13,22 +13,18 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: ayer
-          word: ayer
 
       - type: INTRODUCE_SIGN
         config:
           meaning: hoy
-          word: hoy
 
       - type: INTRODUCE_SIGN
         config:
           meaning: "mañana"
-          word: "mañana"
 
       - type: INTRODUCE_SIGN
         config:
           meaning: todos los días
-          word: todos los días
 
       - type: SELECT_MEANING
         xp: 5
@@ -43,7 +39,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 5
         config:
-          word: hoy
           options:
             - ayer
             - hoy
@@ -92,7 +87,6 @@ lessons:
             - hoy
             - "mañana"
             - todos los días
-          keep_order: false
 
   - code: leccion-11
     name: "Momentos del día"
@@ -102,22 +96,18 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: la mañana
-          word: la mañana
 
       - type: INTRODUCE_SIGN
         config:
           meaning: "mediodía"
-          word: "mediodía"
 
       - type: INTRODUCE_SIGN
         config:
           meaning: tarde
-          word: tarde
 
       - type: INTRODUCE_SIGN
         config:
           meaning: noche
-          word: noche
 
       - type: SELECT_MEANING
         xp: 5
@@ -132,7 +122,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 5
         config:
-          word: tarde
           options:
             - la mañana
             - "mediodía"
@@ -181,4 +170,3 @@ lessons:
             - "mediodía"
             - tarde
             - noche
-          keep_order: false

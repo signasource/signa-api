@@ -1,4 +1,4 @@
-topic:
+﻿topic:
   code: unidad-5
   title: "Unidad 5"
   subtitle: "Medios de transporte"
@@ -13,22 +13,18 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: auto
-          word: auto
 
       - type: INTRODUCE_SIGN
         config:
           meaning: moto
-          word: moto
 
       - type: INTRODUCE_SIGN
         config:
           meaning: bicicleta
-          word: bicicleta
 
       - type: INTRODUCE_SIGN
         config:
           meaning: "camión"
-          word: "camión"
 
       - type: SELECT_MEANING
         xp: 5
@@ -43,7 +39,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 5
         config:
-          word: moto
           options:
             - auto
             - moto
@@ -92,7 +87,6 @@ lessons:
             - moto
             - bicicleta
             - "camión"
-          keep_order: false
 
   - code: leccion-13
     name: "Transporte público y más"
@@ -102,27 +96,22 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: colectivo
-          word: colectivo
 
       - type: INTRODUCE_SIGN
         config:
           meaning: tren
-          word: tren
 
       - type: INTRODUCE_SIGN
         config:
           meaning: subte
-          word: subte
 
       - type: INTRODUCE_SIGN
         config:
           meaning: taxi
-          word: taxi
 
       - type: INTRODUCE_SIGN
         config:
           meaning: uber
-          word: uber
 
       - type: SELECT_MEANING
         xp: 5
@@ -137,7 +126,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 5
         config:
-          word: tren
           options:
             - colectivo
             - tren
@@ -189,4 +177,3 @@ lessons:
             - subte
             - taxi
             - uber
-          keep_order: false

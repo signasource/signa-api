@@ -1,4 +1,4 @@
-topic:
+﻿topic:
   code: unidad-2
   title: "Unidad 2"
   subtitle: "Las personas a nuestro alrededor"
@@ -13,32 +13,26 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: familia
-          word: familia
 
       - type: INTRODUCE_SIGN
         config:
           meaning: mama
-          word: mama
 
       - type: INTRODUCE_SIGN
         config:
           meaning: papa
-          word: papa
 
       - type: INTRODUCE_SIGN
         config:
           meaning: hermano
-          word: hermano
 
       - type: INTRODUCE_SIGN
         config:
           meaning: hijo
-          word: hijo
 
       - type: INTRODUCE_SIGN
         config:
           meaning: abuelo
-          word: abuelo
 
       - type: SELECT_MEANING
         xp: 5
@@ -53,7 +47,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 5
         config:
-          word: papa
           options:
             - mama
             - papa
@@ -117,7 +110,6 @@ lessons:
             - hermano
             - hijo
             - abuelo
-          keep_order: false
 
   - code: leccion-6
     name: "Relaciones cercanas"
@@ -127,22 +119,18 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: amigo
-          word: amigo
 
       - type: INTRODUCE_SIGN
         config:
           meaning: novio
-          word: novio
 
       - type: INTRODUCE_SIGN
         config:
           meaning: esposo
-          word: esposo
 
       - type: INTRODUCE_SIGN
         config:
           meaning: "compañero"
-          word: "compañero"
 
       - type: SELECT_MEANING
         xp: 5
@@ -157,7 +145,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 5
         config:
-          word: novio
           options:
             - amigo
             - novio
@@ -206,7 +193,6 @@ lessons:
             - novio
             - esposo
             - "compañero"
-          keep_order: false
 
   - code: leccion-7
     name: "Tipos de personas"
@@ -216,27 +202,22 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: hombre
-          word: hombre
 
       - type: INTRODUCE_SIGN
         config:
           meaning: mujer
-          word: mujer
 
       - type: INTRODUCE_SIGN
         config:
           meaning: "niño"
-          word: "niño"
 
       - type: INTRODUCE_SIGN
         config:
           meaning: "niña"
-          word: "niña"
 
       - type: INTRODUCE_SIGN
         config:
           meaning: "bebé"
-          word: "bebé"
 
       - type: SELECT_MEANING
         xp: 5
@@ -251,7 +232,6 @@ lessons:
       - type: SELECT_SIGN
         xp: 5
         config:
-          word: mujer
           options:
             - hombre
             - mujer
@@ -303,4 +283,3 @@ lessons:
             - "niño"
             - "niña"
             - "bebé"
-          keep_order: false

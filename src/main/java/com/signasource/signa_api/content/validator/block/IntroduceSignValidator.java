@@ -39,8 +39,5 @@ public class IntroduceSignValidator implements BlockValidator {
         if (config.meaning() == null || config.meaning().isBlank()) {
             errors.add(new ValidationError(ctx.location(), "meaning is required"));
         }
-        if (config.word() == null || config.word().isBlank()) {
-            errors.add(new ValidationError(ctx.location(), "word is required"));
-        }
     }
 }
