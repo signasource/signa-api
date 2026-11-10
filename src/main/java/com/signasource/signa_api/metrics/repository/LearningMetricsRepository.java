@@ -157,6 +157,24 @@ public interface LearningMetricsRepository extends Repository<UserCourseEnrollme
                     + "WHERE r.startedAt >= :from AND r.startedAt < :until GROUP BY r.status")
     List<Object[]> importsByStatus(@Param("from") Instant from, @Param("until") Instant until);
 
+    /**
+     * Camera-block attempt rows for ML metrics: {@code [UUID blockId, BlockType type, long
+     * evaluated, long correct, String config]}. Covers PERFORM_SIGN and SPELL_NAME blocks only
+     * (single-sign types that map cleanly to one sign per attempt). VISUAL_RECOGNITION is excluded
+     * because its signSequence is multi-sign and cannot be attributed to a single sign.
+     */
+    @Query(
+            "SELECT a.lessonBlock.id, a.lessonBlock.type, COUNT(a), "
+                    + "SUM(CASE WHEN a.isCorrect = true THEN 1L ELSE 0L END), "
+                    + "MIN(a.lessonBlock.config) "
+                    + "FROM LessonBlockAttempt a "
+                    + "WHERE a.isCorrect IS NOT NULL AND a.attemptedAt >= :from AND a.attemptedAt < :until "
+                    + "AND a.lessonBlock.type IN "
+                    + "(com.signasource.signa_api.learning.entity.BlockType.PERFORM_SIGN, "
+                    + "com.signasource.signa_api.learning.entity.BlockType.SPELL_NAME) "
+                    + "GROUP BY a.lessonBlock.id, a.lessonBlock.type")
+    List<Object[]> cameraBlockStats(@Param("from") Instant from, @Param("until") Instant until);
+
     // ── Course-filtered variants (lesson → topic → courseVersion → course path) ─────────────────
 
     @Query(
