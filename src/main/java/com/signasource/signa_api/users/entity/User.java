@@ -54,6 +54,10 @@ public class User {
     @Column(nullable = false)
     private String lastName;
 
+    /** Profile photo as a data URL; null when none. */
+    @Column(columnDefinition = "text")
+    private String avatar;
+
     @Enumerated(EnumType.STRING)
     private Role role;
 

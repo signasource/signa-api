@@ -9,6 +9,7 @@ import com.signasource.signa_api.admin.dto.AdminStatsResponse;
 import com.signasource.signa_api.admin.dto.AdminUserResponse;
 import com.signasource.signa_api.admin.dto.AdminWaitlistEntryResponse;
 import com.signasource.signa_api.admin.dto.CreateAdminRequest;
+import com.signasource.signa_api.admin.dto.UpdateAdminRequest;
 import com.signasource.signa_api.admin.dto.UpdateOrganizationStatusRequest;
 import com.signasource.signa_api.admin.dto.UpdateSignReportRequest;
 import com.signasource.signa_api.admin.dto.UpdateUserRequest;
@@ -16,6 +17,7 @@ import com.signasource.signa_api.auth.entity.TokenType;
 import com.signasource.signa_api.auth.repository.TokenRepository;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
+import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.gamification.entity.UserStats;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
 import com.signasource.signa_api.learning.entity.ReportReason;
@@ -371,6 +373,42 @@ public class AdminService {
         userRepository.save(admin);
         userSettingsRepository.save(UserSettings.builder().user(admin).build());
         return AdminUserResponse.from(admin, null, null);
+    }
+
+    @Transactional
+    public AdminUserResponse updateAdmin(UUID adminId, UpdateAdminRequest request) {
+        User admin = findExistingUser(adminId);
+        if (admin.getRole() != Role.ADMIN) {
+            throw new NotFoundException("Admin not found");
+        }
+        if (request.name() != null) admin.setName(request.name().trim());
+        if (request.lastName() != null) admin.setLastName(request.lastName().trim());
+        if (request.email() != null) {
+            String email = request.email().trim();
+            if (!email.equalsIgnoreCase(admin.getEmail())) {
+                if (userRepository
+                        .findFirstByEmailIgnoreCase(email)
+                        .filter(other -> !other.getId().equals(adminId))
+                        .isPresent()) {
+                    throw new ResourceAlreadyInUseException("Email already in use");
+                }
+                admin.setEmail(email);
+            }
+        }
+        boolean passwordChanged = request.password() != null;
+        if (passwordChanged) {
+            admin.setPasswordHash(passwordEncoder.encode(request.password()));
+            admin.getProviders().add(AuthProvider.LOCAL);
+        }
+        if (request.avatar() != null) {
+            admin.setAvatar(request.avatar().isEmpty() ? null : request.avatar());
+        }
+        userRepository.save(admin);
+        if (passwordChanged) {
+            // A new password signs the admin out everywhere else.
+            tokenRepository.deleteByUserAndType(admin, TokenType.REFRESH);
+        }
+        return getUser(adminId);
     }
 
     private AdminUserResponse promoteToAdmin(User user, String password) {
