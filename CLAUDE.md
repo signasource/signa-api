@@ -481,24 +481,10 @@ entrada en el mismo PR. Detectadas el 2026-10-24 durante un deploy a producción
 - La tabla guarda comprobantes viejos de Google Play y ya nada escribe en ella. Borrarla en una
   migración cuando se confirme que está vacía en producción.
 
-### D11 · Alto — Los tests de `develop` no compilan desde `6d89652`
+### D14 · Bajo — `datetime-range.test.ts` tiene 2 tests fallando (signa-web, pre-existente)
 
-- `6d89652` (quitar `word`/`keepOrder`/`maxLetters` de los configs de bloques) cambió firmas de
-  `IntroduceSignConfig`, `VisualRecognitionConfig`, `SpellNameValidator`, `SaveCourseVersionRequest`
-  y los DTO de detalle/listado de `AdminCourseVersion*`, y no actualizó sus tests: no compilan
-  `AdminCourseVersionControllerTest`, `AdminCourseVersionServiceTest`, `ContentValidationCheckTest`,
-  `SignCatalogExtractorTest` y `SpellNameValidatorTest` (10 errores), así que **`./gradlew test`
-  entero falla** en `develop`. Además `IntroduceSignValidatorTest` y `VisualRecognitionValidatorTest`
-  compilan pero fallan (14 tests) porque siguen esperando `word`/`keepOrder`.
-- **Fix:** alinear esos tests con los configs actuales (hay un commit posterior que restaura `word` en
-  `SELECT_SIGN`; confirmar con quien lo está tocando cuál es el modelo final).
-
-### D12 · Medio — `GamificationFlowIntegrationTest.dailyRollover_ResetsDailyButKeepsWeekly` falla
-
-- Falla en `develop` limpio (2026-11-10, martes): el assert sobre los desafíos diarios no se cumple.
-  Sospecha: depende del día de la semana o de la fecha de hoy. Sin investigar.
-
-### D13 · Bajo — SpotBugs `spotbugsTest` marca `MlMetricsServiceTest.objectMapper`
-
-- `URF_UNREAD_FIELD` en `MlMetricsServiceTest` (campo `objectMapper` sin usar). Hace fallar
-  `./gradlew spotbugsTest`. **Fix:** borrar el campo.
+- `deriveStepSeconds > keeps a coarse enough step for a 1h window` espera 30, recibe 60.
+- `deriveStepSeconds > never goes below 15s` espera 15, recibe 60.
+- Fallan en `develop` limpio antes de cualquier cambio. La lógica de `deriveStepSeconds` en
+  `src/lib/datetime-range.ts` produce 60 para ambos casos, pero los tests esperan granularidades
+  más finas. **Fix:** revisar si la implementación o los tests son los que están equivocados.
