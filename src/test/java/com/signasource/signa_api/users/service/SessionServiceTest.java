@@ -31,7 +31,7 @@ class SessionServiceTest {
     @Test
     void persistsAValidSession() {
         Instant startedAt = Instant.parse("2026-11-06T10:00:00Z");
-        service.record(user, new RecordSessionRequest(startedAt, 180));
+        service.record(user, new RecordSessionRequest(startedAt, 180, null));
 
         ArgumentCaptor<UserSession> saved = ArgumentCaptor.forClass(UserSession.class);
         verify(repository).save(saved.capture());
@@ -41,9 +41,29 @@ class SessionServiceTest {
     }
 
     @Test
+    void aHeartbeatExtendsTheExistingSessionInsteadOfCreatingAnother() {
+        UUID sessionId = UUID.randomUUID();
+        UserSession existing =
+                UserSession.builder()
+                        .user(user)
+                        .clientSessionId(sessionId)
+                        .startedAt(Instant.now())
+                        .durationSeconds(30)
+                        .build();
+        org.mockito.Mockito.when(repository.findByUserIdAndClientSessionId(user.getId(), sessionId))
+                .thenReturn(java.util.Optional.of(existing));
+
+        service.record(user, new RecordSessionRequest(existing.getStartedAt(), 90, sessionId));
+
+        verify(repository).save(existing);
+        assertEquals(90, existing.getDurationSeconds());
+    }
+
+    @Test
     void rejectsImplausiblyLongSession() {
         RecordSessionRequest request =
-                new RecordSessionRequest(Instant.now(), SessionService.MAX_DURATION_SECONDS + 1);
+                new RecordSessionRequest(
+                        Instant.now(), SessionService.MAX_DURATION_SECONDS + 1, null);
 
         assertThrows(InvalidInputException.class, () -> service.record(user, request));
         verifyNoInteractions(repository);
@@ -52,7 +72,7 @@ class SessionServiceTest {
     @Test
     void rejectsAFutureStart() {
         RecordSessionRequest request =
-                new RecordSessionRequest(Instant.now().plus(Duration.ofHours(1)), 60);
+                new RecordSessionRequest(Instant.now().plus(Duration.ofHours(1)), 60, null);
 
         assertThrows(InvalidInputException.class, () -> service.record(user, request));
         verifyNoInteractions(repository);

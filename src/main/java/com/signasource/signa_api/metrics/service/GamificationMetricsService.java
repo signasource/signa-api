@@ -37,7 +37,8 @@ public class GamificationMetricsService {
         Instant from = range.start();
         Instant until = range.end();
         LocalDate fromDate = from.atZone(ZoneOffset.UTC).toLocalDate();
-        LocalDate toDate = until.atZone(ZoneOffset.UTC).toLocalDate();
+        // `until` is exclusive: a window ending at midnight must not pull in the next day's XP.
+        LocalDate toDate = until.minusNanos(1).atZone(ZoneOffset.UTC).toLocalDate();
 
         return new GamificationMetricsResponse(
                 xp(fromDate, toDate, from, until, range),
@@ -63,7 +64,8 @@ public class GamificationMetricsService {
             Duration d = Duration.between(from, until);
             Instant prevFrom = from.minus(d);
             LocalDate prevFromDate = prevFrom.atZone(ZoneOffset.UTC).toLocalDate();
-            long prevTotal = repository.sumXpBetween(prevFromDate, fromDate);
+            // Previous window ends the day before the current one starts (no shared day).
+            long prevTotal = repository.sumXpBetween(prevFromDate, fromDate.minusDays(1));
             long prevActiveUsers = repository.countActiveUsersBetween(prevFrom, from);
             previousPerActiveUser =
                     prevActiveUsers == 0 ? null : Math.round((double) prevTotal / prevActiveUsers);
@@ -136,17 +138,12 @@ public class GamificationMetricsService {
             items.add(new ItemSpend(String.valueOf(row[0]), toLong(row[1]), toLong(row[2])));
         }
         long spent = repository.sumGemsSpentBetween(from, until);
-        // Credited = reward inflows (challenges claimed + achievements earned + real-money
-        // purchases);
-        // gifts move gems between users, so they're economy-neutral and excluded.
-        long credited =
-                repository.sumChallengeRewardGemsBetween(from, until)
-                        + repository.sumAchievementRewardGemsBetween(from, until)
-                        + repository.sumGemPurchaseGemsBetween(from, until);
+        // Denominator = gems users hold right now (sum of every balance), not period inflows.
+        long inventory = repository.sumGemsInInventory();
         return new ShopSection(
                 spent,
-                credited,
-                percent(spent, credited),
+                inventory,
+                percent(spent, inventory),
                 items,
                 toDailyCounts(repository.dailyGemsSpent(from, until)));
     }

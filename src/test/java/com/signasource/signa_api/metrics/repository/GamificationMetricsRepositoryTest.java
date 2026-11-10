@@ -271,6 +271,7 @@ class GamificationMetricsRepositoryTest {
                         .name("Tester")
                         .lastName("Gamification")
                         .enabled(true)
+                        .role(com.signasource.signa_api.users.entity.Role.USER)
                         .verified(true)
                         .build());
     }

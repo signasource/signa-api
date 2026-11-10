@@ -19,10 +19,13 @@ import org.springframework.data.repository.query.Param;
 public interface GrowthMetricsRepository extends Repository<User, UUID> {
 
     // ── Audience (signups) ───────────────────────────────────────────────────────────────────────
-    @Query("SELECT COUNT(u) FROM User u WHERE u.createdAt < :until")
+    @Query(
+            "SELECT COUNT(u) FROM User u WHERE u.createdAt < :until AND (u.role IS NULL OR u.role <> com.signasource.signa_api.users.entity.Role.ADMIN)")
     long countUsersBefore(@Param("until") Instant until);
 
-    @Query("SELECT COUNT(u) FROM User u WHERE u.createdAt >= :from AND u.createdAt < :until")
+    @Query(
+            "SELECT COUNT(u) FROM User u WHERE u.createdAt >= :from AND u.createdAt < :until "
+                    + "AND (u.role IS NULL OR u.role <> com.signasource.signa_api.users.entity.Role.ADMIN)")
     long countNewUsersBetween(@Param("from") Instant from, @Param("until") Instant until);
 
     /**
@@ -31,6 +34,7 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
     @Query(
             "SELECT FLOOR(extract(epoch from u.createdAt) / :bucket), COUNT(u) FROM User u "
                     + "WHERE u.createdAt >= :from AND u.createdAt < :until "
+                    + "AND (u.role IS NULL OR u.role <> com.signasource.signa_api.users.entity.Role.ADMIN) "
                     + "GROUP BY 1")
     List<Object[]> dailyNewUsers(
             @Param("from") Instant from,
@@ -39,15 +43,15 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
 
     // ── Engagement (active users) ────────────────────────────────────────────────────────────────
     @Query(
-            "SELECT COUNT(DISTINCT a.user.id) FROM LessonBlockAttempt a "
-                    + "WHERE a.attemptedAt >= :from AND a.attemptedAt < :until")
+            "SELECT COUNT(DISTINCT a.user.id) FROM UserActivity a "
+                    + "WHERE a.occurredAt >= :from AND a.occurredAt < :until")
     long countActiveUsersBetween(@Param("from") Instant from, @Param("until") Instant until);
 
     /** Rows of {@code [long bucketIndex, long distinctActiveUsers]}. */
     @Query(
-            "SELECT FLOOR(extract(epoch from a.attemptedAt) / :bucket), COUNT(DISTINCT a.user.id) "
-                    + "FROM LessonBlockAttempt a "
-                    + "WHERE a.attemptedAt >= :from AND a.attemptedAt < :until "
+            "SELECT FLOOR(extract(epoch from a.occurredAt) / :bucket), COUNT(DISTINCT a.user.id) "
+                    + "FROM UserActivity a "
+                    + "WHERE a.occurredAt >= :from AND a.occurredAt < :until "
                     + "GROUP BY 1")
     List<Object[]> dailyActiveUsers(
             @Param("from") Instant from,
@@ -58,17 +62,20 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
     // ──────────────────────────────────────────────────────
     @Query(
             "SELECT COUNT(s) FROM UserSession s "
-                    + "WHERE s.startedAt >= :from AND s.startedAt < :until")
+                    + "WHERE s.startedAt >= :from AND s.startedAt < :until "
+                    + "AND (s.user.role IS NULL OR s.user.role <> com.signasource.signa_api.users.entity.Role.ADMIN)")
     long countSessionsBetween(@Param("from") Instant from, @Param("until") Instant until);
 
     @Query(
             "SELECT COUNT(DISTINCT s.user.id) FROM UserSession s "
-                    + "WHERE s.startedAt >= :from AND s.startedAt < :until")
+                    + "WHERE s.startedAt >= :from AND s.startedAt < :until "
+                    + "AND (s.user.role IS NULL OR s.user.role <> com.signasource.signa_api.users.entity.Role.ADMIN)")
     long countUsersWithSessionBetween(@Param("from") Instant from, @Param("until") Instant until);
 
     @Query(
             "SELECT AVG(s.durationSeconds) FROM UserSession s "
-                    + "WHERE s.startedAt >= :from AND s.startedAt < :until")
+                    + "WHERE s.startedAt >= :from AND s.startedAt < :until "
+                    + "AND (s.user.role IS NULL OR s.user.role <> com.signasource.signa_api.users.entity.Role.ADMIN)")
     Double averageSessionDurationBetween(
             @Param("from") Instant from, @Param("until") Instant until);
 
@@ -76,6 +83,7 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
     @Query(
             "SELECT FLOOR(extract(epoch from s.startedAt) / :bucket), COUNT(s) FROM UserSession s "
                     + "WHERE s.startedAt >= :from AND s.startedAt < :until "
+                    + "AND (s.user.role IS NULL OR s.user.role <> com.signasource.signa_api.users.entity.Role.ADMIN) "
                     + "GROUP BY 1")
     List<Object[]> dailySessions(
             @Param("from") Instant from,
@@ -86,7 +94,9 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
     @Query(
             "SELECT COUNT(DISTINCT u.id) FROM User u "
                     + "WHERE u.createdAt >= :from AND u.createdAt < :until "
-                    + "AND EXISTS (SELECT 1 FROM LessonBlockAttempt a WHERE a.user = u)")
+                    + "AND (u.role IS NULL OR u.role <> com.signasource.signa_api.users.entity.Role.ADMIN) "
+                    + "AND EXISTS (SELECT 1 FROM LessonBlockAttempt a WHERE a.user = u "
+                    + "AND a.attemptedAt < :until)")
     long countActivatedNewUsersBetween(@Param("from") Instant from, @Param("until") Instant until);
 
     /**

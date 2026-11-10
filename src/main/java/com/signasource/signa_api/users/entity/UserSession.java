@@ -45,6 +45,9 @@ public class UserSession {
     @Column(nullable = false)
     private int durationSeconds;
 
+    /** Client-generated id so repeated heartbeats update one session (null for legacy rows). */
+    @Column private UUID clientSessionId;
+
     /** When the server received it (trusted clock), for auditing against client timestamps. */
     @Column(nullable = false)
     private Instant recordedAt;

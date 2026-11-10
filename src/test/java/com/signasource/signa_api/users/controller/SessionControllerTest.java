@@ -27,7 +27,7 @@ class SessionControllerTest {
     void recordsTheSessionForTheAuthenticatedUser() {
         User user = User.builder().id(UUID.randomUUID()).build();
         CustomUserDetails principal = new CustomUserDetails(user);
-        RecordSessionRequest request = new RecordSessionRequest(Instant.now(), 120);
+        RecordSessionRequest request = new RecordSessionRequest(Instant.now(), 120, null);
 
         ResponseEntity<Void> response = controller.record(principal, request);
 

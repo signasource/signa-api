@@ -37,8 +37,8 @@ public interface GlobalMetricsRepository extends Repository<LessonBlockAttempt, 
     long countEnabledUsers();
 
     @Query(
-            "SELECT COUNT(DISTINCT a.user.id) FROM LessonBlockAttempt a "
-                    + "WHERE a.attemptedAt >= :from AND a.attemptedAt < :until")
+            "SELECT COUNT(DISTINCT a.user.id) FROM UserActivity a "
+                    + "WHERE a.occurredAt >= :from AND a.occurredAt < :until")
     long countActiveUsers(@Param("from") Instant from, @Param("until") Instant until);
 
     @Query(
