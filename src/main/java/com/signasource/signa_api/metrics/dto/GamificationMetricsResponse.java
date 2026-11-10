@@ -48,14 +48,16 @@ public record GamificationMetricsResponse(
     /**
      * Achievements unlocked in the window plus the all-time unlock rate (unlocked pairs / active
      * achievements × enabled users) and the most/least unlocked achievements (least includes those
-     * with zero unlocks).
+     * with zero unlocks). {@code previousUnlocked} is the same count for the previous equal-length
+     * window (null for the whole-history range where there is no prior window).
      */
     public record AchievementsSection(
             long unlocked,
             double unlockRatePercent,
             List<DailyCount> daily,
             List<NameCount> topUnlocked,
-            List<NameCount> leastUnlocked) {}
+            List<NameCount> leastUnlocked,
+            Long previousUnlocked) {}
 
     public record ChallengeClaim(
             String type, long completed, long claimed, double claimRatePercent) {}

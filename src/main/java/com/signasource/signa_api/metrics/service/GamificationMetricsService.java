@@ -43,7 +43,7 @@ public class GamificationMetricsService {
         return new GamificationMetricsResponse(
                 xp(fromDate, toDate, from, until, range),
                 streaks(from, until),
-                achievements(from, until),
+                achievements(from, until, range),
                 challenges(from, until),
                 new GiftsSection(
                         repository.countGiftsSentBetween(from, until),
@@ -88,15 +88,24 @@ public class GamificationMetricsService {
                 repository.maxStreak());
     }
 
-    private AchievementsSection achievements(Instant from, Instant until) {
+    private AchievementsSection achievements(Instant from, Instant until, MetricsRange range) {
         long opportunities = repository.countActiveAchievements() * repository.countEnabledUsers();
         double unlockRate = percent(repository.countAllUnlocked(), opportunities);
+
+        Long previousUnlocked = null;
+        if (!range.isOpen()) {
+            Duration d = Duration.between(from, until);
+            Instant prevFrom = from.minus(d);
+            previousUnlocked = repository.countUnlockedBetween(prevFrom, from);
+        }
+
         return new AchievementsSection(
                 repository.countUnlockedBetween(from, until),
                 unlockRate,
                 toDailyCounts(repository.dailyUnlocked(from, until)),
                 topNames(repository.topUnlockedAchievements()),
-                topNames(repository.leastUnlockedAchievements()));
+                topNames(repository.leastUnlockedAchievements()),
+                previousUnlocked);
     }
 
     /** Users bucketed by total XP into experience tiers. */
