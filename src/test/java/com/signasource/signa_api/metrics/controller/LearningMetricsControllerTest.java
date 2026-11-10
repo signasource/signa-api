@@ -2,6 +2,7 @@ package com.signasource.signa_api.metrics.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -9,7 +10,9 @@ import com.signasource.signa_api.metrics.dto.LearningMetricsResponse;
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.ReportsSection;
 import com.signasource.signa_api.metrics.service.LearningMetricsService;
 import com.signasource.signa_api.metrics.service.MetricsRange;
+import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -46,21 +49,21 @@ class LearningMetricsControllerTest {
     @Test
     void returnsTheSnapshotForTheRequestedWindow() {
         ArgumentCaptor<MetricsRange> range = ArgumentCaptor.forClass(MetricsRange.class);
-        when(service.getLearningMetrics(range.capture())).thenReturn(SAMPLE);
+        when(service.getLearningMetrics(range.capture(), any())).thenReturn(SAMPLE);
 
         ResponseEntity<LearningMetricsResponse> response =
-                controller.learning("2026-11-01T00:00:00Z", "2026-11-08T00:00:00Z");
+                controller.learning("2026-11-01T00:00:00Z", "2026-11-08T00:00:00Z", null);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertSame(SAMPLE, response.getBody());
-        verify(service).getLearningMetrics(range.getValue());
+        verify(service).getLearningMetrics(range.getValue(), List.of());
     }
 
     @Test
     void treatsMissingParamsAsTheWholeHistory() {
-        when(service.getLearningMetrics(MetricsRange.ALL_TIME)).thenReturn(SAMPLE);
+        when(service.getLearningMetrics(MetricsRange.ALL_TIME, List.<UUID>of())).thenReturn(SAMPLE);
 
-        ResponseEntity<LearningMetricsResponse> response = controller.learning(null, null);
+        ResponseEntity<LearningMetricsResponse> response = controller.learning(null, null, null);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
     }

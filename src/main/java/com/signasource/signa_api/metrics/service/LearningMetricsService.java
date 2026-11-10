@@ -23,10 +23,12 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -54,32 +56,48 @@ public class LearningMetricsService {
 
     @Transactional(readOnly = true)
     public LearningMetricsResponse getLearningMetrics(MetricsRange range) {
+        return getLearningMetrics(range, List.of());
+    }
+
+    @Transactional(readOnly = true)
+    public LearningMetricsResponse getLearningMetrics(MetricsRange range, Collection<UUID> courseIds) {
         Instant from = range.start();
         Instant until = range.end();
+        boolean filtered = !courseIds.isEmpty();
 
-        List<Object[]> exerciseRows = repository.exerciseStats(from, until);
+        List<Object[]> exerciseRows =
+                filtered
+                        ? repository.exerciseStatsByCourse(from, until, courseIds)
+                        : repository.exerciseStats(from, until);
 
         return new LearningMetricsResponse(
                 courses(until),
                 toCountItems(repository.enrollmentsByStatus(until)),
-                hardestLessons(from, until),
+                hardestLessons(from, until, filtered, courseIds),
                 repository.countLearnedSignsBetween(from, until),
                 toDailyCounts(repository.dailyLearnedSigns(from, until)),
                 reports(),
                 toCountItems(repository.importsByStatus(from, until)),
-                lessonFlow(from, until),
+                lessonFlow(from, until, filtered, courseIds),
                 exerciseFlow(exerciseRows),
                 onboardingFunnel(until),
-                lessonRanking(until),
+                lessonRanking(until, filtered, courseIds),
                 highestErrorExercises(exerciseRows),
                 mostRetriedExercises(exerciseRows),
-                dailyAccuracy(from, until),
+                dailyAccuracy(from, until, filtered, courseIds),
                 hardestSigns(exerciseRows));
     }
 
-    private LessonFlow lessonFlow(Instant from, Instant until) {
-        long started = repository.countLessonsStartedBetween(from, until);
-        long completed = repository.countLessonsCompletedBetween(from, until);
+    private LessonFlow lessonFlow(
+            Instant from, Instant until, boolean filtered, Collection<UUID> courseIds) {
+        long started =
+                filtered
+                        ? repository.countLessonsStartedByCourse(from, until, courseIds)
+                        : repository.countLessonsStartedBetween(from, until);
+        long completed =
+                filtered
+                        ? repository.countLessonsCompletedByCourse(from, until, courseIds)
+                        : repository.countLessonsCompletedBetween(from, until);
         return new LessonFlow(started, completed, percent(completed, started));
     }
 
@@ -122,9 +140,14 @@ public class LearningMetricsService {
         return steps;
     }
 
-    private List<LessonDropoff> lessonRanking(Instant until) {
+    private List<LessonDropoff> lessonRanking(
+            Instant until, boolean filtered, Collection<UUID> courseIds) {
+        List<Object[]> rows =
+                filtered
+                        ? repository.lessonDropoffStatsByCourse(until, courseIds)
+                        : repository.lessonDropoffStats(until);
         List<LessonDropoff> ranking = new ArrayList<>();
-        for (Object[] row : repository.lessonDropoffStats(until)) {
+        for (Object[] row : rows) {
             long started = toLong(row[2]);
             if (started < LESSON_MIN_STARTED) {
                 continue;
@@ -252,9 +275,14 @@ public class LearningMetricsService {
         }
     }
 
-    private List<DailyAccuracy> dailyAccuracy(Instant from, Instant until) {
+    private List<DailyAccuracy> dailyAccuracy(
+            Instant from, Instant until, boolean filtered, Collection<UUID> courseIds) {
+        List<Object[]> rows =
+                filtered
+                        ? repository.dailyAccuracyByCourse(from, until, courseIds)
+                        : repository.dailyAccuracy(from, until);
         List<DailyAccuracy> series = new ArrayList<>();
-        for (Object[] row : repository.dailyAccuracy(from, until)) {
+        for (Object[] row : rows) {
             long evaluated = toLong(row[1]);
             long correct = toLong(row[2]);
             series.add(
@@ -296,9 +324,15 @@ public class LearningMetricsService {
         return stats;
     }
 
-    private List<LessonAccuracy> hardestLessons(Instant from, Instant until) {
+    private List<LessonAccuracy> hardestLessons(
+            Instant from, Instant until, boolean filtered, Collection<UUID> courseIds) {
+        List<Object[]> rows =
+                filtered
+                        ? repository.lessonAccuracyByCourse(
+                                from, until, HARDEST_MIN_EVALUATED, courseIds)
+                        : repository.lessonAccuracy(from, until, HARDEST_MIN_EVALUATED);
         List<LessonAccuracy> lessons = new ArrayList<>();
-        for (Object[] row : repository.lessonAccuracy(from, until, HARDEST_MIN_EVALUATED)) {
+        for (Object[] row : rows) {
             long evaluated = toLong(row[2]);
             long correct = toLong(row[3]);
             lessons.add(

@@ -2,6 +2,7 @@ package com.signasource.signa_api.metrics.repository;
 
 import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.Query;
@@ -155,4 +156,74 @@ public interface LearningMetricsRepository extends Repository<UserCourseEnrollme
             "SELECT r.status, COUNT(r) FROM ContentImportRun r "
                     + "WHERE r.startedAt >= :from AND r.startedAt < :until GROUP BY r.status")
     List<Object[]> importsByStatus(@Param("from") Instant from, @Param("until") Instant until);
+
+    // ── Course-filtered variants (lesson → topic → courseVersion → course path) ─────────────────
+
+    @Query(
+            "SELECT a.lessonBlock.id, a.lessonBlock.lesson.name, a.lessonBlock.type, COUNT(a), "
+                    + "SUM(CASE WHEN a.isCorrect = true THEN 1L ELSE 0L END), "
+                    + "COUNT(DISTINCT a.user.id), "
+                    + "MIN(a.lessonBlock.config) "
+                    + "FROM LessonBlockAttempt a "
+                    + "WHERE a.isCorrect IS NOT NULL AND a.attemptedAt >= :from AND a.attemptedAt < :until "
+                    + "AND a.lessonBlock.lesson.topic.courseVersion.course.id IN :courseIds "
+                    + "GROUP BY a.lessonBlock.id, a.lessonBlock.lesson.name, a.lessonBlock.type")
+    List<Object[]> exerciseStatsByCourse(
+            @Param("from") Instant from,
+            @Param("until") Instant until,
+            @Param("courseIds") Collection<UUID> courseIds);
+
+    @Query(
+            "SELECT a.lessonBlock.lesson.id, a.lessonBlock.lesson.name, COUNT(a), "
+                    + "SUM(CASE WHEN a.isCorrect = true THEN 1L ELSE 0L END) "
+                    + "FROM LessonBlockAttempt a "
+                    + "WHERE a.isCorrect IS NOT NULL AND a.attemptedAt >= :from AND a.attemptedAt < :until "
+                    + "AND a.lessonBlock.lesson.topic.courseVersion.course.id IN :courseIds "
+                    + "GROUP BY a.lessonBlock.lesson.id, a.lessonBlock.lesson.name "
+                    + "HAVING COUNT(a) >= :minEvaluated")
+    List<Object[]> lessonAccuracyByCourse(
+            @Param("from") Instant from,
+            @Param("until") Instant until,
+            @Param("minEvaluated") long minEvaluated,
+            @Param("courseIds") Collection<UUID> courseIds);
+
+    @Query(
+            "SELECT COUNT(p) FROM UserLessonProgress p "
+                    + "WHERE p.startedAt >= :from AND p.startedAt < :until "
+                    + "AND p.lesson.topic.courseVersion.course.id IN :courseIds")
+    long countLessonsStartedByCourse(
+            @Param("from") Instant from,
+            @Param("until") Instant until,
+            @Param("courseIds") Collection<UUID> courseIds);
+
+    @Query(
+            "SELECT COUNT(p) FROM UserLessonProgress p "
+                    + "WHERE p.completedAt >= :from AND p.completedAt < :until "
+                    + "AND p.lesson.topic.courseVersion.course.id IN :courseIds")
+    long countLessonsCompletedByCourse(
+            @Param("from") Instant from,
+            @Param("until") Instant until,
+            @Param("courseIds") Collection<UUID> courseIds);
+
+    @Query(
+            "SELECT p.lesson.id, p.lesson.name, COUNT(p), "
+                    + "SUM(CASE WHEN p.status = com.signasource.signa_api.learning.entity.ProgressStatus.COMPLETED THEN 1L ELSE 0L END) "
+                    + "FROM UserLessonProgress p "
+                    + "WHERE p.startedAt IS NOT NULL AND p.startedAt < :until "
+                    + "AND p.lesson.topic.courseVersion.course.id IN :courseIds "
+                    + "GROUP BY p.lesson.id, p.lesson.name")
+    List<Object[]> lessonDropoffStatsByCourse(
+            @Param("until") Instant until, @Param("courseIds") Collection<UUID> courseIds);
+
+    @Query(
+            "SELECT CAST(a.attemptedAt AS LocalDate), COUNT(a), "
+                    + "SUM(CASE WHEN a.isCorrect = true THEN 1L ELSE 0L END) "
+                    + "FROM LessonBlockAttempt a "
+                    + "WHERE a.isCorrect IS NOT NULL AND a.attemptedAt >= :from AND a.attemptedAt < :until "
+                    + "AND a.lessonBlock.lesson.topic.courseVersion.course.id IN :courseIds "
+                    + "GROUP BY CAST(a.attemptedAt AS LocalDate)")
+    List<Object[]> dailyAccuracyByCourse(
+            @Param("from") Instant from,
+            @Param("until") Instant until,
+            @Param("courseIds") Collection<UUID> courseIds);
 }
