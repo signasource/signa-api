@@ -16,6 +16,7 @@ import com.signasource.signa_api.admin.dto.AdminStatsResponse;
 import com.signasource.signa_api.admin.dto.AdminUserResponse;
 import com.signasource.signa_api.admin.dto.AdminWaitlistEntryResponse;
 import com.signasource.signa_api.admin.dto.CreateAdminRequest;
+import com.signasource.signa_api.admin.dto.UpdateAdminRequest;
 import com.signasource.signa_api.admin.dto.UpdateOrganizationStatusRequest;
 import com.signasource.signa_api.admin.dto.UpdateSignReportRequest;
 import com.signasource.signa_api.admin.dto.UpdateUserRequest;
@@ -23,6 +24,7 @@ import com.signasource.signa_api.auth.entity.TokenType;
 import com.signasource.signa_api.auth.repository.TokenRepository;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
+import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
 import com.signasource.signa_api.learning.entity.Handedness;
 import com.signasource.signa_api.learning.entity.ReportReason;
@@ -222,6 +224,77 @@ class AdminServiceTest {
         assertNotNull(result);
         verify(userRepository).save(any());
         verify(userSettingsRepository).save(any());
+    }
+
+    @Test
+    void shouldUpdateAdminProfileAndRevokeSessionsOnPasswordChange() {
+        when(userRepository.findById(adminUser.getId())).thenReturn(Optional.of(adminUser));
+        when(userRepository.findFirstByEmailIgnoreCase("nuevo@signa.com"))
+                .thenReturn(Optional.empty());
+        when(passwordEncoder.encode("nuevaClave1")).thenReturn("new-hash");
+        when(memberRepository.findByUserId(any())).thenReturn(Optional.empty());
+
+        adminService.updateAdmin(
+                adminUser.getId(),
+                new UpdateAdminRequest(
+                        "Ana",
+                        "Perez",
+                        "nuevo@signa.com",
+                        "nuevaClave1",
+                        "data:image/png;base64,AAAA"));
+
+        assertEquals("Ana", adminUser.getName());
+        assertEquals("Perez", adminUser.getLastName());
+        assertEquals("nuevo@signa.com", adminUser.getEmail());
+        assertEquals("new-hash", adminUser.getPasswordHash());
+        assertEquals("data:image/png;base64,AAAA", adminUser.getAvatar());
+        verify(tokenRepository).deleteByUserAndType(adminUser, TokenType.REFRESH);
+    }
+
+    @Test
+    void shouldLeaveUntouchedWhatTheUpdateOmitsAndRemoveAvatarWithEmptyString() {
+        adminUser.setAvatar("data:image/png;base64,AAAA");
+        when(userRepository.findById(adminUser.getId())).thenReturn(Optional.of(adminUser));
+        when(memberRepository.findByUserId(any())).thenReturn(Optional.empty());
+
+        adminService.updateAdmin(
+                adminUser.getId(), new UpdateAdminRequest(null, null, null, null, ""));
+
+        assertEquals("Admin", adminUser.getName());
+        assertEquals("admin@signa.com", adminUser.getEmail());
+        assertEquals(null, adminUser.getAvatar());
+        verify(passwordEncoder, never()).encode(anyString());
+        verify(tokenRepository, never()).deleteByUserAndType(any(), any());
+    }
+
+    @Test
+    void shouldRejectUpdatingAdminEmailToOneInUse() {
+        User other = User.builder().id(UUID.randomUUID()).email("otro@signa.com").build();
+        when(userRepository.findById(adminUser.getId())).thenReturn(Optional.of(adminUser));
+        when(userRepository.findFirstByEmailIgnoreCase("otro@signa.com"))
+                .thenReturn(Optional.of(other));
+
+        assertThrows(
+                ResourceAlreadyInUseException.class,
+                () ->
+                        adminService.updateAdmin(
+                                adminUser.getId(),
+                                new UpdateAdminRequest(null, null, "otro@signa.com", null, null)));
+        assertEquals("admin@signa.com", adminUser.getEmail());
+    }
+
+    @Test
+    void shouldNotUpdateAsAdminAnAccountThatIsNotOne() {
+        User plain =
+                User.builder().id(UUID.randomUUID()).email("u@signa.com").role(Role.USER).build();
+        when(userRepository.findById(plain.getId())).thenReturn(Optional.of(plain));
+
+        assertThrows(
+                NotFoundException.class,
+                () ->
+                        adminService.updateAdmin(
+                                plain.getId(),
+                                new UpdateAdminRequest("X", null, null, null, null)));
     }
 
     @Test

@@ -19,7 +19,8 @@ public record AdminUserResponse(
         String organizationName,
         String authProvider,
         int currentStreak,
-        LocalDate lastStreakDate) {
+        LocalDate lastStreakDate,
+        String avatar) {
 
     public static AdminUserResponse from(User user, String organizationName, UserStats stats) {
         String provider =
@@ -40,6 +41,7 @@ public record AdminUserResponse(
                 organizationName,
                 provider,
                 streak,
-                lastActivity);
+                lastActivity,
+                user.getAvatar());
     }
 }

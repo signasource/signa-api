@@ -2,6 +2,7 @@ package com.signasource.signa_api.admin.controller;
 
 import com.signasource.signa_api.admin.dto.AdminUserResponse;
 import com.signasource.signa_api.admin.dto.CreateAdminRequest;
+import com.signasource.signa_api.admin.dto.UpdateAdminRequest;
 import com.signasource.signa_api.admin.dto.UpdateUserRequest;
 import com.signasource.signa_api.admin.service.AdminService;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
@@ -70,5 +71,11 @@ public class AdminUserController {
     public ResponseEntity<AdminUserResponse> createAdmin(
             @Valid @RequestBody CreateAdminRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(adminService.createAdmin(request));
+    }
+
+    @PatchMapping("/admins/{id}")
+    public ResponseEntity<AdminUserResponse> updateAdmin(
+            @PathVariable UUID id, @Valid @RequestBody UpdateAdminRequest request) {
+        return ResponseEntity.ok(adminService.updateAdmin(id, request));
     }
 }
