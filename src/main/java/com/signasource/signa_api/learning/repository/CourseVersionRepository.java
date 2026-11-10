@@ -24,8 +24,9 @@ public interface CourseVersionRepository extends JpaRepository<CourseVersion, UU
     @EntityGraph(attributePaths = {"course"})
     List<CourseVersion> findAllByOrderByStatusAscUpdatedAtDesc();
 
-    @EntityGraph(
-            attributePaths = {"course", "topics", "topics.lessons", "topics.lessons.lessonBlocks"})
+    // Only eager-load course + topics; lessons/blocks are batch-fetched lazily (batch_fetch_size)
+    // to avoid MultipleBagFetchException in Hibernate 6 with nested List collections.
+    @EntityGraph(attributePaths = {"course", "topics"})
     Optional<CourseVersion> findWithFullTreeById(UUID id);
 
     @Query("SELECT v FROM CourseVersion v JOIN FETCH v.course WHERE v.course.id = :courseId")
