@@ -166,7 +166,7 @@ class GrowthMetricsRepositoryTest {
         assertEquals(2, repository.countUsersWithSessionBetween(FROM, until));
         assertEquals(
                 140.0, repository.averageSessionDurationBetween(FROM, until)); // (120+240+60)/3
-        assertEquals(1, repository.dailySessions(FROM, until, BUCKET).size());
+        assertEquals(3, repository.sessionSpans(FROM, until).size());
     }
 
     @Test
