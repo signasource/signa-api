@@ -80,6 +80,7 @@ class AuthServiceTest {
     private static final String NEW_PASSWORD = "new-password";
     private static final String ENCODED_PASSWORD = "hashed_password";
     private static final String VALID_TOKEN_STRING = "valid.google.token";
+    private static final String GOOGLE_SUB = "google-sub-123";
     private static final String RESET_CODE = "123456";
 
     @Mock private UserRepository userRepository;
@@ -601,6 +602,8 @@ class AuthServiceTest {
     void shouldAuthenticateWithGoogleAndRegisterNewUser() throws Exception {
         GoogleIdToken.Payload payload = new GoogleIdToken.Payload();
         payload.setEmail(EMAIL);
+        payload.setEmailVerified(true);
+        payload.setSubject(GOOGLE_SUB);
         payload.set("name", NAME);
 
         when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);
@@ -638,8 +641,7 @@ class AuthServiceTest {
 
     @Test
     void shouldAuthenticateWithGoogleForExistingUser() throws Exception {
-        GoogleIdToken.Payload payload = new GoogleIdToken.Payload();
-        payload.setEmail(EMAIL);
+        GoogleIdToken.Payload payload = googlePayload();
 
         User existingUser =
                 User.builder()
@@ -677,14 +679,14 @@ class AuthServiceTest {
 
     @Test
     void shouldAuthenticateWithGoogleAndNotUpdateUserIfAlreadyConfigured() throws Exception {
-        GoogleIdToken.Payload payload = new GoogleIdToken.Payload();
-        payload.setEmail(EMAIL);
+        GoogleIdToken.Payload payload = googlePayload();
 
         User existingUser =
                 User.builder()
                         .id(UUID.randomUUID())
                         .email(EMAIL)
                         .providers(new HashSet<>(Set.of(AuthProvider.GOOGLE)))
+                        .googleSub(GOOGLE_SUB)
                         .enabled(true)
                         .verified(true)
                         .build();
@@ -703,6 +705,169 @@ class AuthServiceTest {
 
         verify(userRepository, never()).save(any(User.class));
         verify(tokenRepository).save(any(Token.class));
+    }
+
+    private GoogleIdToken.Payload googlePayload() {
+        GoogleIdToken.Payload payload = new GoogleIdToken.Payload();
+        payload.setEmail(EMAIL);
+        payload.setEmailVerified(true);
+        payload.setSubject(GOOGLE_SUB);
+        return payload;
+    }
+
+    @Test
+    void shouldStoreGoogleSubWhenSigningInWithExistingEmail() throws Exception {
+        User existingUser =
+                User.builder()
+                        .id(UUID.randomUUID())
+                        .email(EMAIL)
+                        .providers(new HashSet<>(Set.of(AuthProvider.LOCAL)))
+                        .enabled(true)
+                        .verified(true)
+                        .build();
+        when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);
+        when(mockedGoogleToken.getPayload()).thenReturn(googlePayload());
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(existingUser));
+        when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
+        when(userRepository.save(any(User.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(tokenRepository.save(any(Token.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        authService.authenticateWithGoogle(VALID_TOKEN_STRING);
+
+        assertEquals(GOOGLE_SUB, existingUser.getGoogleSub());
+    }
+
+    @Test
+    void shouldSignInWithLinkedGoogleAccountEvenIfEmailDiffers() throws Exception {
+        User linkedUser =
+                User.builder()
+                        .id(UUID.randomUUID())
+                        .email("signa@example.com")
+                        .providers(new HashSet<>(Set.of(AuthProvider.LOCAL, AuthProvider.GOOGLE)))
+                        .googleSub(GOOGLE_SUB)
+                        .enabled(true)
+                        .verified(true)
+                        .build();
+        when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);
+        when(mockedGoogleToken.getPayload()).thenReturn(googlePayload());
+        when(userRepository.findByGoogleSub(GOOGLE_SUB)).thenReturn(Optional.of(linkedUser));
+        when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
+        when(tokenRepository.save(any(Token.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        AuthResponse response = authService.authenticateWithGoogle(VALID_TOKEN_STRING);
+
+        assertEquals(ACCESS_TOKEN, response.accessToken());
+        verify(userRepository, never()).findByEmail(any());
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void shouldRejectGoogleSignInWhenEmailIsNotVerifiedByGoogle() throws Exception {
+        GoogleIdToken.Payload payload = googlePayload();
+        payload.setEmailVerified(false);
+        when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);
+        when(mockedGoogleToken.getPayload()).thenReturn(payload);
+
+        assertThrows(
+                InvalidCredentialsException.class,
+                () -> authService.authenticateWithGoogle(VALID_TOKEN_STRING));
+
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void shouldRejectGoogleSignInWhenAccountIsLinkedToAnotherGoogleAccount() throws Exception {
+        User existingUser =
+                User.builder()
+                        .id(UUID.randomUUID())
+                        .email(EMAIL)
+                        .providers(new HashSet<>(Set.of(AuthProvider.GOOGLE)))
+                        .googleSub("another-sub")
+                        .enabled(true)
+                        .verified(true)
+                        .build();
+        when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);
+        when(mockedGoogleToken.getPayload()).thenReturn(googlePayload());
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(existingUser));
+
+        assertThrows(
+                InvalidCredentialsException.class,
+                () -> authService.authenticateWithGoogle(VALID_TOKEN_STRING));
+
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void shouldLinkGoogleAccountToAuthenticatedUser() throws Exception {
+        User user =
+                User.builder()
+                        .id(UUID.randomUUID())
+                        .email(EMAIL)
+                        .providers(new HashSet<>(Set.of(AuthProvider.LOCAL)))
+                        .enabled(true)
+                        .build();
+        SecurityContextHolder.getContext()
+                .setAuthentication(
+                        new UsernamePasswordAuthenticationToken(new CustomUserDetails(user), null));
+        when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);
+        when(mockedGoogleToken.getPayload()).thenReturn(googlePayload());
+        when(userRepository.findByGoogleSub(GOOGLE_SUB)).thenReturn(Optional.empty());
+
+        authService.linkGoogleAccount(VALID_TOKEN_STRING);
+
+        assertEquals(GOOGLE_SUB, user.getGoogleSub());
+        assertTrue(user.getProviders().contains(AuthProvider.GOOGLE));
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void shouldNotLinkGoogleAccountAlreadyUsedByAnotherUser() throws Exception {
+        User user =
+                User.builder()
+                        .id(UUID.randomUUID())
+                        .email(EMAIL)
+                        .providers(new HashSet<>(Set.of(AuthProvider.LOCAL)))
+                        .enabled(true)
+                        .build();
+        SecurityContextHolder.getContext()
+                .setAuthentication(
+                        new UsernamePasswordAuthenticationToken(new CustomUserDetails(user), null));
+        when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);
+        when(mockedGoogleToken.getPayload()).thenReturn(googlePayload());
+        when(userRepository.findByGoogleSub(GOOGLE_SUB))
+                .thenReturn(Optional.of(User.builder().id(UUID.randomUUID()).build()));
+
+        assertThrows(
+                ResourceAlreadyInUseException.class,
+                () -> authService.linkGoogleAccount(VALID_TOKEN_STRING));
+
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void shouldNotLinkGoogleWhenUserAlreadyHasOne() throws Exception {
+        User user =
+                User.builder()
+                        .id(UUID.randomUUID())
+                        .email(EMAIL)
+                        .providers(new HashSet<>(Set.of(AuthProvider.LOCAL, AuthProvider.GOOGLE)))
+                        .googleSub("existing-sub")
+                        .enabled(true)
+                        .build();
+        SecurityContextHolder.getContext()
+                .setAuthentication(
+                        new UsernamePasswordAuthenticationToken(new CustomUserDetails(user), null));
+        when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);
+        when(mockedGoogleToken.getPayload()).thenReturn(googlePayload());
+
+        assertThrows(
+                ResourceAlreadyInUseException.class,
+                () -> authService.linkGoogleAccount(VALID_TOKEN_STRING));
+
+        verify(userRepository, never()).save(any(User.class));
     }
 
     @Test

@@ -2,6 +2,7 @@ package com.signasource.signa_api.users.controller;
 
 import com.signasource.signa_api.auth.dto.AuthResponse;
 import com.signasource.signa_api.auth.dto.ChangePasswordRequest;
+import com.signasource.signa_api.auth.dto.GoogleAuthRequest;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.service.AuthService;
 import com.signasource.signa_api.gamification.dto.DailyXpResponse;
@@ -109,6 +110,13 @@ public class UserController {
             @Valid @RequestBody UpdateUsernameRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         userService.updateUsername(request, userDetails.getUser());
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Links a Google account (by ID token) to the authenticated user. */
+    @PostMapping("/me/google")
+    public ResponseEntity<Void> linkGoogle(@Valid @RequestBody GoogleAuthRequest request) {
+        authService.linkGoogleAccount(request.idToken());
         return ResponseEntity.noContent().build();
     }
 

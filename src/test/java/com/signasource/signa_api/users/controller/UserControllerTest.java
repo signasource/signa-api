@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.auth.dto.AuthResponse;
 import com.signasource.signa_api.auth.dto.ChangePasswordRequest;
+import com.signasource.signa_api.auth.dto.GoogleAuthRequest;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.service.AuthService;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
@@ -275,6 +276,17 @@ class UserControllerTest {
         assertEquals(Role.USER, body.role());
         assertEquals(true, body.enabled());
         assertEquals(true, body.verified());
+        assertEquals(user.getProviders(), body.providers());
+    }
+
+    @Test
+    void linkGoogle_returnsNoContent() {
+        GoogleAuthRequest request = new GoogleAuthRequest("google.id.token");
+
+        ResponseEntity<Void> response = userController.linkGoogle(request);
+
+        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+        verify(authService).linkGoogleAccount("google.id.token");
     }
 
     @Test

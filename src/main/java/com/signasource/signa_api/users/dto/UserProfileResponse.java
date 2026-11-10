@@ -1,7 +1,9 @@
 package com.signasource.signa_api.users.dto;
 
+import com.signasource.signa_api.users.entity.AuthProvider;
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
+import java.util.Set;
 import java.util.UUID;
 
 public record UserProfileResponse(
@@ -12,7 +14,8 @@ public record UserProfileResponse(
         String lastName,
         Role role,
         boolean enabled,
-        boolean verified) {
+        boolean verified,
+        Set<AuthProvider> providers) {
     public static UserProfileResponse from(User user) {
         return new UserProfileResponse(
                 user.getId(),
@@ -22,6 +25,7 @@ public record UserProfileResponse(
                 user.getLastName(),
                 user.getRole(),
                 user.isEnabled(),
-                user.isVerified());
+                user.isVerified(),
+                Set.copyOf(user.getProviders()));
     }
 }

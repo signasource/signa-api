@@ -275,19 +275,26 @@ public class AuthService {
     @Transactional
     public AuthResponse authenticateWithGoogle(String idTokenString) {
         try {
-            GoogleIdToken idToken = googleIdTokenVerifier.verify(idTokenString);
+            GoogleIdToken.Payload payload = verifyGoogleToken(idTokenString);
 
-            if (idToken == null) {
-                throw new InvalidCredentialsException("Invalid Google token");
+            // Sin correo verificado por Google no se puede confiar en el para crear ni vincular
+            // cuentas.
+            if (!Boolean.TRUE.equals(payload.getEmailVerified())) {
+                throw new InvalidCredentialsException("Authentication failed");
             }
 
-            GoogleIdToken.Payload payload = idToken.getPayload();
+            String googleSub = payload.getSubject();
             String email = payload.getEmail();
             String name = (String) payload.get("name");
             String familyName = (String) payload.get("family_name");
             String lastName = familyName != null ? familyName : "";
 
-            Optional<User> userOptional = userRepository.findByEmail(email);
+            // Primero por cuenta de Google ya vinculada (puede tener otro correo), despues por
+            // correo.
+            Optional<User> userOptional =
+                    userRepository
+                            .findByGoogleSub(googleSub)
+                            .or(() -> userRepository.findByEmail(email));
             User user;
             boolean isNewUser = userOptional.isEmpty();
 
@@ -297,6 +304,14 @@ public class AuthService {
                     throw new InvalidCredentialsException("Authentication failed");
                 }
                 boolean needsUpdate = false;
+
+                if (user.getGoogleSub() == null) {
+                    user.setGoogleSub(googleSub);
+                    needsUpdate = true;
+                } else if (!user.getGoogleSub().equals(googleSub)) {
+                    // Mismo correo, pero la cuenta ya esta vinculada a otra cuenta de Google.
+                    throw new InvalidCredentialsException("Authentication failed");
+                }
 
                 // Google ya verifico el correo del usuario.
                 if (!user.isVerified()) {
@@ -323,6 +338,7 @@ public class AuthService {
                                 .lastName(lastName)
                                 .username(generatedUsername)
                                 .passwordHash(null)
+                                .googleSub(googleSub)
                                 .role(Role.USER)
                                 .enabled(true)
                                 .verified(true)
@@ -346,6 +362,47 @@ public class AuthService {
             throw e;
         } catch (Exception e) {
             log.error("Unexpected error during Google authentication", e);
+            throw new InvalidCredentialsException("Authentication failed");
+        }
+    }
+
+    /**
+     * Vincula una cuenta de Google al usuario autenticado. La cuenta de Google puede tener un
+     * correo distinto al de Signa: se identifica por su "sub".
+     */
+    @Transactional
+    public void linkGoogleAccount(String idTokenString) {
+        User user = getAuthenticatedUser();
+        GoogleIdToken.Payload payload = verifyGoogleToken(idTokenString);
+        String googleSub = payload.getSubject();
+
+        if (user.getGoogleSub() != null) {
+            throw new ResourceAlreadyInUseException("Google account already linked");
+        }
+        userRepository
+                .findByGoogleSub(googleSub)
+                .ifPresent(
+                        other -> {
+                            throw new ResourceAlreadyInUseException(
+                                    "Google account already in use");
+                        });
+
+        user.setGoogleSub(googleSub);
+        user.getProviders().add(AuthProvider.GOOGLE);
+        userRepository.save(user);
+    }
+
+    private GoogleIdToken.Payload verifyGoogleToken(String idTokenString) {
+        try {
+            GoogleIdToken idToken = googleIdTokenVerifier.verify(idTokenString);
+            if (idToken == null) {
+                throw new InvalidCredentialsException("Invalid Google token");
+            }
+            return idToken.getPayload();
+        } catch (InvalidCredentialsException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error verifying Google token", e);
             throw new InvalidCredentialsException("Authentication failed");
         }
     }

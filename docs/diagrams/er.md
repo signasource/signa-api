@@ -23,7 +23,8 @@ erDiagram
         uuid id PK
         string email UK
         string username UK
-        string passwordHash
+        string passwordHash "null en cuentas solo-Google"
+        string googleSub UK "id estable de la cuenta de Google; null si no hay una vinculada"
         string name
         string lastName
         enum role
