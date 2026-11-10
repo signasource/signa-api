@@ -127,19 +127,36 @@ class LearningMetricsServiceTest {
         when(repository.exerciseStats(any(), any()))
                 .thenReturn(
                         List.<Object[]>of(
-                                // [blockId, lessonName, type, evaluated, correct, distinctUsers, config]
+                                // [blockId, lessonName, type, evaluated, correct, distinctUsers,
+                                // config]
                                 new Object[] {
-                                    "b1", "Fácil", BlockType.SELECT_MEANING, 100L, 90L, 50L,
+                                    "b1",
+                                    "Fácil",
+                                    BlockType.SELECT_MEANING,
+                                    100L,
+                                    90L,
+                                    50L,
                                     "{\"sign\":\"seña_facil\"}"
                                 },
                                 new Object[] {
-                                    "b2", "Difícil", BlockType.VISUAL_RECOGNITION, 100L, 20L, 25L,
+                                    "b2",
+                                    "Difícil",
+                                    BlockType.VISUAL_RECOGNITION,
+                                    100L,
+                                    20L,
+                                    25L,
                                     "{\"signSequence\":[\"seña_dificil\"]}"
                                 },
                                 new Object[] {
-                                    "b3", "Rara", BlockType.MATCH, 5L, 5L, 5L,
+                                    "b3",
+                                    "Rara",
+                                    BlockType.MATCH,
+                                    5L,
+                                    5L,
+                                    5L,
                                     "{\"concepts\":[\"seña_rara\"]}"
-                                })); // below floor (5 < EXERCISE_MIN_EVALUATED=3? No, 5>=3 so included)
+                                })); // below floor (5 < EXERCISE_MIN_EVALUATED=3? No, 5>=3 so
+        // included)
         when(repository.lessonDropoffStats(any()))
                 .thenReturn(
                         List.<Object[]>of(
