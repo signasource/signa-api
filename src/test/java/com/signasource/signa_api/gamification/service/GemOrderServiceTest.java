@@ -14,6 +14,7 @@ import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.gamification.dto.GemCheckoutResponse;
 import com.signasource.signa_api.gamification.dto.GemOrderResponse;
+import com.signasource.signa_api.gamification.dto.PendingGemOrderResponse;
 import com.signasource.signa_api.gamification.entity.GemOrder;
 import com.signasource.signa_api.gamification.entity.GemOrderStatus;
 import com.signasource.signa_api.gamification.entity.GemPack;
@@ -28,6 +29,8 @@ import com.signasource.signa_api.organizations.service.MercadoPagoClient.Payment
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -229,6 +232,59 @@ class GemOrderServiceTest {
     }
 
     @Test
+    void pendingListsOnlyOrdersWhoseMercadoPagoPaymentIsInProcess() {
+        GemOrder voucher = pendingOrder();
+        GemOrder abandoned = pendingOrder();
+        abandoned.setMercadoPagoOrderId("ABANDONED");
+        stubPendingQuery(voucher, abandoned);
+        when(mercadoPago.getOrder(MP_ORDER))
+                .thenReturn(
+                        new Payment(
+                                MP_ORDER,
+                                "action_required",
+                                "waiting_payment",
+                                voucher.reference(),
+                                new BigDecimal("3300"),
+                                "ARS"));
+        when(mercadoPago.getOrder("ABANDONED"))
+                .thenReturn(
+                        new Payment(
+                                "ABANDONED",
+                                "created",
+                                "created",
+                                abandoned.reference(),
+                                new BigDecimal("3300"),
+                                "ARS"));
+
+        List<PendingGemOrderResponse> pending = service.pending(user);
+
+        assertEquals(1, pending.size());
+        assertEquals(voucher.getId(), pending.get(0).id());
+        assertEquals(300, pending.get(0).gems());
+        assertEquals(100, stats.getGems());
+    }
+
+    @Test
+    void pendingCreditsAnOrderThatMercadoPagoAlreadyApprovedAndDoesNotListIt() {
+        GemOrder order = pendingOrder();
+        stubPendingQuery(order);
+        when(mercadoPago.getOrder(MP_ORDER)).thenReturn(approved(order, "3300"));
+
+        assertTrue(service.pending(user).isEmpty());
+        assertEquals(GemOrderStatus.PAID, order.getStatus());
+        assertEquals(400, stats.getGems());
+    }
+
+    @Test
+    void pendingSkipsAnOrderWhenMercadoPagoFails() {
+        GemOrder order = pendingOrder();
+        stubPendingQuery(order);
+        when(mercadoPago.getOrder(MP_ORDER)).thenThrow(new IllegalStateException("down"));
+
+        assertTrue(service.pending(user).isEmpty());
+    }
+
+    @Test
     void referencesOfSeatPurchasesAreNotGemReferences() {
         assertTrue(GemOrderService.isGemReference("gems_" + UUID.randomUUID()));
         assertFalse(GemOrderService.isGemReference(UUID.randomUUID().toString()));
@@ -251,6 +307,18 @@ class GemOrderServiceTest {
         when(orderRepository.findByIdAndUserId(order.getId(), user.getId()))
                 .thenReturn(Optional.of(order));
         lenient().when(orderRepository.findForUpdate(order.getId())).thenReturn(Optional.of(order));
+    }
+
+    private void stubPendingQuery(GemOrder... orders) {
+        when(orderRepository
+                        .findTop5ByUserIdAndStatusAndMercadoPagoOrderIdIsNotNullAndCreatedAtAfterOrderByCreatedAtDesc(
+                                any(), any(), any(Instant.class)))
+                .thenReturn(List.of(orders));
+        for (GemOrder order : orders) {
+            lenient()
+                    .when(orderRepository.findForUpdate(order.getId()))
+                    .thenReturn(Optional.of(order));
+        }
     }
 
     private static Payment approved(GemOrder order, String amount) {
