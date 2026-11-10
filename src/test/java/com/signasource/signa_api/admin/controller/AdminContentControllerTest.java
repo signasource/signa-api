@@ -50,7 +50,8 @@ class AdminContentControllerTest {
     @Test
     void shouldGetSigns() {
         AdminSignResponse sign =
-                new AdminSignResponse(UUID.randomUUID(), "hola", "ONE_HANDED", true, false, 0, 0);
+                new AdminSignResponse(
+                        UUID.randomUUID(), "hola", "ONE_HANDED", true, false, 0, 0, "glb");
         when(adminService.getSigns(any(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(sign)));
 

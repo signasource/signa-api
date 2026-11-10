@@ -42,6 +42,14 @@ public class CourseVersion {
 
     @Column private Instant publishedAt;
 
+    @Column private Instant updatedAt;
+
+    @Column(length = 255)
+    private String updatedBy;
+
+    @Column(length = 50)
+    private String basedOnVersion;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private VersionStatus status;
@@ -50,7 +58,11 @@ public class CourseVersion {
     @JoinColumn(name = "course_id", nullable = false)
     private Course course;
 
-    @OneToMany(mappedBy = "courseVersion", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(
+            mappedBy = "courseVersion",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true,
+            fetch = FetchType.LAZY)
     @OrderBy("order ASC")
     @Builder.Default
     @ToString.Exclude

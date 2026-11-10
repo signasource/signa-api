@@ -10,16 +10,23 @@ public record AdminSignResponse(
         boolean hasAnimation,
         boolean hasYoutube,
         long openReports,
-        long lessonCount) {
+        long lessonCount,
+        String animationFormat) {
 
     public static AdminSignResponse from(Sign sign, long openReports, long lessonCount) {
+        String fmt = null;
+        String url = sign.getAnimationUrl();
+        if (url != null && !url.isBlank()) {
+            fmt = url.toLowerCase().endsWith(".mp4") ? "mp4" : "glb";
+        }
         return new AdminSignResponse(
                 sign.getId(),
                 sign.getMeaning(),
                 sign.getHandedness().name(),
-                sign.getAnimationUrl() != null && !sign.getAnimationUrl().isBlank(),
+                url != null && !url.isBlank(),
                 sign.getYoutubeUrl() != null && !sign.getYoutubeUrl().isBlank(),
                 openReports,
-                lessonCount);
+                lessonCount,
+                fmt);
     }
 }
