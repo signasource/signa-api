@@ -1,4 +1,4 @@
-﻿topic:
+topic:
   code: unidad-4
   title: "Unidad 4"
   subtitle: "El tiempo"
@@ -39,6 +39,7 @@ lessons:
       - type: SELECT_SIGN
         xp: 5
         config:
+          word: hoy
           options:
             - ayer
             - hoy
@@ -122,6 +123,7 @@ lessons:
       - type: SELECT_SIGN
         xp: 5
         config:
+          word: tarde
           options:
             - la mañana
             - "mediodía"
@@ -170,3 +172,4 @@ lessons:
             - "mediodía"
             - tarde
             - noche
+

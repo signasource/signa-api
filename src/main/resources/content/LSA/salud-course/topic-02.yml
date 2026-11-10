@@ -1,4 +1,4 @@
-﻿topic:
+topic:
   code: unidad-2
   title: "Unidad 2"
   subtitle: "¿A dónde voy? Lugares de atención y trámites"
@@ -40,6 +40,7 @@ lessons:
       - type: SELECT_SIGN
         xp: 10
         config:
+          word: guardia
           options:
             - guardia
             - internacion
@@ -57,6 +58,7 @@ lessons:
       - type: SELECT_SIGN
         xp: 10
         config:
+          word: autorizacion
           options:
             - obra social
             - autorizacion
@@ -82,3 +84,4 @@ lessons:
             - internacion
             - obra social
             - autorizacion
+

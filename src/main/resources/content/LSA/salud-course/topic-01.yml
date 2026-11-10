@@ -1,4 +1,4 @@
-﻿topic:
+topic:
   code: unidad-1
   title: "Unidad 1"
   subtitle: "¿Cómo te sentís? Estados de salud y síntomas"
@@ -37,6 +37,7 @@ lessons:
       - type: SELECT_SIGN
         xp: 10
         config:
+          word: enfermo
           options:
             - sano
             - enfermo
@@ -54,6 +55,7 @@ lessons:
       - type: SELECT_SIGN
         xp: 10
         config:
+          word: salud
           options:
             - enfermedades
             - embarazo
@@ -111,6 +113,7 @@ lessons:
       - type: SELECT_SIGN
         xp: 10
         config:
+          word: dolor
           options:
             - dolor
             - lastimado
@@ -128,6 +131,7 @@ lessons:
       - type: SELECT_SIGN
         xp: 10
         config:
+          word: vomitar
           options:
             - fiebre
             - mareado
@@ -152,3 +156,4 @@ lessons:
             - mareado
             - vomitar
             - lastimado
+

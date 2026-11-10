@@ -1,4 +1,4 @@
-﻿topic:
+topic:
   code: unidad-1
   title: "Unidad 1"
   subtitle: "Presentándonos"
@@ -119,6 +119,7 @@ lessons:
       - type: SELECT_SIGN
         xp: 5
         config:
+          word: vos
           options:
             - yo
             - vos
@@ -194,6 +195,7 @@ lessons:
       - type: SELECT_SIGN
         xp: 5
         config:
+          word: chau
           options:
             - hola
             - chau
@@ -214,6 +216,7 @@ lessons:
       - type: SELECT_SIGN
         xp: 5
         config:
+          word: bien
           options:
             - bien
             - mal
@@ -278,6 +281,7 @@ lessons:
       - type: SELECT_SIGN
         xp: 5
         config:
+          word: por favor
           options:
             - gracias
             - por favor
@@ -324,3 +328,4 @@ lessons:
             - por favor
             - "perdón"
             - de nada
+

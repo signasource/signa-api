@@ -1,4 +1,4 @@
-﻿topic:
+topic:
   code: unidad-5
   title: "Unidad 5"
   subtitle: "Medios de transporte"
@@ -39,6 +39,7 @@ lessons:
       - type: SELECT_SIGN
         xp: 5
         config:
+          word: moto
           options:
             - auto
             - moto
@@ -126,6 +127,7 @@ lessons:
       - type: SELECT_SIGN
         xp: 5
         config:
+          word: tren
           options:
             - colectivo
             - tren
@@ -177,3 +179,4 @@ lessons:
             - subte
             - taxi
             - uber
+

@@ -1,4 +1,4 @@
-﻿topic:
+topic:
   code: unidad-3
   title: "Unidad 3"
   subtitle: "Lugares"
@@ -39,6 +39,7 @@ lessons:
       - type: SELECT_SIGN
         xp: 5
         config:
+          word: universidad
           options:
             - escuela
             - universidad
@@ -122,6 +123,7 @@ lessons:
       - type: SELECT_SIGN
         xp: 5
         config:
+          word: plaza
           options:
             - comercio
             - plaza
@@ -170,3 +172,4 @@ lessons:
             - plaza
             - "comisaría"
             - hospital
+

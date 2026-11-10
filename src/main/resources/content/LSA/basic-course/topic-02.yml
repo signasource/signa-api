@@ -1,4 +1,4 @@
-﻿topic:
+topic:
   code: unidad-2
   title: "Unidad 2"
   subtitle: "Las personas a nuestro alrededor"
@@ -47,6 +47,7 @@ lessons:
       - type: SELECT_SIGN
         xp: 5
         config:
+          word: papa
           options:
             - mama
             - papa
@@ -145,6 +146,7 @@ lessons:
       - type: SELECT_SIGN
         xp: 5
         config:
+          word: novio
           options:
             - amigo
             - novio
@@ -232,6 +234,7 @@ lessons:
       - type: SELECT_SIGN
         xp: 5
         config:
+          word: mujer
           options:
             - hombre
             - mujer
@@ -283,3 +286,4 @@ lessons:
             - "niño"
             - "niña"
             - "bebé"
+
