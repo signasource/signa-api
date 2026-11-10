@@ -45,8 +45,10 @@ import com.signasource.signa_api.organizations.repository.OrganizationRepository
 import com.signasource.signa_api.organizations.repository.PurchaseRefundRepository;
 import com.signasource.signa_api.organizations.repository.PurchaseSeatRepository;
 import com.signasource.signa_api.users.entity.User;
+import com.signasource.signa_api.users.entity.UserActivity;
 import com.signasource.signa_api.users.entity.UserDailyActivity;
 import com.signasource.signa_api.users.entity.UserSession;
+import com.signasource.signa_api.users.repository.UserActivityRepository;
 import com.signasource.signa_api.users.repository.UserDailyActivityRepository;
 import com.signasource.signa_api.users.repository.UserRepository;
 import com.signasource.signa_api.users.repository.UserSessionRepository;
@@ -84,6 +86,7 @@ class GrowthMetricsRepositoryTest {
     @Autowired private LessonRepository lessonRepository;
     @Autowired private LessonBlockRepository lessonBlockRepository;
     @Autowired private LessonBlockAttemptRepository attemptRepository;
+    @Autowired private UserActivityRepository activityRepository;
     @Autowired private CoursePurchaseRepository purchaseRepository;
     @Autowired private PurchaseSeatRepository seatRepository;
     @Autowired private PurchaseRefundRepository refundRepository;
@@ -120,7 +123,11 @@ class GrowthMetricsRepositoryTest {
     @Test
     void countsNewUsersAndActiveUsers() {
         User user = saveUser();
-        attemptRepository.save(anAttempt(user));
+        // Any activity counts (not just exercises); several touches are still one active user.
+        activityRepository.save(
+                UserActivity.builder().user(user).occurredAt(Instant.now()).build());
+        activityRepository.save(
+                UserActivity.builder().user(user).occurredAt(Instant.now()).build());
 
         assertEquals(1, repository.countNewUsersBetween(FROM, until));
         assertEquals(1, repository.countUsersBefore(until));

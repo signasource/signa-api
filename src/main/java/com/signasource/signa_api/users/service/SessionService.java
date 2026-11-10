@@ -34,8 +34,21 @@ public class SessionService {
         if (request.startedAt().isAfter(now.plus(FUTURE_SKEW))) {
             throw new InvalidInputException("startedAt must not be in the future");
         }
+        if (request.sessionId() != null) {
+            var existing =
+                    repository.findByUserIdAndClientSessionId(user.getId(), request.sessionId());
+            if (existing.isPresent()) {
+                UserSession session = existing.get();
+                // A heartbeat only ever extends a session.
+                session.setDurationSeconds(
+                        Math.max(session.getDurationSeconds(), request.durationSeconds()));
+                repository.save(session);
+                return;
+            }
+        }
         repository.save(
                 UserSession.builder()
+                        .clientSessionId(request.sessionId())
                         .user(user)
                         .startedAt(request.startedAt())
                         .durationSeconds(request.durationSeconds())

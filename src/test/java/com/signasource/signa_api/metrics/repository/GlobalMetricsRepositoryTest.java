@@ -30,6 +30,8 @@ import com.signasource.signa_api.learning.repository.UserCourseEnrollmentReposit
 import com.signasource.signa_api.learning.repository.UserLessonProgressRepository;
 import com.signasource.signa_api.learning.repository.UserTopicProgressRepository;
 import com.signasource.signa_api.users.entity.User;
+import com.signasource.signa_api.users.entity.UserActivity;
+import com.signasource.signa_api.users.repository.UserActivityRepository;
 import com.signasource.signa_api.users.repository.UserRepository;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -52,6 +54,7 @@ class GlobalMetricsRepositoryTest {
 
     @Autowired private GlobalMetricsRepository repository;
     @Autowired private UserRepository userRepository;
+    @Autowired private UserActivityRepository activityRepository;
     @Autowired private SignLanguageRepository signLanguageRepository;
     @Autowired private CourseRepository courseRepository;
     @Autowired private CourseVersionRepository courseVersionRepository;
@@ -126,6 +129,8 @@ class GlobalMetricsRepositoryTest {
                         .build());
         attemptRepository.save(attempt(true));
         attemptRepository.save(attempt(false));
+        activityRepository.save(
+                UserActivity.builder().user(user).occurredAt(java.time.Instant.now()).build());
 
         assertEquals(1, repository.countCourses());
         assertEquals(1, repository.countVersionsByStatus().size());

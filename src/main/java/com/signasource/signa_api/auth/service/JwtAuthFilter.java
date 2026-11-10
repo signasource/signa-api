@@ -1,6 +1,8 @@
 package com.signasource.signa_api.auth.service;
 
+import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.exceptions.NotFoundException;
+import com.signasource.signa_api.users.service.UserActivityRecorder;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,6 +21,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class JwtAuthFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final CustomUserDetailsService userDetailsService;
+    private final UserActivityRecorder activityRecorder;
 
     @Override
     protected void doFilterInternal(
@@ -59,6 +62,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
                 SecurityContextHolder.getContext().setAuthentication(authToken);
+                if (userDetails instanceof CustomUserDetails custom) {
+                    activityRecorder.touch(custom.getUser());
+                }
             }
         }
 

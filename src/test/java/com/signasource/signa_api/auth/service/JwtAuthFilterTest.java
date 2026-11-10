@@ -37,6 +37,8 @@ class JwtAuthFilterTest {
 
     @Mock private CustomUserDetailsService userDetailsService;
 
+    @Mock private com.signasource.signa_api.users.service.UserActivityRecorder activityRecorder;
+
     @Mock private HttpServletRequest request;
 
     @Mock private HttpServletResponse response;

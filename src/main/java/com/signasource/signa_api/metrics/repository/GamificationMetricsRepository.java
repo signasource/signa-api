@@ -46,8 +46,8 @@ public interface GamificationMetricsRepository extends Repository<UserDailyXp, U
     // ── XP distribution (users bucketed by total XP) + engagement
     // ──────────────────────────────────
     @Query(
-            "SELECT COUNT(DISTINCT a.user.id) FROM LessonBlockAttempt a "
-                    + "WHERE a.attemptedAt >= :from AND a.attemptedAt < :until")
+            "SELECT COUNT(DISTINCT a.user.id) FROM UserActivity a "
+                    + "WHERE a.occurredAt >= :from AND a.occurredAt < :until")
     long countActiveUsersBetween(@Param("from") Instant from, @Param("until") Instant until);
 
     @Query("SELECT COUNT(s) FROM UserStats s " + "WHERE s.totalXp >= :lo AND s.totalXp <= :hi")
@@ -56,11 +56,11 @@ public interface GamificationMetricsRepository extends Repository<UserDailyXp, U
     @Query("SELECT COUNT(s) FROM UserStats s WHERE s.totalXp > :threshold")
     long countStatsXpOver(@Param("threshold") long threshold);
 
-    /** Average current streak among users who were active (had an attempt) within the window. */
+    /** Average current streak among users who were active (any activity) within the window. */
     @Query(
             "SELECT AVG(s.currentStreak) FROM UserStats s WHERE s.currentStreak > 0 AND s.user.id IN "
-                    + "(SELECT DISTINCT a.user.id FROM LessonBlockAttempt a "
-                    + "WHERE a.attemptedAt >= :from AND a.attemptedAt < :until)")
+                    + "(SELECT DISTINCT a.user.id FROM UserActivity a "
+                    + "WHERE a.occurredAt >= :from AND a.occurredAt < :until)")
     Double averageStreakActive(@Param("from") Instant from, @Param("until") Instant until);
 
     // ── Achievements ─────────────────────────────────────────────────────────────────────────────
@@ -93,13 +93,15 @@ public interface GamificationMetricsRepository extends Repository<UserDailyXp, U
                     + "GROUP BY a.id, a.title ORDER BY COUNT(ua) ASC")
     List<Object[]> leastUnlockedAchievements();
 
-    @Query("SELECT COUNT(ua) FROM UserAchievement ua")
+    // Only active achievements, so numerator and denominator (active × users) share one universe.
+    @Query("SELECT COUNT(ua) FROM UserAchievement ua WHERE ua.achievement.active = true")
     long countAllUnlocked();
 
     @Query("SELECT COUNT(a) FROM Achievement a WHERE a.active = true")
     long countActiveAchievements();
 
-    @Query("SELECT COUNT(u) FROM User u WHERE u.enabled = true")
+    @Query(
+            "SELECT COUNT(u) FROM User u WHERE u.enabled = true AND (u.role IS NULL OR u.role <> com.signasource.signa_api.users.entity.Role.ADMIN)")
     long countEnabledUsers();
 
     @Query(
@@ -147,6 +149,10 @@ public interface GamificationMetricsRepository extends Repository<UserDailyXp, U
             "SELECT COALESCE(SUM(p.gemsSpent), 0) FROM Purchase p "
                     + "WHERE p.purchasedAt >= :from AND p.purchasedAt < :until")
     long sumGemsSpentBetween(@Param("from") Instant from, @Param("until") Instant until);
+
+    /** Gems currently held by all users (sum of every balance). */
+    @Query("SELECT COALESCE(SUM(s.gems), 0) FROM UserStats s")
+    long sumGemsInInventory();
 
     /**
      * Rows of {@code [String title, long purchases, long gemsSpent]} ordered by most bought first.

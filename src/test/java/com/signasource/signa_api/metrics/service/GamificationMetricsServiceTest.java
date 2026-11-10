@@ -106,9 +106,7 @@ class GamificationMetricsServiceTest {
         when(repository.countAllUnlocked()).thenReturn(125L); // 125/500 = 25%
         when(repository.leastUnlockedAchievements())
                 .thenReturn(List.<Object[]>of(new Object[] {"Logro raro", 0L}));
-        when(repository.sumChallengeRewardGemsBetween(any(), any())).thenReturn(300L);
-        when(repository.sumAchievementRewardGemsBetween(any(), any())).thenReturn(200L);
-        when(repository.sumGemPurchaseGemsBetween(any(), any())).thenReturn(500L); // credited 1000
+        when(repository.sumGemsInInventory()).thenReturn(1000L);
         when(repository.countStatsXpBetween(0L, 0L)).thenReturn(5L);
         when(repository.countStatsXpBetween(1L, 100L)).thenReturn(10L);
         when(repository.countStatsXpBetween(101L, 500L)).thenReturn(8L);
@@ -124,8 +122,8 @@ class GamificationMetricsServiceTest {
         assertEquals(45L, r.streaks().maxStreak());
         assertEquals(25.0, r.achievements().unlockRatePercent());
         assertEquals("Logro raro", r.achievements().leastUnlocked().get(0).name());
-        assertEquals(1000L, r.shop().gemsCredited());
-        assertEquals(120.0, r.shop().redemptionRatePercent()); // 1200 spent / 1000 credited
+        assertEquals(1000L, r.shop().gemsInInventory());
+        assertEquals(120.0, r.shop().redemptionRatePercent()); // 1200 spent / 1000 in inventory
         assertEquals(5, r.xpDistribution().size());
         assertEquals("Sin XP", r.xpDistribution().get(0).name());
         assertEquals(2L, r.xpDistribution().get(4).count());

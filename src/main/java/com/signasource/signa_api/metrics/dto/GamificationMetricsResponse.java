@@ -65,12 +65,12 @@ public record GamificationMetricsResponse(
     public record ItemSpend(String title, long purchases, long gemsSpent) {}
 
     /**
-     * Shop economy over the window: gems spent, gems credited (reward inflows: challenges claimed +
-     * achievements earned + gem purchases) and the redemption rate (spent / credited).
+     * Shop economy over the window: gems spent in the window, the gems users currently hold in
+     * their inventory (all users' balances) and the redemption rate (spent / inventory).
      */
     public record ShopSection(
             long totalGemsSpent,
-            long gemsCredited,
+            long gemsInInventory,
             double redemptionRatePercent,
             List<ItemSpend> topItems,
             List<DailyCount> dailySpent) {}
