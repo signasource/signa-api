@@ -14,7 +14,7 @@ public record UpdateAdminRequest(
         @Size(min = 1, max = 100) String lastName,
         @Email @Size(max = 254) String email,
         @Size(min = 8, max = 72) String password,
-        @Size(max = 400_000) @Pattern(
-                        regexp = "^$|^data:image/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$",
+        @Size(max = AvatarData.MAX_LENGTH) @Pattern(
+                        regexp = AvatarData.PATTERN,
                         message = "Avatar must be a base64 PNG, JPEG or WebP data URL")
                 String avatar) {}

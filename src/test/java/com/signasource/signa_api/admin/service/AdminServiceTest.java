@@ -218,7 +218,7 @@ class AdminServiceTest {
         when(userSettingsRepository.save(any())).thenReturn(UserSettings.builder().build());
 
         CreateAdminRequest req =
-                new CreateAdminRequest("new@signa.com", "Nuevo", "Admin", "password123");
+                new CreateAdminRequest("new@signa.com", "Nuevo", "Admin", "password123", null);
         AdminUserResponse result = adminService.createAdmin(req);
 
         assertNotNull(result);
@@ -298,6 +298,41 @@ class AdminServiceTest {
     }
 
     @Test
+    void shouldCreateAdminWithItsPhoto() {
+        when(userRepository.findFirstByEmailIgnoreCase(anyString())).thenReturn(Optional.empty());
+        when(userRepository.existsByUsername(anyString())).thenReturn(false);
+        when(passwordEncoder.encode(anyString())).thenReturn("hashed");
+        when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(userSettingsRepository.save(any())).thenReturn(UserSettings.builder().build());
+
+        AdminUserResponse result =
+                adminService.createAdmin(
+                        new CreateAdminRequest(
+                                "foto@signa.com",
+                                "Foto",
+                                "Admin",
+                                "password123",
+                                "data:image/jpeg;base64,AAAA"));
+
+        assertEquals("data:image/jpeg;base64,AAAA", result.avatar());
+    }
+
+    @Test
+    void shouldCreateAdminWithoutPhotoWhenAvatarIsEmpty() {
+        when(userRepository.findFirstByEmailIgnoreCase(anyString())).thenReturn(Optional.empty());
+        when(userRepository.existsByUsername(anyString())).thenReturn(false);
+        when(passwordEncoder.encode(anyString())).thenReturn("hashed");
+        when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(userSettingsRepository.save(any())).thenReturn(UserSettings.builder().build());
+
+        AdminUserResponse result =
+                adminService.createAdmin(
+                        new CreateAdminRequest("sin@signa.com", "Sin", "Foto", "password123", ""));
+
+        assertEquals(null, result.avatar());
+    }
+
+    @Test
     void shouldPromoteExistingAccountKeepingItsPassword() {
         User existing =
                 User.builder()
@@ -319,7 +354,8 @@ class AdminServiceTest {
 
         AdminUserResponse result =
                 adminService.createAdmin(
-                        new CreateAdminRequest("existing@signa.com", "Otro", "Dato", "temporal"));
+                        new CreateAdminRequest(
+                                "existing@signa.com", "Otro", "Dato", "temporal", null));
 
         assertEquals(Role.ADMIN, result.role());
         assertEquals("own-hash", existing.getPasswordHash());
@@ -350,7 +386,8 @@ class AdminServiceTest {
         when(memberRepository.findByUserId(any())).thenReturn(Optional.empty());
         when(passwordEncoder.encode("temporal")).thenReturn("hashed");
 
-        adminService.createAdmin(new CreateAdminRequest("google@signa.com", "A", "B", "temporal"));
+        adminService.createAdmin(
+                new CreateAdminRequest("google@signa.com", "A", "B", "temporal", null));
 
         assertEquals("hashed", google.getPasswordHash());
         assertEquals(true, google.getProviders().contains(AuthProvider.LOCAL));

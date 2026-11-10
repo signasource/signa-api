@@ -122,7 +122,8 @@ class AdminUserControllerTest {
     @Test
     void shouldCreateAdmin() {
         UUID id = UUID.randomUUID();
-        CreateAdminRequest req = new CreateAdminRequest("new@signa.com", "Nuevo", "Admin", "pass");
+        CreateAdminRequest req =
+                new CreateAdminRequest("new@signa.com", "Nuevo", "Admin", "pass", null);
         AdminUserResponse created =
                 new AdminUserResponse(
                         id,
