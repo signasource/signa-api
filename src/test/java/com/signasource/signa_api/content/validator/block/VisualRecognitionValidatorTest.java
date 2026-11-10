@@ -31,24 +31,16 @@ class VisualRecognitionValidatorTest {
     void shouldPassForValidBlock() {
         List<ValidationError> errors = new ArrayList<>();
         validator.validate(
-                block(config(List.of("hola", "chau"), List.of("hola", "chau", "gracias"), true)),
+                block(config(List.of("hola", "chau"), List.of("hola", "chau", "gracias"))),
                 ctx,
                 errors);
         assertThat(errors).isEmpty();
     }
 
     @Test
-    void shouldPassWithKeepOrderFalse() {
-        List<ValidationError> errors = new ArrayList<>();
-        validator.validate(
-                block(config(List.of("hola"), List.of("hola", "chau"), false)), ctx, errors);
-        assertThat(errors).isEmpty();
-    }
-
-    @Test
     void shouldFailWhenSignSequenceIsNull() {
         List<ValidationError> errors = new ArrayList<>();
-        validator.validate(block(configNoSignSequence(List.of("hola", "chau"), true)), ctx, errors);
+        validator.validate(block(configNoSignSequence(List.of("hola", "chau"))), ctx, errors);
         assertThat(errors)
                 .extracting(ValidationError::render)
                 .contains("Topic topic-1 > Lesson lesson-1 > Block #4: signSequence is required");
@@ -57,7 +49,7 @@ class VisualRecognitionValidatorTest {
     @Test
     void shouldFailWhenSignSequenceIsEmpty() {
         List<ValidationError> errors = new ArrayList<>();
-        validator.validate(block(config(List.of(), List.of("hola", "chau"), true)), ctx, errors);
+        validator.validate(block(config(List.of(), List.of("hola", "chau"))), ctx, errors);
         assertThat(errors)
                 .extracting(ValidationError::render)
                 .contains(
@@ -67,7 +59,7 @@ class VisualRecognitionValidatorTest {
     @Test
     void shouldFailWhenOptionsIsNull() {
         List<ValidationError> errors = new ArrayList<>();
-        validator.validate(block(configNoOptions(List.of("hola"), true)), ctx, errors);
+        validator.validate(block(configNoOptions(List.of("hola"))), ctx, errors);
         assertThat(errors)
                 .extracting(ValidationError::render)
                 .contains("Topic topic-1 > Lesson lesson-1 > Block #4: options is required");
@@ -76,21 +68,11 @@ class VisualRecognitionValidatorTest {
     @Test
     void shouldFailWhenOptionsIsEmpty() {
         List<ValidationError> errors = new ArrayList<>();
-        validator.validate(block(config(List.of("hola"), List.of(), true)), ctx, errors);
+        validator.validate(block(config(List.of("hola"), List.of())), ctx, errors);
         assertThat(errors)
                 .extracting(ValidationError::render)
                 .contains(
                         "Topic topic-1 > Lesson lesson-1 > Block #4: options must have at least 1 element");
-    }
-
-    @Test
-    void shouldFailWhenKeepOrderIsAbsent() {
-        List<ValidationError> errors = new ArrayList<>();
-        validator.validate(
-                block(configNoKeepOrder(List.of("hola"), List.of("hola", "chau"))), ctx, errors);
-        assertThat(errors)
-                .extracting(ValidationError::render)
-                .contains("Topic topic-1 > Lesson lesson-1 > Block #4: keepOrder is required");
     }
 
     @Test
@@ -106,7 +88,7 @@ class VisualRecognitionValidatorTest {
     @Test
     void shouldAccumulateMultipleErrors() {
         List<ValidationError> errors = new ArrayList<>();
-        validator.validate(block(configNoSignSequence(List.of(), false)), ctx, errors);
+        validator.validate(block(configNoSignSequence(List.of())), ctx, errors);
         assertThat(errors)
                 .extracting(ValidationError::render)
                 .contains(
@@ -118,36 +100,25 @@ class VisualRecognitionValidatorTest {
         return new LessonBlockDto(BlockType.VISUAL_RECOGNITION, null, config);
     }
 
-    private ObjectNode config(List<String> signSequence, List<String> options, boolean keepOrder) {
+    private ObjectNode config(List<String> signSequence, List<String> options) {
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode node = JsonNodeFactory.instance.objectNode();
         node.set("signSequence", mapper.valueToTree(signSequence));
         node.set("options", mapper.valueToTree(options));
-        node.put("keepOrder", keepOrder);
         return node;
     }
 
-    private ObjectNode configNoSignSequence(List<String> options, boolean keepOrder) {
+    private ObjectNode configNoSignSequence(List<String> options) {
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode node = JsonNodeFactory.instance.objectNode();
         node.set("options", mapper.valueToTree(options));
-        node.put("keepOrder", keepOrder);
         return node;
     }
 
-    private ObjectNode configNoOptions(List<String> signSequence, boolean keepOrder) {
+    private ObjectNode configNoOptions(List<String> signSequence) {
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode node = JsonNodeFactory.instance.objectNode();
         node.set("signSequence", mapper.valueToTree(signSequence));
-        node.put("keepOrder", keepOrder);
-        return node;
-    }
-
-    private ObjectNode configNoKeepOrder(List<String> signSequence, List<String> options) {
-        ObjectMapper mapper = new ObjectMapper();
-        ObjectNode node = JsonNodeFactory.instance.objectNode();
-        node.set("signSequence", mapper.valueToTree(signSequence));
-        node.set("options", mapper.valueToTree(options));
         return node;
     }
 }

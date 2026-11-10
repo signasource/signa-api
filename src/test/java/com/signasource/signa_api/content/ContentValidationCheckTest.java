@@ -55,7 +55,7 @@ class ContentValidationCheckTest {
                         new ContextResponseValidator(configParser),
                         new InvisibleSignsValidator(configParser),
                         new PerformSignValidator(configParser),
-                        new SpellNameValidator(configParser));
+                        new SpellNameValidator());
         this.validator = new ContentValidator(blockValidators);
     }
 

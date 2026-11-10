@@ -199,6 +199,19 @@ public class ChallengeService {
                                 ChallengeType.DAILY,
                                 ChallengeType.WEEKLY))) {
             UserChallenge row = existing.get(challenge.getId());
+            if (row != null) {
+                // On Tuesday today-1 == weekStart, so a DAILY row from yesterday can collide with
+                // the weekStart date in the query above. Discard it if the period doesn't match.
+                LocalDate expectedStart =
+                        switch (challenge.getChallengeType()) {
+                            case FIRST_STEPS -> FIRST_STEPS_PERIOD;
+                            case DAILY -> today;
+                            case WEEKLY -> weekStart;
+                        };
+                if (!row.getPeriodStart().equals(expectedStart)) {
+                    row = null;
+                }
+            }
             if (row == null) {
                 if (stats == null) {
                     stats = userStatsRepository.findByUser(user).orElse(null);
