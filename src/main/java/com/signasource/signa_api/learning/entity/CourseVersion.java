@@ -50,6 +50,9 @@ public class CourseVersion {
     @Column(length = 50)
     private String basedOnVersion;
 
+    @Column(length = 20)
+    private String color;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private VersionStatus status;

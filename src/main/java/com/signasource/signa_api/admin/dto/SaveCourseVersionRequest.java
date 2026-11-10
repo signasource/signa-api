@@ -12,6 +12,7 @@ public record SaveCourseVersionRequest(
         String description,
         boolean isFree,
         BigDecimal price,
+        @Size(max = 20) String color,
         List<TopicData> topics) {
 
     public record TopicData(

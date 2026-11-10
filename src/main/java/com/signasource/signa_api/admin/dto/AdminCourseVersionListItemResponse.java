@@ -21,7 +21,8 @@ public record AdminCourseVersionListItemResponse(
         int blockCount,
         int signCount,
         Instant updatedAt,
-        String updatedBy) {
+        String updatedBy,
+        String color) {
 
     public static AdminCourseVersionListItemResponse from(CourseVersion v) {
         int units = v.getTopics().size();
@@ -53,6 +54,7 @@ public record AdminCourseVersionListItemResponse(
                 blocks,
                 signs,
                 v.getUpdatedAt(),
-                v.getUpdatedBy());
+                v.getUpdatedBy(),
+                v.getColor());
     }
 }

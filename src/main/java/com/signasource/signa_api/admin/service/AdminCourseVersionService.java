@@ -220,6 +220,7 @@ public class AdminCourseVersionService {
             newTopics.add(topic);
         }
         version.getTopics().addAll(newTopics);
+        version.setColor(req.color());
         version.setUpdatedAt(Instant.now());
         version.setUpdatedBy(adminEmail);
         courseVersionRepository.save(version);

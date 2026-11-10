@@ -26,6 +26,7 @@ public record AdminCourseVersionDetailResponse(
         BigDecimal price,
         Instant updatedAt,
         String updatedBy,
+        String color,
         List<TopicResponse> topics) {
 
     public record TopicResponse(
@@ -60,6 +61,7 @@ public record AdminCourseVersionDetailResponse(
                 v.getCourse().getPrice(),
                 v.getUpdatedAt(),
                 v.getUpdatedBy(),
+                v.getColor(),
                 topics);
     }
 
