@@ -18,17 +18,14 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class LearningMetricsServiceTest {
 
     @Mock private LearningMetricsRepository repository;
-    @Spy private ObjectMapper objectMapper = new ObjectMapper();
-    @InjectMocks private LearningMetricsService service;
+    private LearningMetricsService service;
 
     private final MetricsRange range =
             MetricsRange.of(
@@ -39,6 +36,7 @@ class LearningMetricsServiceTest {
 
     @BeforeEach
     void stubs() {
+        service = new LearningMetricsService(repository, new ObjectMapper());
         when(repository.enrollmentsByCourse(any()))
                 .thenReturn(
                         List.<Object[]>of(
