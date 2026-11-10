@@ -11,6 +11,7 @@ import com.signasource.signa_api.metrics.dto.GamificationMetricsResponse.ShopSec
 import com.signasource.signa_api.metrics.dto.GamificationMetricsResponse.StreaksSection;
 import com.signasource.signa_api.metrics.dto.GamificationMetricsResponse.XpSection;
 import com.signasource.signa_api.metrics.repository.GamificationMetricsRepository;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -39,7 +40,7 @@ public class GamificationMetricsService {
         LocalDate toDate = until.atZone(ZoneOffset.UTC).toLocalDate();
 
         return new GamificationMetricsResponse(
-                xp(fromDate, toDate, from, until),
+                xp(fromDate, toDate, from, until, range),
                 streaks(from, until),
                 achievements(from, until),
                 challenges(from, until),
@@ -51,15 +52,31 @@ public class GamificationMetricsService {
     }
 
     /** Total XP plus the per-active-user average (honest engagement, not inflated by headcount). */
-    private XpSection xp(LocalDate fromDate, LocalDate toDate, Instant from, Instant until) {
+    private XpSection xp(
+            LocalDate fromDate, LocalDate toDate, Instant from, Instant until, MetricsRange range) {
         long total = repository.sumXpBetween(fromDate, toDate);
         long activeUsers = repository.countActiveUsersBetween(from, until);
         long perActiveUser = activeUsers == 0 ? 0 : Math.round((double) total / activeUsers);
+
+        Long previousPerActiveUser = null;
+        if (!range.isOpen()) {
+            Duration d = Duration.between(from, until);
+            Instant prevFrom = from.minus(d);
+            LocalDate prevFromDate = prevFrom.atZone(ZoneOffset.UTC).toLocalDate();
+            long prevTotal = repository.sumXpBetween(prevFromDate, fromDate);
+            long prevActiveUsers = repository.countActiveUsersBetween(prevFrom, from);
+            previousPerActiveUser =
+                    prevActiveUsers == 0
+                            ? null
+                            : Math.round((double) prevTotal / prevActiveUsers);
+        }
+
         return new XpSection(
                 total,
                 perActiveUser,
                 activeUsers,
-                toDailyCounts(repository.dailyXp(fromDate, toDate)));
+                toDailyCounts(repository.dailyXp(fromDate, toDate)),
+                previousPerActiveUser);
     }
 
     private StreaksSection streaks(Instant from, Instant until) {

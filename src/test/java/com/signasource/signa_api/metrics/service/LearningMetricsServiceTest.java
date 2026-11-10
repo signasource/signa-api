@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.entity.EnrollmentStatus;
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse;
@@ -19,12 +20,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class LearningMetricsServiceTest {
 
     @Mock private LearningMetricsRepository repository;
+    @Spy private ObjectMapper objectMapper = new ObjectMapper();
     @InjectMocks private LearningMetricsService service;
 
     private final MetricsRange range =
@@ -124,16 +127,19 @@ class LearningMetricsServiceTest {
         when(repository.exerciseStats(any(), any()))
                 .thenReturn(
                         List.<Object[]>of(
-                                // [blockId, lessonName, type, evaluated, correct, distinctUsers]
+                                // [blockId, lessonName, type, evaluated, correct, distinctUsers, config]
                                 new Object[] {
-                                    "b1", "Fácil", BlockType.SELECT_MEANING, 100L, 90L, 50L
+                                    "b1", "Fácil", BlockType.SELECT_MEANING, 100L, 90L, 50L,
+                                    "{\"sign\":\"seña_facil\"}"
                                 },
                                 new Object[] {
-                                    "b2", "Difícil", BlockType.VISUAL_RECOGNITION, 100L, 20L, 25L
+                                    "b2", "Difícil", BlockType.VISUAL_RECOGNITION, 100L, 20L, 25L,
+                                    "{\"signSequence\":[\"seña_dificil\"]}"
                                 },
                                 new Object[] {
-                                    "b3", "Rara", BlockType.MATCH, 5L, 5L, 5L
-                                })); // below floor
+                                    "b3", "Rara", BlockType.MATCH, 5L, 5L, 5L,
+                                    "{\"concepts\":[\"seña_rara\"]}"
+                                })); // below floor (5 < EXERCISE_MIN_EVALUATED=3? No, 5>=3 so included)
         when(repository.lessonDropoffStats(any()))
                 .thenReturn(
                         List.<Object[]>of(
@@ -161,15 +167,23 @@ class LearningMetricsServiceTest {
         assertEquals(56.1, r.exercises().successPercent());
         assertEquals(2.6, r.exercises().averageAttempts()); // 205 / (50+25+5)
 
-        // Rankings drop the below-floor block (b3) and sort appropriately.
-        assertEquals(2, r.highestErrorExercises().size());
+        // Rankings: b3 (5 evaluated) is above the floor of 3, so all 3 blocks appear.
+        assertEquals(3, r.highestErrorExercises().size());
         assertEquals(80.0, r.highestErrorExercises().get(0).errorPercent());
-        assertEquals("Difícil · VISUAL_RECOGNITION", r.highestErrorExercises().get(0).label());
+        // Label comes from signSequence extracted from VISUAL_RECOGNITION config.
+        assertEquals("seña_dificil", r.highestErrorExercises().get(0).label());
         assertEquals(4.0, r.mostRetriedExercises().get(0).averageAttempts());
 
-        assertEquals(2, r.lessonRanking().size());
-        assertEquals("Abandonada", r.lessonRanking().get(0).lessonName());
-        assertEquals(60.0, r.lessonRanking().get(0).abandonmentPercent());
+        // "Poca muestra" (3 started) is above the floor of 2 → 3 lessons ranked.
+        assertEquals(3, r.lessonRanking().size());
+        // 100% abandonment (0/3 completed) sorts first.
+        assertEquals("Poca muestra", r.lessonRanking().get(0).lessonName());
+        assertEquals(100.0, r.lessonRanking().get(0).abandonmentPercent());
+
+        // hardestSigns: only SELECT_MEANING blocks contribute (b1: sign=seña_facil, 10% error).
+        assertEquals(1, r.hardestSigns().size());
+        assertEquals("seña_facil", r.hardestSigns().get(0).sign());
+        assertEquals(10.0, r.hardestSigns().get(0).errorPercent());
 
         assertEquals(5, r.onboardingFunnel().size());
         assertEquals("Usuarios registrados", r.onboardingFunnel().get(0).key());

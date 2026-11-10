@@ -40,6 +40,7 @@ class LearningMetricsControllerTest {
                     List.of(),
                     List.of(),
                     List.of(),
+                    List.of(),
                     List.of());
 
     @Test

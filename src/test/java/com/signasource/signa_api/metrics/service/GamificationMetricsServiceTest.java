@@ -119,6 +119,8 @@ class GamificationMetricsServiceTest {
 
         assertEquals(100L, r.xp().activeUsers());
         assertEquals(50L, r.xp().perActiveUser());
+        // Previous period: same stubs apply (any() matches prev range too) → prev = 5000/100 = 50
+        assertEquals(50L, r.xp().previousPerActiveUser());
         assertEquals(45L, r.streaks().maxStreak());
         assertEquals(25.0, r.achievements().unlockRatePercent());
         assertEquals("Logro raro", r.achievements().leastUnlocked().get(0).name());

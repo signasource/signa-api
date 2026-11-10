@@ -36,7 +36,9 @@ public record LearningMetricsResponse(
         /** Exercises needing the most retries (attempts per distinct user), most first. */
         List<ExerciseDifficulty> mostRetriedExercises,
         /** Daily accuracy (correct / evaluated) over the window — the correct-answer evolution. */
-        List<DailyAccuracy> dailyAccuracy) {
+        List<DailyAccuracy> dailyAccuracy,
+        /** Signs ranked by error rate (highest first) across SELECT_MEANING/SELECT_SIGN blocks. */
+        List<SignDifficulty> hardestSigns) {
 
     public record CountItem(String key, long count) {}
 
@@ -85,4 +87,12 @@ public record LearningMetricsResponse(
 
     public record DailyAccuracy(
             LocalDate day, long evaluated, long correct, double accuracyPercent) {}
+
+    /** A sign ranked by difficulty across all exercise blocks that test it. */
+    public record SignDifficulty(
+            String sign,
+            long evaluated,
+            long correct,
+            double errorPercent,
+            double averageAttempts) {}
 }

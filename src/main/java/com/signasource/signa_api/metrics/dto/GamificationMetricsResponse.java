@@ -27,9 +27,15 @@ public record GamificationMetricsResponse(
     /**
      * XP over the window: the total (grows just by having more users), the active users it was
      * earned by and the per-active-user average — the honest engagement signal.
+     * {@code previousPerActiveUser} is the same metric for the previous equal-length window (null for
+     * the whole-history range where there is no prior window).
      */
     public record XpSection(
-            long total, long perActiveUser, long activeUsers, List<DailyCount> daily) {}
+            long total,
+            long perActiveUser,
+            long activeUsers,
+            List<DailyCount> daily,
+            Long previousPerActiveUser) {}
 
     public record StreaksSection(
             double averageCurrentStreak,

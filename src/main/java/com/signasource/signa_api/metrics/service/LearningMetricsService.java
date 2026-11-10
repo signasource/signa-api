@@ -1,5 +1,7 @@
 package com.signasource.signa_api.metrics.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.entity.EnrollmentStatus;
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse;
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.CountItem;
@@ -8,6 +10,7 @@ import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.DailyAccura
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.DailyCount;
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.ExerciseDifficulty;
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.ExerciseFlow;
+import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.SignDifficulty;
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.LessonAccuracy;
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.LessonDropoff;
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.LessonFlow;
@@ -23,6 +26,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,12 +43,13 @@ public class LearningMetricsService {
     private static final int MOST_REPORTED_LIMIT = 10;
 
     /** Noise floors so a ranking isn't dominated by one-off attempts / starts. */
-    private static final long EXERCISE_MIN_EVALUATED = 10;
+    private static final long EXERCISE_MIN_EVALUATED = 3;
 
-    private static final long LESSON_MIN_STARTED = 5;
+    private static final long LESSON_MIN_STARTED = 2;
     private static final int RANKING_LIMIT = 10;
 
     private final LearningMetricsRepository repository;
+    private final ObjectMapper objectMapper;
 
     @Transactional(readOnly = true)
     public LearningMetricsResponse getLearningMetrics(MetricsRange range) {
@@ -67,7 +72,8 @@ public class LearningMetricsService {
                 lessonRanking(until),
                 highestErrorExercises(exerciseRows),
                 mostRetriedExercises(exerciseRows),
-                dailyAccuracy(from, until));
+                dailyAccuracy(from, until),
+                hardestSigns(exerciseRows));
     }
 
     private LessonFlow lessonFlow(Instant from, Instant until) {
@@ -161,16 +167,88 @@ public class LearningMetricsService {
             long users = toLong(row[5]);
             double averageAttempts =
                     users == 0 ? 0.0 : Math.round((evaluated * 10.0) / users) / 10.0;
+            BlockType type = (BlockType) row[2];
+            String config = row.length > 6 && row[6] != null ? String.valueOf(row[6]) : null;
+            String signLabel = extractSignFromConfig(config, type);
+            String label = signLabel != null ? signLabel : (row[1] + " · " + row[2]);
             exercises.add(
                     new ExerciseDifficulty(
                             String.valueOf(row[0]),
-                            row[1] + " · " + row[2],
+                            label,
                             evaluated,
                             correct,
                             percent(evaluated - correct, evaluated),
                             averageAttempts));
         }
         return exercises;
+    }
+
+    /**
+     * Signs ranked by error rate, derived from SELECT_MEANING and SELECT_SIGN blocks (single-sign
+     * exercises). Multi-sign blocks (MATCH, VISUAL_RECOGNITION) are excluded — they don't map
+     * cleanly to one sign's difficulty.
+     */
+    private List<SignDifficulty> hardestSigns(List<Object[]> rows) {
+        Map<String, long[]> bySign = new LinkedHashMap<>();
+        for (Object[] row : rows) {
+            long evaluated = toLong(row[3]);
+            if (evaluated < EXERCISE_MIN_EVALUATED) continue;
+            BlockType type = (BlockType) row[2];
+            if (type != BlockType.SELECT_MEANING && type != BlockType.SELECT_SIGN) continue;
+            String config = row.length > 6 && row[6] != null ? String.valueOf(row[6]) : null;
+            String sign = extractSignFromConfig(config, type);
+            if (sign == null || sign.isBlank()) continue;
+            long correct = toLong(row[4]);
+            long users = toLong(row[5]);
+            long[] slot = bySign.computeIfAbsent(sign, k -> new long[3]);
+            slot[0] += evaluated;
+            slot[1] += correct;
+            slot[2] += users;
+        }
+        List<SignDifficulty> result = new ArrayList<>();
+        for (Map.Entry<String, long[]> e : bySign.entrySet()) {
+            long[] v = e.getValue();
+            double avgAttempts = v[2] == 0 ? 0.0 : Math.round((v[0] * 10.0) / v[2]) / 10.0;
+            result.add(
+                    new SignDifficulty(
+                            e.getKey(), v[0], v[1], percent(v[0] - v[1], v[0]), avgAttempts));
+        }
+        result.sort(Comparator.comparingDouble(SignDifficulty::errorPercent).reversed());
+        return result.size() > HARDEST_LIMIT ? result.subList(0, HARDEST_LIMIT) : result;
+    }
+
+    /**
+     * Extracts a human-readable sign label from the block's JSON config based on its type.
+     * Returns {@code null} when the config is absent, unparseable, or the type has no sign field.
+     */
+    @SuppressWarnings("unchecked")
+    private String extractSignFromConfig(String config, BlockType type) {
+        if (config == null || config.isBlank()) return null;
+        try {
+            Map<String, Object> map = objectMapper.readValue(config, Map.class);
+            return switch (type) {
+                case SELECT_MEANING -> (String) map.get("sign");
+                case SELECT_SIGN -> (String) map.get("word");
+                case CONTEXT_RESPONSE -> (String) map.get("answer");
+                case MATCH -> {
+                    Object concepts = map.get("concepts");
+                    if (concepts instanceof List<?> list) {
+                        yield list.stream().map(Object::toString).collect(Collectors.joining(", "));
+                    }
+                    yield null;
+                }
+                case VISUAL_RECOGNITION -> {
+                    Object seq = map.get("signSequence");
+                    if (seq instanceof List<?> list) {
+                        yield list.stream().map(Object::toString).collect(Collectors.joining(", "));
+                    }
+                    yield null;
+                }
+                default -> null;
+            };
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private List<DailyAccuracy> dailyAccuracy(Instant from, Instant until) {
