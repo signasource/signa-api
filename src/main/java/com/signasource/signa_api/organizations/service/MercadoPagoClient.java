@@ -20,6 +20,14 @@ public interface MercadoPagoClient {
     /** Mercado Pago's {@code status} while a dispute (claim or chargeback) is open. */
     String STATUS_IN_MEDIATION = "in_mediation";
 
+    /** Mercado Pago's order {@code status} while the payment is being processed or reviewed. */
+    String STATUS_PROCESSING = "processing";
+
+    /**
+     * Mercado Pago's order {@code status} while it waits for the buyer (cash voucher, transfer).
+     */
+    String STATUS_ACTION_REQUIRED = "action_required";
+
     /** Mercado Pago's {@code status_detail} of an approved payment partly given back. */
     String DETAIL_PARTIALLY_REFUNDED = "partially_refunded";
 
@@ -74,6 +82,15 @@ public interface MercadoPagoClient {
 
         public boolean isApproved() {
             return STATUS_APPROVED.equals(status);
+        }
+
+        /**
+         * The buyer already acted but the money has not arrived: being processed or reviewed, or a
+         * voucher / transfer waiting to be paid. An order still {@code created} is just an open or
+         * abandoned checkout, not a pending payment.
+         */
+        public boolean isInProcess() {
+            return STATUS_PROCESSING.equals(status) || STATUS_ACTION_REQUIRED.equals(status);
         }
 
         public boolean isRefunded() {

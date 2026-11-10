@@ -6,7 +6,9 @@ import com.signasource.signa_api.exceptions.PaymentProviderException;
 import com.signasource.signa_api.gamification.dto.GemCheckoutResponse;
 import com.signasource.signa_api.gamification.dto.GemOrderResponse;
 import com.signasource.signa_api.gamification.dto.GemPackResponse;
+import com.signasource.signa_api.gamification.dto.PendingGemOrderResponse;
 import com.signasource.signa_api.gamification.entity.GemOrder;
+import com.signasource.signa_api.gamification.entity.GemOrderStatus;
 import com.signasource.signa_api.gamification.entity.GemPack;
 import com.signasource.signa_api.gamification.repository.GemOrderRepository;
 import com.signasource.signa_api.gamification.repository.GemPackRepository;
@@ -15,9 +17,13 @@ import com.signasource.signa_api.organizations.service.MercadoPagoClient.Checkou
 import com.signasource.signa_api.organizations.service.MercadoPagoClient.OrderRequest;
 import com.signasource.signa_api.organizations.service.MercadoPagoClient.Payment;
 import com.signasource.signa_api.users.entity.User;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,8 +36,12 @@ import org.springframework.transaction.annotation.Transactional;
  * what the app or the notification says. Two paths get there: the webhook (source of truth) and the
  * app's sync when the buyer comes back. Not transactional: it calls Mercado Pago over HTTP.
  */
+@Slf4j
 @Service
 public class GemOrderService {
+
+    /** How far back an open order can still turn into a payment (cash vouchers last days). */
+    static final Duration PENDING_WINDOW = Duration.ofDays(7);
 
     /** Public page of this API Mercado Pago sends the buyer back to; it hands over to the app. */
     public static final String RETURN_PATH = "/payments/mercado-pago/return";
@@ -120,6 +130,36 @@ public class GemOrderService {
         GemOrder settled = settlement.settle(order.getId(), payment);
         return GemOrderResponse.from(
                 settled != null ? settled : order, purchaseService.getOrCreateStats(user));
+    }
+
+    /**
+     * The user's recent orders whose payment is in process at Mercado Pago (cash, transfer,
+     * review), so the app can say "your payment is on its way" after the buyer left the checkout.
+     * Each candidate is re-read from Mercado Pago and settled on the way (an approved one is
+     * credited here), so only orders still unpaid and not abandoned are returned. A Mercado Pago
+     * failure on one order just leaves it out.
+     */
+    public List<PendingGemOrderResponse> pending(User user) {
+        List<GemOrder> candidates =
+                orderRepository
+                        .findTop5ByUserIdAndStatusAndMercadoPagoOrderIdIsNotNullAndCreatedAtAfterOrderByCreatedAtDesc(
+                                user.getId(),
+                                GemOrderStatus.PENDING,
+                                Instant.now().minus(PENDING_WINDOW));
+        List<PendingGemOrderResponse> pending = new ArrayList<>();
+        for (GemOrder order : candidates) {
+            try {
+                Payment payment = mercadoPago.getOrder(order.getMercadoPagoOrderId());
+                GemOrder settled = settlement.settle(order.getId(), payment);
+                GemOrder current = settled != null ? settled : order;
+                if (current.getStatus() == GemOrderStatus.PENDING && payment.isInProcess()) {
+                    pending.add(PendingGemOrderResponse.from(current));
+                }
+            } catch (RuntimeException e) {
+                log.warn("Could not check gem order {} with Mercado Pago", order.getId(), e);
+            }
+        }
+        return pending;
     }
 
     /**

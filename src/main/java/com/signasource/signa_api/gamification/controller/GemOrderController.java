@@ -5,6 +5,7 @@ import com.signasource.signa_api.gamification.dto.CreateGemOrderRequest;
 import com.signasource.signa_api.gamification.dto.GemCheckoutResponse;
 import com.signasource.signa_api.gamification.dto.GemOrderResponse;
 import com.signasource.signa_api.gamification.dto.GemPackResponse;
+import com.signasource.signa_api.gamification.dto.PendingGemOrderResponse;
 import com.signasource.signa_api.gamification.service.GemOrderService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -36,6 +37,13 @@ public class GemOrderController {
             @Valid @RequestBody CreateGemOrderRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(gemOrderService.startCheckout(userDetails.getUser(), request.packId()));
+    }
+
+    /** Orders whose payment is in process at Mercado Pago; empty when there is nothing pending. */
+    @GetMapping("/store/gem-orders/pending")
+    public ResponseEntity<List<PendingGemOrderResponse>> pending(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(gemOrderService.pending(userDetails.getUser()));
     }
 
     @PostMapping("/store/gem-orders/{orderId}/sync")
