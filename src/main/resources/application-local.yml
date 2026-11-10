@@ -2,9 +2,12 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
+    properties:
+      hibernate:
+        default_batch_fetch_size: 100
 
 app:
   base-url: http://localhost:8080
-  panel-url: http://localhost:5173
+  panel-url: http://localhost:3000
   cors:
-    allowed-origins: http://localhost:5173
+    allowed-origins: http://localhost:3000
