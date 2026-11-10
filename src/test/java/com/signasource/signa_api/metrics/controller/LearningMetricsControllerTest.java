@@ -10,7 +10,6 @@ import com.signasource.signa_api.metrics.dto.LearningMetricsResponse;
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.ReportsSection;
 import com.signasource.signa_api.metrics.service.LearningMetricsService;
 import com.signasource.signa_api.metrics.service.MetricsRange;
-import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;

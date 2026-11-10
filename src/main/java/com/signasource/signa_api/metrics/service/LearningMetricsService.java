@@ -60,7 +60,8 @@ public class LearningMetricsService {
     }
 
     @Transactional(readOnly = true)
-    public LearningMetricsResponse getLearningMetrics(MetricsRange range, Collection<UUID> courseIds) {
+    public LearningMetricsResponse getLearningMetrics(
+            MetricsRange range, Collection<UUID> courseIds) {
         Instant from = range.start();
         Instant until = range.end();
         boolean filtered = !courseIds.isEmpty();
