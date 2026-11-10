@@ -17,6 +17,7 @@ import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.SessionsSecti
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.UsersSection;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.WaitlistSection;
 import com.signasource.signa_api.metrics.repository.GrowthMetricsRepository;
+import com.signasource.signa_api.users.service.SessionService;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.DayOfWeek;
@@ -102,7 +103,12 @@ public class GrowthMetricsService {
                 users,
                 perUser,
                 averageDuration,
-                toDailyCounts(repository.dailySessions(from, until, bucket), bucket));
+                onlineUsersSeries(
+                        repository.sessionSpans(
+                                from.minusSeconds(SessionService.MAX_DURATION_SECONDS), until),
+                        from,
+                        until,
+                        bucket));
     }
 
     /** Rolling windows ending at the close of the period: DAU (24 h), WAU (7 d), MAU (30 d). */
@@ -364,6 +370,34 @@ public class GrowthMetricsService {
             series.add(new DailyAmount(bucketStart(row[0], bucket), nonNull((BigDecimal) row[1])));
         }
         series.sort(Comparator.comparing(DailyAmount::t));
+        return series;
+    }
+
+    /**
+     * Distinct users with the app open in each bucket. A session is spread over every bucket
+     * between its start and its end (start + duration), so one user connected for 15 minutes draws
+     * a plateau at 1 instead of a single spike at the minute it started.
+     */
+    static List<DailyCount> onlineUsersSeries(
+            List<Object[]> spans, Instant from, Instant until, long bucket) {
+        Map<Long, Set<Object>> online = new TreeMap<>();
+        long fromSec = from.getEpochSecond();
+        long untilSec = until.getEpochSecond();
+        for (Object[] row : spans) {
+            long start = ((Instant) row[1]).getEpochSecond();
+            long end = start + toLong(row[2]);
+            if (end < fromSec || start >= untilSec) {
+                continue;
+            }
+            long first = Math.max(start, fromSec) / bucket;
+            long last = (Math.min(end, untilSec - 1)) / bucket;
+            for (long b = first; b <= last; b++) {
+                online.computeIfAbsent(b, k -> new HashSet<>()).add(row[0]);
+            }
+        }
+        List<DailyCount> series = new ArrayList<>(online.size());
+        online.forEach(
+                (b, users) -> series.add(new DailyCount(bucketStart(b, bucket), users.size())));
         return series;
     }
 

@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class SessionService {
 
     /** Longest plausible single foreground session; anything above is treated as bad data. */
-    static final int MAX_DURATION_SECONDS = (int) Duration.ofHours(6).toSeconds();
+    public static final int MAX_DURATION_SECONDS = (int) Duration.ofHours(6).toSeconds();
 
     /** Clock-skew tolerance for a client-supplied start instant. */
     private static final Duration FUTURE_SKEW = Duration.ofMinutes(5);
