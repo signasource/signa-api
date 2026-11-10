@@ -21,7 +21,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class MlMetricsServiceTest {
 
     @Mock private LearningMetricsRepository repository;
+
     @Spy private ObjectMapper objectMapper = new ObjectMapper();
+
     @InjectMocks private MlMetricsService service;
 
     private final MetricsRange range =

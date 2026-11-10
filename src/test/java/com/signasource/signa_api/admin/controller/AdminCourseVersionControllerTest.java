@@ -50,6 +50,7 @@ class AdminCourseVersionControllerTest {
                         null,
                         null,
                         "admin@signa.com",
+                        null,
                         List.of());
     }
 
@@ -70,6 +71,7 @@ class AdminCourseVersionControllerTest {
                         0,
                         0,
                         0,
+                        null,
                         null,
                         null);
         when(service.listVersions()).thenReturn(List.of(item));
@@ -119,7 +121,7 @@ class AdminCourseVersionControllerTest {
     void shouldSaveVersion() {
         UUID id = UUID.randomUUID();
         SaveCourseVersionRequest request =
-                new SaveCourseVersionRequest("Updated", null, true, null, List.of());
+                new SaveCourseVersionRequest("Updated", null, true, null, null, List.of());
         when(service.saveVersion(eq(id), eq(request), eq("admin@signa.com")))
                 .thenReturn(sampleDetail);
 

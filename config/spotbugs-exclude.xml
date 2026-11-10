@@ -23,4 +23,10 @@
         <Bug pattern="VA_FORMAT_STRING_USES_NEWLINE"/>
     </Match>
 
+    <!-- @Spy ObjectMapper is read by Mockito via reflection to inject into @InjectMocks -->
+    <Match>
+        <Class name="com.signasource.signa_api.metrics.service.MlMetricsServiceTest"/>
+        <Bug pattern="URF_UNREAD_FIELD"/>
+    </Match>
+
 </FindBugsFilter>

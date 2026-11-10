@@ -154,7 +154,7 @@ class AdminCourseVersionServiceTest {
         when(courseVersionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
 
         SaveCourseVersionRequest request =
-                new SaveCourseVersionRequest("Updated Name", "desc", true, null, List.of());
+                new SaveCourseVersionRequest("Updated Name", "desc", true, null, null, List.of());
         AdminCourseVersionDetailResponse result =
                 service.saveVersion(draftVersion.getId(), request, "admin@signa.com");
 
@@ -176,7 +176,7 @@ class AdminCourseVersionServiceTest {
                 .thenReturn(Optional.of(published));
 
         SaveCourseVersionRequest request =
-                new SaveCourseVersionRequest("X", null, true, null, List.of());
+                new SaveCourseVersionRequest("X", null, true, null, null, List.of());
         assertThrows(
                 InvalidInputException.class,
                 () -> service.saveVersion(published.getId(), request, "admin@signa.com"));
@@ -249,7 +249,7 @@ class AdminCourseVersionServiceTest {
                 new SaveCourseVersionRequest.TopicData(
                         null, "Unit 1", "Subtitle", null, List.of(lesson));
         SaveCourseVersionRequest request =
-                new SaveCourseVersionRequest("Course", "desc", true, null, List.of(topic));
+                new SaveCourseVersionRequest("Course", "desc", true, null, null, List.of(topic));
 
         AdminCourseVersionDetailResponse result =
                 service.saveVersion(draftVersion.getId(), request, "admin@signa.com");

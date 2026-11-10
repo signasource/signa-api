@@ -30,14 +30,14 @@ class IntroduceSignValidatorTest {
     @Test
     void shouldPassForValidBlock() {
         List<ValidationError> errors = new ArrayList<>();
-        validator.validate(block(config("hola", "hola")), ctx, errors);
+        validator.validate(block(config("hola")), ctx, errors);
         assertTrue(errors.isEmpty());
     }
 
     @Test
     void shouldFailWhenMeaningIsNull() {
         List<ValidationError> errors = new ArrayList<>();
-        validator.validate(block(config(null, "hola")), ctx, errors);
+        validator.validate(block(config(null)), ctx, errors);
         assertEquals(1, errors.size());
         assertEquals(
                 "Topic topic-1 > Lesson lesson-1 > Block #1: meaning is required",
@@ -47,38 +47,11 @@ class IntroduceSignValidatorTest {
     @Test
     void shouldFailWhenMeaningIsBlank() {
         List<ValidationError> errors = new ArrayList<>();
-        validator.validate(block(config("  ", "hola")), ctx, errors);
+        validator.validate(block(config("  ")), ctx, errors);
         assertEquals(1, errors.size());
         assertEquals(
                 "Topic topic-1 > Lesson lesson-1 > Block #1: meaning is required",
                 errors.get(0).render());
-    }
-
-    @Test
-    void shouldFailWhenWordIsNull() {
-        List<ValidationError> errors = new ArrayList<>();
-        validator.validate(block(config("hola", null)), ctx, errors);
-        assertEquals(1, errors.size());
-        assertEquals(
-                "Topic topic-1 > Lesson lesson-1 > Block #1: word is required",
-                errors.get(0).render());
-    }
-
-    @Test
-    void shouldFailWhenWordIsBlank() {
-        List<ValidationError> errors = new ArrayList<>();
-        validator.validate(block(config("hola", "  ")), ctx, errors);
-        assertEquals(1, errors.size());
-        assertEquals(
-                "Topic topic-1 > Lesson lesson-1 > Block #1: word is required",
-                errors.get(0).render());
-    }
-
-    @Test
-    void shouldAccumulateErrorsForBothMissingFields() {
-        List<ValidationError> errors = new ArrayList<>();
-        validator.validate(block(config(null, null)), ctx, errors);
-        assertEquals(2, errors.size());
     }
 
     @Test
@@ -95,13 +68,10 @@ class IntroduceSignValidatorTest {
         return new LessonBlockDto(BlockType.INTRODUCE_SIGN, null, config);
     }
 
-    private ObjectNode config(String meaning, String word) {
+    private ObjectNode config(String meaning) {
         ObjectNode node = JsonNodeFactory.instance.objectNode();
         if (meaning != null) {
             node.put("meaning", meaning);
-        }
-        if (word != null) {
-            node.put("word", word);
         }
         return node;
     }

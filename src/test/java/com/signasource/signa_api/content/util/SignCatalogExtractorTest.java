@@ -39,8 +39,7 @@ class SignCatalogExtractorTest {
 
     @Test
     void shouldExtractMeaningFromIntroduceSign() {
-        LessonBlockDto block =
-                block(BlockType.INTRODUCE_SIGN, new IntroduceSignConfig("hola", "hola"));
+        LessonBlockDto block = block(BlockType.INTRODUCE_SIGN, new IntroduceSignConfig("hola"));
         assertEquals(List.of("hola"), extractor.extract(block));
     }
 
@@ -85,9 +84,7 @@ class SignCatalogExtractorTest {
                 block(
                         BlockType.VISUAL_RECOGNITION,
                         new VisualRecognitionConfig(
-                                List.of("hola", "gracias"),
-                                List.of("hola", "chau", "gracias"),
-                                false));
+                                List.of("hola", "gracias"), List.of("hola", "chau", "gracias")));
         assertEquals(List.of("hola", "gracias"), extractor.extract(block));
     }
 
