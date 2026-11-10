@@ -115,10 +115,14 @@ class GrowthMetricsServiceTest {
         when(repository.countSessionsBetween(any(), any())).thenReturn(30L);
         when(repository.countUsersWithSessionBetween(any(), any())).thenReturn(12L);
         when(repository.averageSessionDurationBetween(any(), any())).thenReturn(184.4);
-        when(repository.dailySessions(any(), any(), anyLong()))
+        when(repository.sessionSpans(any(), any()))
                 .thenReturn(
                         List.<Object[]>of(
-                                new Object[] {LocalDate.of(2026, 11, 2).toEpochDay(), 7L}));
+                                new Object[] {
+                                    java.util.UUID.randomUUID(),
+                                    java.time.Instant.parse("2026-11-02T10:00:00Z"),
+                                    60
+                                }));
 
         var sessions = service.getGrowthMetrics(range).sessions();
 

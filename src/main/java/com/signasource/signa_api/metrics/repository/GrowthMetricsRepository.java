@@ -79,16 +79,17 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
     Double averageSessionDurationBetween(
             @Param("from") Instant from, @Param("until") Instant until);
 
-    /** Rows of {@code [long bucketIndex, long count]} of sessions started. */
+    /**
+     * Rows of {@code [UUID userId, Instant startedAt, int durationSeconds]} of sessions that may
+     * overlap the window: started in {@code [earliest, until)}. The service keeps those whose end
+     * reaches {@code from} and spreads each one over the buckets it was open (a plateau, not a
+     * spike).
+     */
     @Query(
-            "SELECT FLOOR(extract(epoch from s.startedAt) / :bucket), COUNT(s) FROM UserSession s "
-                    + "WHERE s.startedAt >= :from AND s.startedAt < :until "
-                    + "AND (s.user.role IS NULL OR s.user.role <> com.signasource.signa_api.users.entity.Role.ADMIN) "
-                    + "GROUP BY 1")
-    List<Object[]> dailySessions(
-            @Param("from") Instant from,
-            @Param("until") Instant until,
-            @Param("bucket") long bucket);
+            "SELECT s.user.id, s.startedAt, s.durationSeconds FROM UserSession s "
+                    + "WHERE s.startedAt >= :earliest AND s.startedAt < :until "
+                    + "AND (s.user.role IS NULL OR s.user.role <> com.signasource.signa_api.users.entity.Role.ADMIN)")
+    List<Object[]> sessionSpans(@Param("earliest") Instant earliest, @Param("until") Instant until);
 
     /** New users inside the window who actually started learning (made at least one attempt). */
     @Query(
