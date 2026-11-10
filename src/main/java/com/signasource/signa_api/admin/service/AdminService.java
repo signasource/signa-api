@@ -347,7 +347,7 @@ public class AdminService {
     public AdminUserResponse createAdmin(CreateAdminRequest request) {
         Optional<User> existing = userRepository.findFirstByEmailIgnoreCase(request.email().trim());
         if (existing.isPresent()) {
-            return promoteToAdmin(existing.get(), request.password());
+            return promoteToAdmin(existing.get(), request.password(), request.avatar());
         }
         String base = request.name().toLowerCase().replaceAll("[^a-z0-9]", "");
         if (base.length() > 20) base = base.substring(0, 20);
@@ -369,10 +369,15 @@ public class AdminService {
                         .enabled(true)
                         .verified(true)
                         .providers(Set.of(AuthProvider.LOCAL))
+                        .avatar(blankToNull(request.avatar()))
                         .build();
         userRepository.save(admin);
         userSettingsRepository.save(UserSettings.builder().user(admin).build());
         return AdminUserResponse.from(admin, null, null);
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isEmpty() ? null : value;
     }
 
     @Transactional
@@ -411,7 +416,7 @@ public class AdminService {
         return getUser(adminId);
     }
 
-    private AdminUserResponse promoteToAdmin(User user, String password) {
+    private AdminUserResponse promoteToAdmin(User user, String password, String avatar) {
         user.setRole(Role.ADMIN);
         user.setEnabled(true);
         user.setVerified(true);
@@ -419,6 +424,8 @@ public class AdminService {
             user.setPasswordHash(passwordEncoder.encode(password));
             user.getProviders().add(AuthProvider.LOCAL);
         }
+        // A photo given while promoting is applied; otherwise the account keeps the one it has.
+        if (blankToNull(avatar) != null) user.setAvatar(avatar);
         userRepository.save(user);
         return getUser(user.getId());
     }
