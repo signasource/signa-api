@@ -1,13 +1,17 @@
 package com.signasource.signa_api.gamification.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.common.ArgentinaTime;
 import com.signasource.signa_api.gamification.dto.DailyXpResponse;
+import com.signasource.signa_api.gamification.dto.StreakDayResponse;
 import com.signasource.signa_api.gamification.dto.UserStatsResponse;
 import com.signasource.signa_api.gamification.entity.LivesMode;
 import com.signasource.signa_api.gamification.entity.UserDailyXp;
@@ -157,5 +161,55 @@ class UserStatsServiceTest {
         for (int i = 1; i < result.size(); i++) {
             assertEquals(0, result.get(i).xpEarned());
         }
+    }
+
+    @Test
+    void streakDayIsPendingWhenTodayAddedADayNotYetSeen() {
+        UserStats stats = UserStats.builder().user(user).build();
+        stats.registerStreakActivity(today);
+        when(userStatsRepository.findByUser(user)).thenReturn(Optional.of(stats));
+
+        StreakDayResponse result = userStatsService.getStreakDay(user);
+
+        assertTrue(result.pending());
+        assertEquals(1, result.currentStreak());
+    }
+
+    @Test
+    void streakDayIsNotPendingOnceSeenOrWithoutStats() {
+        UserStats stats = UserStats.builder().user(user).build();
+        stats.registerStreakActivity(today);
+        stats.markStreakDaySeen(today);
+        when(userStatsRepository.findByUser(user)).thenReturn(Optional.of(stats));
+
+        assertFalse(userStatsService.getStreakDay(user).pending());
+
+        when(userStatsRepository.findByUser(user)).thenReturn(Optional.empty());
+
+        StreakDayResponse none = userStatsService.getStreakDay(user);
+        assertFalse(none.pending());
+        assertEquals(0, none.currentStreak());
+    }
+
+    @Test
+    void markStreakDaySeenSavesOnlyWhenSomethingChanged() {
+        UserStats pending = UserStats.builder().user(user).build();
+        pending.registerStreakActivity(today);
+        when(userStatsRepository.findByUser(user)).thenReturn(Optional.of(pending));
+
+        userStatsService.markStreakDaySeen(user);
+
+        assertEquals(today, pending.getStreakCelebratedDate());
+        verify(userStatsRepository).save(pending);
+    }
+
+    @Test
+    void markStreakDaySeenDoesNotSaveWhenNothingPending() {
+        UserStats idle = UserStats.builder().user(user).build();
+        when(userStatsRepository.findByUser(user)).thenReturn(Optional.of(idle));
+
+        userStatsService.markStreakDaySeen(user);
+
+        verify(userStatsRepository, never()).save(any());
     }
 }

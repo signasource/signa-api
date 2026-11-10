@@ -2,6 +2,7 @@ package com.signasource.signa_api.gamification.service;
 
 import com.signasource.signa_api.common.ArgentinaTime;
 import com.signasource.signa_api.gamification.dto.DailyXpResponse;
+import com.signasource.signa_api.gamification.dto.StreakDayResponse;
 import com.signasource.signa_api.gamification.dto.UserStatsResponse;
 import com.signasource.signa_api.gamification.entity.UserDailyXp;
 import com.signasource.signa_api.gamification.entity.UserStats;
@@ -42,6 +43,27 @@ public class UserStatsService {
         long ahead =
                 userStatsRepository.countUsersAheadByWeeklyXp(stats.getWeeklyXp(), user.getId());
         return UserStatsResponse.from(stats, (int) ahead + 1);
+    }
+
+    /** Today's streak day, if it has not been celebrated yet (see {@link UserStats}). */
+    @Transactional(readOnly = true)
+    public StreakDayResponse getStreakDay(User user) {
+        LocalDate today = ArgentinaTime.today();
+        return userStatsRepository
+                .findByUser(user)
+                .filter(stats -> stats.isStreakDayPending(today))
+                .map(stats -> new StreakDayResponse(true, stats.getCurrentStreak()))
+                .orElseGet(() -> new StreakDayResponse(false, 0));
+    }
+
+    /** Idempotent: marking an already-seen (or non-pending) streak day does nothing. */
+    @Transactional
+    public void markStreakDaySeen(User user) {
+        LocalDate today = ArgentinaTime.today();
+        userStatsRepository
+                .findByUser(user)
+                .filter(stats -> stats.markStreakDaySeen(today))
+                .ifPresent(userStatsRepository::save);
     }
 
     @Transactional(readOnly = true)

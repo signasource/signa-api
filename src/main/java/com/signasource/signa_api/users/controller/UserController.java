@@ -6,6 +6,7 @@ import com.signasource.signa_api.auth.dto.GoogleAuthRequest;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.service.AuthService;
 import com.signasource.signa_api.gamification.dto.DailyXpResponse;
+import com.signasource.signa_api.gamification.dto.StreakDayResponse;
 import com.signasource.signa_api.gamification.dto.UserStatsResponse;
 import com.signasource.signa_api.gamification.service.UserStatsService;
 import com.signasource.signa_api.users.dto.DailyGoalResponse;
@@ -153,6 +154,19 @@ public class UserController {
     public ResponseEntity<UserStatsResponse> getMeStats(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(userStatsService.getStats(userDetails.getUser()));
+    }
+
+    @GetMapping("/me/streak-day")
+    public ResponseEntity<StreakDayResponse> getStreakDay(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(userStatsService.getStreakDay(userDetails.getUser()));
+    }
+
+    @PostMapping("/me/streak-day/seen")
+    public ResponseEntity<Void> markStreakDaySeen(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        userStatsService.markStreakDaySeen(userDetails.getUser());
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/me/activity")

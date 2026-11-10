@@ -53,6 +53,9 @@ public class UserStats {
     /** Streak day ({@link ArgentinaTime}) of the last activity that counted towards the streak. */
     @Column private LocalDate lastStreakDate;
 
+    /** Streak day for which the app already showed the "streak day added" celebration. */
+    @Column private LocalDate streakCelebratedDate;
+
     @Column(nullable = false)
     @Builder.Default
     private long totalXp = 0;
@@ -174,6 +177,27 @@ public class UserStats {
         }
         longestStreak = Math.max(longestStreak, currentStreak);
         lastStreakDate = today;
+        return true;
+    }
+
+    /**
+     * Whether {@code today} added a streak day that was not celebrated yet. Only today's day can be
+     * pending, so older activity never replays.
+     */
+    public boolean isStreakDayPending(LocalDate today) {
+        return today.equals(lastStreakDate) && !today.equals(streakCelebratedDate);
+    }
+
+    /**
+     * Marks today's streak day as celebrated.
+     *
+     * @return {@code true} when something changed
+     */
+    public boolean markStreakDaySeen(LocalDate today) {
+        if (!isStreakDayPending(today)) {
+            return false;
+        }
+        streakCelebratedDate = today;
         return true;
     }
 }
