@@ -30,7 +30,6 @@ public class LearningMetricsController {
             @RequestParam(required = false) List<UUID> courseIds) {
         return ResponseEntity.ok(
                 learningMetricsService.getLearningMetrics(
-                        MetricsRange.fromIso(from, to),
-                        courseIds != null ? courseIds : List.of()));
+                        MetricsRange.fromIso(from, to), courseIds != null ? courseIds : List.of()));
     }
 }
