@@ -41,8 +41,12 @@ public class User {
     @Column(nullable = false, unique = true)
     private String username;
 
-    @Column(nullable = false)
+    /** Null for accounts created with Google (they have no password). */
     private String passwordHash;
+
+    /** Stable Google account id ("sub" claim); null until a Google account is linked. */
+    @Column(name = "google_sub", unique = true)
+    private String googleSub;
 
     @Column(nullable = false)
     private String name;

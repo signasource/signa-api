@@ -60,10 +60,10 @@ public interface LearningMetricsRepository extends Repository<UserCourseEnrollme
 
     /**
      * Per-exercise (lesson block) evaluated attempts in the window: {@code [UUID blockId, String
-     * lessonName, BlockType type, long evaluated, long correct, long distinctUsers, String config]}.
-     * The 7th column ({@code MIN(config)}) is the block's JSON config — all rows in the group share
-     * the same blockId so MIN returns the config deterministically. The service uses it to extract
-     * the sign name label and derive the error-rate / retries rankings.
+     * lessonName, BlockType type, long evaluated, long correct, long distinctUsers, String
+     * config]}. The 7th column ({@code MIN(config)}) is the block's JSON config — all rows in the
+     * group share the same blockId so MIN returns the config deterministically. The service uses it
+     * to extract the sign name label and derive the error-rate / retries rankings.
      */
     @Query(
             "SELECT a.lessonBlock.id, a.lessonBlock.lesson.name, a.lessonBlock.type, COUNT(a), "

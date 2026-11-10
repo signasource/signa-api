@@ -1,5 +1,6 @@
 package com.signasource.signa_api.metrics.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.entity.EnrollmentStatus;
@@ -10,12 +11,12 @@ import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.DailyAccura
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.DailyCount;
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.ExerciseDifficulty;
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.ExerciseFlow;
-import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.SignDifficulty;
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.LessonAccuracy;
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.LessonDropoff;
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.LessonFlow;
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.MeaningCount;
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.ReportsSection;
+import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.SignDifficulty;
 import com.signasource.signa_api.metrics.repository.LearningMetricsRepository;
 import java.time.Duration;
 import java.time.Instant;
@@ -218,8 +219,8 @@ public class LearningMetricsService {
     }
 
     /**
-     * Extracts a human-readable sign label from the block's JSON config based on its type.
-     * Returns {@code null} when the config is absent, unparseable, or the type has no sign field.
+     * Extracts a human-readable sign label from the block's JSON config based on its type. Returns
+     * {@code null} when the config is absent, unparseable, or the type has no sign field.
      */
     @SuppressWarnings("unchecked")
     private String extractSignFromConfig(String config, BlockType type) {
@@ -246,7 +247,7 @@ public class LearningMetricsService {
                 }
                 default -> null;
             };
-        } catch (Exception e) {
+        } catch (JsonProcessingException | RuntimeException e) {
             return null;
         }
     }

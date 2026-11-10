@@ -66,9 +66,7 @@ public class GamificationMetricsService {
             long prevTotal = repository.sumXpBetween(prevFromDate, fromDate);
             long prevActiveUsers = repository.countActiveUsersBetween(prevFrom, from);
             previousPerActiveUser =
-                    prevActiveUsers == 0
-                            ? null
-                            : Math.round((double) prevTotal / prevActiveUsers);
+                    prevActiveUsers == 0 ? null : Math.round((double) prevTotal / prevActiveUsers);
         }
 
         return new XpSection(
