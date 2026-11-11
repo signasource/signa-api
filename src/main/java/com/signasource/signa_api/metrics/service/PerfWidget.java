@@ -69,6 +69,8 @@ public enum PerfWidget {
     // Inference throughput (recognitions per second). On-device, so this is "consumo de IA" in
     // volume terms — there is no server-side inference cost to estimate.
     ML_INFERENCE_RATE("sum(rate(signa_client_inference_seconds_count[%1$s]))"),
+    // Rate of camera-exercise skips (PERFORM_SIGN / SPELL_NAME) reported by the app.
+    CAMERA_SKIP("sum(rate(signa_client_camera_skip_total[%1$s]))"),
     ML_CONFIDENCE(
             "sum(rate(signa_client_recognition_confidence_sum[%1$s]))"
                     + " / clamp_min(sum(rate(signa_client_recognition_confidence_count[%1$s])), 1)"),

@@ -135,6 +135,14 @@ public class MetricsService {
         registry.counter("signa.client.errors", "platform", platform, "type", type).increment();
     }
 
+    /**
+     * A camera exercise (PERFORM_SIGN / SPELL_NAME) the user skipped instead of attempting. Counted
+     * by platform only — never by sign, to keep Prometheus cardinality bounded.
+     */
+    public void recordClientCameraSkip(String platform) {
+        registry.counter("signa.client.camera_skip", "platform", platform).increment();
+    }
+
     /** On-device sign-recognition inference latency per frame, reported by the mobile app. */
     public void recordClientInference(String platform, Duration duration) {
         timer("signa.client.inference", "platform", platform).record(duration);

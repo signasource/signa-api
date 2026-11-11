@@ -136,6 +136,13 @@ class MetricsServiceTest {
     }
 
     @Test
+    void shouldRecordClientCameraSkip() {
+        metricsService.recordClientCameraSkip("android");
+        assertEquals(
+                1.0, registry.counter("signa.client.camera_skip", "platform", "android").count());
+    }
+
+    @Test
     void shouldRecordRateLimitHit() {
         metricsService.recordRateLimitHit("/users/username-availability");
         assertEquals(

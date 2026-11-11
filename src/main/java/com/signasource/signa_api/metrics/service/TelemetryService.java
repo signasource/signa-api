@@ -73,6 +73,7 @@ public class TelemetryService {
             case "ml_confidence" ->
                     metricsService.recordClientConfidence(platform, clampPercent(event.valueMs()));
             case "ml_fps" -> metricsService.recordClientFps(platform, nonNegative(event.valueMs()));
+            case "camera_skip" -> metricsService.recordClientCameraSkip(platform);
             default -> {
                 // Unknown event type: ignore.
             }

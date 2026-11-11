@@ -97,6 +97,14 @@ class TelemetryServiceTest {
     }
 
     @Test
+    void recordsCameraSkip() {
+        telemetryService.record(
+                batch(new TelemetryEventRequest("android", "camera_skip", null, null, null)));
+
+        verify(metricsService).recordClientCameraSkip("android");
+    }
+
+    @Test
     void dropsUnknownPlatform() {
         telemetryService.record(
                 batch(new TelemetryEventRequest("desktop", "web_vital", "LCP", 1.0, "ok")));
