@@ -30,7 +30,20 @@ class PerfWidgetTest {
 
     @Test
     void windowlessWidgetIgnoresRateWindow() {
-        assertEquals("signa_r2_up", PerfWidget.R2_UP.promQl("5m"));
+        assertEquals("hikaricp_connections_active", PerfWidget.DB_CONNECTIONS_ACTIVE.promQl("5m"));
+    }
+
+    @Test
+    void availabilityAveragesUpOverEachStep() {
+        assertEquals("avg_over_time(signa_r2_up[5m])", PerfWidget.R2_UP.promQl("5m"));
+        assertEquals(
+                "avg_over_time(up{job=\"signa-api\"}[5m])", PerfWidget.BACKEND_UP.promQl("5m"));
+    }
+
+    @Test
+    void endpointRateAndSlowestOpsKeepMethodAndUri() {
+        assertTrue(PerfWidget.fromKey("endpoint_rate").promQl("5m").contains("by (method, uri)"));
+        assertTrue(PerfWidget.SLOWEST_OPS.promQl("5m").contains("by (le, method, uri)"));
     }
 
     @Test

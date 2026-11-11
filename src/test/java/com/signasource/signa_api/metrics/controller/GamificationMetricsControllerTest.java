@@ -33,7 +33,7 @@ class GamificationMetricsControllerTest {
             new GamificationMetricsResponse(
                     new XpSection(0, 0, 0, List.of(), null),
                     new StreaksSection(0, 0, 0, 0, 0),
-                    new AchievementsSection(0, 0, List.of(), List.of(), List.of(), null),
+                    new AchievementsSection(0, 0, List.of(), List.of(), List.of(), null, 0),
                     List.of(),
                     new GiftsSection(0, 0),
                     new ShopSection(0, 0, 0, List.of(), List.of()),

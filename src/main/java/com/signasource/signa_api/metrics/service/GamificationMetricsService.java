@@ -49,7 +49,7 @@ public class GamificationMetricsService {
                         repository.countGiftsSentBetween(from, until),
                         repository.countGiftsClaimedBetween(from, until)),
                 shop(from, until),
-                xpDistribution());
+                xpDistribution(fromDate, toDate, repository.countActiveUsersBetween(from, until)));
     }
 
     /** Total XP plus the per-active-user average (honest engagement, not inflated by headcount). */
@@ -89,7 +89,8 @@ public class GamificationMetricsService {
     }
 
     private AchievementsSection achievements(Instant from, Instant until, MetricsRange range) {
-        long opportunities = repository.countActiveAchievements() * repository.countEnabledUsers();
+        long eligibleUsers = repository.countEnabledUsers();
+        long opportunities = repository.countActiveAchievements() * eligibleUsers;
         double unlockRate = percent(repository.countAllUnlocked(), opportunities);
 
         Long previousUnlocked = null;
@@ -105,17 +106,36 @@ public class GamificationMetricsService {
                 toDailyCounts(repository.dailyUnlocked(from, until)),
                 topNames(repository.topUnlockedAchievements()),
                 topNames(repository.leastUnlockedAchievements()),
-                previousUnlocked);
+                previousUnlocked,
+                eligibleUsers);
     }
 
-    /** Users bucketed by total XP into experience tiers. */
-    private List<NameCount> xpDistribution() {
-        List<NameCount> tiers = new ArrayList<>(5);
-        tiers.add(new NameCount("Sin XP", repository.countStatsXpBetween(0, 0)));
-        tiers.add(new NameCount("1–100", repository.countStatsXpBetween(1, 100)));
-        tiers.add(new NameCount("101–500", repository.countStatsXpBetween(101, 500)));
-        tiers.add(new NameCount("501–2000", repository.countStatsXpBetween(501, 2000)));
-        tiers.add(new NameCount("2000+", repository.countStatsXpOver(2000)));
+    /** Upper bounds (exclusive) of the XP-earned tiers; the last tier is open-ended. */
+    static final long[] XP_TIER_BOUNDS = {100, 300, 600, 1000, 2000};
+
+    static final List<String> XP_TIER_LABELS =
+            List.of("0–100", "100–300", "300–600", "600–1k", "1k–2k", "2k+");
+
+    /**
+     * Active users bucketed by the XP they earned <em>in the window</em> (a histogram: the tiers
+     * are ordered). An active user who earned no XP falls in the first tier.
+     */
+    private List<NameCount> xpDistribution(LocalDate fromDate, LocalDate toDate, long activeUsers) {
+        long[] counts = new long[XP_TIER_LABELS.size()];
+        List<Long> perUser = repository.xpEarnedPerUserBetween(fromDate, toDate);
+        for (Long xp : perUser) {
+            long value = xp == null ? 0 : xp;
+            int tier = 0;
+            while (tier < XP_TIER_BOUNDS.length && value >= XP_TIER_BOUNDS[tier]) {
+                tier++;
+            }
+            counts[tier]++;
+        }
+        counts[0] += Math.max(0, activeUsers - perUser.size());
+        List<NameCount> tiers = new ArrayList<>(counts.length);
+        for (int i = 0; i < counts.length; i++) {
+            tiers.add(new NameCount(XP_TIER_LABELS.get(i), counts[i]));
+        }
         return tiers;
     }
 

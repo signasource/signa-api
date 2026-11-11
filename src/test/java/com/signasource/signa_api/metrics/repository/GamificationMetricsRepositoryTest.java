@@ -82,6 +82,7 @@ class GamificationMetricsRepositoryTest {
 
         assertEquals(250L, repository.sumXpBetween(FROM_DATE, toDate));
         assertEquals(1, repository.dailyXp(FROM_DATE, toDate).size());
+        assertEquals(java.util.List.of(250L), repository.xpEarnedPerUserBetween(FROM_DATE, toDate));
     }
 
     @Test

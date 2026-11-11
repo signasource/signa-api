@@ -107,11 +107,9 @@ class GamificationMetricsServiceTest {
         when(repository.leastUnlockedAchievements())
                 .thenReturn(List.<Object[]>of(new Object[] {"Logro raro", 0L}));
         when(repository.sumGemsInInventory()).thenReturn(1000L);
-        when(repository.countStatsXpBetween(0L, 0L)).thenReturn(5L);
-        when(repository.countStatsXpBetween(1L, 100L)).thenReturn(10L);
-        when(repository.countStatsXpBetween(101L, 500L)).thenReturn(8L);
-        when(repository.countStatsXpBetween(501L, 2000L)).thenReturn(4L);
-        when(repository.countStatsXpOver(2000L)).thenReturn(2L);
+        // 4 users earned XP in the window; the other 96 active users earned none (→ first tier).
+        when(repository.xpEarnedPerUserBetween(any(), any()))
+                .thenReturn(List.of(50L, 100L, 999L, 2500L));
 
         GamificationMetricsResponse r = service.getGamificationMetrics(range);
 
@@ -123,12 +121,17 @@ class GamificationMetricsServiceTest {
         assertEquals(15L, r.achievements().previousUnlocked());
         assertEquals(45L, r.streaks().maxStreak());
         assertEquals(25.0, r.achievements().unlockRatePercent());
+        assertEquals(50L, r.achievements().eligibleUsers());
         assertEquals("Logro raro", r.achievements().leastUnlocked().get(0).name());
         assertEquals(1000L, r.shop().gemsInInventory());
         assertEquals(120.0, r.shop().redemptionRatePercent()); // 1200 spent / 1000 in inventory
-        assertEquals(5, r.xpDistribution().size());
-        assertEquals("Sin XP", r.xpDistribution().get(0).name());
-        assertEquals(2L, r.xpDistribution().get(4).count());
+        assertEquals(6, r.xpDistribution().size());
+        assertEquals("0–100", r.xpDistribution().get(0).name());
+        assertEquals(97L, r.xpDistribution().get(0).count()); // 50 XP + 96 without XP
+        assertEquals(
+                1L, r.xpDistribution().get(1).count()); // 100 → 100–300 (lower bound inclusive)
+        assertEquals(1L, r.xpDistribution().get(3).count()); // 999 → 600–1k
+        assertEquals(1L, r.xpDistribution().get(5).count()); // 2500 → 2k+
     }
 
     @Test

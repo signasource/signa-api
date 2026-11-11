@@ -244,4 +244,37 @@ public interface LearningMetricsRepository extends Repository<UserCourseEnrollme
             @Param("from") Instant from,
             @Param("until") Instant until,
             @Param("courseIds") Collection<UUID> courseIds);
+
+    // ── Contenido a revisar ──────────────────────────────────────────────────────────────────────
+    /**
+     * Per-lesson progress as of {@code until} with its course: {@code [UUID lessonId, String
+     * lessonName, UUID courseId, String courseName, long started, long completed]}.
+     */
+    @Query(
+            "SELECT p.lesson.id, p.lesson.name, c.id, c.name, COUNT(p), "
+                    + "SUM(CASE WHEN p.status = com.signasource.signa_api.learning.entity.ProgressStatus.COMPLETED THEN 1L ELSE 0L END) "
+                    + "FROM UserLessonProgress p JOIN p.lesson.topic.courseVersion.course c "
+                    + "WHERE p.startedAt IS NOT NULL AND p.startedAt < :until "
+                    + "GROUP BY p.lesson.id, p.lesson.name, c.id, c.name")
+    List<Object[]> lessonReviewStats(@Param("until") Instant until);
+
+    @Query(
+            "SELECT p.lesson.id, p.lesson.name, c.id, c.name, COUNT(p), "
+                    + "SUM(CASE WHEN p.status = com.signasource.signa_api.learning.entity.ProgressStatus.COMPLETED THEN 1L ELSE 0L END) "
+                    + "FROM UserLessonProgress p JOIN p.lesson.topic.courseVersion.course c "
+                    + "WHERE p.startedAt IS NOT NULL AND p.startedAt < :until AND c.id IN :courseIds "
+                    + "GROUP BY p.lesson.id, p.lesson.name, c.id, c.name")
+    List<Object[]> lessonReviewStatsByCourse(
+            @Param("until") Instant until, @Param("courseIds") Collection<UUID> courseIds);
+
+    /** Rows of {@code [UUID lessonId, String config]}: every block config of the given lessons. */
+    @Query("SELECT b.lesson.id, b.config FROM LessonBlock b WHERE b.lesson.id IN :lessonIds")
+    List<Object[]> blockConfigsOfLessons(@Param("lessonIds") Collection<UUID> lessonIds);
+
+    /** Rows of {@code [String meaning, long count]} of unresolved reports, most reported first. */
+    @Query(
+            "SELECT r.sign.meaning, COUNT(r) FROM SignReport r "
+                    + "WHERE r.status = com.signasource.signa_api.learning.entity.ReportStatus.PENDING "
+                    + "GROUP BY r.sign.meaning ORDER BY COUNT(r) DESC")
+    List<Object[]> pendingReportsBySign();
 }

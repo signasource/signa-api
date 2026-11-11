@@ -1,6 +1,7 @@
 package com.signasource.signa_api.metrics.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.entity.EnrollmentStatus;
@@ -14,6 +15,7 @@ import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.ExerciseFlo
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.LessonAccuracy;
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.LessonDropoff;
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.LessonFlow;
+import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.LessonReview;
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.MeaningCount;
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.ReportsSection;
 import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.SignDifficulty;
@@ -25,9 +27,13 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -50,6 +56,11 @@ public class LearningMetricsService {
 
     private static final long LESSON_MIN_STARTED = 2;
     private static final int RANKING_LIMIT = 10;
+
+    /** "Contenido a revisar": a lesson needs this many exercise attempts in the window to rank. */
+    static final long REVIEW_MIN_ATTEMPTS = 30;
+
+    private static final int REVIEW_LIMIT = 10;
 
     private final LearningMetricsRepository repository;
     private final ObjectMapper objectMapper;
@@ -81,13 +92,15 @@ public class LearningMetricsService {
                                 ? repository.exerciseStatsByCourse(previousFrom, from, courseIds)
                                 : repository.exerciseStats(previousFrom, from));
 
+        List<Object[]> pendingReports = repository.pendingReportsBySign();
+
         return new LearningMetricsResponse(
                 courses(until),
                 toCountItems(repository.enrollmentsByStatus(until)),
                 hardestLessons(from, until, filtered, courseIds),
                 repository.countLearnedSignsBetween(from, until),
                 toDailyCounts(repository.dailyLearnedSigns(from, until)),
-                reports(),
+                reports(pendingReports),
                 toCountItems(repository.importsByStatus(from, until)),
                 lessonFlow(from, until, previousFrom, filtered, courseIds),
                 exerciseFlow(exerciseRows, previousExerciseRows),
@@ -96,7 +109,139 @@ public class LearningMetricsService {
                 highestErrorExercises(exerciseRows),
                 mostRetriedExercises(exerciseRows),
                 dailyAccuracy(from, until, filtered, courseIds),
-                hardestSigns(exerciseRows));
+                hardestSigns(exerciseRows),
+                lessonsToReview(from, until, filtered, courseIds, pendingReports));
+    }
+
+    /**
+     * Lessons with at least {@link #REVIEW_MIN_ATTEMPTS} exercise attempts in the window, ranked by
+     * abandonment (worst first), each with its course, accuracy and the pending reports on signs it
+     * uses. A report counts toward a lesson when its sign's meaning appears (case-insensitive) as a
+     * value in one of the lesson's block configs — blocks reference signs by meaning.
+     */
+    private List<LessonReview> lessonsToReview(
+            Instant from,
+            Instant until,
+            boolean filtered,
+            Collection<UUID> courseIds,
+            List<Object[]> pendingReports) {
+        List<Object[]> accuracyRows =
+                filtered
+                        ? repository.lessonAccuracyByCourse(
+                                from, until, REVIEW_MIN_ATTEMPTS, courseIds)
+                        : repository.lessonAccuracy(from, until, REVIEW_MIN_ATTEMPTS);
+        Map<String, long[]> accuracy = new HashMap<>();
+        for (Object[] row : accuracyRows) {
+            accuracy.put(String.valueOf(row[0]), new long[] {toLong(row[2]), toLong(row[3])});
+        }
+        if (accuracy.isEmpty()) {
+            return List.of();
+        }
+
+        List<Object[]> progressRows =
+                filtered
+                        ? repository.lessonReviewStatsByCourse(until, courseIds)
+                        : repository.lessonReviewStats(until);
+        List<Object[]> candidates = new ArrayList<>();
+        for (Object[] row : progressRows) {
+            if (accuracy.containsKey(String.valueOf(row[0]))
+                    && toLong(row[4]) >= LESSON_MIN_STARTED) {
+                candidates.add(row);
+            }
+        }
+        candidates.sort(
+                Comparator.comparingDouble((Object[] row) -> abandonment(row))
+                        .reversed()
+                        .thenComparing(
+                                row -> accuracy.get(String.valueOf(row[0]))[0],
+                                Comparator.reverseOrder()));
+        if (candidates.size() > REVIEW_LIMIT) {
+            candidates = candidates.subList(0, REVIEW_LIMIT);
+        }
+
+        Map<String, Long> pendingByMeaning = new HashMap<>();
+        for (Object[] row : pendingReports) {
+            if (row[0] != null) {
+                pendingByMeaning.merge(
+                        normalize(String.valueOf(row[0])), toLong(row[1]), Long::sum);
+            }
+        }
+        Map<String, Set<String>> lessonTerms = lessonTerms(candidates, pendingByMeaning);
+
+        List<LessonReview> reviews = new ArrayList<>(candidates.size());
+        for (Object[] row : candidates) {
+            String lessonId = String.valueOf(row[0]);
+            long[] acc = accuracy.get(lessonId);
+            long reports = 0;
+            for (String term : lessonTerms.getOrDefault(lessonId, Set.of())) {
+                reports += pendingByMeaning.getOrDefault(term, 0L);
+            }
+            reviews.add(
+                    new LessonReview(
+                            lessonId,
+                            String.valueOf(row[1]),
+                            String.valueOf(row[2]),
+                            String.valueOf(row[3]),
+                            toLong(row[4]),
+                            toLong(row[5]),
+                            abandonment(row),
+                            acc[0],
+                            percent(acc[1], acc[0]),
+                            reports));
+        }
+        return reviews;
+    }
+
+    /** Abandonment of a {@code lessonReviewStats} row: started but not completed, in percent. */
+    private static double abandonment(Object[] row) {
+        long started = toLong(row[4]);
+        long completed = toLong(row[5]);
+        return Math.round((100.0 - percent(completed, started)) * 10.0) / 10.0;
+    }
+
+    /** The normalized text values of each lesson's block configs that match a reported sign. */
+    private Map<String, Set<String>> lessonTerms(
+            List<Object[]> lessons, Map<String, Long> pendingByMeaning) {
+        if (lessons.isEmpty() || pendingByMeaning.isEmpty()) {
+            return Map.of();
+        }
+        List<UUID> ids = new ArrayList<>(lessons.size());
+        for (Object[] row : lessons) {
+            ids.add(row[0] instanceof UUID id ? id : UUID.fromString(String.valueOf(row[0])));
+        }
+        Map<String, Set<String>> terms = new HashMap<>();
+        for (Object[] row : repository.blockConfigsOfLessons(ids)) {
+            if (row[1] == null) {
+                continue;
+            }
+            Set<String> found = terms.computeIfAbsent(String.valueOf(row[0]), k -> new HashSet<>());
+            try {
+                collectText(objectMapper.readTree(String.valueOf(row[1])), found, pendingByMeaning);
+            } catch (JsonProcessingException | RuntimeException e) {
+                // An unparseable config just contributes no reports.
+            }
+        }
+        return terms;
+    }
+
+    private static void collectText(JsonNode node, Set<String> out, Map<String, Long> wanted) {
+        if (node == null) {
+            return;
+        }
+        if (node.isTextual()) {
+            String term = normalize(node.asText());
+            if (wanted.containsKey(term)) {
+                out.add(term);
+            }
+            return;
+        }
+        for (JsonNode child : node) {
+            collectText(child, out, wanted);
+        }
+    }
+
+    private static String normalize(String text) {
+        return text.trim().toLowerCase(Locale.ROOT);
     }
 
     private LessonFlow lessonFlow(
@@ -403,7 +548,7 @@ public class LearningMetricsService {
         return lessons.size() > HARDEST_LIMIT ? lessons.subList(0, HARDEST_LIMIT) : lessons;
     }
 
-    private ReportsSection reports() {
+    private ReportsSection reports(List<Object[]> pendingReports) {
         List<Object[]> times = repository.resolvedReportTimes();
         long totalMinutes = 0;
         for (Object[] row : times) {
@@ -423,7 +568,14 @@ public class LearningMetricsService {
             }
             mostReported.add(new MeaningCount(String.valueOf(row[0]), toLong(row[1])));
         }
-        return new ReportsSection(times.size(), averageHours, mostReported);
+        List<MeaningCount> mostReportedPending = new ArrayList<>();
+        for (Object[] row : pendingReports) {
+            if (mostReportedPending.size() >= MOST_REPORTED_LIMIT) {
+                break;
+            }
+            mostReportedPending.add(new MeaningCount(String.valueOf(row[0]), toLong(row[1])));
+        }
+        return new ReportsSection(times.size(), averageHours, mostReported, mostReportedPending);
     }
 
     private static List<CountItem> toCountItems(List<Object[]> rows) {
