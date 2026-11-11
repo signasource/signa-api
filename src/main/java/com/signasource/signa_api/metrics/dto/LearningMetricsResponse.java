@@ -64,10 +64,29 @@ public record LearningMetricsResponse(
     public record ReportsSection(
             long resolvedCount, double averageResolutionHours, List<MeaningCount> mostReported) {}
 
-    public record LessonFlow(long started, long completed, double completionPercent) {}
+    /**
+     * Lessons started vs. completed in the window, with the immediately preceding equal-length
+     * window for a period-over-period delta ({@code previous*} are {@code null} for the whole
+     * history).
+     */
+    public record LessonFlow(
+            long started,
+            long completed,
+            double completionPercent,
+            Long previousStarted,
+            Long previousCompleted) {}
 
+    /**
+     * Exercises evaluated in the window, with the previous equal-length window for a delta ({@code
+     * previous*} are {@code null} for the whole history).
+     */
     public record ExerciseFlow(
-            long attempted, long correct, double successPercent, double averageAttempts) {}
+            long attempted,
+            long correct,
+            double successPercent,
+            double averageAttempts,
+            Long previousAttempted,
+            Long previousCorrect) {}
 
     public record LessonDropoff(
             String lessonId,

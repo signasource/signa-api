@@ -33,22 +33,31 @@ class GrowthMetricsControllerTest {
                     List.of(),
                     new GrowthMetricsResponse.WaitlistSection(0, 0, List.of()),
                     new GrowthMetricsResponse.RevenueSection(
-                            BigDecimal.ZERO, 0, BigDecimal.ZERO, BigDecimal.ZERO, 0, List.of()),
+                            BigDecimal.ZERO,
+                            0,
+                            BigDecimal.ZERO,
+                            BigDecimal.ZERO,
+                            0,
+                            null,
+                            null,
+                            null,
+                            List.of()),
                     new GrowthMetricsResponse.GemsSection(
                             0, 0, BigDecimal.ZERO, BigDecimal.ZERO, 0, List.of()),
                     new GrowthMetricsResponse.CourseSalesSection(
                             0, BigDecimal.ZERO, BigDecimal.ZERO, 0, List.of()),
-                    new GrowthMetricsResponse.SeatsSection(0, 0, 0),
+                    new GrowthMetricsResponse.SeatsSection(0, 0, 0, null),
                     List.of(),
                     new GrowthMetricsResponse.OrganizationsSection(
                             0,
                             0,
+                            null,
                             0,
                             BigDecimal.ZERO,
                             0,
                             List.of(),
                             List.of(),
-                            new GrowthMetricsResponse.ConversionSection(0, 0, 0)),
+                            new GrowthMetricsResponse.ConversionSection(0, 0, 0, null)),
                     0);
 
     @Test

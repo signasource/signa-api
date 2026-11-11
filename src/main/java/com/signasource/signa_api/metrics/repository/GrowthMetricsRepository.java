@@ -284,6 +284,42 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
                     + "WHERE o.createdAt >= :from AND o.createdAt < :until")
     long countNewOrgsBetween(@Param("from") Instant from, @Param("until") Instant until);
 
+    /**
+     * Oldest still-pending organization as of {@code until} (for the "la más antigua hace N días"
+     * chip), or {@code null} when none is pending.
+     */
+    @Query(
+            "SELECT MIN(o.createdAt) FROM Organization o "
+                    + "WHERE o.createdAt < :until "
+                    + "AND o.status = com.signasource.signa_api.organizations.entity.OrganizationStatus.PENDING")
+    Instant oldestPendingOrgCreatedAt(@Param("until") Instant until);
+
+    /**
+     * Rows of {@code [UUID orgId, long activeMembers]}: distinct ACTIVE members of each org whose
+     * user had any activity in {@code [activeFrom, until)} — the "activos 7 d" column.
+     */
+    @Query(
+            "SELECT m.organization.id, COUNT(DISTINCT m.user.id) FROM OrganizationMember m "
+                    + "WHERE m.status = com.signasource.signa_api.organizations.entity.MemberStatus.ACTIVE "
+                    + "AND m.joinedAt < :until "
+                    + "AND EXISTS (SELECT 1 FROM UserActivity a WHERE a.user = m.user "
+                    + "AND a.occurredAt >= :activeFrom AND a.occurredAt < :until) "
+                    + "GROUP BY m.organization.id")
+    List<Object[]> activeMembersByOrg(
+            @Param("activeFrom") Instant activeFrom, @Param("until") Instant until);
+
+    /**
+     * Rows of {@code [UUID orgId, Instant nextExpiry]}: the earliest upcoming license expiry among
+     * each org's ACTIVE seats as of {@code until} — the "vence" column (a soon date is a renewal
+     * risk).
+     */
+    @Query(
+            "SELECT s.purchase.organization.id, MIN(s.accessExpiresAt) FROM PurchaseSeat s "
+                    + "WHERE s.status = com.signasource.signa_api.organizations.entity.SeatStatus.ACTIVE "
+                    + "AND s.accessExpiresAt IS NOT NULL AND s.accessExpiresAt >= :until "
+                    + "GROUP BY s.purchase.organization.id")
+    List<Object[]> nextSeatExpiryByOrg(@Param("until") Instant until);
+
     /** Rows of {@code [UUID orgId, String name, long activeMembers]} as of {@code until}. */
     @Query(
             "SELECT m.organization.id, m.organization.name, COUNT(m) FROM OrganizationMember m "

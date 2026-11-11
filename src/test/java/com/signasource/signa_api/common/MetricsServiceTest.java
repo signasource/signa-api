@@ -118,6 +118,24 @@ class MetricsServiceTest {
     }
 
     @Test
+    void shouldRecordEmailSent() {
+        metricsService.recordEmailSent();
+        assertEquals(1.0, registry.counter("signa.email.sent").count());
+    }
+
+    @Test
+    void shouldRecordPushSent() {
+        metricsService.recordPushSent(3);
+        assertEquals(3.0, registry.counter("signa.push.sent").count());
+    }
+
+    @Test
+    void shouldNotRecordPushSentWhenCountIsZero() {
+        metricsService.recordPushSent(0);
+        assertEquals(0.0, registry.counter("signa.push.sent").count());
+    }
+
+    @Test
     void shouldRecordRateLimitHit() {
         metricsService.recordRateLimitHit("/users/username-availability");
         assertEquals(

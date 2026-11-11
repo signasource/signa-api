@@ -65,11 +65,21 @@ public class LearningMetricsService {
         Instant from = range.start();
         Instant until = range.end();
         boolean filtered = !courseIds.isEmpty();
+        // Immediately preceding equal-length window for "vs. período anterior"; absent (null) for
+        // the
+        // whole history, which has no comparable prior span.
+        Instant previousFrom = range.isOpen() ? null : from.minus(Duration.between(from, until));
 
         List<Object[]> exerciseRows =
                 filtered
                         ? repository.exerciseStatsByCourse(from, until, courseIds)
                         : repository.exerciseStats(from, until);
+        List<Object[]> previousExerciseRows =
+                previousFrom == null
+                        ? null
+                        : (filtered
+                                ? repository.exerciseStatsByCourse(previousFrom, from, courseIds)
+                                : repository.exerciseStats(previousFrom, from));
 
         return new LearningMetricsResponse(
                 courses(until),
@@ -79,8 +89,8 @@ public class LearningMetricsService {
                 toDailyCounts(repository.dailyLearnedSigns(from, until)),
                 reports(),
                 toCountItems(repository.importsByStatus(from, until)),
-                lessonFlow(from, until, filtered, courseIds),
-                exerciseFlow(exerciseRows),
+                lessonFlow(from, until, previousFrom, filtered, courseIds),
+                exerciseFlow(exerciseRows, previousExerciseRows),
                 onboardingFunnel(until),
                 lessonRanking(until, filtered, courseIds),
                 highestErrorExercises(exerciseRows),
@@ -90,22 +100,49 @@ public class LearningMetricsService {
     }
 
     private LessonFlow lessonFlow(
+            Instant from,
+            Instant until,
+            Instant previousFrom,
+            boolean filtered,
+            Collection<UUID> courseIds) {
+        long started = countLessonsStarted(from, until, filtered, courseIds);
+        long completed = countLessonsCompleted(from, until, filtered, courseIds);
+        Long previousStarted =
+                previousFrom == null
+                        ? null
+                        : countLessonsStarted(previousFrom, from, filtered, courseIds);
+        Long previousCompleted =
+                previousFrom == null
+                        ? null
+                        : countLessonsCompleted(previousFrom, from, filtered, courseIds);
+        return new LessonFlow(
+                started,
+                completed,
+                percent(completed, started),
+                previousStarted,
+                previousCompleted);
+    }
+
+    private long countLessonsStarted(
             Instant from, Instant until, boolean filtered, Collection<UUID> courseIds) {
-        long started =
-                filtered
-                        ? repository.countLessonsStartedByCourse(from, until, courseIds)
-                        : repository.countLessonsStartedBetween(from, until);
-        long completed =
-                filtered
-                        ? repository.countLessonsCompletedByCourse(from, until, courseIds)
-                        : repository.countLessonsCompletedBetween(from, until);
-        return new LessonFlow(started, completed, percent(completed, started));
+        return filtered
+                ? repository.countLessonsStartedByCourse(from, until, courseIds)
+                : repository.countLessonsStartedBetween(from, until);
+    }
+
+    private long countLessonsCompleted(
+            Instant from, Instant until, boolean filtered, Collection<UUID> courseIds) {
+        return filtered
+                ? repository.countLessonsCompletedByCourse(from, until, courseIds)
+                : repository.countLessonsCompletedBetween(from, until);
     }
 
     /**
      * Headline exercise figures from the per-block rows: success and attempts per (user, exercise).
+     * {@code previousRows} are the same rows over the preceding window ({@code null} for the whole
+     * history).
      */
-    private ExerciseFlow exerciseFlow(List<Object[]> rows) {
+    private ExerciseFlow exerciseFlow(List<Object[]> rows, List<Object[]> previousRows) {
         long attempted = 0;
         long correct = 0;
         long userExercisePairs = 0;
@@ -118,7 +155,25 @@ public class LearningMetricsService {
                 userExercisePairs == 0
                         ? 0.0
                         : Math.round((attempted * 10.0) / userExercisePairs) / 10.0;
-        return new ExerciseFlow(attempted, correct, percent(correct, attempted), averageAttempts);
+        Long previousAttempted = null;
+        Long previousCorrect = null;
+        if (previousRows != null) {
+            long pa = 0;
+            long pc = 0;
+            for (Object[] row : previousRows) {
+                pa += toLong(row[3]);
+                pc += toLong(row[4]);
+            }
+            previousAttempted = pa;
+            previousCorrect = pc;
+        }
+        return new ExerciseFlow(
+                attempted,
+                correct,
+                percent(correct, attempted),
+                averageAttempts,
+                previousAttempted,
+                previousCorrect);
     }
 
     private List<CountItem> onboardingFunnel(Instant until) {

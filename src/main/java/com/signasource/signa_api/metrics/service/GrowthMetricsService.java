@@ -68,12 +68,12 @@ public class GrowthMetricsService {
                 sessions(from, until, bucket),
                 cohorts(from, until),
                 waitlist(from, until, bucket),
-                revenue(from, until, bucket),
+                revenue(from, until, previousFrom, bucket),
                 gems(from, until, bucket),
                 courseSales(from, until, bucket),
-                seats(until),
+                seats(from, until, previousFrom),
                 statusItems,
-                orgs(from, until, statusItems, paidCourseUsers, bucket),
+                orgs(from, until, previousFrom, statusItems, paidCourseUsers, bucket),
                 paidCourseUsers);
     }
 
@@ -218,7 +218,7 @@ public class GrowthMetricsService {
                 toDailyCounts(repository.dailyWaitlist(from, until, bucket), bucket));
     }
 
-    private RevenueSection revenue(Instant from, Instant until, long bucket) {
+    private RevenueSection revenue(Instant from, Instant until, Instant previousFrom, long bucket) {
         BigDecimal paid = nonNull(repository.sumPaidAmountBetween(from, until));
         long paidCount = repository.countPaidBetween(from, until);
         BigDecimal refunded = nonNull(repository.sumRefundedBetween(from, until));
@@ -232,12 +232,26 @@ public class GrowthMetricsService {
                         : refunded.multiply(BigDecimal.valueOf(100))
                                 .divide(paid, 1, RoundingMode.HALF_UP)
                                 .doubleValue();
+        // Previous equal-length window [previousFrom, from) for the period-over-period delta.
+        BigDecimal previousPaid =
+                previousFrom == null
+                        ? null
+                        : nonNull(repository.sumPaidAmountBetween(previousFrom, from));
+        Long previousPaidCount =
+                previousFrom == null ? null : repository.countPaidBetween(previousFrom, from);
+        BigDecimal previousRefunded =
+                previousFrom == null
+                        ? null
+                        : nonNull(repository.sumRefundedBetween(previousFrom, from));
         return new RevenueSection(
                 paid,
                 paidCount,
                 averageTicket,
                 refunded,
                 refundRate,
+                previousPaid,
+                previousPaidCount,
+                previousRefunded,
                 toDailyAmounts(repository.dailyRevenue(from, until, bucket), bucket));
     }
 
@@ -264,16 +278,24 @@ public class GrowthMetricsService {
                 toDailyAmounts(repository.dailyCourseRevenue(from, until, bucket), bucket));
     }
 
-    private SeatsSection seats(Instant until) {
+    private SeatsSection seats(Instant from, Instant until, Instant previousFrom) {
         long sold = repository.countSeatsSoldBefore(until);
         long active = repository.countSeatsActiveBefore(until);
-        return new SeatsSection(sold, active, percent(active, sold));
+        // State snapshot as of the window's start, for "how utilization moved over the window".
+        Double previousUtilization =
+                previousFrom == null
+                        ? null
+                        : percent(
+                                repository.countSeatsActiveBefore(from),
+                                repository.countSeatsSoldBefore(from));
+        return new SeatsSection(sold, active, percent(active, sold), previousUtilization);
     }
 
     /** B2B deep-dive: pipeline, per-org license utilization and free→premium conversion. */
     private OrganizationsSection orgs(
             Instant from,
             Instant until,
+            Instant previousFrom,
             List<CountItem> statusItems,
             long paidCourseUsers,
             long bucket) {
@@ -310,6 +332,17 @@ public class GrowthMetricsService {
                         : totalRevenue.divide(
                                 BigDecimal.valueOf(revenueRows.size()), 2, RoundingMode.HALF_UP);
 
+        // Members active in the last 7 days of the window, and the next upcoming seat expiry, per
+        // org.
+        Map<UUID, Long> active7dByOrg = new HashMap<>();
+        for (Object[] row : repository.activeMembersByOrg(until.minus(Duration.ofDays(7)), until)) {
+            active7dByOrg.put((UUID) row[0], toLong(row[1]));
+        }
+        Map<UUID, Instant> expiryByOrg = new HashMap<>();
+        for (Object[] row : repository.nextSeatExpiryByOrg(until)) {
+            expiryByOrg.put((UUID) row[0], (Instant) row[1]);
+        }
+
         List<OrgUtilization> utilization = new ArrayList<>();
         for (Object[] row : repository.seatsByOrg(until)) {
             UUID orgId = (UUID) row[0];
@@ -323,28 +356,50 @@ public class GrowthMetricsService {
                             sold,
                             active,
                             percent(active, sold),
+                            active7dByOrg.getOrDefault(orgId, 0L),
+                            expiryByOrg.get(orgId),
                             revenueByOrg.getOrDefault(orgId, BigDecimal.ZERO)));
         }
-        // Biggest clients first — that's where under-utilized licenses matter most.
-        utilization.sort(Comparator.comparingLong(OrgUtilization::seatsSold).reversed());
+        // Riskiest first: big contracts with idle seats (sold × empty share) weigh most — that's
+        // where an under-used or soon-to-renew license matters.
+        utilization.sort(Comparator.comparingDouble(GrowthMetricsService::riskScore).reversed());
         if (utilization.size() > MAX_ORGS) {
             utilization = utilization.subList(0, MAX_ORGS);
         }
 
         long freeUsers = repository.countFreeCourseUsers(until);
+        // Conversion as of the window's start, for the period-over-period delta.
+        Double previousConversion =
+                previousFrom == null
+                        ? null
+                        : percent(
+                                repository.countPaidCourseUsers(from),
+                                repository.countFreeCourseUsers(from));
         ConversionSection conversion =
                 new ConversionSection(
-                        freeUsers, paidCourseUsers, percent(paidCourseUsers, freeUsers));
+                        freeUsers,
+                        paidCourseUsers,
+                        percent(paidCourseUsers, freeUsers),
+                        previousConversion);
 
         return new OrganizationsSection(
                 repository.countNewOrgsBetween(from, until),
                 pending,
+                repository.oldestPendingOrgCreatedAt(until),
                 avgUsersPerOrg,
                 avgRevenuePerOrg,
                 repository.countPaidBetween(from, until),
                 toDailyCounts(repository.dailyPurchases(from, until, bucket), bucket),
                 utilization,
                 conversion);
+    }
+
+    /**
+     * Idle-seat exposure: contracted seats weighted by the empty share (bigger & emptier =
+     * riskier).
+     */
+    private static double riskScore(OrgUtilization o) {
+        return o.seatsSold() * (100.0 - o.occupancyPercent());
     }
 
     private static List<CountItem> toCountItems(List<Object[]> rows) {

@@ -56,6 +56,7 @@ class NotificationPushListenerTest {
 
         verify(firebaseService).sendToTokens(List.of(VALID_TOKEN, INVALID_TOKEN), message);
         verify(deviceTokenService).purgeInvalidTokens(List.of(INVALID_TOKEN));
+        verify(metricsService).recordPushSent(1);
         verify(metricsService).recordPushFailure();
     }
 
@@ -68,6 +69,7 @@ class NotificationPushListenerTest {
         listener.onNotificationPersisted(new NotificationPersistedEvent(userId, message));
 
         verify(deviceTokenService, never()).purgeInvalidTokens(any());
-        verifyNoInteractions(metricsService);
+        verify(metricsService).recordPushSent(1);
+        verify(metricsService, never()).recordPushFailure();
     }
 }

@@ -273,15 +273,28 @@ class GrowthMetricsRepositoryTest {
     void aggregatesOrganizationsDeepDiveAndConversion() {
         CoursePurchase purchase = savePaidPurchase(new BigDecimal("12000.00"));
         Organization org = purchase.getOrganization();
-        seatRepository.save(seat(purchase, SeatStatus.ACTIVE));
+        // A fixed future instant (no sub-microsecond nanos, so H2's timestamp round-trips exactly).
+        Instant expiry = Instant.parse("2027-01-01T00:00:00Z");
+        PurchaseSeat activeSeat = seat(purchase, SeatStatus.ACTIVE);
+        activeSeat.setAccessExpiresAt(expiry);
+        seatRepository.save(activeSeat);
         seatRepository.save(seat(purchase, SeatStatus.INVITED));
+        User memberUser = saveUser();
         organizationMemberRepository.save(
                 OrganizationMember.builder()
                         .organization(org)
-                        .user(saveUser())
+                        .user(memberUser)
                         .role(MemberRole.MEMBER)
                         .status(MemberStatus.ACTIVE)
                         .joinedAt(Instant.now())
+                        .build());
+        activityRepository.save(
+                UserActivity.builder().user(memberUser).occurredAt(Instant.now()).build());
+        // A still-pending org for the "oldest pending" chip.
+        organizationRepository.save(
+                Organization.builder()
+                        .name("Pending " + UUID.randomUUID())
+                        .status(OrganizationStatus.PENDING)
                         .build());
         // A free-course enrollment feeds the conversion base.
         Course freeCourse =
@@ -307,7 +320,8 @@ class GrowthMetricsRepositoryTest {
                         .startedAt(Instant.now())
                         .build());
 
-        assertEquals(1, repository.countNewOrgsBetween(FROM, until));
+        // Two orgs created in range: the ACTIVE buyer and the separate PENDING org.
+        assertEquals(2, repository.countNewOrgsBetween(FROM, until));
         assertEquals(1, repository.membersByOrg(until).size());
         assertEquals(1L, ((Number) repository.membersByOrg(until).get(0)[2]).longValue());
         assertEquals(1, repository.revenueByOrg(until).size());
@@ -316,6 +330,18 @@ class GrowthMetricsRepositoryTest {
         assertEquals(1L, ((Number) seats[3]).longValue()); // active
         assertEquals(1, repository.dailyPurchases(FROM, until, BUCKET).size());
         assertEquals(1, repository.countFreeCourseUsers(until));
+
+        // New license-table columns + pending chip.
+        var active7d = repository.activeMembersByOrg(until.minus(7, ChronoUnit.DAYS), until);
+        assertEquals(1, active7d.size());
+        assertEquals(org.getId(), active7d.get(0)[0]);
+        assertEquals(1L, ((Number) active7d.get(0)[1]).longValue());
+        var expiries = repository.nextSeatExpiryByOrg(until);
+        assertEquals(1, expiries.size());
+        assertEquals(expiry, expiries.get(0)[1]);
+        // The buyer org is ACTIVE; a separate PENDING org makes the oldest-pending timestamp
+        // present.
+        assertEquals(true, repository.oldestPendingOrgCreatedAt(until) != null);
     }
 
     private CoursePurchase savePaidPurchase(BigDecimal total) {

@@ -164,6 +164,7 @@ public class EmailService {
             }
 
             mailSender.send(message);
+            metricsService.recordEmailSent();
 
         } catch (Exception e) {
             // Sends run @Async, so this failure is otherwise invisible: the counter makes a mail

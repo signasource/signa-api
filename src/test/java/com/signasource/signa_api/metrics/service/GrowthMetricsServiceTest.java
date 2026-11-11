@@ -152,6 +152,12 @@ class GrowthMetricsServiceTest {
         assertEquals(40L, r.users().previousNewInRange());
         assertEquals(25L, r.engagement().activeInRange());
         assertEquals(25L, r.engagement().previousActiveInRange());
+        // Negocio KPIs now carry a previous equal-length window too (same stubbed counts).
+        assertEquals(0, new BigDecimal("10000.00").compareTo(r.revenue().previousPaidAmount()));
+        assertEquals(4L, r.revenue().previousPaidCount());
+        assertEquals(0, new BigDecimal("1000.00").compareTo(r.revenue().previousRefundedAmount()));
+        assertEquals(60.0, r.seats().previousUtilizationPercent());
+        assertEquals(0.0, r.orgs().conversion().previousConversionPercent());
     }
 
     @Test
@@ -218,11 +224,19 @@ class GrowthMetricsServiceTest {
                         List.<Object[]>of(
                                 new Object[] {LocalDate.of(2026, 11, 4).toEpochDay(), 2L}));
         when(repository.countFreeCourseUsers(any())).thenReturn(200L); // paid 33 → 16.5%
+        Instant expiryA = Instant.parse("2026-12-01T00:00:00Z");
+        when(repository.oldestPendingOrgCreatedAt(any()))
+                .thenReturn(Instant.parse("2026-11-02T00:00:00Z"));
+        when(repository.activeMembersByOrg(any(), any()))
+                .thenReturn(List.<Object[]>of(new Object[] {a, 7L}));
+        when(repository.nextSeatExpiryByOrg(any()))
+                .thenReturn(List.<Object[]>of(new Object[] {a, expiryA}));
 
         var orgs = service.getGrowthMetrics(range).orgs();
 
         assertEquals(4L, orgs.newInRange());
         assertEquals(2L, orgs.pending());
+        assertEquals(Instant.parse("2026-11-02T00:00:00Z"), orgs.oldestPendingCreatedAt());
         assertEquals(7.5, orgs.avgUsersPerOrg()); // (10+5)/2
         assertEquals(0, new BigDecimal("75000.00").compareTo(orgs.avgRevenuePerOrg()));
         assertEquals(4L, orgs.purchasesInRange());
@@ -232,6 +246,11 @@ class GrowthMetricsServiceTest {
         assertEquals(100L, orgs.utilization().get(0).seatsSold());
         assertEquals(5.0, orgs.utilization().get(0).occupancyPercent());
         assertEquals(10L, orgs.utilization().get(0).members());
+        assertEquals(7L, orgs.utilization().get(0).active7d());
+        assertEquals(expiryA, orgs.utilization().get(0).expiresAt());
+        // Org B has no active-7d / expiry rows → defaults.
+        assertEquals(0L, orgs.utilization().get(1).active7d());
+        assertEquals(null, orgs.utilization().get(1).expiresAt());
         assertEquals(200L, orgs.conversion().freeCourseUsers());
         assertEquals(33L, orgs.conversion().paidCourseUsers());
         assertEquals(16.5, orgs.conversion().conversionPercent());
@@ -243,6 +262,10 @@ class GrowthMetricsServiceTest {
 
         assertEquals(null, r.users().previousNewInRange());
         assertEquals(null, r.engagement().previousActiveInRange());
+        assertEquals(null, r.revenue().previousPaidAmount());
+        assertEquals(null, r.revenue().previousPaidCount());
+        assertEquals(null, r.seats().previousUtilizationPercent());
+        assertEquals(null, r.orgs().conversion().previousConversionPercent());
         assertEquals(0, r.retention().size());
     }
 

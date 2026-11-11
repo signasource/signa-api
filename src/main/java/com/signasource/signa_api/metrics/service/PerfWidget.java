@@ -21,7 +21,9 @@ public enum PerfWidget {
                     + " / clamp_min(sum(rate(http_server_requests_seconds_count[%1$s])), 1)"),
     ERRORS_TOTAL("sum by (status) (rate(signa_http_errors_total[%1$s]))"),
 
+    EMAIL_SENT("sum(rate(signa_email_sent_total[%1$s]))"),
     EMAIL_FAILURES("sum(rate(signa_email_failures_total[%1$s]))"),
+    PUSH_SENT("sum(rate(signa_push_sent_total[%1$s]))"),
     PUSH_FAILURES("sum(rate(signa_push_failures_total[%1$s]))"),
     CLIENT_ERRORS("sum by (type) (rate(signa_client_errors_total[%1$s]))"),
 

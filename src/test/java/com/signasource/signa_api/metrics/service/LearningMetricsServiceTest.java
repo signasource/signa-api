@@ -99,6 +99,16 @@ class LearningMetricsServiceTest {
     }
 
     @Test
+    void omitsPeriodOverPeriodComparisonForOpenRange() {
+        LearningMetricsResponse r = service.getLearningMetrics(MetricsRange.ALL_TIME);
+
+        assertEquals(null, r.lessons().previousStarted());
+        assertEquals(null, r.lessons().previousCompleted());
+        assertEquals(null, r.exercises().previousAttempted());
+        assertEquals(null, r.exercises().previousCorrect());
+    }
+
+    @Test
     void averagesReportResolutionAndTakesMostReported() {
         LearningMetricsResponse r = service.getLearningMetrics(range);
 
@@ -181,6 +191,12 @@ class LearningMetricsServiceTest {
         assertEquals(115L, r.exercises().correct());
         assertEquals(56.1, r.exercises().successPercent());
         assertEquals(2.6, r.exercises().averageAttempts()); // 205 / (50+25+5)
+
+        // Closed range → previous equal-length window is comparable (same stubbed counts).
+        assertEquals(100L, r.lessons().previousStarted());
+        assertEquals(40L, r.lessons().previousCompleted());
+        assertEquals(205L, r.exercises().previousAttempted());
+        assertEquals(115L, r.exercises().previousCorrect());
 
         // Rankings: b3 (5 evaluated) is above the floor of 3, so all 3 blocks appear.
         assertEquals(3, r.highestErrorExercises().size());

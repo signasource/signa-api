@@ -88,9 +88,21 @@ public class MetricsService {
                 .increment();
     }
 
+    /** A transactional email that was handed off to the SMTP server successfully. */
+    public void recordEmailSent() {
+        registry.counter("signa.email.sent").increment();
+    }
+
     /** A transactional email that failed to send (SMTP down, bad credentials, …). */
     public void recordEmailFailure() {
         registry.counter("signa.email.failures").increment();
+    }
+
+    /** Push notifications that FCM accepted for delivery (per-token success count). */
+    public void recordPushSent(int count) {
+        if (count > 0) {
+            registry.counter("signa.push.sent").increment(count);
+        }
     }
 
     /** A push notification batch that FCM rejected or that failed to send. */

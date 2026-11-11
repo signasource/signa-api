@@ -33,6 +33,7 @@ public class NotificationPushListener {
         }
 
         FcmResult result = firebaseService.sendToTokens(tokens, event.message());
+        metricsService.recordPushSent(result.successCount());
         if (result.failureCount() > 0) {
             metricsService.recordPushFailure();
         }

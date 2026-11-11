@@ -96,12 +96,19 @@ public record GrowthMetricsResponse(
 
     public record WaitlistSection(long total, long newInRange, List<DailyCount> daily) {}
 
+    /**
+     * B2B revenue in the window, with the immediately preceding equal-length window for a
+     * period-over-period delta ({@code previous*} are {@code null} for the whole history).
+     */
     public record RevenueSection(
             BigDecimal paidAmount,
             long paidCount,
             BigDecimal averageTicket,
             BigDecimal refundedAmount,
             double refundRatePercent,
+            BigDecimal previousPaidAmount,
+            Long previousPaidCount,
+            BigDecimal previousRefundedAmount,
             List<DailyAmount> daily) {}
 
     /**
@@ -128,7 +135,12 @@ public record GrowthMetricsResponse(
             long refundedCount,
             List<DailyAmount> daily) {}
 
-    public record SeatsSection(long sold, long active, double utilizationPercent) {}
+    /**
+     * Seat utilization as of the window's close, with the utilization as of the window's start for
+     * a delta ({@code previousUtilizationPercent} is {@code null} for the whole history).
+     */
+    public record SeatsSection(
+            long sold, long active, double utilizationPercent, Double previousUtilizationPercent) {}
 
     /**
      * B2B organizations deep-dive: new orgs and those pending approval, average members and revenue
@@ -139,6 +151,8 @@ public record GrowthMetricsResponse(
     public record OrganizationsSection(
             long newInRange,
             long pending,
+            /** When the oldest still-pending org was created ({@code null} if none pending). */
+            Instant oldestPendingCreatedAt,
             double avgUsersPerOrg,
             BigDecimal avgRevenuePerOrg,
             long purchasesInRange,
@@ -146,6 +160,11 @@ public record GrowthMetricsResponse(
             List<OrgUtilization> utilization,
             ConversionSection conversion) {}
 
+    /**
+     * Per-org license utilization, ranked by renewal/under-use risk. {@code active7d} is the
+     * members active in the last 7 days; {@code expiresAt} is the next upcoming seat expiry ({@code
+     * null} when the org has no active seat with a future expiry).
+     */
     public record OrgUtilization(
             String orgId,
             String name,
@@ -153,8 +172,17 @@ public record GrowthMetricsResponse(
             long seatsSold,
             long seatsActive,
             double occupancyPercent,
+            long active7d,
+            Instant expiresAt,
             BigDecimal revenue) {}
 
+    /**
+     * Free→premium conversion as of the window's close, with the conversion as of the window's
+     * start for a delta ({@code previousConversionPercent} is {@code null} for the whole history).
+     */
     public record ConversionSection(
-            long freeCourseUsers, long paidCourseUsers, double conversionPercent) {}
+            long freeCourseUsers,
+            long paidCourseUsers,
+            double conversionPercent,
+            Double previousConversionPercent) {}
 }
