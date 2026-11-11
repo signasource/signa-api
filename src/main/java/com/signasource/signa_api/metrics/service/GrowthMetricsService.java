@@ -7,6 +7,7 @@ import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.CountItem;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.CourseSalesSection;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.DailyAmount;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.DailyCount;
+import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.EndUsersSection;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.EngagementSection;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.GemsSection;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.OrgUtilization;
@@ -71,6 +72,7 @@ public class GrowthMetricsService {
                 revenue(from, until, previousFrom, bucket),
                 gems(from, until, bucket),
                 courseSales(from, until, bucket),
+                endUsers(from, until),
                 seats(from, until, previousFrom),
                 statusItems,
                 orgs(from, until, previousFrom, statusItems, paidCourseUsers, bucket),
@@ -276,6 +278,25 @@ public class GrowthMetricsService {
                 nonNull(repository.sumCourseRefundedBetween(from, until)),
                 repository.countCourseRefundsBetween(from, until),
                 toDailyAmounts(repository.dailyCourseRevenue(from, until, bucket), bucket));
+    }
+
+    /**
+     * End users (no org) who paid in the window: distinct payers across gem and paid-course orders,
+     * and the share of them with two or more paid orders (gems + courses combined). Each buyer's
+     * order count is summed across both sources so a person who bought gems once and a course once
+     * counts as a repeat buyer.
+     */
+    private EndUsersSection endUsers(Instant from, Instant until) {
+        Map<UUID, Long> ordersByUser = new HashMap<>();
+        for (Object[] row : repository.gemBuyerOrderCounts(from, until)) {
+            ordersByUser.merge((UUID) row[0], toLong(row[1]), Long::sum);
+        }
+        for (Object[] row : repository.courseBuyerOrderCounts(from, until)) {
+            ordersByUser.merge((UUID) row[0], toLong(row[1]), Long::sum);
+        }
+        long payingUsers = ordersByUser.size();
+        long repeatBuyers = ordersByUser.values().stream().filter(count -> count >= 2).count();
+        return new EndUsersSection(payingUsers, percent(repeatBuyers, payingUsers));
     }
 
     private SeatsSection seats(Instant from, Instant until, Instant previousFrom) {

@@ -321,6 +321,30 @@ class GrowthMetricsServiceTest {
     }
 
     @Test
+    void countsDistinctPayersAndRepeatBuyersAcrossGemsAndCourses() {
+        UUID a = UUID.randomUUID(); // 1 gem + 1 course order → repeat buyer
+        UUID b = UUID.randomUUID(); // 2 gem orders → repeat buyer
+        UUID c = UUID.randomUUID(); // 1 course order only → single buyer
+        when(repository.gemBuyerOrderCounts(any(), any()))
+                .thenReturn(List.<Object[]>of(new Object[] {a, 1L}, new Object[] {b, 2L}));
+        when(repository.courseBuyerOrderCounts(any(), any()))
+                .thenReturn(List.<Object[]>of(new Object[] {a, 1L}, new Object[] {c, 1L}));
+
+        var endUsers = service.getGrowthMetrics(range).endUsers();
+
+        assertEquals(3L, endUsers.payingUsers()); // a, b, c distinct
+        assertEquals(66.7, endUsers.repeatBuyerPercent()); // a and b of 3 → 2/3
+    }
+
+    @Test
+    void handlesNoPayersWithoutDivisionByZero() {
+        var endUsers = service.getGrowthMetrics(range).endUsers();
+
+        assertEquals(0L, endUsers.payingUsers());
+        assertEquals(0.0, endUsers.repeatBuyerPercent());
+    }
+
+    @Test
     void handlesEmptyRevenueWithoutDivisionByZero() {
         when(repository.sumPaidAmountBetween(any(), any())).thenReturn(BigDecimal.ZERO);
         when(repository.countPaidBetween(any(), any())).thenReturn(0L);

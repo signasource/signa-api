@@ -23,6 +23,8 @@ public record GrowthMetricsResponse(
         GemsSection gems,
         /** Individual paid-course orders bought directly by end users (no organization). */
         CourseSalesSection courseSales,
+        /** End-user (non-org) buyer counts: distinct payers and the repeat-buyer share. */
+        EndUsersSection endUsers,
         SeatsSection seats,
         List<CountItem> organizations,
         /** B2B deep-dive: pipeline, per-org utilization and the free→premium conversion. */
@@ -134,6 +136,14 @@ public record GrowthMetricsResponse(
             BigDecimal refundedAmount,
             long refundedCount,
             List<DailyAmount> daily) {}
+
+    /**
+     * End users (no organization) who paid for anything (gem packs or individual paid courses) in
+     * the window: how many distinct people paid, and what share of them bought two or more times
+     * (gem and course orders combined). Drives "conversión a pago", "usuarios que compraron",
+     * "ingreso por usuario pagador" and "recompra" in the Negocio tab's "Usuarios finales" panel.
+     */
+    public record EndUsersSection(long payingUsers, double repeatBuyerPercent) {}
 
     /**
      * Seat utilization as of the window's close, with the utilization as of the window's start for

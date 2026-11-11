@@ -10,6 +10,8 @@ import com.signasource.signa_api.gamification.repository.GemOrderRepository;
 import com.signasource.signa_api.gamification.repository.GemPackRepository;
 import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.entity.Course;
+import com.signasource.signa_api.learning.entity.CourseOrder;
+import com.signasource.signa_api.learning.entity.CourseOrderStatus;
 import com.signasource.signa_api.learning.entity.CourseVersion;
 import com.signasource.signa_api.learning.entity.EnrollmentStatus;
 import com.signasource.signa_api.learning.entity.Lesson;
@@ -19,6 +21,7 @@ import com.signasource.signa_api.learning.entity.SignLanguage;
 import com.signasource.signa_api.learning.entity.Topic;
 import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import com.signasource.signa_api.learning.entity.VersionStatus;
+import com.signasource.signa_api.learning.repository.CourseOrderRepository;
 import com.signasource.signa_api.learning.repository.CourseRepository;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.learning.repository.LessonBlockAttemptRepository;
@@ -92,6 +95,7 @@ class GrowthMetricsRepositoryTest {
     @Autowired private PurchaseRefundRepository refundRepository;
     @Autowired private GemPackRepository gemPackRepository;
     @Autowired private GemOrderRepository gemOrderRepository;
+    @Autowired private CourseOrderRepository courseOrderRepository;
     @Autowired private UserCourseEnrollmentRepository enrollmentRepository;
     @Autowired private UserDailyActivityRepository dailyActivityRepository;
     @Autowired private UserSessionRepository userSessionRepository;
@@ -246,6 +250,39 @@ class GrowthMetricsRepositoryTest {
         assertEquals(1, repository.dailyGemPurchases(FROM, until, BUCKET).size());
         assertEquals(1, repository.organizationsByStatus(until).size());
         assertEquals(OrganizationStatus.ACTIVE, repository.organizationsByStatus(until).get(0)[0]);
+    }
+
+    @Test
+    void groupsEndUserPaidOrdersByBuyer() {
+        User buyer = saveUser();
+        GemPack pack =
+                gemPackRepository.save(
+                        GemPack.builder()
+                                .productId("gems_" + UUID.randomUUID())
+                                .gems(500)
+                                .price(new BigDecimal("5000"))
+                                .build());
+        // Two paid gem orders + one paid course order, all from the same buyer.
+        gemOrderRepository.save(paidGemOrder(buyer, pack));
+        gemOrderRepository.save(paidGemOrder(buyer, pack));
+        courseOrderRepository.save(
+                CourseOrder.builder()
+                        .user(buyer)
+                        .course(course)
+                        .amount(new BigDecimal("9000"))
+                        .currency("ARS")
+                        .status(CourseOrderStatus.PAID)
+                        .paidAt(Instant.now())
+                        .build());
+
+        var gemCounts = repository.gemBuyerOrderCounts(FROM, until);
+        assertEquals(1, gemCounts.size());
+        assertEquals(buyer.getId(), gemCounts.get(0)[0]);
+        assertEquals(2L, ((Number) gemCounts.get(0)[1]).longValue());
+
+        var courseCounts = repository.courseBuyerOrderCounts(FROM, until);
+        assertEquals(1, courseCounts.size());
+        assertEquals(1L, ((Number) courseCounts.get(0)[1]).longValue());
     }
 
     @Test
@@ -425,5 +462,17 @@ class GrowthMetricsRepositoryTest {
                         .enabled(true)
                         .verified(true)
                         .build());
+    }
+
+    private GemOrder paidGemOrder(User user, GemPack pack) {
+        return GemOrder.builder()
+                .user(user)
+                .gemPack(pack)
+                .gems(500)
+                .amount(new BigDecimal("5000"))
+                .currency("ARS")
+                .status(GemOrderStatus.PAID)
+                .paidAt(Instant.now())
+                .build();
     }
 }

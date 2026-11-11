@@ -260,6 +260,30 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
                     + "WHERE e.courseVersion.course.isFree = false AND e.startedAt < :until")
     long countPaidCourseUsers(@Param("until") Instant until);
 
+    // ── End users who paid (gem packs or paid courses) ───────────────────────────────────────────
+    /**
+     * Rows of {@code [UUID userId, long paidGemOrders]} per end user who paid for a gem pack in the
+     * window. Merged with {@link #courseBuyerOrderCounts} in the service to count distinct payers
+     * and the repeat-buyer share.
+     */
+    @Query(
+            "SELECT g.user.id, COUNT(g) FROM GemOrder g "
+                    + "WHERE g.paidAt >= :from AND g.paidAt < :until "
+                    + "AND g.status = com.signasource.signa_api.gamification.entity.GemOrderStatus.PAID "
+                    + "GROUP BY g.user.id")
+    List<Object[]> gemBuyerOrderCounts(@Param("from") Instant from, @Param("until") Instant until);
+
+    /**
+     * Rows of {@code [UUID userId, long paidCourseOrders]} per end user who bought a paid course.
+     */
+    @Query(
+            "SELECT c.user.id, COUNT(c) FROM CourseOrder c "
+                    + "WHERE c.paidAt >= :from AND c.paidAt < :until "
+                    + "AND c.status = com.signasource.signa_api.learning.entity.CourseOrderStatus.PAID "
+                    + "GROUP BY c.user.id")
+    List<Object[]> courseBuyerOrderCounts(
+            @Param("from") Instant from, @Param("until") Instant until);
+
     // ── Seats (B2B license utilization) ──────────────────────────────────────────────────────────
     @Query(
             "SELECT COUNT(s) FROM PurchaseSeat s "

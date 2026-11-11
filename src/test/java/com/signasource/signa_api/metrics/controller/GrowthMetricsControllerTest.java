@@ -46,6 +46,7 @@ class GrowthMetricsControllerTest {
                             0, 0, BigDecimal.ZERO, BigDecimal.ZERO, 0, List.of()),
                     new GrowthMetricsResponse.CourseSalesSection(
                             0, BigDecimal.ZERO, BigDecimal.ZERO, 0, List.of()),
+                    new GrowthMetricsResponse.EndUsersSection(0, 0),
                     new GrowthMetricsResponse.SeatsSection(0, 0, 0, null),
                     List.of(),
                     new GrowthMetricsResponse.OrganizationsSection(
