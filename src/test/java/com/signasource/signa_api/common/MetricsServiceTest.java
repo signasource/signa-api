@@ -143,6 +143,12 @@ class MetricsServiceTest {
     }
 
     @Test
+    void shouldRecordClientLessonTime() {
+        metricsService.recordClientLessonTime("android", java.time.Duration.ofSeconds(42));
+        assertEquals(1L, registry.timer("signa.client.lesson_time", "platform", "android").count());
+    }
+
+    @Test
     void shouldRecordRateLimitHit() {
         metricsService.recordRateLimitHit("/users/username-availability");
         assertEquals(

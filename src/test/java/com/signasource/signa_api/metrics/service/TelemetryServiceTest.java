@@ -105,6 +105,14 @@ class TelemetryServiceTest {
     }
 
     @Test
+    void recordsLessonTime() {
+        telemetryService.record(
+                batch(new TelemetryEventRequest("android", "lesson_time", null, 42000.0, null)));
+
+        verify(metricsService).recordClientLessonTime(eq("android"), any(Duration.class));
+    }
+
+    @Test
     void dropsUnknownPlatform() {
         telemetryService.record(
                 batch(new TelemetryEventRequest("desktop", "web_vital", "LCP", 1.0, "ok")));

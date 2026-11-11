@@ -143,6 +143,13 @@ public class MetricsService {
         registry.counter("signa.client.camera_skip", "platform", platform).increment();
     }
 
+    /**
+     * How long a learner spent on a lesson, from opening it to finishing (percentile histogram).
+     */
+    public void recordClientLessonTime(String platform, Duration duration) {
+        timer("signa.client.lesson_time", "platform", platform).record(duration);
+    }
+
     /** On-device sign-recognition inference latency per frame, reported by the mobile app. */
     public void recordClientInference(String platform, Duration duration) {
         timer("signa.client.inference", "platform", platform).record(duration);

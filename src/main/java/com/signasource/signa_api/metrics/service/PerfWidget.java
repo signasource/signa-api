@@ -71,6 +71,10 @@ public enum PerfWidget {
     ML_INFERENCE_RATE("sum(rate(signa_client_inference_seconds_count[%1$s]))"),
     // Rate of camera-exercise skips (PERFORM_SIGN / SPELL_NAME) reported by the app.
     CAMERA_SKIP("sum(rate(signa_client_camera_skip_total[%1$s]))"),
+    // Median time a learner spends on a lesson (seconds), reported by the app.
+    LESSON_TIME(
+            "histogram_quantile(0.50, sum by (le)"
+                    + " (rate(signa_client_lesson_time_seconds_bucket[%1$s])))"),
     ML_CONFIDENCE(
             "sum(rate(signa_client_recognition_confidence_sum[%1$s]))"
                     + " / clamp_min(sum(rate(signa_client_recognition_confidence_count[%1$s])), 1)"),

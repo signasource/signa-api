@@ -74,6 +74,8 @@ public class TelemetryService {
                     metricsService.recordClientConfidence(platform, clampPercent(event.valueMs()));
             case "ml_fps" -> metricsService.recordClientFps(platform, nonNegative(event.valueMs()));
             case "camera_skip" -> metricsService.recordClientCameraSkip(platform);
+            case "lesson_time" ->
+                    metricsService.recordClientLessonTime(platform, millis(event.valueMs()));
             default -> {
                 // Unknown event type: ignore.
             }
