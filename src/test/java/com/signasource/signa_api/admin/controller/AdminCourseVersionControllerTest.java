@@ -73,6 +73,8 @@ class AdminCourseVersionControllerTest {
                         0,
                         null,
                         null,
+                        null,
+                        null,
                         null);
         when(service.listVersions()).thenReturn(List.of(item));
 
