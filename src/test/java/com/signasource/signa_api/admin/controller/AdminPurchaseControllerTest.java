@@ -1,15 +1,20 @@
 package com.signasource.signa_api.admin.controller;
 
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.when;
 
-import com.signasource.signa_api.admin.dto.AdminPurchaseResponse;
+import com.signasource.signa_api.admin.dto.AdminPurchaseDetailResponse;
+import com.signasource.signa_api.admin.dto.AdminPurchaseListItemResponse;
 import com.signasource.signa_api.admin.dto.ConfirmPaymentRequest;
-import com.signasource.signa_api.organizations.dto.PurchaseDetailResponse;
-import com.signasource.signa_api.organizations.entity.PurchaseStatus;
-import com.signasource.signa_api.organizations.service.PurchasePaymentService;
+import com.signasource.signa_api.admin.service.AdminPurchasesService;
+import com.signasource.signa_api.auth.entity.CustomUserDetails;
+import com.signasource.signa_api.users.entity.User;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -19,28 +24,50 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class AdminPurchaseControllerTest {
 
-    @Mock private PurchasePaymentService paymentService;
+    @Mock private AdminPurchasesService service;
+    @Mock private CustomUserDetails userDetails;
+    @Mock private User user;
 
     @InjectMocks private AdminPurchaseController controller;
 
-    @Test
-    void shouldListPurchasesByStatus() {
-        List<AdminPurchaseResponse> purchases = List.of();
-        when(paymentService.listForAdmin(PurchaseStatus.PENDING_PAYMENT)).thenReturn(purchases);
+    @BeforeEach
+    void setUp() {
+        when(userDetails.getUser()).thenReturn(user);
+        when(user.getName()).thenReturn("Admin");
+        when(user.getLastName()).thenReturn("Test");
+    }
 
-        assertSame(purchases, controller.list(PurchaseStatus.PENDING_PAYMENT).getBody());
+    @Test
+    void shouldListPurchases() {
+        List<AdminPurchaseListItemResponse> purchases = List.of();
+        when(service.listAll()).thenReturn(purchases);
+
+        assertSame(purchases, controller.list().getBody());
     }
 
     @Test
     void shouldConfirmAPaymentWithOrWithoutReference() {
         UUID purchaseId = UUID.randomUUID();
-        PurchaseDetailResponse detail = new PurchaseDetailResponse(null, List.of(), List.of());
-        when(paymentService.confirmPayment(purchaseId, "ref")).thenReturn(detail);
-        when(paymentService.confirmPayment(purchaseId, null)).thenReturn(detail);
+        AdminPurchaseDetailResponse detail =
+                new AdminPurchaseDetailResponse(
+                        null, null, null, null, null, null, null, null, null, null, null, null,
+                        null, null, null, null, null, null, null, null, null, null, null, null,
+                        List.of());
+        when(service.confirmPayment(
+                        eq(purchaseId),
+                        nullable(ConfirmPaymentRequest.class),
+                        anyString()))
+                .thenReturn(detail);
 
         assertSame(
                 detail,
-                controller.confirmPayment(purchaseId, new ConfirmPaymentRequest("ref")).getBody());
-        assertSame(detail, controller.confirmPayment(purchaseId, null).getBody());
+                controller
+                        .confirmPayment(
+                                purchaseId,
+                                new ConfirmPaymentRequest("ref", null, null),
+                                userDetails)
+                        .getBody());
+        assertSame(
+                detail, controller.confirmPayment(purchaseId, null, userDetails).getBody());
     }
 }
