@@ -10,5 +10,8 @@ public enum NotificationCode {
     // Social module
     FRIEND_REQUEST_RECEIVED,
     FRIEND_REQUEST_ACCEPTED,
-    FRIEND_EVENT_LIKED
+    FRIEND_EVENT_LIKED,
+
+    // Content moderation
+    SIGN_REPORT_RESOLVED
 }

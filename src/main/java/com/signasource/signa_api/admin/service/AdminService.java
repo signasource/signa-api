@@ -34,6 +34,8 @@ import com.signasource.signa_api.organizations.entity.OrganizationMember;
 import com.signasource.signa_api.organizations.entity.OrganizationStatus;
 import com.signasource.signa_api.organizations.repository.OrganizationMemberRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationRepository;
+import com.signasource.signa_api.notification.entity.NotificationCode;
+import com.signasource.signa_api.notification.service.NotificationService;
 import com.signasource.signa_api.users.entity.AuthProvider;
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
@@ -52,6 +54,7 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -81,6 +84,7 @@ public class AdminService {
     private final TokenRepository tokenRepository;
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
+    private final NotificationService notificationService;
 
     // ── Stats ────────────────────────────────────────────────────────────────
 
@@ -251,6 +255,7 @@ public class AdminService {
                         .findById(reportId)
                         .orElseThrow(() -> new NotFoundException("Report not found: " + reportId));
 
+        boolean wasResolved = report.getStatus() == ReportStatus.RESOLVED;
         report.setStatus(request.status());
         if (request.adminNote() != null) report.setAdminNote(request.adminNote());
         if (request.status() == ReportStatus.RESOLVED
@@ -259,6 +264,14 @@ public class AdminService {
             report.setResolvedAt(LocalDateTime.now());
         }
         signReportRepository.save(report);
+
+        if (!wasResolved && request.status() == ReportStatus.RESOLVED) {
+            notificationService.notifyUser(
+                    report.getUser().getId(),
+                    NotificationCode.SIGN_REPORT_RESOLVED,
+                    Map.of("sign", report.getSign().getMeaning()));
+        }
+
         return AdminSignReportResponse.from(report);
     }
 

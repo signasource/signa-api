@@ -84,7 +84,13 @@ public class NotificationCatalogSeeder implements CommandLineRunner {
                                 NotificationScope.INDIVIDUAL,
                                 false,
                                 "Le gustó tu actividad",
-                                "A {{friend}} le gustó tu actividad."));
+                                "A {{friend}} le gustó tu actividad."),
+                        template(
+                                NotificationCode.SIGN_REPORT_RESOLVED,
+                                NotificationScope.INDIVIDUAL,
+                                false,
+                                "Tu reporte fue resuelto",
+                                "Revisamos tu reporte sobre la seña {{sign}} y lo resolvimos. ¡Gracias por ayudarnos a mejorar!"));
 
         for (NotificationTemplate t : defaults) {
             if (!templateRepository.existsByCode(t.getCode())) {
