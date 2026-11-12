@@ -21,6 +21,9 @@ public interface GemOrderRepository extends JpaRepository<GemOrder, UUID> {
             findTop5ByUserIdAndStatusAndMercadoPagoOrderIdIsNotNullAndCreatedAtAfterOrderByCreatedAtDesc(
                     UUID userId, GemOrderStatus status, Instant since);
 
+    /** All orders for a user, newest first. */
+    List<GemOrder> findByUserIdOrderByCreatedAtDesc(UUID userId);
+
     /** Locks the row so the webhook and the app's sync never credit the same order twice. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT o FROM GemOrder o WHERE o.id = :id")

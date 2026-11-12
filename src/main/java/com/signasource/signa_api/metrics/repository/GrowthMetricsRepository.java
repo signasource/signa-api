@@ -388,4 +388,50 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
             "SELECT COUNT(DISTINCT e.user.id) FROM UserCourseEnrollment e "
                     + "WHERE e.courseVersion.course.isFree = true AND e.startedAt < :until")
     long countFreeCourseUsers(@Param("until") Instant until);
+
+    /** Rows of {@code [long bucketIndex, BigDecimal amount]} of confirmed org refunds. */
+    @Query(
+            "SELECT FLOOR(extract(epoch from r.refundedAt) / :bucket), COALESCE(SUM(r.amount), 0) "
+                    + "FROM PurchaseRefund r "
+                    + "WHERE r.status = com.signasource.signa_api.organizations.entity.RefundStatus.REFUNDED "
+                    + "AND r.refundedAt >= :from AND r.refundedAt < :until "
+                    + "GROUP BY 1")
+    List<Object[]> dailyOrgRefunds(
+            @Param("from") Instant from,
+            @Param("until") Instant until,
+            @Param("bucket") long bucket);
+
+    /** Rows of {@code [long bucketIndex, BigDecimal amount]} of confirmed gem-pack refunds. */
+    @Query(
+            "SELECT FLOOR(extract(epoch from g.refundedAt) / :bucket), COALESCE(SUM(g.amount), 0) "
+                    + "FROM GemOrder g "
+                    + "WHERE g.status = com.signasource.signa_api.gamification.entity.GemOrderStatus.REFUNDED "
+                    + "AND g.refundedAt >= :from AND g.refundedAt < :until "
+                    + "GROUP BY 1")
+    List<Object[]> dailyGemRefunds(
+            @Param("from") Instant from,
+            @Param("until") Instant until,
+            @Param("bucket") long bucket);
+
+    /** Rows of {@code [long bucketIndex, BigDecimal amount]} of confirmed paid-course refunds. */
+    @Query(
+            "SELECT FLOOR(extract(epoch from c.refundedAt) / :bucket), COALESCE(SUM(c.amount), 0) "
+                    + "FROM CourseOrder c "
+                    + "WHERE c.status = com.signasource.signa_api.learning.entity.CourseOrderStatus.REFUNDED "
+                    + "AND c.refundedAt >= :from AND c.refundedAt < :until "
+                    + "GROUP BY 1")
+    List<Object[]> dailyCourseRefunds(
+            @Param("from") Instant from,
+            @Param("until") Instant until,
+            @Param("bucket") long bucket);
+
+    /**
+     * Rows of {@code [UUID orgId, BigDecimal revenue]} of confirmed B2B revenue within the window.
+     */
+    @Query(
+            "SELECT p.organization.id, COALESCE(SUM(p.totalAmount), 0) FROM CoursePurchase p "
+                    + "WHERE p.paidAt IS NOT NULL AND p.paidAt >= :from AND p.paidAt < :until "
+                    + "GROUP BY p.organization.id")
+    List<Object[]> revenueByOrgBetween(
+            @Param("from") Instant from, @Param("until") Instant until);
 }

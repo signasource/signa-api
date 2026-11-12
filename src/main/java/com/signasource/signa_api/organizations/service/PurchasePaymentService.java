@@ -1,12 +1,14 @@
 package com.signasource.signa_api.organizations.service;
 
 import com.signasource.signa_api.admin.dto.AdminPurchaseResponse;
+import com.signasource.signa_api.admin.dto.ConfirmPaymentRequest;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.organizations.dto.PurchaseDetailResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseResponse;
 import com.signasource.signa_api.organizations.entity.CoursePurchase;
 import com.signasource.signa_api.organizations.entity.OrganizationCourse;
+import com.signasource.signa_api.organizations.entity.PaymentMethod;
 import com.signasource.signa_api.organizations.entity.PurchaseRefund;
 import com.signasource.signa_api.organizations.entity.PurchaseSeat;
 import com.signasource.signa_api.organizations.entity.PurchaseStatus;
@@ -36,7 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class PurchasePaymentService {
 
-    static final String MERCADO_PAGO_REFERENCE_PREFIX = "mercadopago:";
+    public static final String MERCADO_PAGO_REFERENCE_PREFIX = "mercadopago:";
 
     private final CoursePurchaseRepository purchaseRepository;
     private final PurchaseSeatRepository seatRepository;
@@ -60,6 +62,37 @@ public class PurchasePaymentService {
             throw new InvalidInputException("Purchase was cancelled or refunded");
         }
         confirm(purchase, paymentReference);
+        return purchaseService.describe(purchase);
+    }
+
+    /**
+     * Manual payment confirmation with extended fields (method, date, admin name). Used by the
+     * back-office; does not set a refundableUntil because manual payments are not through MP.
+     */
+    @Transactional
+    public PurchaseDetailResponse confirmPaymentFull(
+            UUID purchaseId, ConfirmPaymentRequest req, String adminName) {
+        CoursePurchase purchase =
+                purchaseRepository
+                        .findForUpdateById(purchaseId)
+                        .orElseThrow(() -> new NotFoundException("Purchase not found"));
+        if (purchase.getStatus() == PurchaseStatus.PAID) {
+            return purchaseService.describe(purchase);
+        }
+        if (purchase.getStatus() != PurchaseStatus.PENDING_PAYMENT) {
+            throw new InvalidInputException("Purchase was cancelled or refunded");
+        }
+        String ref = req != null && req.paymentReference() != null
+                ? req.paymentReference().trim()
+                : null;
+        PaymentMethod method = req != null && req.paymentMethod() != null
+                ? req.paymentMethod()
+                : PaymentMethod.OTHER;
+        purchase.setPaymentMethod(method);
+        purchase.setManualPaymentDate(req != null ? req.paymentDate() : null);
+        purchase.setConfirmedByName(adminName);
+        purchase.setConfirmedAt(Instant.now());
+        confirm(purchase, ref);
         return purchaseService.describe(purchase);
     }
 

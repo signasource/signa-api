@@ -111,7 +111,8 @@ public record GrowthMetricsResponse(
             BigDecimal previousPaidAmount,
             Long previousPaidCount,
             BigDecimal previousRefundedAmount,
-            List<DailyAmount> daily) {}
+            List<DailyAmount> daily,
+            List<DailyAmount> dailyRefunded) {}
 
     /**
      * Real-money gem-pack economy (end users, no organization): paid orders and gems granted, the
@@ -124,6 +125,8 @@ public record GrowthMetricsResponse(
             BigDecimal paidAmount,
             BigDecimal refundedAmount,
             long refundedCount,
+            BigDecimal previousPaidAmount,
+            BigDecimal previousRefundedAmount,
             List<DailyAmount> daily) {}
 
     /**
@@ -135,6 +138,8 @@ public record GrowthMetricsResponse(
             BigDecimal paidAmount,
             BigDecimal refundedAmount,
             long refundedCount,
+            BigDecimal previousPaidAmount,
+            BigDecimal previousRefundedAmount,
             List<DailyAmount> daily) {}
 
     /**
@@ -143,7 +148,7 @@ public record GrowthMetricsResponse(
      * (gem and course orders combined). Drives "conversión a pago", "usuarios que compraron",
      * "ingreso por usuario pagador" and "recompra" in the Negocio tab's "Usuarios finales" panel.
      */
-    public record EndUsersSection(long payingUsers, double repeatBuyerPercent) {}
+    public record EndUsersSection(long payingUsers, double repeatBuyerPercent, Long previousPayingUsers) {}
 
     /**
      * Seat utilization as of the window's close, with the utilization as of the window's start for
@@ -171,9 +176,9 @@ public record GrowthMetricsResponse(
             ConversionSection conversion) {}
 
     /**
-     * Per-org license utilization, ranked by renewal/under-use risk. {@code active7d} is the
-     * members active in the last 7 days; {@code expiresAt} is the next upcoming seat expiry ({@code
-     * null} when the org has no active seat with a future expiry).
+     * Per-org license utilization, ranked by renewal/under-use risk. {@code activeInRange} is the
+     * members active within the selected window; {@code expiresAt} is the next upcoming seat expiry
+     * ({@code null} when the org has no active seat with a future expiry).
      */
     public record OrgUtilization(
             String orgId,
@@ -182,7 +187,7 @@ public record GrowthMetricsResponse(
             long seatsSold,
             long seatsActive,
             double occupancyPercent,
-            long active7d,
+            long activeInRange,
             Instant expiresAt,
             BigDecimal revenue) {}
 
