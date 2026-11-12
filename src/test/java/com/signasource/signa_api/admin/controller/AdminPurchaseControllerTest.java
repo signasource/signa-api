@@ -14,7 +14,6 @@ import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.users.entity.User;
 import java.util.List;
 import java.util.UUID;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -30,13 +29,6 @@ class AdminPurchaseControllerTest {
 
     @InjectMocks private AdminPurchaseController controller;
 
-    @BeforeEach
-    void setUp() {
-        when(userDetails.getUser()).thenReturn(user);
-        when(user.getName()).thenReturn("Admin");
-        when(user.getLastName()).thenReturn("Test");
-    }
-
     @Test
     void shouldListPurchases() {
         List<AdminPurchaseListItemResponse> purchases = List.of();
@@ -47,6 +39,9 @@ class AdminPurchaseControllerTest {
 
     @Test
     void shouldConfirmAPaymentWithOrWithoutReference() {
+        when(userDetails.getUser()).thenReturn(user);
+        when(user.getName()).thenReturn("Admin");
+        when(user.getLastName()).thenReturn("Test");
         UUID purchaseId = UUID.randomUUID();
         AdminPurchaseDetailResponse detail =
                 new AdminPurchaseDetailResponse(
