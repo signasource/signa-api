@@ -42,7 +42,8 @@ public record AdminCourseVersionListItemResponse(
                                 .flatMap(l -> l.getLessonBlocks().stream())
                                 .filter(b -> b.getType() == BlockType.INTRODUCE_SIGN)
                                 .count();
-        String name = editor != null ? (editor.getName() + " " + editor.getLastName()).trim() : null;
+        String name =
+                editor != null ? (editor.getName() + " " + editor.getLastName()).trim() : null;
         return new AdminCourseVersionListItemResponse(
                 v.getId(),
                 v.getCourse().getId(),

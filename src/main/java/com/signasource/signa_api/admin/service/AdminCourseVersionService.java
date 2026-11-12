@@ -47,15 +47,18 @@ public class AdminCourseVersionService {
 
     @Transactional(readOnly = true)
     public List<AdminCourseVersionListItemResponse> listVersions() {
-        List<CourseVersion> versions = courseVersionRepository.findAllByOrderByStatusAscUpdatedAtDesc();
+        List<CourseVersion> versions =
+                courseVersionRepository.findAllByOrderByStatusAscUpdatedAtDesc();
 
-        Set<String> emails = versions.stream()
-                .map(CourseVersion::getUpdatedBy)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
+        Set<String> emails =
+                versions.stream()
+                        .map(CourseVersion::getUpdatedBy)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toSet());
 
-        Map<String, User> byEmail = userRepository.findByEmailIn(emails).stream()
-                .collect(Collectors.toMap(User::getEmail, u -> u));
+        Map<String, User> byEmail =
+                userRepository.findByEmailIn(emails).stream()
+                        .collect(Collectors.toMap(User::getEmail, u -> u));
 
         return versions.stream()
                 .map(v -> AdminCourseVersionListItemResponse.from(v, byEmail.get(v.getUpdatedBy())))
