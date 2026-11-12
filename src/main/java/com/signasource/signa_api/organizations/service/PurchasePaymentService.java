@@ -38,7 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class PurchasePaymentService {
 
-    static final String MERCADO_PAGO_REFERENCE_PREFIX = "mercadopago:";
+    public static final String MERCADO_PAGO_REFERENCE_PREFIX = "mercadopago:";
 
     private final CoursePurchaseRepository purchaseRepository;
     private final PurchaseSeatRepository seatRepository;
