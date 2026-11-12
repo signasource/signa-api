@@ -23,11 +23,11 @@ import lombok.NoArgsConstructor;
 import lombok.ToString;
 
 /**
- * A user or org admin's request for a refund on any purchase type (SEATS, GEMS, COURSE). The
- * linked purchase is tracked polymorphically via {@code purchaseType} + {@code purchaseId}; there
- * is no JPA foreign-key constraint because the purchase lives in different tables depending on the
- * type. The request does not trigger an automatic refund — it is a signal for the admin team to
- * review and act in Mercado Pago.
+ * A user or org admin's request for a refund on any purchase type (SEATS, GEMS, COURSE). The linked
+ * purchase is tracked polymorphically via {@code purchaseType} + {@code purchaseId}; there is no
+ * JPA foreign-key constraint because the purchase lives in different tables depending on the type.
+ * The request does not trigger an automatic refund — it is a signal for the admin team to review
+ * and act in Mercado Pago.
  */
 @Data
 @Entity
@@ -74,8 +74,7 @@ public class RefundRequest {
     @Column(length = 200)
     private String resolvedByName;
 
-    @Column
-    private Instant resolvedAt;
+    @Column private Instant resolvedAt;
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt;

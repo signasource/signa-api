@@ -47,15 +47,19 @@ public class UserRefundRequestService {
 
     @Transactional(readOnly = true)
     public RefundEligibilityResponse checkEligibilityGems(UUID orderId, User user) {
-        GemOrder order = gemOrderRepository.findByIdAndUserId(orderId, user.getId())
-                .orElseThrow(() -> new NotFoundException("Gem order not found"));
+        GemOrder order =
+                gemOrderRepository
+                        .findByIdAndUserId(orderId, user.getId())
+                        .orElseThrow(() -> new NotFoundException("Gem order not found"));
         return gemsEligibility(order, user);
     }
 
     @Transactional(readOnly = true)
     public RefundEligibilityResponse checkEligibilityCourse(UUID orderId, User user) {
-        CourseOrder order = courseOrderRepository.findByIdAndUserId(orderId, user.getId())
-                .orElseThrow(() -> new NotFoundException("Course order not found"));
+        CourseOrder order =
+                courseOrderRepository
+                        .findByIdAndUserId(orderId, user.getId())
+                        .orElseThrow(() -> new NotFoundException("Course order not found"));
         return courseEligibility(order, user);
     }
 
@@ -64,8 +68,10 @@ public class UserRefundRequestService {
     @Transactional
     public UserRefundRequestResponse createForGemOrder(
             UUID orderId, User user, CreateRefundRequestRequest req) {
-        GemOrder order = gemOrderRepository.findByIdAndUserId(orderId, user.getId())
-                .orElseThrow(() -> new NotFoundException("Gem order not found"));
+        GemOrder order =
+                gemOrderRepository
+                        .findByIdAndUserId(orderId, user.getId())
+                        .orElseThrow(() -> new NotFoundException("Gem order not found"));
         RefundEligibilityResponse elig = gemsEligibility(order, user);
         if (!elig.eligible()) throw new InvalidInputException(elig.reason());
         checkNoPendingRequest(TYPE_GEMS, orderId);
@@ -79,8 +85,10 @@ public class UserRefundRequestService {
     @Transactional
     public UserRefundRequestResponse createForCourseOrder(
             UUID orderId, User user, CreateRefundRequestRequest req) {
-        CourseOrder order = courseOrderRepository.findByIdAndUserId(orderId, user.getId())
-                .orElseThrow(() -> new NotFoundException("Course order not found"));
+        CourseOrder order =
+                courseOrderRepository
+                        .findByIdAndUserId(orderId, user.getId())
+                        .orElseThrow(() -> new NotFoundException("Course order not found"));
         RefundEligibilityResponse elig = courseEligibility(order, user);
         if (!elig.eligible()) throw new InvalidInputException(elig.reason());
         checkNoPendingRequest(TYPE_COURSE, orderId);
@@ -94,17 +102,19 @@ public class UserRefundRequestService {
     @Transactional
     public UserRefundRequestResponse createForSeats(
             UUID orgId, UUID purchaseId, User user, CreateRefundRequestRequest req) {
-        CoursePurchase purchase = coursePurchaseRepository.findById(purchaseId)
-                .filter(p -> p.getOrganization().getId().equals(orgId))
-                .orElseThrow(() -> new NotFoundException("Purchase not found"));
+        CoursePurchase purchase =
+                coursePurchaseRepository
+                        .findById(purchaseId)
+                        .filter(p -> p.getOrganization().getId().equals(orgId))
+                        .orElseThrow(() -> new NotFoundException("Purchase not found"));
         RefundEligibilityResponse elig = seatsEligibility(purchase);
         if (!elig.eligible()) throw new InvalidInputException(elig.reason());
         checkNoPendingRequest(TYPE_SEATS, purchaseId);
 
         RefundRequest r = buildRequest(TYPE_SEATS, purchaseId, user, req, "web");
         refundRequestRepository.save(r);
-        String productName = purchase.getCourse().getName()
-                + " · " + purchase.getSeats() + " cupos";
+        String productName =
+                purchase.getCourse().getName() + " · " + purchase.getSeats() + " cupos";
         return UserRefundRequestResponse.from(
                 r, productName, purchase.getTotalAmount(), purchase.getCurrency());
     }
@@ -144,8 +154,9 @@ public class UserRefundRequestService {
         if (order.getRefundedAt() != null) {
             return RefundEligibilityResponse.no("Esta compra ya fue reembolsada");
         }
-        boolean hasProgress = lessonProgressRepository.existsCompletedLessonForCourse(
-                user.getId(), order.getCourse().getId());
+        boolean hasProgress =
+                lessonProgressRepository.existsCompletedLessonForCourse(
+                        user.getId(), order.getCourse().getId());
         if (hasProgress) {
             return RefundEligibilityResponse.no("Ya completaste la primera lección del curso");
         }
@@ -156,8 +167,8 @@ public class UserRefundRequestService {
         if (purchase.getStatus() != PurchaseStatus.PAID) {
             return RefundEligibilityResponse.no("La compra no está pagada");
         }
-        boolean anyActive = purchase.getSeatList().stream()
-                .anyMatch(s -> s.getStatus() == SeatStatus.ACTIVE);
+        boolean anyActive =
+                purchase.getSeatList().stream().anyMatch(s -> s.getStatus() == SeatStatus.ACTIVE);
         if (anyActive) {
             return RefundEligibilityResponse.no("Hay participantes que ya aceptaron los cupos");
         }
@@ -165,14 +176,20 @@ public class UserRefundRequestService {
     }
 
     private void checkNoPendingRequest(String type, UUID purchaseId) {
-        boolean exists = refundRequestRepository.findByPurchaseTypeAndPurchaseId(type, purchaseId)
-                .stream().anyMatch(r -> r.getStatus() == RefundRequestStatus.PENDING);
-        if (exists) throw new InvalidInputException("Ya existe un pedido de reembolso pendiente para esta compra");
+        boolean exists =
+                refundRequestRepository.findByPurchaseTypeAndPurchaseId(type, purchaseId).stream()
+                        .anyMatch(r -> r.getStatus() == RefundRequestStatus.PENDING);
+        if (exists)
+            throw new InvalidInputException(
+                    "Ya existe un pedido de reembolso pendiente para esta compra");
     }
 
     private RefundRequest buildRequest(
-            String type, UUID purchaseId, User user,
-            CreateRefundRequestRequest req, String channel) {
+            String type,
+            UUID purchaseId,
+            User user,
+            CreateRefundRequestRequest req,
+            String channel) {
         return RefundRequest.builder()
                 .purchaseType(type)
                 .purchaseId(purchaseId)

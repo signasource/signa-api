@@ -85,7 +85,8 @@ public class GemOrderController {
             @PathVariable UUID orderId,
             @Valid @RequestBody CreateRefundRequestRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(refundRequestService.createForGemOrder(
-                        orderId, userDetails.getUser(), request));
+                .body(
+                        refundRequestService.createForGemOrder(
+                                orderId, userDetails.getUser(), request));
     }
 }

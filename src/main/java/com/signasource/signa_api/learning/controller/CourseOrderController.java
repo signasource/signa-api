@@ -71,7 +71,8 @@ public class CourseOrderController {
             @PathVariable UUID orderId,
             @Valid @RequestBody CreateRefundRequestRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(refundRequestService.createForCourseOrder(
-                        orderId, userDetails.getUser(), request));
+                .body(
+                        refundRequestService.createForCourseOrder(
+                                orderId, userDetails.getUser(), request));
     }
 }

@@ -114,14 +114,12 @@ public class CoursePurchase {
     @Column(length = 20)
     private PaymentMethod paymentMethod;
 
-    @Column
-    private LocalDate manualPaymentDate;
+    @Column private LocalDate manualPaymentDate;
 
     @Column(length = 200)
     private String confirmedByName;
 
-    @Column
-    private Instant confirmedAt;
+    @Column private Instant confirmedAt;
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt;

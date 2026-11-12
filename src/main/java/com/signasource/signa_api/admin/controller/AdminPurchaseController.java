@@ -33,8 +33,7 @@ public class AdminPurchaseController {
 
     @GetMapping("/{id}")
     public ResponseEntity<AdminPurchaseDetailResponse> detail(
-            @PathVariable UUID id,
-            @RequestParam String type) {
+            @PathVariable UUID id, @RequestParam String type) {
         return ResponseEntity.ok(service.detail(id, type));
     }
 
@@ -43,7 +42,8 @@ public class AdminPurchaseController {
             @PathVariable UUID purchaseId,
             @Valid @RequestBody(required = false) ConfirmPaymentRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        String adminName = userDetails.getUser().getName() + " " + userDetails.getUser().getLastName();
+        String adminName =
+                userDetails.getUser().getName() + " " + userDetails.getUser().getLastName();
         return ResponseEntity.ok(service.confirmPayment(purchaseId, request, adminName));
     }
 }

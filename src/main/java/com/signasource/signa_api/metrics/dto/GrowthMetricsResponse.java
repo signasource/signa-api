@@ -148,7 +148,8 @@ public record GrowthMetricsResponse(
      * (gem and course orders combined). Drives "conversión a pago", "usuarios que compraron",
      * "ingreso por usuario pagador" and "recompra" in the Negocio tab's "Usuarios finales" panel.
      */
-    public record EndUsersSection(long payingUsers, double repeatBuyerPercent, Long previousPayingUsers) {}
+    public record EndUsersSection(
+            long payingUsers, double repeatBuyerPercent, Long previousPayingUsers) {}
 
     /**
      * Seat utilization as of the window's close, with the utilization as of the window's start for

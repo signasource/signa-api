@@ -12,7 +12,6 @@ import com.signasource.signa_api.learning.entity.CourseOrder;
 import com.signasource.signa_api.learning.entity.CourseOrderStatus;
 import com.signasource.signa_api.learning.repository.CourseOrderRepository;
 import com.signasource.signa_api.organizations.entity.CoursePurchase;
-import com.signasource.signa_api.organizations.entity.RefundRequest;
 import com.signasource.signa_api.organizations.repository.CoursePurchaseRepository;
 import com.signasource.signa_api.organizations.repository.RefundRequestRepository;
 import com.signasource.signa_api.organizations.service.PurchasePaymentService;
@@ -43,11 +42,11 @@ public class AdminPurchasesService {
 
     @Transactional(readOnly = true)
     public List<AdminPurchaseListItemResponse> listAll() {
-        Set<String> pendingKeys = refundRequestRepository.findAllByOrderByCreatedAtDesc()
-                .stream()
-                .filter(r -> r.getStatus().name().equals("PENDING"))
-                .map(r -> r.getPurchaseType() + ":" + r.getPurchaseId())
-                .collect(Collectors.toSet());
+        Set<String> pendingKeys =
+                refundRequestRepository.findAllByOrderByCreatedAtDesc().stream()
+                        .filter(r -> r.getStatus().name().equals("PENDING"))
+                        .map(r -> r.getPurchaseType() + ":" + r.getPurchaseId())
+                        .collect(Collectors.toSet());
 
         List<AdminPurchaseListItemResponse> result = new ArrayList<>();
         result.addAll(mapSeats(pendingKeys));
@@ -93,33 +92,50 @@ public class AdminPurchasesService {
     private List<AdminPurchaseListItemResponse> mapCourseOrders(Set<String> pendingKeys) {
         return courseOrderRepository.findAll().stream()
                 .sorted(Comparator.comparing(CourseOrder::getCreatedAt).reversed())
-                .map(o -> courseOrderToListItem(o,
-                        pendingKeys.contains(TYPE_COURSE + ":" + o.getId())))
+                .map(
+                        o ->
+                                courseOrderToListItem(
+                                        o, pendingKeys.contains(TYPE_COURSE + ":" + o.getId())))
                 .toList();
     }
 
     private AdminPurchaseListItemResponse seatsToListItem(CoursePurchase p, boolean pendingRefund) {
         String mpOrderId = mpOrderIdFromRef(p.getPaymentReference());
         String manualRef = manualRefFromRef(p.getPaymentReference());
-        String buyerSub = p.getCreatedBy() != null
-                ? p.getCreatedBy().getName() + " " + p.getCreatedBy().getLastName() + " · admin"
-                : "admin";
-        String buyerEmail = p.getCreatedBy() != null
-                ? p.getCreatedBy().getEmail()
-                : p.getOrganization().getContactEmail();
-        String paymentMethodStr = p.getPaymentMethod() != null
-                ? p.getPaymentMethod().name()
-                : (mpOrderId != null ? "MERCADO_PAGO" : null);
+        String buyerSub =
+                p.getCreatedBy() != null
+                        ? p.getCreatedBy().getName()
+                                + " "
+                                + p.getCreatedBy().getLastName()
+                                + " · admin"
+                        : "admin";
+        String buyerEmail =
+                p.getCreatedBy() != null
+                        ? p.getCreatedBy().getEmail()
+                        : p.getOrganization().getContactEmail();
+        String paymentMethodStr =
+                p.getPaymentMethod() != null
+                        ? p.getPaymentMethod().name()
+                        : (mpOrderId != null ? "MERCADO_PAGO" : null);
         return new AdminPurchaseListItemResponse(
-                p.getId(), TYPE_SEATS,
+                p.getId(),
+                TYPE_SEATS,
                 p.getCourse().getName(),
                 p.getSeats() + " cupos × " + p.getDurationDays() + " días",
-                p.getOrganization().getName(), buyerSub, buyerEmail,
-                p.getTotalAmount(), p.getCurrency(),
+                p.getOrganization().getName(),
+                buyerSub,
+                buyerEmail,
+                p.getTotalAmount(),
+                p.getCurrency(),
                 p.getStatus().name(),
-                p.getCreatedAt(), p.getPaidAt(), p.getRefundedAt(),
-                mpOrderId, paymentMethodStr, manualRef,
-                p.getConfirmedByName(), p.getConfirmedAt(),
+                p.getCreatedAt(),
+                p.getPaidAt(),
+                p.getRefundedAt(),
+                mpOrderId,
+                paymentMethodStr,
+                manualRef,
+                p.getConfirmedByName(),
+                p.getConfirmedAt(),
                 "purchase_" + hex8(p.getId()),
                 pendingRefund);
     }
@@ -127,105 +143,175 @@ public class AdminPurchasesService {
     private AdminPurchaseListItemResponse gemToListItem(GemOrder o, boolean pendingRefund) {
         String user = o.getUser().getName() + " " + o.getUser().getLastName();
         return new AdminPurchaseListItemResponse(
-                o.getId(), TYPE_GEMS,
+                o.getId(),
+                TYPE_GEMS,
                 gemPackName(o.getGemPack().getGems()),
                 o.getGems() + " gemas",
-                user, "@" + o.getUser().getUsername(), o.getUser().getEmail(),
-                o.getAmount(), o.getCurrency(),
+                user,
+                "@" + o.getUser().getUsername(),
+                o.getUser().getEmail(),
+                o.getAmount(),
+                o.getCurrency(),
                 gemStatusToUnified(o.getStatus()),
-                o.getCreatedAt(), o.getPaidAt(), o.getRefundedAt(),
-                o.getMercadoPagoOrderId(), "MERCADO_PAGO", null, null, null,
+                o.getCreatedAt(),
+                o.getPaidAt(),
+                o.getRefundedAt(),
+                o.getMercadoPagoOrderId(),
+                "MERCADO_PAGO",
+                null,
+                null,
+                null,
                 "gems_" + hex8(o.getId()),
                 pendingRefund);
     }
 
-    private AdminPurchaseListItemResponse courseOrderToListItem(CourseOrder o,
-            boolean pendingRefund) {
+    private AdminPurchaseListItemResponse courseOrderToListItem(
+            CourseOrder o, boolean pendingRefund) {
         String user = o.getUser().getName() + " " + o.getUser().getLastName();
         return new AdminPurchaseListItemResponse(
-                o.getId(), TYPE_COURSE,
+                o.getId(),
+                TYPE_COURSE,
                 o.getCourse().getName(),
                 "Acceso permanente",
-                user, "@" + o.getUser().getUsername(), o.getUser().getEmail(),
-                o.getAmount(), o.getCurrency(),
+                user,
+                "@" + o.getUser().getUsername(),
+                o.getUser().getEmail(),
+                o.getAmount(),
+                o.getCurrency(),
                 courseStatusToUnified(o.getStatus()),
-                o.getCreatedAt(), o.getPaidAt(), o.getRefundedAt(),
-                o.getMercadoPagoOrderId(), "MERCADO_PAGO", null, null, null,
+                o.getCreatedAt(),
+                o.getPaidAt(),
+                o.getRefundedAt(),
+                o.getMercadoPagoOrderId(),
+                "MERCADO_PAGO",
+                null,
+                null,
+                null,
                 "course_" + hex8(o.getId()),
                 pendingRefund);
     }
 
     private AdminPurchaseDetailResponse detailSeats(UUID id) {
-        CoursePurchase p = seatsPurchaseRepository.findForUpdateById(id)
-                .orElseThrow(() -> new NotFoundException("Purchase not found"));
+        CoursePurchase p =
+                seatsPurchaseRepository
+                        .findForUpdateById(id)
+                        .orElseThrow(() -> new NotFoundException("Purchase not found"));
         List<AdminRefundRequestResponse> requests =
                 refundRequestService.listForPurchase(TYPE_SEATS, id);
         String mpOrderId = mpOrderIdFromRef(p.getPaymentReference());
         String manualRef = manualRefFromRef(p.getPaymentReference());
-        String buyerSub = p.getCreatedBy() != null
-                ? p.getCreatedBy().getName() + " " + p.getCreatedBy().getLastName() + " · admin"
-                : "admin";
-        String buyerEmail = p.getCreatedBy() != null
-                ? p.getCreatedBy().getEmail()
-                : p.getOrganization().getContactEmail();
-        String paymentMethodStr = p.getPaymentMethod() != null
-                ? p.getPaymentMethod().name()
-                : (mpOrderId != null ? "MERCADO_PAGO" : null);
+        String buyerSub =
+                p.getCreatedBy() != null
+                        ? p.getCreatedBy().getName()
+                                + " "
+                                + p.getCreatedBy().getLastName()
+                                + " · admin"
+                        : "admin";
+        String buyerEmail =
+                p.getCreatedBy() != null
+                        ? p.getCreatedBy().getEmail()
+                        : p.getOrganization().getContactEmail();
+        String paymentMethodStr =
+                p.getPaymentMethod() != null
+                        ? p.getPaymentMethod().name()
+                        : (mpOrderId != null ? "MERCADO_PAGO" : null);
         return new AdminPurchaseDetailResponse(
-                p.getId(), TYPE_SEATS,
+                p.getId(),
+                TYPE_SEATS,
                 p.getCourse().getName(),
                 p.getSeats() + " cupos × " + p.getDurationDays() + " días",
-                p.getOrganization().getName(), buyerSub, buyerEmail,
-                p.getTotalAmount(), p.getCurrency(),
+                p.getOrganization().getName(),
+                buyerSub,
+                buyerEmail,
+                p.getTotalAmount(),
+                p.getCurrency(),
                 p.getStatus().name(),
-                p.getCreatedAt(), p.getPaidAt(), p.getRefundedAt(),
-                mpOrderId, paymentMethodStr, manualRef,
-                p.getConfirmedByName(), p.getConfirmedAt(),
+                p.getCreatedAt(),
+                p.getPaidAt(),
+                p.getRefundedAt(),
+                mpOrderId,
+                paymentMethodStr,
+                manualRef,
+                p.getConfirmedByName(),
+                p.getConfirmedAt(),
                 "purchase_" + hex8(p.getId()),
                 p.getOrganization().getId(),
-                p.getSeats(), p.getDurationDays(), p.getDiscountPercent(),
+                p.getSeats(),
+                p.getDurationDays(),
+                p.getDiscountPercent(),
                 null,
                 requests);
     }
 
     private AdminPurchaseDetailResponse detailGems(UUID id) {
-        GemOrder o = gemOrderRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Gem order not found"));
+        GemOrder o =
+                gemOrderRepository
+                        .findById(id)
+                        .orElseThrow(() -> new NotFoundException("Gem order not found"));
         List<AdminRefundRequestResponse> requests =
                 refundRequestService.listForPurchase(TYPE_GEMS, id);
         String user = o.getUser().getName() + " " + o.getUser().getLastName();
         return new AdminPurchaseDetailResponse(
-                o.getId(), TYPE_GEMS,
+                o.getId(),
+                TYPE_GEMS,
                 gemPackName(o.getGemPack().getGems()),
                 o.getGems() + " gemas",
-                user, "@" + o.getUser().getUsername(), o.getUser().getEmail(),
-                o.getAmount(), o.getCurrency(),
+                user,
+                "@" + o.getUser().getUsername(),
+                o.getUser().getEmail(),
+                o.getAmount(),
+                o.getCurrency(),
                 gemStatusToUnified(o.getStatus()),
-                o.getCreatedAt(), o.getPaidAt(), o.getRefundedAt(),
-                o.getMercadoPagoOrderId(), "MERCADO_PAGO", null, null, null,
+                o.getCreatedAt(),
+                o.getPaidAt(),
+                o.getRefundedAt(),
+                o.getMercadoPagoOrderId(),
+                "MERCADO_PAGO",
+                null,
+                null,
+                null,
                 "gems_" + hex8(o.getId()),
-                null, null, null, null,
+                null,
+                null,
+                null,
+                null,
                 o.getGems(),
                 requests);
     }
 
     private AdminPurchaseDetailResponse detailCourseOrder(UUID id) {
-        CourseOrder o = courseOrderRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Course order not found"));
+        CourseOrder o =
+                courseOrderRepository
+                        .findById(id)
+                        .orElseThrow(() -> new NotFoundException("Course order not found"));
         List<AdminRefundRequestResponse> requests =
                 refundRequestService.listForPurchase(TYPE_COURSE, id);
         String user = o.getUser().getName() + " " + o.getUser().getLastName();
         return new AdminPurchaseDetailResponse(
-                o.getId(), TYPE_COURSE,
+                o.getId(),
+                TYPE_COURSE,
                 o.getCourse().getName(),
                 "Acceso permanente",
-                user, "@" + o.getUser().getUsername(), o.getUser().getEmail(),
-                o.getAmount(), o.getCurrency(),
+                user,
+                "@" + o.getUser().getUsername(),
+                o.getUser().getEmail(),
+                o.getAmount(),
+                o.getCurrency(),
                 courseStatusToUnified(o.getStatus()),
-                o.getCreatedAt(), o.getPaidAt(), o.getRefundedAt(),
-                o.getMercadoPagoOrderId(), "MERCADO_PAGO", null, null, null,
+                o.getCreatedAt(),
+                o.getPaidAt(),
+                o.getRefundedAt(),
+                o.getMercadoPagoOrderId(),
+                "MERCADO_PAGO",
+                null,
+                null,
+                null,
                 "course_" + hex8(o.getId()),
-                null, null, null, null, null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 requests);
     }
 

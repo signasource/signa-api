@@ -432,6 +432,5 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
             "SELECT p.organization.id, COALESCE(SUM(p.totalAmount), 0) FROM CoursePurchase p "
                     + "WHERE p.paidAt IS NOT NULL AND p.paidAt >= :from AND p.paidAt < :until "
                     + "GROUP BY p.organization.id")
-    List<Object[]> revenueByOrgBetween(
-            @Param("from") Instant from, @Param("until") Instant until);
+    List<Object[]> revenueByOrgBetween(@Param("from") Instant from, @Param("until") Instant until);
 }

@@ -6,5 +6,4 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 public record CreateRefundRequestRequest(
-        @NotNull RefundRequestReason reason,
-        @NotBlank @Size(max = 2000) String message) {}
+        @NotNull RefundRequestReason reason, @NotBlank @Size(max = 2000) String message) {}

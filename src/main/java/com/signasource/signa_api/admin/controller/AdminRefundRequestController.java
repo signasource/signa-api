@@ -39,7 +39,8 @@ public class AdminRefundRequestController {
             @PathVariable UUID id,
             @Valid @RequestBody UpdateRefundRequestRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        String adminName = userDetails.getUser().getName() + " " + userDetails.getUser().getLastName();
+        String adminName =
+                userDetails.getUser().getName() + " " + userDetails.getUser().getLastName();
         return ResponseEntity.ok(service.update(id, request, adminName));
     }
 }

@@ -82,12 +82,14 @@ public class PurchasePaymentService {
         if (purchase.getStatus() != PurchaseStatus.PENDING_PAYMENT) {
             throw new InvalidInputException("Purchase was cancelled or refunded");
         }
-        String ref = req != null && req.paymentReference() != null
-                ? req.paymentReference().trim()
-                : null;
-        PaymentMethod method = req != null && req.paymentMethod() != null
-                ? req.paymentMethod()
-                : PaymentMethod.OTHER;
+        String ref =
+                req != null && req.paymentReference() != null
+                        ? req.paymentReference().trim()
+                        : null;
+        PaymentMethod method =
+                req != null && req.paymentMethod() != null
+                        ? req.paymentMethod()
+                        : PaymentMethod.OTHER;
         purchase.setPaymentMethod(method);
         purchase.setManualPaymentDate(req != null ? req.paymentDate() : null);
         purchase.setConfirmedByName(adminName);

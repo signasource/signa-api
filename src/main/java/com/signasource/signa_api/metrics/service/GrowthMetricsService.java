@@ -282,7 +282,8 @@ public class GrowthMetricsService {
     }
 
     /** Individual paid-course purchases (end users, no org): money in, count and refunds. */
-    private CourseSalesSection courseSales(Instant from, Instant until, Instant previousFrom, long bucket) {
+    private CourseSalesSection courseSales(
+            Instant from, Instant until, Instant previousFrom, long bucket) {
         BigDecimal previousPaid =
                 previousFrom == null
                         ? null
@@ -332,7 +333,8 @@ public class GrowthMetricsService {
             previousPayingUsers = (long) prevOrders.size();
         }
 
-        return new EndUsersSection(payingUsers, percent(repeatBuyers, payingUsers), previousPayingUsers);
+        return new EndUsersSection(
+                payingUsers, percent(repeatBuyers, payingUsers), previousPayingUsers);
     }
 
     private SeatsSection seats(Instant from, Instant until, Instant previousFrom) {
@@ -379,7 +381,8 @@ public class GrowthMetricsService {
         double avgUsersPerOrg =
                 activeInRangeByOrg.isEmpty()
                         ? 0.0
-                        : Math.round((totalActiveMembers * 10.0) / activeInRangeByOrg.size()) / 10.0;
+                        : Math.round((totalActiveMembers * 10.0) / activeInRangeByOrg.size())
+                                / 10.0;
 
         List<Object[]> revenueRows = repository.revenueByOrgBetween(from, until);
         Map<UUID, BigDecimal> revenueByOrg = new HashMap<>();
@@ -474,7 +477,8 @@ public class GrowthMetricsService {
             combined.merge(toLong(row[0]), nonNull((BigDecimal) row[1]), BigDecimal::add);
         }
         List<DailyAmount> result = new ArrayList<>(combined.size());
-        combined.forEach((b, amount) -> result.add(new DailyAmount(bucketStart(b, bucket), amount)));
+        combined.forEach(
+                (b, amount) -> result.add(new DailyAmount(bucketStart(b, bucket), amount)));
         return result;
     }
 
