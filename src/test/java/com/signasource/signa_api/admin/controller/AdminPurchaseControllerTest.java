@@ -54,9 +54,7 @@ class AdminPurchaseControllerTest {
                         null, null, null, null, null, null, null, null, null, null, null, null,
                         List.of());
         when(service.confirmPayment(
-                        eq(purchaseId),
-                        nullable(ConfirmPaymentRequest.class),
-                        anyString()))
+                        eq(purchaseId), nullable(ConfirmPaymentRequest.class), anyString()))
                 .thenReturn(detail);
 
         assertSame(
@@ -67,7 +65,6 @@ class AdminPurchaseControllerTest {
                                 new ConfirmPaymentRequest("ref", null, null),
                                 userDetails)
                         .getBody());
-        assertSame(
-                detail, controller.confirmPayment(purchaseId, null, userDetails).getBody());
+        assertSame(detail, controller.confirmPayment(purchaseId, null, userDetails).getBody());
     }
 }
