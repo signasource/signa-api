@@ -26,6 +26,7 @@ import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import com.signasource.signa_api.learning.entity.UserLessonProgress;
 import com.signasource.signa_api.learning.entity.UserTopicProgress;
 import com.signasource.signa_api.learning.entity.VersionStatus;
+import com.signasource.signa_api.learning.event.LessonCompletedEvent;
 import com.signasource.signa_api.learning.event.LifeLostEvent;
 import com.signasource.signa_api.learning.event.SignsLearnedEvent;
 import com.signasource.signa_api.learning.event.XpEarnedEvent;
@@ -459,6 +460,7 @@ public class CourseTrackingService {
         progress.setXpEarned(xpEarned);
         lessonProgressRepository.save(progress);
         metricsService.recordLessonCompletion();
+        eventPublisher.publishEvent(new LessonCompletedEvent(this, user));
         recordLessonChallenges(user, lesson);
         achievementService.awardReached(
                 user,

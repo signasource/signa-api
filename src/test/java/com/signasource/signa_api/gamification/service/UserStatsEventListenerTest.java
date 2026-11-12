@@ -2,6 +2,8 @@ package com.signasource.signa_api.gamification.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -21,6 +23,7 @@ import com.signasource.signa_api.gamification.repository.UserDailyXpRepository;
 import com.signasource.signa_api.gamification.repository.UserLearnedSignRepository;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
 import com.signasource.signa_api.learning.entity.CourseVersion;
+import com.signasource.signa_api.learning.event.LessonCompletedEvent;
 import com.signasource.signa_api.learning.event.LifeLostEvent;
 import com.signasource.signa_api.learning.event.SignsLearnedEvent;
 import com.signasource.signa_api.learning.event.XpEarnedEvent;
@@ -74,7 +77,7 @@ class UserStatsEventListenerTest {
     }
 
     @Test
-    void handleXpEarnedEvent_AwardsXpAndStreakAchievements() {
+    void handleXpEarnedEvent_AwardsXpAchievements_ButNotStreak() {
         when(userStatsRepository.findByUserId(userId)).thenReturn(Optional.empty());
         when(userStatsRepository.save(any(UserStats.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -85,8 +88,9 @@ class UserStatsEventListenerTest {
 
         userStatsEventListener.handleXpEarnedEvent(new XpEarnedEvent(this, mockUser, 50));
 
-        verify(achievementService)
-                .awardReached(eq(mockUser), eq(AchievementCriteriaType.STREAK_DAYS), eq(1L), any());
+        verify(achievementService, never())
+                .awardReached(
+                        eq(mockUser), eq(AchievementCriteriaType.STREAK_DAYS), anyLong(), any());
         verify(achievementService)
                 .awardReached(eq(mockUser), eq(AchievementCriteriaType.TOTAL_XP), eq(50L), any());
         verify(achievementService)
@@ -382,7 +386,7 @@ class UserStatsEventListenerTest {
     }
 
     @Test
-    void handleXpEarnedEvent_ReportsXpAndStreakToChallenges() {
+    void handleXpEarnedEvent_ReportsXpToChallenges_ButNotStreak() {
         when(userStatsRepository.findByUserId(userId)).thenReturn(Optional.empty());
         when(userStatsRepository.save(any(UserStats.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -394,6 +398,42 @@ class UserStatsEventListenerTest {
         userStatsEventListener.handleXpEarnedEvent(new XpEarnedEvent(this, mockUser, 50));
 
         verify(challengeService).record(mockUser, ChallengeCriteriaType.EARN_XP, 50);
+        verify(challengeService, never()).record(mockUser, ChallengeCriteriaType.STREAK_DAYS, 1);
+    }
+
+    @Test
+    void handleLessonCompletedEvent_AdvancesStreak_OnFirstLessonOfTheDay() {
+        when(userStatsRepository.findByUserId(userId)).thenReturn(Optional.empty());
+        when(userStatsRepository.save(any(UserStats.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        userStatsEventListener.handleLessonCompletedEvent(
+                new LessonCompletedEvent(this, mockUser));
+
+        ArgumentCaptor<UserStats> captor = ArgumentCaptor.forClass(UserStats.class);
+        verify(userStatsRepository).save(captor.capture());
+        assertEquals(1, captor.getValue().getCurrentStreak());
+        verify(achievementService)
+                .awardReached(eq(mockUser), eq(AchievementCriteriaType.STREAK_DAYS), eq(1L), any());
         verify(challengeService).record(mockUser, ChallengeCriteriaType.STREAK_DAYS, 1);
+    }
+
+    @Test
+    void handleLessonCompletedEvent_DoesNotAdvanceStreak_WhenAlreadyCountedToday() {
+        UserStats stats =
+                UserStats.builder()
+                        .user(mockUser)
+                        .currentStreak(3)
+                        .lastStreakDate(ArgentinaTime.today())
+                        .updatedAt(Instant.now())
+                        .build();
+        when(userStatsRepository.findByUserId(userId)).thenReturn(Optional.of(stats));
+
+        userStatsEventListener.handleLessonCompletedEvent(
+                new LessonCompletedEvent(this, mockUser));
+
+        verify(userStatsRepository, never()).save(any(UserStats.class));
+        verify(achievementService, never()).awardReached(any(), any(), anyLong(), any());
+        verify(challengeService, never()).record(any(), any(), anyInt());
     }
 }

@@ -41,6 +41,7 @@ import com.signasource.signa_api.learning.entity.Topic;
 import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import com.signasource.signa_api.learning.entity.UserLessonProgress;
 import com.signasource.signa_api.learning.entity.UserTopicProgress;
+import com.signasource.signa_api.learning.event.LessonCompletedEvent;
 import com.signasource.signa_api.learning.event.LifeLostEvent;
 import com.signasource.signa_api.learning.event.SignsLearnedEvent;
 import com.signasource.signa_api.learning.event.XpEarnedEvent;
@@ -673,7 +674,8 @@ class CourseTrackingServiceTest {
 
         courseTrackingService.recordBlockInteraction(mockUser, blockId, null);
 
-        verify(eventPublisher, never()).publishEvent(any());
+        verify(eventPublisher, never()).publishEvent(any(XpEarnedEvent.class));
+        verify(eventPublisher).publishEvent(any(LessonCompletedEvent.class));
     }
 
     @Test
