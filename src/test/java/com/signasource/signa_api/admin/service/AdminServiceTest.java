@@ -45,6 +45,7 @@ import com.signasource.signa_api.users.entity.AuthProvider;
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.entity.UserSettings;
+import com.signasource.signa_api.notification.service.NotificationService;
 import com.signasource.signa_api.users.repository.UserRepository;
 import com.signasource.signa_api.users.repository.UserSettingsRepository;
 import com.signasource.signa_api.users.service.UserService;
@@ -85,6 +86,7 @@ class AdminServiceTest {
     @Mock private TokenRepository tokenRepository;
     @Mock private UserService userService;
     @Mock private PasswordEncoder passwordEncoder;
+    @Mock private NotificationService notificationService;
 
     @InjectMocks private AdminService adminService;
 
