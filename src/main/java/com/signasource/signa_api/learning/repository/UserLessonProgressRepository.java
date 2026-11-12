@@ -41,4 +41,13 @@ public interface UserLessonProgressRepository extends JpaRepository<UserLessonPr
                     + "GROUP BY l.topic.id")
     List<TopicCompletedCountView> findCompletedLessonCountsByTopic(
             @Param("userId") UUID userId, @Param("versionIds") Collection<UUID> versionIds);
+
+    /** True when the user has completed at least one lesson in any version of the given course. */
+    @Query(
+            "SELECT COUNT(p) > 0 FROM UserLessonProgress p "
+                    + "WHERE p.user.id = :userId "
+                    + "AND p.status = com.signasource.signa_api.learning.entity.ProgressStatus.COMPLETED "
+                    + "AND p.lesson.topic.courseVersion.course.id = :courseId")
+    boolean existsCompletedLessonForCourse(
+            @Param("userId") UUID userId, @Param("courseId") UUID courseId);
 }

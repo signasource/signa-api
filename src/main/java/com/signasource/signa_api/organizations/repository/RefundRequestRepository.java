@@ -18,4 +18,6 @@ public interface RefundRequestRepository extends JpaRepository<RefundRequest, UU
 
     @EntityGraph(attributePaths = {"requestedBy"})
     List<RefundRequest> findByPurchaseTypeAndPurchaseId(String purchaseType, UUID purchaseId);
+
+    List<RefundRequest> findByRequestedByIdOrderByCreatedAtDesc(UUID userId);
 }
