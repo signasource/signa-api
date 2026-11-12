@@ -21,7 +21,9 @@ import com.signasource.signa_api.learning.entity.VersionStatus;
 import com.signasource.signa_api.learning.repository.CourseRepository;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.learning.repository.SignLanguageRepository;
+import com.signasource.signa_api.users.repository.UserRepository;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -38,6 +40,7 @@ class AdminCourseVersionServiceTest {
     @Mock private CourseRepository courseRepository;
     @Mock private CourseVersionRepository courseVersionRepository;
     @Mock private SignLanguageRepository signLanguageRepository;
+    @Mock private UserRepository userRepository;
     @InjectMocks private AdminCourseVersionService service;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -78,6 +81,7 @@ class AdminCourseVersionServiceTest {
     void shouldListVersions() {
         when(courseVersionRepository.findAllByOrderByStatusAscUpdatedAtDesc())
                 .thenReturn(List.of(draftVersion));
+        when(userRepository.findByEmailIn(any(Collection.class))).thenReturn(List.of());
 
         List<AdminCourseVersionListItemResponse> result = service.listVersions();
 
