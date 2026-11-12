@@ -713,8 +713,7 @@ class FriendshipServiceTest {
 
         friendshipService.acceptFriendRequest(requesterId, addressee);
 
-        verify(challengeService)
-                .record(addressee, ChallengeCriteriaType.FRIEND_REQUESTS_SENT, 1);
+        verify(challengeService).record(addressee, ChallengeCriteriaType.FRIEND_REQUESTS_SENT, 1);
     }
 
     @Test
