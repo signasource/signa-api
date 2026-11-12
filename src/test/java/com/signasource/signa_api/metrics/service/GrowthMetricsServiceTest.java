@@ -93,6 +93,12 @@ class GrowthMetricsServiceTest {
                 .thenReturn(
                         List.<Object[]>of(
                                 new Object[] {"ACTIVE", 3L}, new Object[] {"PENDING", 2L}));
+        when(repository.dailyOrgRefunds(any(), any(), anyLong())).thenReturn(List.of());
+        when(repository.dailyGemRefunds(any(), any(), anyLong())).thenReturn(List.of());
+        when(repository.dailyCourseRefunds(any(), any(), anyLong())).thenReturn(List.of());
+        when(repository.revenueByOrgBetween(any(), any())).thenReturn(List.of());
+        when(repository.membersByOrg(any())).thenReturn(List.of());
+        when(repository.activeMembersByOrg(any(), any())).thenReturn(List.of());
     }
 
     @Test
@@ -209,7 +215,7 @@ class GrowthMetricsServiceTest {
                 .thenReturn(
                         List.<Object[]>of(
                                 new Object[] {a, "Org A", 10L}, new Object[] {b, "Org B", 5L}));
-        when(repository.revenueByOrg(any()))
+        when(repository.revenueByOrgBetween(any(), any()))
                 .thenReturn(
                         List.<Object[]>of(
                                 new Object[] {a, new BigDecimal("100000")},
@@ -237,7 +243,7 @@ class GrowthMetricsServiceTest {
         assertEquals(4L, orgs.newInRange());
         assertEquals(2L, orgs.pending());
         assertEquals(Instant.parse("2026-11-02T00:00:00Z"), orgs.oldestPendingCreatedAt());
-        assertEquals(7.5, orgs.avgUsersPerOrg()); // (10+5)/2
+        assertEquals(7.0, orgs.avgUsersPerOrg()); // 7 active members in 1 org with any activity
         assertEquals(0, new BigDecimal("75000.00").compareTo(orgs.avgRevenuePerOrg()));
         assertEquals(4L, orgs.purchasesInRange());
         assertEquals(2, orgs.utilization().size());
@@ -246,10 +252,10 @@ class GrowthMetricsServiceTest {
         assertEquals(100L, orgs.utilization().get(0).seatsSold());
         assertEquals(5.0, orgs.utilization().get(0).occupancyPercent());
         assertEquals(10L, orgs.utilization().get(0).members());
-        assertEquals(7L, orgs.utilization().get(0).active7d());
+        assertEquals(7L, orgs.utilization().get(0).activeInRange());
         assertEquals(expiryA, orgs.utilization().get(0).expiresAt());
-        // Org B has no active-7d / expiry rows → defaults.
-        assertEquals(0L, orgs.utilization().get(1).active7d());
+        // Org B has no activeInRange / expiry rows → defaults.
+        assertEquals(0L, orgs.utilization().get(1).activeInRange());
         assertEquals(null, orgs.utilization().get(1).expiresAt());
         assertEquals(200L, orgs.conversion().freeCourseUsers());
         assertEquals(33L, orgs.conversion().paidCourseUsers());

@@ -70,9 +70,9 @@ public class GrowthMetricsService {
                 cohorts(from, until),
                 waitlist(from, until, bucket),
                 revenue(from, until, previousFrom, bucket),
-                gems(from, until, bucket),
-                courseSales(from, until, bucket),
-                endUsers(from, until),
+                gems(from, until, previousFrom, bucket),
+                courseSales(from, until, previousFrom, bucket),
+                endUsers(from, until, previousFrom),
                 seats(from, until, previousFrom),
                 statusItems,
                 orgs(from, until, previousFrom, statusItems, paidCourseUsers, bucket),
@@ -254,29 +254,50 @@ public class GrowthMetricsService {
                 previousPaid,
                 previousPaidCount,
                 previousRefunded,
-                toDailyAmounts(repository.dailyRevenue(from, until, bucket), bucket));
+                toDailyAmounts(repository.dailyRevenue(from, until, bucket), bucket),
+                combinedDailyRefunds(from, until, bucket));
     }
 
     /**
      * Real-money gem economy (end users, no org): money in, gems granted and refunds in the window.
      */
-    private GemsSection gems(Instant from, Instant until, long bucket) {
+    private GemsSection gems(Instant from, Instant until, Instant previousFrom, long bucket) {
+        BigDecimal previousPaid =
+                previousFrom == null
+                        ? null
+                        : nonNull(repository.sumGemRevenueBetween(previousFrom, from));
+        BigDecimal previousRefunded =
+                previousFrom == null
+                        ? null
+                        : nonNull(repository.sumGemRefundedBetween(previousFrom, from));
         return new GemsSection(
                 repository.countGemPurchasesBetween(from, until),
                 repository.sumGemsGrantedBetween(from, until),
                 nonNull(repository.sumGemRevenueBetween(from, until)),
                 nonNull(repository.sumGemRefundedBetween(from, until)),
                 repository.countGemRefundsBetween(from, until),
+                previousPaid,
+                previousRefunded,
                 toDailyAmounts(repository.dailyGemRevenue(from, until, bucket), bucket));
     }
 
     /** Individual paid-course purchases (end users, no org): money in, count and refunds. */
-    private CourseSalesSection courseSales(Instant from, Instant until, long bucket) {
+    private CourseSalesSection courseSales(Instant from, Instant until, Instant previousFrom, long bucket) {
+        BigDecimal previousPaid =
+                previousFrom == null
+                        ? null
+                        : nonNull(repository.sumCourseRevenueBetween(previousFrom, from));
+        BigDecimal previousRefunded =
+                previousFrom == null
+                        ? null
+                        : nonNull(repository.sumCourseRefundedBetween(previousFrom, from));
         return new CourseSalesSection(
                 repository.countCoursePurchasesBetween(from, until),
                 nonNull(repository.sumCourseRevenueBetween(from, until)),
                 nonNull(repository.sumCourseRefundedBetween(from, until)),
                 repository.countCourseRefundsBetween(from, until),
+                previousPaid,
+                previousRefunded,
                 toDailyAmounts(repository.dailyCourseRevenue(from, until, bucket), bucket));
     }
 
@@ -286,7 +307,7 @@ public class GrowthMetricsService {
      * order count is summed across both sources so a person who bought gems once and a course once
      * counts as a repeat buyer.
      */
-    private EndUsersSection endUsers(Instant from, Instant until) {
+    private EndUsersSection endUsers(Instant from, Instant until, Instant previousFrom) {
         Map<UUID, Long> ordersByUser = new HashMap<>();
         for (Object[] row : repository.gemBuyerOrderCounts(from, until)) {
             ordersByUser.merge((UUID) row[0], toLong(row[1]), Long::sum);
@@ -296,7 +317,22 @@ public class GrowthMetricsService {
         }
         long payingUsers = ordersByUser.size();
         long repeatBuyers = ordersByUser.values().stream().filter(count -> count >= 2).count();
-        return new EndUsersSection(payingUsers, percent(repeatBuyers, payingUsers));
+
+        Long previousPayingUsers;
+        if (previousFrom == null) {
+            previousPayingUsers = null;
+        } else {
+            Map<UUID, Long> prevOrders = new HashMap<>();
+            for (Object[] row : repository.gemBuyerOrderCounts(previousFrom, from)) {
+                prevOrders.merge((UUID) row[0], toLong(row[1]), Long::sum);
+            }
+            for (Object[] row : repository.courseBuyerOrderCounts(previousFrom, from)) {
+                prevOrders.merge((UUID) row[0], toLong(row[1]), Long::sum);
+            }
+            previousPayingUsers = (long) prevOrders.size();
+        }
+
+        return new EndUsersSection(payingUsers, percent(repeatBuyers, payingUsers), previousPayingUsers);
     }
 
     private SeatsSection seats(Instant from, Instant until, Instant previousFrom) {
@@ -328,18 +364,24 @@ public class GrowthMetricsService {
 
         List<Object[]> memberRows = repository.membersByOrg(until);
         Map<UUID, Long> membersByOrg = new HashMap<>();
-        long totalMembers = 0;
         for (Object[] row : memberRows) {
-            long members = toLong(row[2]);
-            membersByOrg.put((UUID) row[0], members);
-            totalMembers += members;
+            membersByOrg.put((UUID) row[0], toLong(row[2]));
         }
-        double avgUsersPerOrg =
-                memberRows.isEmpty()
-                        ? 0.0
-                        : Math.round((totalMembers * 10.0) / memberRows.size()) / 10.0;
 
-        List<Object[]> revenueRows = repository.revenueByOrg(until);
+        // Active members within the selected window — drives avgUsersPerOrg and the utilization
+        // table's activeInRange column.
+        Map<UUID, Long> activeInRangeByOrg = new HashMap<>();
+        for (Object[] row : repository.activeMembersByOrg(from, until)) {
+            activeInRangeByOrg.put((UUID) row[0], toLong(row[1]));
+        }
+        long totalActiveMembers =
+                activeInRangeByOrg.values().stream().mapToLong(Long::longValue).sum();
+        double avgUsersPerOrg =
+                activeInRangeByOrg.isEmpty()
+                        ? 0.0
+                        : Math.round((totalActiveMembers * 10.0) / activeInRangeByOrg.size()) / 10.0;
+
+        List<Object[]> revenueRows = repository.revenueByOrgBetween(from, until);
         Map<UUID, BigDecimal> revenueByOrg = new HashMap<>();
         BigDecimal totalRevenue = BigDecimal.ZERO;
         for (Object[] row : revenueRows) {
@@ -353,12 +395,8 @@ public class GrowthMetricsService {
                         : totalRevenue.divide(
                                 BigDecimal.valueOf(revenueRows.size()), 2, RoundingMode.HALF_UP);
 
-        // Members active in the last 7 days of the window, and the next upcoming seat expiry, per
-        // org.
-        Map<UUID, Long> active7dByOrg = new HashMap<>();
-        for (Object[] row : repository.activeMembersByOrg(until.minus(Duration.ofDays(7)), until)) {
-            active7dByOrg.put((UUID) row[0], toLong(row[1]));
-        }
+        // Next upcoming seat expiry per org.
+
         Map<UUID, Instant> expiryByOrg = new HashMap<>();
         for (Object[] row : repository.nextSeatExpiryByOrg(until)) {
             expiryByOrg.put((UUID) row[0], (Instant) row[1]);
@@ -377,7 +415,7 @@ public class GrowthMetricsService {
                             sold,
                             active,
                             percent(active, sold),
-                            active7dByOrg.getOrDefault(orgId, 0L),
+                            activeInRangeByOrg.getOrDefault(orgId, 0L),
                             expiryByOrg.get(orgId),
                             revenueByOrg.getOrDefault(orgId, BigDecimal.ZERO)));
         }
@@ -421,6 +459,23 @@ public class GrowthMetricsService {
      */
     private static double riskScore(OrgUtilization o) {
         return o.seatsSold() * (100.0 - o.occupancyPercent());
+    }
+
+    /** Combined daily refund amounts across B2B, gem-pack and paid-course sources. */
+    private List<DailyAmount> combinedDailyRefunds(Instant from, Instant until, long bucket) {
+        Map<Long, BigDecimal> combined = new TreeMap<>();
+        for (Object[] row : repository.dailyOrgRefunds(from, until, bucket)) {
+            combined.merge(toLong(row[0]), nonNull((BigDecimal) row[1]), BigDecimal::add);
+        }
+        for (Object[] row : repository.dailyGemRefunds(from, until, bucket)) {
+            combined.merge(toLong(row[0]), nonNull((BigDecimal) row[1]), BigDecimal::add);
+        }
+        for (Object[] row : repository.dailyCourseRefunds(from, until, bucket)) {
+            combined.merge(toLong(row[0]), nonNull((BigDecimal) row[1]), BigDecimal::add);
+        }
+        List<DailyAmount> result = new ArrayList<>(combined.size());
+        combined.forEach((b, amount) -> result.add(new DailyAmount(bucketStart(b, bucket), amount)));
+        return result;
     }
 
     private static List<CountItem> toCountItems(List<Object[]> rows) {
