@@ -407,8 +407,7 @@ class UserStatsEventListenerTest {
         when(userStatsRepository.save(any(UserStats.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        userStatsEventListener.handleLessonCompletedEvent(
-                new LessonCompletedEvent(this, mockUser));
+        userStatsEventListener.handleLessonCompletedEvent(new LessonCompletedEvent(this, mockUser));
 
         ArgumentCaptor<UserStats> captor = ArgumentCaptor.forClass(UserStats.class);
         verify(userStatsRepository).save(captor.capture());
@@ -429,8 +428,7 @@ class UserStatsEventListenerTest {
                         .build();
         when(userStatsRepository.findByUserId(userId)).thenReturn(Optional.of(stats));
 
-        userStatsEventListener.handleLessonCompletedEvent(
-                new LessonCompletedEvent(this, mockUser));
+        userStatsEventListener.handleLessonCompletedEvent(new LessonCompletedEvent(this, mockUser));
 
         verify(userStatsRepository, never()).save(any(UserStats.class));
         verify(achievementService, never()).awardReached(any(), any(), anyLong(), any());
