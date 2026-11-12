@@ -157,6 +157,8 @@ class CourseServiceTest {
         activeVersion.setCourse(course);
         activeVersion.setTopics(List.of(topic));
 
+        when(enrollmentRepository.findByUserIdAndCourseVersionCourseId(userId, courseId))
+                .thenReturn(List.of());
         when(courseVersionRepository.findByCourseIdAndStatus(courseId, VersionStatus.PUBLISHED))
                 .thenReturn(Optional.of(activeVersion));
         when(enrollmentRepository.findWithCourseByUserId(userId)).thenReturn(List.of());
@@ -177,6 +179,8 @@ class CourseServiceTest {
 
     @Test
     void shouldThrowNotFoundWhenCourseHasNoPublishedVersion() {
+        when(enrollmentRepository.findByUserIdAndCourseVersionCourseId(userId, courseId))
+                .thenReturn(List.of());
         when(courseVersionRepository.findByCourseIdAndStatus(courseId, VersionStatus.PUBLISHED))
                 .thenReturn(Optional.empty());
 
@@ -207,6 +211,8 @@ class CourseServiceTest {
         activeVersion.setCourse(course);
         activeVersion.setTopics(List.of(topic));
 
+        when(enrollmentRepository.findByUserIdAndCourseVersionCourseId(userId, courseId))
+                .thenReturn(List.of());
         when(courseVersionRepository.findByCourseIdAndStatus(courseId, VersionStatus.PUBLISHED))
                 .thenReturn(Optional.of(activeVersion));
         when(enrollmentRepository.findWithCourseByUserId(userId)).thenReturn(List.of());
@@ -227,5 +233,90 @@ class CourseServiceTest {
         assertEquals("alumnos", response.sampleSign());
         assertEquals(
                 List.of("alumnos", "maestro"), response.topics().get(0).lessons().get(0).signs());
+    }
+
+    @Test
+    void shouldReturnEnrolledVersionWhenUserIsInArchivedVersion() {
+        UUID archivedVersionId = UUID.randomUUID();
+        CourseVersion archivedVersion =
+                CourseVersion.builder()
+                        .id(archivedVersionId)
+                        .version("v1.0")
+                        .status(VersionStatus.ARCHIVED)
+                        .course(course)
+                        .topics(List.of(topic))
+                        .build();
+        topic.setCourseVersion(archivedVersion);
+
+        UserCourseEnrollment enrollment =
+                UserCourseEnrollment.builder()
+                        .user(user)
+                        .courseVersion(archivedVersion)
+                        .status(EnrollmentStatus.ENROLLED)
+                        .build();
+
+        when(enrollmentRepository.findByUserIdAndCourseVersionCourseId(userId, courseId))
+                .thenReturn(List.of(enrollment));
+        when(courseVersionRepository.findWithFullTreeById(archivedVersionId))
+                .thenReturn(Optional.of(archivedVersion));
+        when(enrollmentRepository.findWithCourseByUserId(userId)).thenReturn(List.of(enrollment));
+
+        CourseDetailResponse response = courseService.getCourseDetail(user, courseId);
+
+        assertEquals("v1.0", response.activeVersion());
+        assertTrue(response.owned());
+        verify(courseVersionRepository).findWithFullTreeById(archivedVersionId);
+        verify(courseVersionRepository, org.mockito.Mockito.never())
+                .findByCourseIdAndStatus(any(), any());
+    }
+
+    @Test
+    void shouldPreferPublishedVersionWhenUserHasEnrollmentInBoth() {
+        UUID archivedVersionId = UUID.randomUUID();
+        UUID publishedVersionId = UUID.randomUUID();
+
+        CourseVersion archivedVersion =
+                CourseVersion.builder()
+                        .id(archivedVersionId)
+                        .version("v1.0")
+                        .status(VersionStatus.ARCHIVED)
+                        .course(course)
+                        .build();
+        CourseVersion publishedVersion =
+                CourseVersion.builder()
+                        .id(publishedVersionId)
+                        .version("v2.0")
+                        .status(VersionStatus.PUBLISHED)
+                        .course(course)
+                        .topics(List.of(topic))
+                        .build();
+        topic.setCourseVersion(publishedVersion);
+
+        UserCourseEnrollment enrollmentV1 =
+                UserCourseEnrollment.builder()
+                        .user(user)
+                        .courseVersion(archivedVersion)
+                        .status(EnrollmentStatus.ENROLLED)
+                        .build();
+        UserCourseEnrollment enrollmentV2 =
+                UserCourseEnrollment.builder()
+                        .user(user)
+                        .courseVersion(publishedVersion)
+                        .status(EnrollmentStatus.ENROLLED)
+                        .build();
+
+        when(enrollmentRepository.findByUserIdAndCourseVersionCourseId(userId, courseId))
+                .thenReturn(List.of(enrollmentV1, enrollmentV2));
+        when(courseVersionRepository.findWithFullTreeById(publishedVersionId))
+                .thenReturn(Optional.of(publishedVersion));
+        when(enrollmentRepository.findWithCourseByUserId(userId))
+                .thenReturn(List.of(enrollmentV1, enrollmentV2));
+
+        CourseDetailResponse response = courseService.getCourseDetail(user, courseId);
+
+        assertEquals("v2.0", response.activeVersion());
+        verify(courseVersionRepository).findWithFullTreeById(publishedVersionId);
+        verify(courseVersionRepository, org.mockito.Mockito.never())
+                .findWithFullTreeById(archivedVersionId);
     }
 }

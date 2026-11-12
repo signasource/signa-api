@@ -25,6 +25,9 @@ public interface UserCourseEnrollmentRepository extends JpaRepository<UserCourse
     List<UserCourseEnrollment> findWithCourseByUserId(UUID userId);
 
     @EntityGraph(attributePaths = {"courseVersion", "courseVersion.course"})
+    List<UserCourseEnrollment> findByUserIdAndCourseVersionCourseId(UUID userId, UUID courseId);
+
+    @EntityGraph(attributePaths = {"courseVersion", "courseVersion.course"})
     List<UserCourseEnrollment> findByUserIdAndOrganizationId(UUID userId, UUID organizationId);
 
     @EntityGraph(attributePaths = {"user", "courseVersion", "courseVersion.course"})

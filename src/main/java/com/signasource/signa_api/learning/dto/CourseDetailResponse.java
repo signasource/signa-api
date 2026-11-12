@@ -8,8 +8,8 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Public detail of a course (also for users who don't own it yet): what it contains, computed from
- * the published version's content.
+ * Detail of a course. Enrolled users see the version they are subscribed to; non-enrolled users see
+ * the currently published version.
  *
  * @param signCount distinct signs taught across the whole course
  * @param hasCameraPractice whether any exercise uses on-device sign recognition

@@ -12,6 +12,7 @@ import com.signasource.signa_api.learning.entity.CourseVersion;
 import com.signasource.signa_api.learning.entity.Lesson;
 import com.signasource.signa_api.learning.entity.LessonBlock;
 import com.signasource.signa_api.learning.entity.Topic;
+import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import com.signasource.signa_api.learning.entity.VersionStatus;
 import com.signasource.signa_api.learning.repository.CourseRepository;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
@@ -70,15 +71,8 @@ public class CourseService {
     @Transactional(readOnly = true)
     public CourseDetailResponse getCourseDetail(User user, UUID courseId) {
 
-        CourseVersion activeVersion =
-                courseVersionRepository
-                        .findByCourseIdAndStatus(courseId, VersionStatus.PUBLISHED)
-                        .orElseThrow(
-                                () ->
-                                        new NotFoundException(
-                                                "Active published version not found for course ID: "
-                                                        + courseId));
-
+        Instant now = Instant.now();
+        CourseVersion activeVersion = resolveVersionForUser(user, courseId, now);
         Course course = activeVersion.getCourse();
 
         // Course-wide aggregates, folded while the syllabus is built (a single pass over blocks).
@@ -108,6 +102,46 @@ public class CourseService {
         boolean owned = ownedCourseIds(user).contains(course.getId());
 
         return CourseDetailResponse.from(course, activeVersion, owned, stats, topicsResponse);
+    }
+
+    /**
+     * Returns the course version to show in the detail view. Enrolled users see the version they
+     * are subscribed to (which may be archived if admins published a newer version after they
+     * enrolled). Non-enrolled users see the currently published version.
+     *
+     * <p>When a user has active enrollments in multiple versions of the same course — e.g. they
+     * were in v1 and later re-enrolled in v2 — the published version takes precedence.
+     */
+    private CourseVersion resolveVersionForUser(User user, UUID courseId, Instant now) {
+        List<UserCourseEnrollment> active =
+                enrollmentRepository
+                        .findByUserIdAndCourseVersionCourseId(user.getId(), courseId)
+                        .stream()
+                        .filter(e -> e.grantsAccess(now))
+                        .toList();
+
+        if (!active.isEmpty()) {
+            UUID versionId =
+                    active.stream()
+                            .filter(
+                                    e ->
+                                            e.getCourseVersion().getStatus()
+                                                    == VersionStatus.PUBLISHED)
+                            .map(e -> e.getCourseVersion().getId())
+                            .findFirst()
+                            .orElse(active.get(0).getCourseVersion().getId());
+            return courseVersionRepository
+                    .findWithFullTreeById(versionId)
+                    .orElseThrow(() -> new NotFoundException("Course version not found"));
+        }
+
+        return courseVersionRepository
+                .findByCourseIdAndStatus(courseId, VersionStatus.PUBLISHED)
+                .orElseThrow(
+                        () ->
+                                new NotFoundException(
+                                        "Active published version not found for course ID: "
+                                                + courseId));
     }
 
     /** Syllabus entry for a lesson; also folds its blocks into the course-wide aggregates. */
