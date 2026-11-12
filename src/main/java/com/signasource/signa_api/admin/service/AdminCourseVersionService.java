@@ -19,10 +19,16 @@ import com.signasource.signa_api.learning.entity.VersionStatus;
 import com.signasource.signa_api.learning.repository.CourseRepository;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.learning.repository.SignLanguageRepository;
+import com.signasource.signa_api.users.entity.User;
+import com.signasource.signa_api.users.repository.UserRepository;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,12 +42,23 @@ public class AdminCourseVersionService {
     private final CourseRepository courseRepository;
     private final CourseVersionRepository courseVersionRepository;
     private final SignLanguageRepository signLanguageRepository;
+    private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
 
     @Transactional(readOnly = true)
     public List<AdminCourseVersionListItemResponse> listVersions() {
-        return courseVersionRepository.findAllByOrderByStatusAscUpdatedAtDesc().stream()
-                .map(AdminCourseVersionListItemResponse::from)
+        List<CourseVersion> versions = courseVersionRepository.findAllByOrderByStatusAscUpdatedAtDesc();
+
+        Set<String> emails = versions.stream()
+                .map(CourseVersion::getUpdatedBy)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        Map<String, User> byEmail = userRepository.findByEmailIn(emails).stream()
+                .collect(Collectors.toMap(User::getEmail, u -> u));
+
+        return versions.stream()
+                .map(v -> AdminCourseVersionListItemResponse.from(v, byEmail.get(v.getUpdatedBy())))
                 .toList();
     }
 

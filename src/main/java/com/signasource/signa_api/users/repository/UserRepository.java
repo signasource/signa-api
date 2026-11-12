@@ -2,6 +2,7 @@ package com.signasource.signa_api.users.repository;
 
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,6 +16,8 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByEmail(String email);
+
+    List<User> findByEmailIn(Collection<String> emails);
 
     Optional<User> findByGoogleSub(String googleSub);
 

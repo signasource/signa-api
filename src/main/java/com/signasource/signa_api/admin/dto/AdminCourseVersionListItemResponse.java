@@ -2,6 +2,7 @@ package com.signasource.signa_api.admin.dto;
 
 import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.entity.CourseVersion;
+import com.signasource.signa_api.users.entity.User;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
@@ -22,9 +23,11 @@ public record AdminCourseVersionListItemResponse(
         int signCount,
         Instant updatedAt,
         String updatedBy,
+        String updatedByName,
+        String updatedByAvatar,
         String color) {
 
-    public static AdminCourseVersionListItemResponse from(CourseVersion v) {
+    public static AdminCourseVersionListItemResponse from(CourseVersion v, User editor) {
         int units = v.getTopics().size();
         int lessons = v.getTopics().stream().mapToInt(t -> t.getLessons().size()).sum();
         int blocks =
@@ -39,6 +42,7 @@ public record AdminCourseVersionListItemResponse(
                                 .flatMap(l -> l.getLessonBlocks().stream())
                                 .filter(b -> b.getType() == BlockType.INTRODUCE_SIGN)
                                 .count();
+        String name = editor != null ? (editor.getName() + " " + editor.getLastName()).trim() : null;
         return new AdminCourseVersionListItemResponse(
                 v.getId(),
                 v.getCourse().getId(),
@@ -55,6 +59,8 @@ public record AdminCourseVersionListItemResponse(
                 signs,
                 v.getUpdatedAt(),
                 v.getUpdatedBy(),
+                name,
+                editor != null ? editor.getAvatar() : null,
                 v.getColor());
     }
 }
