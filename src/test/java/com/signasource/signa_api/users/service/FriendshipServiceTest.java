@@ -701,6 +701,23 @@ class FriendshipServiceTest {
     }
 
     @Test
+    void acceptFriendRequest_ReportsChallengeToAddressee() {
+        Friendship pending = new Friendship();
+        pending.setRequester(requester);
+        pending.setAddressee(addressee);
+        pending.setStatus(FriendshipStatus.PENDING);
+
+        when(userRepository.findById(requesterId)).thenReturn(Optional.of(requester));
+        when(friendshipRepository.findByRequesterAndAddressee(requester, addressee))
+                .thenReturn(Optional.of(pending));
+
+        friendshipService.acceptFriendRequest(requesterId, addressee);
+
+        verify(challengeService)
+                .record(addressee, ChallengeCriteriaType.FRIEND_REQUESTS_SENT, 1);
+    }
+
+    @Test
     void sendFriendRequest_ReportsTheRequestToChallenges() {
         when(userRepository.findById(addresseeId)).thenReturn(Optional.of(addressee));
         when(friendshipRepository.findFriendshipBetween(requester, addressee))

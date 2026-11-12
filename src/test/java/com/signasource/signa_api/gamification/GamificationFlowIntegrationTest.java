@@ -375,6 +375,22 @@ class GamificationFlowIntegrationTest {
     }
 
     @Test
+    void firstStepsFriend_UnlocksForAddresseeWhoAccepts() {
+        User sender = newUser();
+        User accepter = newUser();
+
+        friendshipService.sendFriendRequest(sender, accepter.getId());
+
+        ChallengesResponse before = challengeService.getChallenges(accepter);
+        assertThat(byCode(before.firstSteps(), "first_steps_friend").completed()).isFalse();
+
+        friendshipService.acceptFriendRequest(sender.getId(), accepter);
+
+        ChallengesResponse after = challengeService.getChallenges(accepter);
+        assertThat(byCode(after.firstSteps(), "first_steps_friend").completed()).isTrue();
+    }
+
+    @Test
     void friendAchievement_GrantedToBothOnAccept() {
         User user = newUser();
         User friend = newUser();

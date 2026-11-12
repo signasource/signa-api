@@ -15,7 +15,7 @@ VALUES
      'Resolvé un ejercicio con cámara.',
      'FIRST_STEPS', 'CAMERA_PRACTICES', 1, 'GEMS', 20, NULL, NULL, true, 2),
     (gen_random_uuid(), 'first_steps_friend', 'Sumá tu primer amigo en Social',
-     'Mandá una solicitud de amistad.',
+     'Conectate con alguien como amigo.',
      'FIRST_STEPS', 'FRIEND_REQUESTS_SENT', 1, 'GEMS', 30, NULL, NULL, true, 3),
     (gen_random_uuid(), 'first_steps_streak', 'Volvé mañana y hacé racha de 2 días',
      'Practicá dos días seguidos.',
