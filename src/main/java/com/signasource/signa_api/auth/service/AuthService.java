@@ -103,7 +103,7 @@ public class AuthService {
 
         userRepository.save(user);
 
-        userSettingsRepository.save(UserSettings.builder().user(user).build());
+        userSettingsRepository.save(newSettings(user, request.dailyGoalMinutes()));
         userStatsRepository.save(
                 UserStats.builder().user(user).gems(100).updatedAt(Instant.now()).build());
 
@@ -313,8 +313,16 @@ public class AuthService {
         return new AuthResponse(accessToken, refreshToken.getToken());
     }
 
+    private static UserSettings newSettings(User user, Integer dailyGoalMinutes) {
+        UserSettings.UserSettingsBuilder builder = UserSettings.builder().user(user);
+        if (dailyGoalMinutes != null) {
+            builder.dailyGoalMinutes(dailyGoalMinutes);
+        }
+        return builder.build();
+    }
+
     @Transactional
-    public AuthResponse authenticateWithGoogle(String idTokenString) {
+    public AuthResponse authenticateWithGoogle(String idTokenString, Integer dailyGoalMinutes) {
         try {
             GoogleIdToken.Payload payload = verifyGoogleToken(idTokenString);
 
@@ -388,7 +396,7 @@ public class AuthService {
 
                 user = userRepository.save(user);
 
-                userSettingsRepository.save(UserSettings.builder().user(user).build());
+                userSettingsRepository.save(newSettings(user, dailyGoalMinutes));
                 userStatsRepository.save(
                         UserStats.builder().user(user).gems(100).updatedAt(Instant.now()).build());
             }

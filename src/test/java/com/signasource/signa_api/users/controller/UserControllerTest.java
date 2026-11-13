@@ -282,7 +282,7 @@ class UserControllerTest {
 
     @Test
     void linkGoogle_returnsNoContent() {
-        GoogleAuthRequest request = new GoogleAuthRequest("google.id.token");
+        GoogleAuthRequest request = new GoogleAuthRequest("google.id.token", null);
 
         ResponseEntity<Void> response = userController.linkGoogle(request);
 
