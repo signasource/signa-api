@@ -2,6 +2,7 @@ package com.signasource.signa_api.users.repository;
 
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
+import jakarta.persistence.LockModeType;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -9,12 +10,21 @@ import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, UUID> {
+    /**
+     * Takes a row lock on the user (SELECT ... FOR UPDATE) until the transaction ends. Used to
+     * serialize concurrent writes that insert per-user rows guarded by a unique constraint.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT u.id FROM User u WHERE u.id = :id")
+    Optional<UUID> lockById(@Param("id") UUID id);
+
     Optional<User> findByEmail(String email);
 
     List<User> findByEmailIn(Collection<String> emails);
