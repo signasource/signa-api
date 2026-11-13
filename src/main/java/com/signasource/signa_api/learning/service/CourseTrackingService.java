@@ -279,6 +279,11 @@ public class CourseTrackingService {
     @Transactional
     public LessonBlockAttempt recordBlockInteraction(
             User user, UUID lessonBlockId, Boolean isCorrect) {
+        // Serialize concurrent interactions of the same user (double submit, retry): otherwise two
+        // requests both insert the user_lesson_progress / user_topic_progress row and the loser
+        // fails on the (user_id, lesson_id) unique constraint with a 500.
+        userRepository.lockById(user.getId());
+
         LessonBlock block =
                 lessonBlockRepository
                         .findWithCourseVersionById(lessonBlockId)
