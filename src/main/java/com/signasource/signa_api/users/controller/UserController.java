@@ -12,6 +12,7 @@ import com.signasource.signa_api.gamification.service.UserStatsService;
 import com.signasource.signa_api.users.dto.DailyGoalResponse;
 import com.signasource.signa_api.users.dto.PublicUserProfileResponse;
 import com.signasource.signa_api.users.dto.RecordActivityRequest;
+import com.signasource.signa_api.users.dto.UpdateAvatarRequest;
 import com.signasource.signa_api.users.dto.UpdateDailyGoalRequest;
 import com.signasource.signa_api.users.dto.UpdateUserSettingsRequest;
 import com.signasource.signa_api.users.dto.UpdateUsernameRequest;
@@ -20,6 +21,7 @@ import com.signasource.signa_api.users.dto.UserSearchResultResponse;
 import com.signasource.signa_api.users.dto.UserSettingsResponse;
 import com.signasource.signa_api.users.dto.UsernameAvailabilityResponse;
 import com.signasource.signa_api.users.entity.User;
+import com.signasource.signa_api.users.service.AvatarImage;
 import com.signasource.signa_api.users.service.PublicProfileService;
 import com.signasource.signa_api.users.service.UserActivityService;
 import com.signasource.signa_api.users.service.UserService;
@@ -28,8 +30,11 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import java.time.Duration;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.CacheControl;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
@@ -125,6 +130,42 @@ public class UserController {
     public ResponseEntity<UserProfileResponse> getMe(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(UserProfileResponse.from(userDetails.getUser()));
+    }
+
+    /** Sets the caller's profile photo. Returns the refreshed profile (with the new photo link). */
+    @PutMapping("/me/avatar")
+    public ResponseEntity<UserProfileResponse> updateAvatar(
+            @Valid @RequestBody UpdateAvatarRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        User user = userDetails.getUser();
+        userService.setAvatar(user, request.avatar());
+        return ResponseEntity.ok(UserProfileResponse.from(user));
+    }
+
+    @DeleteMapping("/me/avatar")
+    public ResponseEntity<UserProfileResponse> removeAvatar(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        User user = userDetails.getUser();
+        userService.setAvatar(user, null);
+        return ResponseEntity.ok(UserProfileResponse.from(user));
+    }
+
+    /** Public. The link in every response carries a version, so the bytes cache for a year. */
+    @GetMapping("/{username}/avatar")
+    public ResponseEntity<byte[]> getAvatar(
+            @PathVariable @NotBlank @Size(min = 3, max = 50) String username) {
+        return userService
+                .getAvatarImage(username)
+                .map(
+                        (AvatarImage image) ->
+                                ResponseEntity.ok()
+                                        .contentType(MediaType.parseMediaType(image.contentType()))
+                                        .cacheControl(
+                                                CacheControl.maxAge(Duration.ofDays(365))
+                                                        .cachePublic()
+                                                        .immutable())
+                                        .body(image.bytes()))
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @GetMapping("/search")

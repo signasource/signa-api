@@ -3,6 +3,7 @@ package com.signasource.signa_api.users.service;
 import com.signasource.signa_api.auth.repository.TokenRepository;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.notification.repository.DeviceTokenRepository;
+import com.signasource.signa_api.users.dto.AvatarLinks;
 import com.signasource.signa_api.users.dto.RelationStatus;
 import com.signasource.signa_api.users.dto.UpdateUsernameRequest;
 import com.signasource.signa_api.users.dto.UserSearchResultResponse;
@@ -16,6 +17,7 @@ import com.signasource.signa_api.users.repository.UserRepository;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -72,6 +74,23 @@ public class UserService {
         }
     }
 
+    /** Sets (or, with null, clears) the profile photo of {@code user}. */
+    @Transactional
+    public void setAvatar(User user, String avatarDataUrl) {
+        user.setAvatar(avatarDataUrl);
+        userRepository.save(user);
+    }
+
+    /** Decoded photo of {@code username}; empty when the user or the photo does not exist. */
+    @Transactional(readOnly = true)
+    public Optional<AvatarImage> getAvatarImage(String username) {
+        return userRepository
+                .findByUsername(username)
+                .map(User::getAvatar)
+                .filter(avatar -> !avatar.isEmpty())
+                .flatMap(AvatarImage::parse);
+    }
+
     /**
      * Erases the user's personal and behavioural data and anonymises the {@code users} row, which
      * stays only so purchase records keep their foreign key.
@@ -91,6 +110,7 @@ public class UserService {
         user.setPasswordHash("!" + UUID.randomUUID());
         user.setAccountVisibility(AccountVisibility.PRIVATE);
         user.setCurrentCourse(null);
+        user.setAvatar(null);
         userRepository.save(user);
     }
 
@@ -120,7 +140,8 @@ public class UserService {
                                         u.getUsername(),
                                         u.getName(),
                                         relations.getOrDefault(u.getId(), RelationStatus.NONE),
-                                        countMutualFriends(u.getId(), myFriendIds)))
+                                        countMutualFriends(u.getId(), myFriendIds),
+                                        AvatarLinks.of(u)))
                 .filter(r -> r.relation() != RelationStatus.BLOCKED_BY)
                 .toList();
     }

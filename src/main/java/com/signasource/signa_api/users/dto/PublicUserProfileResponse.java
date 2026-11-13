@@ -18,7 +18,8 @@ public record PublicUserProfileResponse(
         PublicUserStatsResponse stats,
         List<DailyXpResponse> weeklyXp,
         List<AchievementResponse> achievements,
-        List<CourseProgressResponse> courses) {
+        List<CourseProgressResponse> courses,
+        String avatarUrl) {
 
     public static PublicUserProfileResponse hidden(User user, RelationStatus relation) {
         return new PublicUserProfileResponse(
@@ -31,6 +32,7 @@ public record PublicUserProfileResponse(
                 PublicUserStatsResponse.EMPTY,
                 List.of(),
                 List.of(),
-                List.of());
+                List.of(),
+                AvatarLinks.of(user));
     }
 }

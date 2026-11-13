@@ -354,14 +354,20 @@ class UserControllerTest {
                 PublicUserStatsResponse.EMPTY,
                 List.of(),
                 List.of(),
-                List.of());
+                List.of(),
+                null);
     }
 
     @Test
     void searchUsers_ReturnsOkWithResults() {
         UserSearchResultResponse result =
                 new UserSearchResultResponse(
-                        UUID.randomUUID(), "camisosa", "Camila Sosa", RelationStatus.NONE, 3L);
+                        UUID.randomUUID(),
+                        "camisosa",
+                        "Camila Sosa",
+                        RelationStatus.NONE,
+                        3L,
+                        null);
         when(userService.searchUsers(user, "cami", 20)).thenReturn(List.of(result));
 
         ResponseEntity<List<UserSearchResultResponse>> response =
@@ -429,5 +435,50 @@ class UserControllerTest {
 
         verify(userStatsService).markStreakDaySeen(user);
         assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+    }
+
+    @Test
+    void updateAvatar_SavesPhotoAndReturnsProfileWithLink() {
+        String dataUrl = "data:image/jpeg;base64,/9j/4AAQ";
+
+        ResponseEntity<UserProfileResponse> response =
+                userController.updateAvatar(
+                        new com.signasource.signa_api.users.dto.UpdateAvatarRequest(dataUrl),
+                        userDetails);
+
+        verify(userService).setAvatar(user, dataUrl);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+    }
+
+    @Test
+    void removeAvatar_ClearsPhoto() {
+        ResponseEntity<UserProfileResponse> response = userController.removeAvatar(userDetails);
+
+        verify(userService).setAvatar(user, null);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+    }
+
+    @Test
+    void getAvatar_ServesBytesWithCacheHeaders() {
+        byte[] bytes = {1, 2, 3};
+        when(userService.getAvatarImage(USERNAME))
+                .thenReturn(
+                        java.util.Optional.of(
+                                new com.signasource.signa_api.users.service.AvatarImage(
+                                        "image/png", bytes)));
+
+        ResponseEntity<byte[]> response = userController.getAvatar(USERNAME);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals("image/png", response.getHeaders().getContentType().toString());
+        assertNotNull(response.getHeaders().getCacheControl());
+        org.junit.jupiter.api.Assertions.assertArrayEquals(bytes, response.getBody());
+    }
+
+    @Test
+    void getAvatar_NotFoundWhenNoPhoto() {
+        when(userService.getAvatarImage(USERNAME)).thenReturn(java.util.Optional.empty());
+
+        assertEquals(HttpStatus.NOT_FOUND, userController.getAvatar(USERNAME).getStatusCode());
     }
 }

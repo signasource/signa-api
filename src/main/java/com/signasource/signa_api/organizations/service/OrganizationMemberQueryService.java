@@ -26,6 +26,7 @@ import com.signasource.signa_api.organizations.repository.projection.UserCountVi
 import com.signasource.signa_api.organizations.repository.projection.UserTopicView;
 import com.signasource.signa_api.organizations.repository.projection.VersionCountView;
 import com.signasource.signa_api.organizations.service.OrganizationContentScope.ContentScope;
+import com.signasource.signa_api.users.dto.AvatarLinks;
 import com.signasource.signa_api.users.entity.User;
 import java.time.Instant;
 import java.util.Comparator;
@@ -214,7 +215,8 @@ public class OrganizationMemberQueryService {
                 streak,
                 minutes,
                 activeDays,
-                courses);
+                courses,
+                AvatarLinks.of(user));
     }
 
     /**
@@ -286,7 +288,8 @@ public class OrganizationMemberQueryService {
                                             member.getStatus(),
                                             progress,
                                             lastActivity,
-                                            activeSince));
+                                            activeSince),
+                                    AvatarLinks.of(member.getUser()));
                         })
                 .toList();
     }

@@ -15,7 +15,9 @@ public record UserProfileResponse(
         Role role,
         boolean enabled,
         boolean verified,
-        Set<AuthProvider> providers) {
+        Set<AuthProvider> providers,
+        /** Relative path to the profile photo; null when none. */
+        String avatarUrl) {
     public static UserProfileResponse from(User user) {
         return new UserProfileResponse(
                 user.getId(),
@@ -26,6 +28,7 @@ public record UserProfileResponse(
                 user.getRole(),
                 user.isEnabled(),
                 user.isVerified(),
-                Set.copyOf(user.getProviders()));
+                Set.copyOf(user.getProviders()),
+                AvatarLinks.of(user));
     }
 }

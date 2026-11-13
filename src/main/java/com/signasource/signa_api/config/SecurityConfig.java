@@ -58,6 +58,10 @@ public class SecurityConfig {
                                         .permitAll()
                                         .requestMatchers("/users/username-availability")
                                         .permitAll()
+                                        // Photos are public (like the name next to them) so <img>
+                                        // tags can load them without an Authorization header.
+                                        .requestMatchers(HttpMethod.GET, "/users/*/avatar")
+                                        .permitAll()
                                         .requestMatchers(HttpMethod.POST, "/waitlist")
                                         .permitAll()
                                         .requestMatchers(HttpMethod.POST, "/telemetry/events")

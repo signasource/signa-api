@@ -91,7 +91,7 @@ class OrganizationMemberControllerTest {
         MemberProgressResponse response =
                 new MemberProgressResponse(
                         userId, null, null, null, null, null, null, null, 0, 0, 0, 0, null, 0, 0, 0,
-                        0, 0, 0, 0, List.of());
+                        0, 0, 0, 0, List.of(), null);
         when(memberQueryService.getMemberProgress(
                         actor, organizationId, userId, MetricsPeriod.ALL_TIME))
                 .thenReturn(response);
