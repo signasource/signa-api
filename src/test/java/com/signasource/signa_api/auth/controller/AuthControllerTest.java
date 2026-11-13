@@ -33,9 +33,10 @@ class AuthControllerTest {
 
     private RegisterRequest registerRequest =
             new RegisterRequest(
-                    "test@example.com", "testuser", "password123", "Test User", "Tester");
+                    "test@example.com", "testuser", "password123", "Test User", "Tester", 20);
     private LoginRequest loginRequest = new LoginRequest("test@example.com", "password123");
-    private GoogleAuthRequest googleAuthRequest = new GoogleAuthRequest("valid.google.id.token");
+    private GoogleAuthRequest googleAuthRequest =
+            new GoogleAuthRequest("valid.google.id.token", 20);
 
     @Test
     void testRegister() {
@@ -118,13 +119,13 @@ class AuthControllerTest {
     void testAuthenticateWithGoogle() {
         AuthResponse expectedResponse =
                 new AuthResponse("google-access-token", "google-refresh-token");
-        when(authService.authenticateWithGoogle(googleAuthRequest.idToken()))
+        when(authService.authenticateWithGoogle(googleAuthRequest.idToken(), 20))
                 .thenReturn(expectedResponse);
 
         ResponseEntity<AuthResponse> response =
                 authController.authenticateWithGoogle(googleAuthRequest);
 
-        verify(authService).authenticateWithGoogle(googleAuthRequest.idToken());
+        verify(authService).authenticateWithGoogle(googleAuthRequest.idToken(), 20);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         Assertions.assertNotNull(response.getBody());
         assertEquals(expectedResponse.accessToken(), response.getBody().accessToken());
