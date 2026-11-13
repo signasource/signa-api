@@ -151,6 +151,7 @@ class UserServiceTest {
                         .role(Role.USER)
                         .enabled(true)
                         .verified(true)
+                        .avatar("data:image/png;base64,iVBORw0KGgo=")
                         .accountVisibility(AccountVisibility.PUBLIC)
                         .build();
 
@@ -165,6 +166,7 @@ class UserServiceTest {
         assertNotEquals("hashed", user.getPasswordHash());
         assertEquals(AccountVisibility.PRIVATE, user.getAccountVisibility());
         assertNull(user.getCurrentCourse());
+        assertNull(user.getAvatar());
         verify(userRepository).save(user);
         verify(tokenRepository).deleteByUser(user);
         verify(deviceTokenRepository).deleteByUser(user);

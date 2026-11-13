@@ -110,6 +110,7 @@ public class UserService {
         user.setPasswordHash("!" + UUID.randomUUID());
         user.setAccountVisibility(AccountVisibility.PRIVATE);
         user.setCurrentCourse(null);
+        user.setAvatar(null);
         userRepository.save(user);
     }
 
