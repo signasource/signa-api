@@ -14,4 +14,5 @@ public record FriendEventResponse(
         String subject,
         String context,
         boolean liked,
-        Instant createdAt) {}
+        Instant createdAt,
+        String friendAvatarUrl) {}

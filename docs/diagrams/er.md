@@ -27,7 +27,7 @@ erDiagram
         string googleSub UK "id estable de la cuenta de Google; null si no hay una vinculada"
         string name
         string lastName
-        string avatar "foto de perfil como data URL (solo admins del back-office por ahora); null si no hay"
+        string avatar "foto de perfil como data URL pequeña; null si no hay"
         enum role
         boolean enabled
         boolean verified

@@ -5,6 +5,7 @@ import com.signasource.signa_api.gamification.repository.UserStatsRepository;
 import com.signasource.signa_api.gamification.service.AchievementService;
 import com.signasource.signa_api.gamification.service.UserStatsService;
 import com.signasource.signa_api.learning.service.CourseTrackingService;
+import com.signasource.signa_api.users.dto.AvatarLinks;
 import com.signasource.signa_api.users.dto.PublicUserProfileResponse;
 import com.signasource.signa_api.users.dto.PublicUserStatsResponse;
 import com.signasource.signa_api.users.dto.RelationStatus;
@@ -69,7 +70,8 @@ public class PublicProfileService {
                 PublicUserStatsResponse.from(statsOpt.orElse(null), weeklyRank),
                 userStatsService.getWeeklyXpBreakdown(target),
                 achievementService.getAchievements(target, null, true),
-                courseTrackingService.getUserCourseProgress(target));
+                courseTrackingService.getUserCourseProgress(target),
+                AvatarLinks.of(target));
     }
 
     /** A private account opens only to its owner and to accepted friends. */
