@@ -8,6 +8,7 @@ import com.signasource.signa_api.auth.dto.RefreshTokenRequest;
 import com.signasource.signa_api.auth.dto.RegisterRequest;
 import com.signasource.signa_api.auth.dto.ResendVerificationEmailRequest;
 import com.signasource.signa_api.auth.dto.ResetPasswordRequest;
+import com.signasource.signa_api.auth.dto.VerifyEmailRequest;
 import com.signasource.signa_api.auth.service.AuthService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -55,6 +56,12 @@ public class AuthController {
     public ResponseEntity<Void> verifyEmail(
             @RequestParam @NotBlank @Size(min = 10, max = 100) String token) {
         authService.verifyAccount(token);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/verify-email")
+    public ResponseEntity<Void> verifyEmailCode(@Valid @RequestBody VerifyEmailRequest request) {
+        authService.verifyEmailCode(request);
         return ResponseEntity.ok().build();
     }
 

@@ -228,8 +228,8 @@ Resumen de alta prioridad; el detalle y los ejemplos están en los bloques sigui
 - **Rate limiting** con Bucket4j (`RateLimitInterceptor`, por IP, registrado en `WebConfig`) en
   endpoints sensibles a abuso: 30/min en `/users/username-availability` y `/store/gem-orders/**`;
   **10 cada 15 min** (`RateLimitInterceptor.forAuthEmail`) en `/auth/forgot-password`,
-  `/auth/reset-password` y `/auth/resend-verification-email` (mandan mails o validan el código de
-  reset). Un endpoint nuevo que mande mails sin autenticación va en ese segundo grupo. El límite de
+  `/auth/reset-password`, `/auth/verify-email` y `/auth/resend-verification-email` (mandan mails o
+  validan códigos de 6 dígitos). Un endpoint nuevo que mande mails sin autenticación va en ese segundo grupo. El límite de
   `/waitlist` y del resto del tráfico público lo aplica Cloudflare, delante de la API.
 - **IP del cliente:** sólo `X-Real-IP`, que nginx **pisa** siempre con la IP que resolvió
   (`nginx/templates/app.conf.template`: `real_ip_header CF-Connecting-IP` confiando únicamente en los
@@ -265,8 +265,18 @@ Resumen de alta prioridad; el detalle y los ejemplos están en los bloques sigui
   para que el intento fallido no se pierda en el rollback (`PasswordResetIntegrationTest`).
   El mail se arma desde `resources/email/password-reset.html` (diseño de Claude Design; placeholders
   `{{CODE}}`, `{{CODE_SPACED}}`, `{{DIGIT_CELLS}}`) y las imágenes (logo y Lisa) viajan como adjuntos
-  inline `cid:` desde `resources/email/`, sin depender de hosting público. No lleva botón "copiar":
-  el diseño original apuntaba a una página web que no existe.
+  inline `cid:` desde `resources/email/`, sin depender de hosting público. Ambos mails (reset y
+  verificación) tienen un botón "copiar" a la derecha del código: los clientes de mail bloquean JS,
+  así que abre `GET /codigo#c=<código>` (`CopyCodeController`, público), una página estática que lo
+  copia al portapapeles. El código va en el **fragmento** (`#`), que el navegador no envía al servidor:
+  no queda en logs de nginx ni de la API. Esa ruta es pública en `SecurityConfig` y usa `app.base-url`.
+- **Verificación de email por código:** igual que el reset. `register` y `resend-verification-email`
+  generan un código de 6 dígitos (vence a las 24 h, `auth.token-expirations.email-verification`), lo
+  guardan hasheado con BCrypt en `tokens` (tipo `EMAIL_VERIFICATION`) y lo mandan con
+  `resources/email/verification.html`. `POST /auth/verify-email {email, code}` lo valida
+  (`AuthService.verifyEmailCode`): 5 intentos fallidos lo descartan; inválido, vencido o email
+  inexistente → `InvalidResetCodeException` (400). Verificar es opcional: nada exige `verified`.
+  `GET /auth/verify?token=` sigue vivo solo para los links de mails enviados antes de este cambio.
 
 Detalle: `config/SecurityConfig.java`, `config/WebConfig.java` y `JwtAuthFilter`.
 

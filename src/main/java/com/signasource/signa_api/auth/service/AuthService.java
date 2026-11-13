@@ -10,6 +10,7 @@ import com.signasource.signa_api.auth.dto.RefreshTokenRequest;
 import com.signasource.signa_api.auth.dto.RegisterRequest;
 import com.signasource.signa_api.auth.dto.ResendVerificationEmailRequest;
 import com.signasource.signa_api.auth.dto.ResetPasswordRequest;
+import com.signasource.signa_api.auth.dto.VerifyEmailRequest;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.entity.Token;
 import com.signasource.signa_api.auth.entity.TokenType;
@@ -52,8 +53,8 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class AuthService {
 
-    /** Failed attempts after which a password reset code is discarded. */
-    static final int MAX_RESET_CODE_ATTEMPTS = 5;
+    /** Failed attempts after which a password reset or email verification code is discarded. */
+    static final int MAX_CODE_ATTEMPTS = 5;
 
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -106,13 +107,9 @@ public class AuthService {
         userStatsRepository.save(
                 UserStats.builder().user(user).gems(100).updatedAt(Instant.now()).build());
 
-        Token token =
-                createToken(
-                        user,
-                        TokenType.EMAIL_VERIFICATION,
-                        Duration.ofMillis(emailVerificationTokenExpiration));
-
-        emailService.sendVerificationEmail(user.getEmail(), token.getToken());
+        String verificationCode = newCode();
+        saveVerificationCode(user, passwordEncoder.encode(verificationCode));
+        emailService.sendVerificationEmail(user.getEmail(), verificationCode);
 
         metricsService.recordUserRegistration("local");
         return generateTokens(user);
@@ -177,7 +174,7 @@ public class AuthService {
     public void forgotPassword(ForgotPasswordRequest request) {
         // Hash before looking the user up: BCrypt takes ~100 ms, and doing it only for existing
         // accounts would make them answer measurably slower than unknown emails.
-        String code = String.format("%06d", secureRandom.nextInt(1_000_000));
+        String code = newCode();
         String codeHash = passwordEncoder.encode(code);
 
         User user = userRepository.findByEmail(request.email()).orElse(null);
@@ -221,7 +218,7 @@ public class AuthService {
 
         if (!passwordEncoder.matches(request.code(), resetToken.getToken())) {
             resetToken.setAttempts(resetToken.getAttempts() + 1);
-            if (resetToken.getAttempts() >= MAX_RESET_CODE_ATTEMPTS) {
+            if (resetToken.getAttempts() >= MAX_CODE_ATTEMPTS) {
                 tokenRepository.delete(resetToken);
             } else {
                 tokenRepository.save(resetToken);
@@ -241,25 +238,69 @@ public class AuthService {
 
     @Transactional
     public void resendVerificationEmail(ResendVerificationEmailRequest request) {
+        // Hash before looking the user up, as in forgotPassword, so timing does not reveal
+        // whether the email belongs to an account.
+        String code = newCode();
+        String codeHash = passwordEncoder.encode(code);
+
         User user = userRepository.findByEmail(request.email()).orElse(null);
 
-        if (user == null) {
+        if (user == null || user.isVerified()) {
             return;
         }
 
-        if (user.isVerified()) {
-            return;
-        }
+        saveVerificationCode(user, codeHash);
+        emailService.sendVerificationEmail(user.getEmail(), code);
+    }
 
-        tokenRepository.deleteByUserAndType(user, TokenType.EMAIL_VERIFICATION);
-
+    // Not rolling back on a bad code keeps the failed attempt (or the deleted token) persisted.
+    @Transactional(dontRollbackOn = InvalidResetCodeException.class)
+    public void verifyEmailCode(VerifyEmailRequest request) {
+        User user =
+                userRepository
+                        .findByEmail(request.email())
+                        .orElseThrow(InvalidResetCodeException::new);
         Token token =
-                createToken(
-                        user,
-                        TokenType.EMAIL_VERIFICATION,
-                        Duration.ofMillis(emailVerificationTokenExpiration));
+                tokenRepository
+                        .findByUserAndType(user, TokenType.EMAIL_VERIFICATION)
+                        .orElseThrow(InvalidResetCodeException::new);
 
-        emailService.sendVerificationEmail(user.getEmail(), token.getToken());
+        if (token.getExpiryDate().isBefore(Instant.now())) {
+            tokenRepository.delete(token);
+            throw new InvalidResetCodeException();
+        }
+
+        if (!passwordEncoder.matches(request.code(), token.getToken())) {
+            token.setAttempts(token.getAttempts() + 1);
+            if (token.getAttempts() >= MAX_CODE_ATTEMPTS) {
+                tokenRepository.delete(token);
+            } else {
+                tokenRepository.save(token);
+            }
+            throw new InvalidResetCodeException();
+        }
+
+        user.setVerified(true);
+        userRepository.save(user);
+        tokenRepository.delete(token);
+    }
+
+    private String newCode() {
+        return String.format("%06d", secureRandom.nextInt(1_000_000));
+    }
+
+    /** Replaces any pending verification code. Stored hashed for the same reason as reset codes. */
+    private void saveVerificationCode(User user, String codeHash) {
+        tokenRepository.deleteByUserAndType(user, TokenType.EMAIL_VERIFICATION);
+        tokenRepository.save(
+                Token.builder()
+                        .token(codeHash)
+                        .user(user)
+                        .type(TokenType.EMAIL_VERIFICATION)
+                        .expiryDate(
+                                Instant.now()
+                                        .plus(Duration.ofMillis(emailVerificationTokenExpiration)))
+                        .build());
     }
 
     private AuthResponse generateTokens(User user) {

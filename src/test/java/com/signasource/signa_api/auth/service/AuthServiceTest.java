@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -24,6 +25,7 @@ import com.signasource.signa_api.auth.dto.RefreshTokenRequest;
 import com.signasource.signa_api.auth.dto.RegisterRequest;
 import com.signasource.signa_api.auth.dto.ResendVerificationEmailRequest;
 import com.signasource.signa_api.auth.dto.ResetPasswordRequest;
+import com.signasource.signa_api.auth.dto.VerifyEmailRequest;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.entity.Token;
 import com.signasource.signa_api.auth.entity.TokenType;
@@ -124,6 +126,7 @@ class AuthServiceTest {
         RegisterRequest request = new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME, LAST_NAME);
         when(userRepository.existsByEmail(EMAIL)).thenReturn(false);
         when(userRepository.existsByUsername(USERNAME)).thenReturn(false);
+        when(passwordEncoder.encode(any(String.class))).thenReturn("hashed-code");
         when(passwordEncoder.encode(PASSWORD)).thenReturn("hashed_password");
         when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
         when(tokenRepository.save(any(Token.class)))
@@ -141,7 +144,17 @@ class AuthServiceTest {
         verify(userStatsRepository).save(statsCaptor.capture());
         assertEquals(100, statsCaptor.getValue().getGems());
         verify(jwtService).generateToken(any(CustomUserDetails.class));
-        verify(emailService).sendVerificationEmail(eq(EMAIL), any(String.class));
+        ArgumentCaptor<String> codeCaptor = ArgumentCaptor.forClass(String.class);
+        verify(emailService).sendVerificationEmail(eq(EMAIL), codeCaptor.capture());
+        assertTrue(codeCaptor.getValue().matches("\\d{6}"));
+        ArgumentCaptor<Token> tokenCaptor = ArgumentCaptor.forClass(Token.class);
+        verify(tokenRepository, atLeastOnce()).save(tokenCaptor.capture());
+        Token verification =
+                tokenCaptor.getAllValues().stream()
+                        .filter(t -> t.getType() == TokenType.EMAIL_VERIFICATION)
+                        .findFirst()
+                        .orElseThrow();
+        assertEquals("hashed-code", verification.getToken());
     }
 
     @Test
@@ -495,7 +508,7 @@ class AuthServiceTest {
     @Test
     void shouldDiscardCodeAfterMaxFailedAttempts() {
         Token resetToken = resetToken(Instant.now().plusSeconds(900));
-        resetToken.setAttempts(AuthService.MAX_RESET_CODE_ATTEMPTS - 1);
+        resetToken.setAttempts(AuthService.MAX_CODE_ATTEMPTS - 1);
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(testUser));
         when(tokenRepository.findByUserAndType(testUser, TokenType.PASSWORD_RESET))
                 .thenReturn(Optional.of(resetToken));
@@ -559,6 +572,91 @@ class AuthServiceTest {
         verify(userRepository, never()).save(any());
     }
 
+    @Test
+    void shouldVerifyEmailWithValidCode() {
+        testUser.setVerified(false);
+        Token token = verificationToken(Instant.now().plusSeconds(900));
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(testUser));
+        when(tokenRepository.findByUserAndType(testUser, TokenType.EMAIL_VERIFICATION))
+                .thenReturn(Optional.of(token));
+        when(passwordEncoder.matches(RESET_CODE, "hashed-code")).thenReturn(true);
+
+        authService.verifyEmailCode(new VerifyEmailRequest(EMAIL, RESET_CODE));
+
+        assertTrue(testUser.isVerified());
+        verify(userRepository).save(testUser);
+        verify(tokenRepository).delete(token);
+    }
+
+    @Test
+    void shouldCountFailedAttemptOnWrongVerificationCode() {
+        testUser.setVerified(false);
+        Token token = verificationToken(Instant.now().plusSeconds(900));
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(testUser));
+        when(tokenRepository.findByUserAndType(testUser, TokenType.EMAIL_VERIFICATION))
+                .thenReturn(Optional.of(token));
+        when(passwordEncoder.matches(RESET_CODE, "hashed-code")).thenReturn(false);
+
+        assertThrows(
+                InvalidResetCodeException.class,
+                () -> authService.verifyEmailCode(new VerifyEmailRequest(EMAIL, RESET_CODE)));
+
+        assertEquals(1, token.getAttempts());
+        assertFalse(testUser.isVerified());
+        verify(tokenRepository).save(token);
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldDiscardVerificationCodeAfterTooManyAttempts() {
+        Token token = verificationToken(Instant.now().plusSeconds(900));
+        token.setAttempts(AuthService.MAX_CODE_ATTEMPTS - 1);
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(testUser));
+        when(tokenRepository.findByUserAndType(testUser, TokenType.EMAIL_VERIFICATION))
+                .thenReturn(Optional.of(token));
+        when(passwordEncoder.matches(RESET_CODE, "hashed-code")).thenReturn(false);
+
+        assertThrows(
+                InvalidResetCodeException.class,
+                () -> authService.verifyEmailCode(new VerifyEmailRequest(EMAIL, RESET_CODE)));
+
+        verify(tokenRepository).delete(token);
+    }
+
+    @Test
+    void shouldRejectExpiredVerificationCode() {
+        Token token = verificationToken(Instant.now().minusSeconds(1));
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(testUser));
+        when(tokenRepository.findByUserAndType(testUser, TokenType.EMAIL_VERIFICATION))
+                .thenReturn(Optional.of(token));
+
+        assertThrows(
+                InvalidResetCodeException.class,
+                () -> authService.verifyEmailCode(new VerifyEmailRequest(EMAIL, RESET_CODE)));
+
+        verify(tokenRepository).delete(token);
+        verify(passwordEncoder, never()).matches(any(), any());
+    }
+
+    @Test
+    void shouldRejectVerificationForUnknownEmail() {
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
+
+        assertThrows(
+                InvalidResetCodeException.class,
+                () -> authService.verifyEmailCode(new VerifyEmailRequest(EMAIL, RESET_CODE)));
+        verifyNoInteractions(tokenRepository);
+    }
+
+    private Token verificationToken(Instant expiryDate) {
+        return Token.builder()
+                .token("hashed-code")
+                .user(testUser)
+                .type(TokenType.EMAIL_VERIFICATION)
+                .expiryDate(expiryDate)
+                .build();
+    }
+
     private Token resetToken(Instant expiryDate) {
         return Token.builder()
                 .token("hashed-code")
@@ -572,6 +670,7 @@ class AuthServiceTest {
     void shouldResendVerificationEmail() {
         ResendVerificationEmailRequest request = new ResendVerificationEmailRequest(EMAIL);
         testUser.setVerified(false);
+        when(passwordEncoder.encode(any(String.class))).thenReturn("hashed-code");
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(testUser));
         when(tokenRepository.save(any(Token.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));

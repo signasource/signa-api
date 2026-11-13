@@ -68,6 +68,8 @@ public class SecurityConfig {
                                         .requestMatchers(
                                                 HttpMethod.GET, "/payments/mercado-pago/return")
                                         .permitAll()
+                                        .requestMatchers(HttpMethod.GET, "/codigo")
+                                        .permitAll()
                                         .requestMatchers("/admin/**")
                                         .hasRole("ADMIN")
                                         .requestMatchers(HttpMethod.POST, "/signs")

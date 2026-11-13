@@ -59,7 +59,8 @@ class EmailServiceTest {
     @Test
     void passwordResetHtmlRendersOneCellPerDigitAndInlineImages() {
         String html =
-                ReflectionTestUtils.invokeMethod(emailService, "buildPasswordResetHtml", "482917");
+                ReflectionTestUtils.invokeMethod(
+                        emailService, "renderCodeTemplate", "email/password-reset.html", "482917");
 
         assertThat(html).isNotNull();
         assertThat(html)
@@ -67,6 +68,27 @@ class EmailServiceTest {
                 .contains("Tu código es 482917")
                 .contains("cid:signa-logo")
                 .contains("cid:lisa")
+                .contains("cid:copy-icon")
+                .contains("href=\"https://example.com/codigo#c=482917\"")
+                .doesNotContain("{{");
+        assertThat(html.split("class=\"sg-digit sg-d", -1)).hasSize(7);
+    }
+
+    @Test
+    void verificationHtmlRendersOneCellPerDigitAndInlineImages() {
+        String html =
+                ReflectionTestUtils.invokeMethod(
+                        emailService, "renderCodeTemplate", "email/verification.html", "482917");
+
+        assertThat(html).isNotNull();
+        assertThat(html)
+                .contains("Código 4 8 2 9 1 7")
+                .contains("Tu código es 482917")
+                .contains("Vence en 24 horas")
+                .contains("cid:signa-logo")
+                .contains("cid:lisa")
+                .contains("cid:copy-icon")
+                .contains("href=\"https://example.com/codigo#c=482917\"")
                 .doesNotContain("{{");
         assertThat(html.split("class=\"sg-digit sg-d", -1)).hasSize(7);
     }
