@@ -52,9 +52,9 @@ public interface UserStatsRepository extends JpaRepository<UserStats, UUID> {
     void resetAllWeeklyXp();
 
     /**
-     * Returns all stats rows where the streak is active but the last activity pre-dates
-     * {@code date}. Used by the nightly scheduler to burn shields or break streaks for users who
-     * missed the previous day.
+     * Returns all stats rows where the streak is active but the last activity pre-dates {@code
+     * date}. Used by the nightly scheduler to burn shields or break streaks for users who missed
+     * the previous day.
      */
     @Query(
             "SELECT us FROM UserStats us WHERE us.currentStreak > 0"

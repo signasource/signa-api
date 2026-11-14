@@ -13,9 +13,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Runs every day at 00:00 ART. For each user whose active streak was not extended yesterday,
- * burns one streak shield (keeping the streak alive) or resets the streak to 0 if no shields
- * remain.
+ * Runs every day at 00:00 ART. For each user whose active streak was not extended yesterday, burns
+ * one streak shield (keeping the streak alive) or resets the streak to 0 if no shields remain.
  */
 @Slf4j
 @Component

@@ -17,6 +17,7 @@ import com.signasource.signa_api.admin.dto.AdminPurchaseResponse;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.learning.entity.Course;
+import com.signasource.signa_api.notification.service.NotificationService;
 import com.signasource.signa_api.organizations.entity.CoursePurchase;
 import com.signasource.signa_api.organizations.entity.Organization;
 import com.signasource.signa_api.organizations.entity.OrganizationCourse;
@@ -29,7 +30,6 @@ import com.signasource.signa_api.organizations.repository.CoursePurchaseReposito
 import com.signasource.signa_api.organizations.repository.OrganizationCourseRepository;
 import com.signasource.signa_api.organizations.repository.PurchaseRefundRepository;
 import com.signasource.signa_api.organizations.repository.PurchaseSeatRepository;
-import com.signasource.signa_api.notification.service.NotificationService;
 import com.signasource.signa_api.organizations.service.PurchasePaymentService.Reversal;
 import com.signasource.signa_api.organizations.service.PurchasePaymentService.Settlement;
 import com.signasource.signa_api.users.entity.User;

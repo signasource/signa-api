@@ -440,6 +440,7 @@ class UserStatsEventListenerTest {
 
         verify(achievementService, never())
                 .awardReached(any(), eq(AchievementCriteriaType.STREAK_DAYS), anyLong(), any());
-        verify(challengeService, never()).record(any(), eq(ChallengeCriteriaType.STREAK_DAYS), anyInt());
+        verify(challengeService, never())
+                .record(any(), eq(ChallengeCriteriaType.STREAK_DAYS), anyInt());
     }
 }
