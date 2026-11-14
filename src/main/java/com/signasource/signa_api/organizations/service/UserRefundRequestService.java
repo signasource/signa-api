@@ -22,7 +22,9 @@ import com.signasource.signa_api.organizations.entity.SeatStatus;
 import com.signasource.signa_api.organizations.repository.CoursePurchaseRepository;
 import com.signasource.signa_api.organizations.repository.RefundRequestRepository;
 import com.signasource.signa_api.users.entity.User;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -32,9 +34,9 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class UserRefundRequestService {
 
-    static final String TYPE_GEMS = "GEMS";
-    static final String TYPE_COURSE = "COURSE";
-    static final String TYPE_SEATS = "SEATS";
+    public static final String TYPE_GEMS = "GEMS";
+    public static final String TYPE_COURSE = "COURSE";
+    public static final String TYPE_SEATS = "SEATS";
 
     private final RefundRequestRepository refundRequestRepository;
     private final GemOrderRepository gemOrderRepository;
@@ -128,6 +130,27 @@ public class UserRefundRequestService {
                 .stream()
                 .map(r -> UserRefundRequestResponse.from(r, null, null, null))
                 .toList();
+    }
+
+    // ── Status map for history endpoints ─────────────────────────────────────
+
+    /**
+     * Returns a map from purchaseId → refund request status name for the given user and purchase
+     * type. PENDING takes precedence over RESOLVED when multiple requests exist for the same
+     * purchase.
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, String> getRefundStatusMap(UUID userId, String purchaseType) {
+        List<RefundRequest> requests =
+                refundRequestRepository.findByRequestedByIdAndPurchaseType(userId, purchaseType);
+        Map<UUID, String> map = new HashMap<>();
+        for (RefundRequest r : requests) {
+            map.merge(
+                    r.getPurchaseId(),
+                    r.getStatus().name(),
+                    (existing, incoming) -> "PENDING".equals(existing) ? existing : incoming);
+        }
+        return map;
     }
 
     // ── Internal helpers ──────────────────────────────────────────────────────

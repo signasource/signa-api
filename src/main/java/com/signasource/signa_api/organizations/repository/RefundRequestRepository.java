@@ -20,4 +20,6 @@ public interface RefundRequestRepository extends JpaRepository<RefundRequest, UU
     List<RefundRequest> findByPurchaseTypeAndPurchaseId(String purchaseType, UUID purchaseId);
 
     List<RefundRequest> findByRequestedByIdOrderByCreatedAtDesc(UUID userId);
+
+    List<RefundRequest> findByRequestedByIdAndPurchaseType(UUID requestedById, String purchaseType);
 }

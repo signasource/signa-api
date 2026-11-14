@@ -13,6 +13,7 @@ import com.signasource.signa_api.organizations.dto.UserRefundRequestResponse;
 import com.signasource.signa_api.organizations.service.UserRefundRequestService;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -49,11 +50,12 @@ public class CourseOrderController {
     @GetMapping("/store/course-orders")
     public ResponseEntity<List<CourseOrderHistoryResponse>> history(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
+        UUID userId = userDetails.getUser().getId();
+        Map<UUID, String> refundStatusMap =
+                refundRequestService.getRefundStatusMap(userId, UserRefundRequestService.TYPE_COURSE);
         List<CourseOrderHistoryResponse> result =
-                courseOrderRepository
-                        .findByUserIdOrderByCreatedAtDesc(userDetails.getUser().getId())
-                        .stream()
-                        .map(CourseOrderHistoryResponse::from)
+                courseOrderRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
+                        .map(o -> CourseOrderHistoryResponse.from(o, refundStatusMap.get(o.getId())))
                         .toList();
         return ResponseEntity.ok(result);
     }

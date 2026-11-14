@@ -16,9 +16,10 @@ public record GemOrderHistoryResponse(
         GemOrderStatus status,
         Instant createdAt,
         Instant paidAt,
-        Instant refundedAt) {
+        Instant refundedAt,
+        String refundRequestStatus) {
 
-    public static GemOrderHistoryResponse from(GemOrder o) {
+    public static GemOrderHistoryResponse from(GemOrder o, String refundRequestStatus) {
         return new GemOrderHistoryResponse(
                 o.getId(),
                 o.getGemPack().getProductId(),
@@ -28,6 +29,7 @@ public record GemOrderHistoryResponse(
                 o.getStatus(),
                 o.getCreatedAt(),
                 o.getPaidAt(),
-                o.getRefundedAt());
+                o.getRefundedAt(),
+                refundRequestStatus);
     }
 }

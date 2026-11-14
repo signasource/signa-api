@@ -16,9 +16,10 @@ public record CourseOrderHistoryResponse(
         CourseOrderStatus status,
         Instant createdAt,
         Instant paidAt,
-        Instant refundedAt) {
+        Instant refundedAt,
+        String refundRequestStatus) {
 
-    public static CourseOrderHistoryResponse from(CourseOrder o) {
+    public static CourseOrderHistoryResponse from(CourseOrder o, String refundRequestStatus) {
         return new CourseOrderHistoryResponse(
                 o.getId(),
                 o.getCourse().getId(),
@@ -28,6 +29,7 @@ public record CourseOrderHistoryResponse(
                 o.getStatus(),
                 o.getCreatedAt(),
                 o.getPaidAt(),
-                o.getRefundedAt());
+                o.getRefundedAt(),
+                refundRequestStatus);
     }
 }

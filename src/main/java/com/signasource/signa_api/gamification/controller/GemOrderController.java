@@ -15,6 +15,7 @@ import com.signasource.signa_api.organizations.dto.UserRefundRequestResponse;
 import com.signasource.signa_api.organizations.service.UserRefundRequestService;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -63,11 +64,12 @@ public class GemOrderController {
     @GetMapping("/store/gem-orders")
     public ResponseEntity<List<GemOrderHistoryResponse>> history(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
+        UUID userId = userDetails.getUser().getId();
+        Map<UUID, String> refundStatusMap =
+                refundRequestService.getRefundStatusMap(userId, UserRefundRequestService.TYPE_GEMS);
         List<GemOrderHistoryResponse> result =
-                gemOrderRepository
-                        .findByUserIdOrderByCreatedAtDesc(userDetails.getUser().getId())
-                        .stream()
-                        .map(GemOrderHistoryResponse::from)
+                gemOrderRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
+                        .map(o -> GemOrderHistoryResponse.from(o, refundStatusMap.get(o.getId())))
                         .toList();
         return ResponseEntity.ok(result);
     }
