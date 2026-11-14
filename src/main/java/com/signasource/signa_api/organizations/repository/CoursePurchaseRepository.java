@@ -14,6 +14,8 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface CoursePurchaseRepository extends JpaRepository<CoursePurchase, UUID> {
 
+    boolean existsByOrganizationId(UUID organizationId);
+
     @EntityGraph(attributePaths = {"course"})
     List<CoursePurchase> findByOrganizationIdOrderByCreatedAtDesc(UUID organizationId);
 

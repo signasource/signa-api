@@ -40,6 +40,9 @@ import com.signasource.signa_api.organizations.entity.MemberRole;
 import com.signasource.signa_api.organizations.entity.MemberStatus;
 import com.signasource.signa_api.organizations.entity.Organization;
 import com.signasource.signa_api.organizations.entity.OrganizationStatus;
+import com.signasource.signa_api.organizations.repository.CoursePurchaseRepository;
+import com.signasource.signa_api.organizations.repository.InviteCodeRepository;
+import com.signasource.signa_api.organizations.repository.OrganizationCourseRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationMemberRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationRepository;
 import com.signasource.signa_api.users.entity.AuthProvider;
@@ -87,6 +90,9 @@ class AdminServiceTest {
     @Mock private UserService userService;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private NotificationService notificationService;
+    @Mock private CoursePurchaseRepository coursePurchaseRepository;
+    @Mock private InviteCodeRepository inviteCodeRepository;
+    @Mock private OrganizationCourseRepository organizationCourseRepository;
 
     @InjectMocks private AdminService adminService;
 
@@ -433,10 +439,87 @@ class AdminServiceTest {
                 .thenReturn(List.of());
 
         UpdateOrganizationStatusRequest req =
-                new UpdateOrganizationStatusRequest(OrganizationStatus.SUSPENDED);
+                new UpdateOrganizationStatusRequest(OrganizationStatus.SUSPENDED, "Pago pendiente");
         adminService.updateOrganizationStatus(orgId, req);
 
         verify(organizationRepository).save(any());
+        assertEquals("Pago pendiente", org.getSuspensionReason());
+    }
+
+    @Test
+    void shouldRequireReasonToSuspend() {
+        org = orgWithStatus(OrganizationStatus.ACTIVE);
+        when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
+
+        assertThrows(
+                InvalidInputException.class,
+                () ->
+                        adminService.updateOrganizationStatus(
+                                orgId,
+                                new UpdateOrganizationStatusRequest(
+                                        OrganizationStatus.SUSPENDED, "  ")));
+        verify(organizationRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldReactivateSuspendedOrganizationAndClearReason() {
+        org = orgWithStatus(OrganizationStatus.SUSPENDED);
+        org.setSuspensionReason("Pago pendiente");
+        when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
+        when(organizationRepository.save(any())).thenReturn(org);
+        when(memberRepository.findByOrganizationIdAndRoleAndStatus(any(), any(), any()))
+                .thenReturn(List.of());
+
+        adminService.updateOrganizationStatus(
+                orgId, new UpdateOrganizationStatusRequest(OrganizationStatus.ACTIVE));
+
+        assertEquals(OrganizationStatus.ACTIVE, org.getStatus());
+        assertNull(org.getSuspensionReason());
+    }
+
+    @Test
+    void shouldDeleteSuspendedOrganization() {
+        org = orgWithStatus(OrganizationStatus.SUSPENDED);
+        when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
+        when(coursePurchaseRepository.existsByOrganizationId(orgId)).thenReturn(false);
+        when(memberRepository.findByOrganizationIdAndRole(orgId, MemberRole.ADMIN))
+                .thenReturn(List.of());
+
+        adminService.deleteOrganization(orgId);
+
+        verify(memberRepository).deleteByOrganizationId(orgId);
+        verify(inviteCodeRepository).deleteByOrganizationId(orgId);
+        verify(organizationCourseRepository).deleteByOrganizationId(orgId);
+        verify(organizationRepository).delete(org);
+    }
+
+    @Test
+    void shouldNotDeleteActiveOrganization() {
+        org = orgWithStatus(OrganizationStatus.ACTIVE);
+        when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
+
+        assertThrows(InvalidInputException.class, () -> adminService.deleteOrganization(orgId));
+        verify(organizationRepository, never()).delete(any());
+    }
+
+    @Test
+    void shouldNotDeleteOrganizationWithPurchases() {
+        org = orgWithStatus(OrganizationStatus.REJECTED);
+        when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
+        when(coursePurchaseRepository.existsByOrganizationId(orgId)).thenReturn(true);
+
+        assertThrows(
+                ResourceAlreadyInUseException.class, () -> adminService.deleteOrganization(orgId));
+        verify(organizationRepository, never()).delete(any());
+    }
+
+    private Organization orgWithStatus(OrganizationStatus status) {
+        return Organization.builder()
+                .id(orgId)
+                .name("Org")
+                .status(status)
+                .createdAt(Instant.now())
+                .build();
     }
 
     private SignReport sampleReport(String meaning, ReportReason reason, ReportStatus status) {
