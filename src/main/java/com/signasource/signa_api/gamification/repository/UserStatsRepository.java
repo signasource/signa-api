@@ -2,6 +2,7 @@ package com.signasource.signa_api.gamification.repository;
 
 import com.signasource.signa_api.gamification.entity.UserStats;
 import com.signasource.signa_api.users.entity.User;
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -49,4 +50,14 @@ public interface UserStatsRepository extends JpaRepository<UserStats, UUID> {
     @Modifying
     @Query("UPDATE UserStats us SET us.weeklyXp = 0")
     void resetAllWeeklyXp();
+
+    /**
+     * Returns all stats rows where the streak is active but the last activity pre-dates
+     * {@code date}. Used by the nightly scheduler to burn shields or break streaks for users who
+     * missed the previous day.
+     */
+    @Query(
+            "SELECT us FROM UserStats us WHERE us.currentStreak > 0"
+                    + " AND us.lastStreakDate IS NOT NULL AND us.lastStreakDate < :date")
+    List<UserStats> findAllWithActiveStreakBefore(@Param("date") LocalDate date);
 }

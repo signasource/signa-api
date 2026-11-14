@@ -56,6 +56,9 @@ public class UserStats {
     /** Streak day for which the app already showed the "streak day added" celebration. */
     @Column private LocalDate streakCelebratedDate;
 
+    /** Last Argentina date on which the user made any authenticated request (app-open proxy). */
+    @Column private LocalDate lastSeenDate;
+
     @Column(nullable = false)
     @Builder.Default
     private long totalXp = 0;

@@ -10,7 +10,6 @@ import com.signasource.signa_api.gamification.entity.UserStats;
 import com.signasource.signa_api.gamification.repository.UserDailyXpRepository;
 import com.signasource.signa_api.gamification.repository.UserLearnedSignRepository;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
-import com.signasource.signa_api.learning.event.LessonCompletedEvent;
 import com.signasource.signa_api.learning.event.LifeLostEvent;
 import com.signasource.signa_api.learning.event.SignsLearnedEvent;
 import com.signasource.signa_api.learning.event.XpEarnedEvent;
@@ -70,6 +69,13 @@ public class UserStatsEventListener {
         achievementService.awardReached(
                 user, AchievementCriteriaType.WEEKLY_XP, stats.getWeeklyXp(), stats);
 
+        if (stats.registerStreakActivity(ArgentinaTime.today())) {
+            achievementService.awardReached(
+                    user, AchievementCriteriaType.STREAK_DAYS, stats.getCurrentStreak(), stats);
+            challengeService.record(
+                    user, ChallengeCriteriaType.STREAK_DAYS, stats.getCurrentStreak());
+        }
+
         userStatsRepository.save(stats);
         metricsService.recordXpEarned(xpToAdd);
 
@@ -91,26 +97,6 @@ public class UserStatsEventListener {
             stats.setUpdatedAt(Instant.now());
             userStatsRepository.save(stats);
             metricsService.recordLifeLost();
-        }
-    }
-
-    @EventListener
-    @Transactional
-    public void handleLessonCompletedEvent(LessonCompletedEvent event) {
-        User user = event.getUser();
-
-        UserStats stats =
-                userStatsRepository
-                        .findByUserId(user.getId())
-                        .orElseGet(() -> UserStats.builder().user(user).build());
-
-        if (stats.registerStreakActivity(ArgentinaTime.today())) {
-            stats.setUpdatedAt(Instant.now());
-            userStatsRepository.save(stats);
-            achievementService.awardReached(
-                    user, AchievementCriteriaType.STREAK_DAYS, stats.getCurrentStreak(), stats);
-            challengeService.record(
-                    user, ChallengeCriteriaType.STREAK_DAYS, stats.getCurrentStreak());
         }
     }
 

@@ -30,16 +30,21 @@ public class UserStatsService {
 
     @Transactional
     public UserStatsResponse getStats(User user) {
+        LocalDate today = ArgentinaTime.today();
         UserStats stats =
                 userStatsRepository
                         .findByUser(user)
                         .orElseGet(
                                 () ->
-                                        userStatsRepository.save(
-                                                UserStats.builder()
-                                                        .user(user)
-                                                        .updatedAt(Instant.now())
-                                                        .build()));
+                                        UserStats.builder()
+                                                .user(user)
+                                                .updatedAt(Instant.now())
+                                                .build());
+        if (!today.equals(stats.getLastSeenDate())) {
+            stats.setLastSeenDate(today);
+            stats.setUpdatedAt(Instant.now());
+            userStatsRepository.save(stats);
+        }
         long ahead =
                 userStatsRepository.countUsersAheadByWeeklyXp(stats.getWeeklyXp(), user.getId());
         return UserStatsResponse.from(stats, (int) ahead + 1);

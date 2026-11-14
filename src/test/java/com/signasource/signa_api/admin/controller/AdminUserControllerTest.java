@@ -45,6 +45,7 @@ class AdminUserControllerTest {
                 "EMAIL",
                 0,
                 null,
+                null,
                 null);
     }
 
@@ -98,6 +99,7 @@ class AdminUserControllerTest {
                         "EMAIL",
                         0,
                         null,
+                        null,
                         null);
         User actor = User.builder().id(UUID.randomUUID()).build();
         when(adminService.updateUser(eq(actor), eq(id), any())).thenReturn(updated);
@@ -137,6 +139,7 @@ class AdminUserControllerTest {
                         null,
                         "EMAIL",
                         0,
+                        null,
                         null,
                         null);
         when(adminService.createAdmin(any())).thenReturn(created);
