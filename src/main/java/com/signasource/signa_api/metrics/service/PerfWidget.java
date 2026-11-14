@@ -9,8 +9,10 @@ import java.util.Locale;
  * Grafana Cloud read cost predictable. {@code %1$s} is replaced with the rate window.
  */
 public enum PerfWidget {
-    BACKEND_UP("up{job=\"signa-api\"}"),
-    R2_UP("signa_r2_up"),
+    // Share of the step the target was up (1 = always), so a short outage between two samples still
+    // shows; the dashboard averages it into an availability percentage over the window.
+    BACKEND_UP("avg_over_time(up{job=\"signa-api\"}[%1$s])"),
+    R2_UP("avg_over_time(signa_r2_up[%1$s])"),
 
     THROUGHPUT("sum(rate(http_server_requests_seconds_count[%1$s]))"),
     ERROR_RATE(
@@ -34,8 +36,10 @@ public enum PerfWidget {
     LATENCY_P99(
             "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket[%1$s])))"),
     SLOWEST_OPS(
-            "topk(10, histogram_quantile(0.95, sum by (le, uri)"
+            "topk(10, histogram_quantile(0.95, sum by (le, method, uri)"
                     + " (rate(http_server_requests_seconds_bucket[%1$s]))))"),
+    // Request rate per endpoint, to show next to each slow operation (how much traffic it carries).
+    ENDPOINT_RATE("sum by (method, uri) (rate(http_server_requests_seconds_count[%1$s]))"),
 
     CPU_HOST("100 * (1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[%1$s])))"),
     MEM_HOST("100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes))"),

@@ -57,7 +57,9 @@ public record GamificationMetricsResponse(
             List<DailyCount> daily,
             List<NameCount> topUnlocked,
             List<NameCount> leastUnlocked,
-            Long previousUnlocked) {}
+            Long previousUnlocked,
+            /** Accounts that can unlock achievements (enabled, non-staff): the rankings' base. */
+            long eligibleUsers) {}
 
     public record ChallengeClaim(
             String type, long completed, long claimed, double claimRatePercent) {}

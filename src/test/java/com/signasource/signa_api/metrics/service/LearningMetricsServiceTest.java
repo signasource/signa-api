@@ -119,6 +119,51 @@ class LearningMetricsServiceTest {
     }
 
     @Test
+    void ranksContentToReviewByAbandonmentWithCourseAccuracyAndPendingReports() {
+        UUID a = UUID.fromString(lessonA);
+        UUID b = UUID.fromString(lessonB);
+        UUID course = UUID.fromString(courseId);
+        when(repository.lessonReviewStats(any()))
+                .thenReturn(
+                        List.<Object[]>of(
+                                // [lessonId, lessonName, courseId, courseName, started, completed]
+                                new Object[] {a, "Fácil", course, "Curso A", 40L, 36L},
+                                new Object[] {b, "Difícil", course, "Curso A", 50L, 26L}));
+        when(repository.pendingReportsBySign())
+                .thenReturn(
+                        List.<Object[]>of(new Object[] {"Gracias", 5L}, new Object[] {"Chau", 2L}));
+        when(repository.blockConfigsOfLessons(any()))
+                .thenReturn(
+                        List.<Object[]>of(
+                                new Object[] {b, "{\"sign\":\"gracias\"}"},
+                                new Object[] {b, "{\"signSequence\":[\"Chau\",\"Hola\"]}"},
+                                new Object[] {a, "{\"word\":\"hola\"}"},
+                                new Object[] {a, "not json"}));
+
+        LearningMetricsResponse r = service.getLearningMetrics(range);
+
+        assertEquals(2, r.lessonsToReview().size());
+        LearningMetricsResponse.LessonReview worst = r.lessonsToReview().get(0);
+        assertEquals("Difícil", worst.lessonName());
+        assertEquals("Curso A", worst.courseName());
+        assertEquals(48.0, worst.abandonmentPercent()); // 26 of 50 completed
+        assertEquals(50L, worst.evaluated());
+        assertEquals(50.0, worst.accuracyPercent());
+        assertEquals(7L, worst.pendingReports()); // gracias (5) + chau (2), case-insensitive
+        assertEquals(0L, r.lessonsToReview().get(1).pendingReports());
+        assertEquals("Gracias", r.reports().mostReportedPending().get(0).meaning());
+    }
+
+    @Test
+    void contentToReviewIsEmptyWithoutEnoughAttempts() {
+        when(repository.lessonAccuracy(any(), any(), anyLong())).thenReturn(List.of());
+
+        LearningMetricsResponse r = service.getLearningMetrics(range);
+
+        assertEquals(0, r.lessonsToReview().size());
+    }
+
+    @Test
     void surfacesVocabularyAndImports() {
         LearningMetricsResponse r = service.getLearningMetrics(range);
 

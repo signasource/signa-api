@@ -38,7 +38,12 @@ public record LearningMetricsResponse(
         /** Daily accuracy (correct / evaluated) over the window — the correct-answer evolution. */
         List<DailyAccuracy> dailyAccuracy,
         /** Signs ranked by error rate (highest first) across SELECT_MEANING/SELECT_SIGN blocks. */
-        List<SignDifficulty> hardestSigns) {
+        List<SignDifficulty> hardestSigns,
+        /**
+         * "Contenido a revisar": lessons with enough attempts in the window, ranked by abandonment
+         * (worst first), with their course, accuracy and pending sign reports.
+         */
+        List<LessonReview> lessonsToReview) {
 
     public record CountItem(String key, long count) {}
 
@@ -61,8 +66,15 @@ public record LearningMetricsResponse(
 
     public record MeaningCount(String meaning, long count) {}
 
+    /**
+     * Sign-report resolution: resolved count and average time to resolve, the most reported signs
+     * over all reports, and the signs with the most <em>pending</em> (unresolved) reports.
+     */
     public record ReportsSection(
-            long resolvedCount, double averageResolutionHours, List<MeaningCount> mostReported) {}
+            long resolvedCount,
+            double averageResolutionHours,
+            List<MeaningCount> mostReported,
+            List<MeaningCount> mostReportedPending) {}
 
     /**
      * Lessons started vs. completed in the window, with the immediately preceding equal-length
@@ -114,4 +126,22 @@ public record LearningMetricsResponse(
             long correct,
             double errorPercent,
             double averageAttempts) {}
+
+    /**
+     * One lesson in the "Contenido a revisar" table. {@code abandonmentPercent} is measured as of
+     * the window's close (started but never completed); {@code evaluated}/{@code accuracyPercent}
+     * are the lesson's exercise attempts inside the window; {@code pendingReports} counts the
+     * unresolved reports on signs the lesson uses.
+     */
+    public record LessonReview(
+            String lessonId,
+            String lessonName,
+            String courseId,
+            String courseName,
+            long started,
+            long completed,
+            double abandonmentPercent,
+            long evaluated,
+            double accuracyPercent,
+            long pendingReports) {}
 }

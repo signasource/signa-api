@@ -193,6 +193,48 @@ class LearningMetricsRepositoryTest {
     }
 
     @Test
+    void readsContentToReviewInputs() {
+        lessonProgressRepository.save(
+                UserLessonProgress.builder()
+                        .user(user)
+                        .lesson(lesson)
+                        .status(ProgressStatus.COMPLETED)
+                        .startedAt(Instant.now())
+                        .completedAt(Instant.now())
+                        .xpEarned(10)
+                        .build());
+        Sign sign =
+                signRepository.save(
+                        Sign.builder()
+                                .meaning("gracias-" + UUID.randomUUID())
+                                .handedness(Handedness.ONE_HANDED)
+                                .signLanguage(language)
+                                .build());
+        SignReport pending = new SignReport();
+        pending.setSign(sign);
+        pending.setUser(user);
+        pending.setReason(ReportReason.WRONG_MEANING);
+        pending.setStatus(ReportStatus.PENDING);
+        pending.setCreatedAt(LocalDateTime.now());
+        signReportRepository.save(pending);
+
+        var stats = repository.lessonReviewStats(until);
+        assertEquals(1, stats.size());
+        assertEquals("Curso aprendizaje", stats.get(0)[3]);
+        assertEquals(1L, ((Number) stats.get(0)[4]).longValue());
+        assertEquals(1L, ((Number) stats.get(0)[5]).longValue());
+        assertEquals(
+                1,
+                repository
+                        .lessonReviewStatsByCourse(
+                                until, java.util.List.of(version.getCourse().getId()))
+                        .size());
+        assertEquals(1, repository.blockConfigsOfLessons(java.util.List.of(lesson.getId())).size());
+        assertEquals(1, repository.pendingReportsBySign().size());
+        assertEquals(sign.getMeaning(), repository.pendingReportsBySign().get(0)[0]);
+    }
+
+    @Test
     void groupsImportsByStatus() {
         importRunRepository.save(
                 ContentImportRun.builder()

@@ -50,6 +50,13 @@ public interface GamificationMetricsRepository extends Repository<UserDailyXp, U
                     + "WHERE a.occurredAt >= :from AND a.occurredAt < :until")
     long countActiveUsersBetween(@Param("from") Instant from, @Param("until") Instant until);
 
+    /** XP each user earned between the two days (inclusive), one row per user who earned any. */
+    @Query(
+            "SELECT SUM(x.xpEarned) FROM UserDailyXp x "
+                    + "WHERE x.xpDate >= :fromDate AND x.xpDate <= :toDate GROUP BY x.user.id")
+    List<Long> xpEarnedPerUserBetween(
+            @Param("fromDate") LocalDate fromDate, @Param("toDate") LocalDate toDate);
+
     @Query("SELECT COUNT(s) FROM UserStats s " + "WHERE s.totalXp >= :lo AND s.totalXp <= :hi")
     long countStatsXpBetween(@Param("lo") long lo, @Param("hi") long hi);
 
