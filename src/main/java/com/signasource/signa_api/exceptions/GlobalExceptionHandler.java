@@ -124,7 +124,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ErrorResponse> handleBadCredentials(AuthenticationException ex) {
-        log.error("Authentication error", ex);
+        log.warn("Authentication failed: {}", ex.getMessage());
         metricsService.recordHttpError("AuthenticationException", 401);
         return ResponseEntity.status(401).body(ErrorResponse.of("Invalid credentials", 401));
     }
