@@ -29,6 +29,7 @@ import com.signasource.signa_api.organizations.repository.CoursePurchaseReposito
 import com.signasource.signa_api.organizations.repository.OrganizationCourseRepository;
 import com.signasource.signa_api.organizations.repository.PurchaseRefundRepository;
 import com.signasource.signa_api.organizations.repository.PurchaseSeatRepository;
+import com.signasource.signa_api.notification.service.NotificationService;
 import com.signasource.signa_api.organizations.service.PurchasePaymentService.Reversal;
 import com.signasource.signa_api.organizations.service.PurchasePaymentService.Settlement;
 import com.signasource.signa_api.users.entity.User;
@@ -55,6 +56,7 @@ class PurchasePaymentServiceTest {
     @Mock private SeatInvitationService invitationService;
     @Mock private CoursePurchaseService purchaseService;
     @Mock private PurchaseRevocationService revocationService;
+    @Mock private NotificationService notificationService;
 
     private PurchasePaymentService service;
     private CoursePurchase purchase;
@@ -73,7 +75,8 @@ class PurchasePaymentServiceTest {
                         invitationService,
                         purchaseService,
                         revocationService,
-                        policy);
+                        policy,
+                        notificationService);
         organization = Organization.builder().id(UUID.randomUUID()).name("Hospital").build();
         course = Course.builder().id(UUID.randomUUID()).name("LSA Salud").build();
         purchase =

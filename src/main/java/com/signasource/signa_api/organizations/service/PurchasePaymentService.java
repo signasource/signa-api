@@ -2,8 +2,11 @@ package com.signasource.signa_api.organizations.service;
 
 import com.signasource.signa_api.admin.dto.AdminPurchaseResponse;
 import com.signasource.signa_api.admin.dto.ConfirmPaymentRequest;
+import com.signasource.signa_api.common.AfterCommit;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
+import com.signasource.signa_api.notification.entity.NotificationCode;
+import com.signasource.signa_api.notification.service.NotificationService;
 import com.signasource.signa_api.organizations.dto.PurchaseDetailResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseResponse;
 import com.signasource.signa_api.organizations.entity.CoursePurchase;
@@ -22,9 +25,11 @@ import com.signasource.signa_api.users.entity.User;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +39,7 @@ import org.springframework.transaction.annotation.Transactional;
  * purchase row, so the webhook, the panel and the back-office never act on it at the same time.
  * Calls to Mercado Pago happen outside these transactions ({@link MercadoPagoCheckoutService}).
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PurchasePaymentService {
@@ -48,6 +54,7 @@ public class PurchasePaymentService {
     private final CoursePurchaseService purchaseService;
     private final PurchaseRevocationService revocationService;
     private final PurchasePolicy policy;
+    private final NotificationService notificationService;
 
     @Transactional
     public PurchaseDetailResponse confirmPayment(UUID purchaseId, String paymentReference) {
@@ -95,6 +102,7 @@ public class PurchasePaymentService {
         purchase.setConfirmedByName(adminName);
         purchase.setConfirmedAt(Instant.now());
         confirm(purchase, ref);
+        sendPurchaseConfirmedNotification(purchase);
         return purchaseService.describe(purchase);
     }
 
@@ -305,6 +313,29 @@ public class PurchasePaymentService {
         return reference != null && reference.startsWith(MERCADO_PAGO_REFERENCE_PREFIX)
                 ? reference.substring(MERCADO_PAGO_REFERENCE_PREFIX.length())
                 : null;
+    }
+
+    private void sendPurchaseConfirmedNotification(CoursePurchase purchase) {
+        User buyer = purchase.getCreatedBy();
+        if (buyer == null) {
+            return;
+        }
+        UUID buyerId = buyer.getId();
+        String product = purchase.getCourse().getName();
+        AfterCommit.run(
+                () -> {
+                    try {
+                        notificationService.notifyUser(
+                                buyerId,
+                                NotificationCode.PURCHASE_CONFIRMED,
+                                Map.of("product", product));
+                    } catch (Exception e) {
+                        log.warn(
+                                "Could not send purchase confirmation notification to {}: {}",
+                                buyerId,
+                                e.getMessage());
+                    }
+                });
     }
 
     private void confirm(CoursePurchase purchase, String paymentReference) {

@@ -13,5 +13,8 @@ public enum NotificationCode {
     FRIEND_EVENT_LIKED,
 
     // Content moderation
-    SIGN_REPORT_RESOLVED
+    SIGN_REPORT_RESOLVED,
+
+    // Purchases
+    PURCHASE_CONFIRMED
 }
