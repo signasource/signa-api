@@ -32,6 +32,9 @@ import com.signasource.signa_api.organizations.entity.MemberStatus;
 import com.signasource.signa_api.organizations.entity.Organization;
 import com.signasource.signa_api.organizations.entity.OrganizationMember;
 import com.signasource.signa_api.organizations.entity.OrganizationStatus;
+import com.signasource.signa_api.organizations.repository.CoursePurchaseRepository;
+import com.signasource.signa_api.organizations.repository.InviteCodeRepository;
+import com.signasource.signa_api.organizations.repository.OrganizationCourseRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationMemberRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationRepository;
 import com.signasource.signa_api.users.entity.AuthProvider;
@@ -80,6 +83,9 @@ public class AdminService {
     private final UserStatsRepository userStatsRepository;
     private final TokenRepository tokenRepository;
     private final UserService userService;
+    private final CoursePurchaseRepository coursePurchaseRepository;
+    private final InviteCodeRepository inviteCodeRepository;
+    private final OrganizationCourseRepository organizationCourseRepository;
     private final PasswordEncoder passwordEncoder;
     private final NotificationService notificationService;
 
@@ -169,13 +175,25 @@ public class AdminService {
         Organization org = findOrg(id);
         OrganizationStatus newStatus = request.status();
 
+        OrganizationStatus current = org.getStatus();
+
         if (newStatus == OrganizationStatus.ACTIVE
-                && org.getStatus() == OrganizationStatus.PENDING) {
+                && (current == OrganizationStatus.PENDING
+                        || current == OrganizationStatus.SUSPENDED)) {
             org.setStatus(OrganizationStatus.ACTIVE);
+            org.setSuspensionReason(null);
             organizationRepository.save(org);
-        } else if (newStatus == OrganizationStatus.REJECTED
-                || newStatus == OrganizationStatus.SUSPENDED) {
-            org.setStatus(newStatus);
+        } else if (newStatus == OrganizationStatus.SUSPENDED) {
+            String reason = request.reason() == null ? "" : request.reason().trim();
+            if (reason.isEmpty()) {
+                throw new InvalidInputException("A reason is required to suspend an organization");
+            }
+            org.setStatus(OrganizationStatus.SUSPENDED);
+            org.setSuspensionReason(reason);
+            organizationRepository.save(org);
+        } else if (newStatus == OrganizationStatus.REJECTED) {
+            org.setStatus(OrganizationStatus.REJECTED);
+            org.setSuspensionReason(null);
             organizationRepository.save(org);
         } else {
             throw new InvalidInputException(
@@ -183,6 +201,38 @@ public class AdminService {
         }
 
         return getOrganization(id);
+    }
+
+    /**
+     * Removes a rejected or suspended organization for good so its emails can register again. The
+     * panel-admin accounts are erased (as in a self-service account deletion), participants stay as
+     * regular users without the organization's courses. Organizations with purchases are refused:
+     * those are financial records that must keep their organization.
+     */
+    @Transactional
+    public void deleteOrganization(UUID id) {
+        Organization org = findOrg(id);
+        if (org.getStatus() != OrganizationStatus.REJECTED
+                && org.getStatus() != OrganizationStatus.SUSPENDED) {
+            throw new InvalidInputException(
+                    "Only rejected or suspended organizations can be removed");
+        }
+        if (coursePurchaseRepository.existsByOrganizationId(id)) {
+            throw new ResourceAlreadyInUseException(
+                    "The organization has purchases on record and cannot be removed");
+        }
+
+        List<User> admins =
+                memberRepository.findByOrganizationIdAndRole(id, MemberRole.ADMIN).stream()
+                        .map(OrganizationMember::getUser)
+                        .toList();
+
+        organizationRepository.detachFromLearning(id);
+        memberRepository.deleteByOrganizationId(id);
+        inviteCodeRepository.deleteByOrganizationId(id);
+        organizationCourseRepository.deleteByOrganizationId(id);
+        admins.forEach(userService::deleteAccount);
+        organizationRepository.delete(org);
     }
 
     // ── Sign Reports ─────────────────────────────────────────────────────────

@@ -483,6 +483,7 @@ erDiagram
         string cuit UK "11 dígitos, nulo si la creó SIGNA"
         string contactEmail
         string contactPhone
+        string suspensionReason "motivo de la suspensión; nulo si no está SUSPENDED"
         instant createdAt
     }
     ORGANIZATION_MEMBER {

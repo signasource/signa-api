@@ -15,7 +15,8 @@ public record AdminOrganizationResponse(
         Instant createdAt,
         int activeMembers,
         String adminName,
-        String adminEmail) {
+        String adminEmail,
+        String suspensionReason) {
 
     public static AdminOrganizationResponse from(
             Organization org, int activeMembers, String adminName, String adminEmail) {
@@ -29,6 +30,7 @@ public record AdminOrganizationResponse(
                 org.getCreatedAt(),
                 activeMembers,
                 adminName,
-                adminEmail);
+                adminEmail,
+                org.getSuspensionReason());
     }
 }

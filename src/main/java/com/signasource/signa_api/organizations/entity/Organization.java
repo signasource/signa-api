@@ -45,6 +45,10 @@ public class Organization {
     @Column(length = 50)
     private String contactPhone;
 
+    /** Why the organization was suspended; null unless the status is SUSPENDED. */
+    @Column(length = 500)
+    private String suspensionReason;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 

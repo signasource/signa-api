@@ -52,10 +52,14 @@ public class CourseOrderController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         UUID userId = userDetails.getUser().getId();
         Map<UUID, String> refundStatusMap =
-                refundRequestService.getRefundStatusMap(userId, UserRefundRequestService.TYPE_COURSE);
+                refundRequestService.getRefundStatusMap(
+                        userId, UserRefundRequestService.TYPE_COURSE);
         List<CourseOrderHistoryResponse> result =
                 courseOrderRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
-                        .map(o -> CourseOrderHistoryResponse.from(o, refundStatusMap.get(o.getId())))
+                        .map(
+                                o ->
+                                        CourseOrderHistoryResponse.from(
+                                                o, refundStatusMap.get(o.getId())))
                         .toList();
         return ResponseEntity.ok(result);
     }

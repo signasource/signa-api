@@ -39,7 +39,8 @@ class AdminOrganizationControllerTest {
                 Instant.now(),
                 0,
                 "Admin User",
-                "admin@test.com");
+                "admin@test.com",
+                null);
     }
 
     @Test

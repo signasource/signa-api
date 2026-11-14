@@ -79,7 +79,7 @@ public class SignMediaStorage {
         }
         Path target = localPath(key);
         try {
-            Files.createDirectories(target.getParent());
+            createParentDirectories(target);
             Files.write(target, bytes);
         } catch (IOException e) {
             throw new UncheckedIOException("Could not write " + target, e);
@@ -114,7 +114,7 @@ public class SignMediaStorage {
         }
         Path target = localPath(to);
         try {
-            Files.createDirectories(target.getParent());
+            createParentDirectories(target);
             Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
             return true;
         } catch (IOException e) {
@@ -233,5 +233,12 @@ public class SignMediaStorage {
 
     private static boolean notBlank(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private static void createParentDirectories(Path target) throws IOException {
+        Path parent = target.getParent();
+        if (parent != null) {
+            Files.createDirectories(parent);
+        }
     }
 }
