@@ -117,6 +117,9 @@ public class SecurityConfig {
                                         .permitAll()
                                         .requestMatchers(HttpMethod.GET, "/signs/*/animation")
                                         .permitAll()
+                                        // Locally stored sign animations (no R2 credentials).
+                                        .requestMatchers(HttpMethod.GET, "/media/**")
+                                        .permitAll()
                                         .anyRequest()
                                         .authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)

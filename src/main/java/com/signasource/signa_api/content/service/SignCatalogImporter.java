@@ -53,11 +53,22 @@ public class SignCatalogImporter {
                         .findByMeaningIgnoreCase(meaning)
                         .ifPresentOrElse(
                                 existing -> {
-                                    // Sync if casing drifted between YAML versions (e.g. "a" → "A")
-                                    if (!existing.getMeaning().equals(meaning)
-                                            || !expectedKey.equals(existing.getAnimationUrl())) {
+                                    // Sync if casing drifted between YAML versions (e.g. "a" →
+                                    // "A").
+                                    // The key is only re-derived while it is still the generated
+                                    // default (or missing): an animation uploaded from the admin
+                                    // panel (e.g. lsa/hola.mp4) must survive every import.
+                                    String key = existing.getAnimationUrl();
+                                    boolean defaultKey =
+                                            key == null
+                                                    || key.isBlank()
+                                                    || key.equalsIgnoreCase(expectedKey);
+                                    boolean keyDrift = defaultKey && !expectedKey.equals(key);
+                                    if (!existing.getMeaning().equals(meaning) || keyDrift) {
                                         existing.setMeaning(meaning);
-                                        existing.setAnimationUrl(expectedKey);
+                                        if (keyDrift) {
+                                            existing.setAnimationUrl(expectedKey);
+                                        }
                                         signRepository.save(existing);
                                     }
                                 },

@@ -12,6 +12,12 @@ spring:
       # Flyway owns the schema; Hibernate only validates its mappings against it.
       ddl-auto: validate
 
+  servlet:
+    multipart:
+      # Sign animations uploaded from the admin panel (.glb / .mp4). See AdminSignService.
+      max-file-size: 50MB
+      max-request-size: 51MB
+
   flyway:
     enabled: true
     # Existing databases (prod) are stamped at V1 without running the baseline;
@@ -102,6 +108,13 @@ r2:
   secret-access-key: ${R2_SECRET_ACCESS_KEY:}
   bucket: ${R2_BUCKET_NAME:signa-animations}
   presign-expiry-minutes: ${R2_PRESIGN_EXPIRY_MINUTES:15}
+
+sign-media:
+  # Public origin of the R2 bucket above; media URLs handed to clients are <this>/<object key>.
+  public-base-url: ${SIGN_MEDIA_PUBLIC_BASE_URL:https://pub-f40a1de4d1fc46b0b6f07299847c66e0.r2.dev}
+  # Without R2 credentials (local/demo) uploads go to this directory and the API serves them at
+  # /media/**. Ignored when R2 is configured.
+  local-dir: ${SIGN_MEDIA_LOCAL_DIR:build/sign-media}
 
 organizations:
   # Price per seat = (base-price-per-seat + price-per-sign x signs) x (days / reference-days)^duration-exponent,

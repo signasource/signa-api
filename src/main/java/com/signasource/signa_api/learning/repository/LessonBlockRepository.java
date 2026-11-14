@@ -1,7 +1,9 @@
 package com.signasource.signa_api.learning.repository;
 
+import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.entity.LessonBlock;
 import com.signasource.signa_api.learning.repository.projection.LessonBlockAggregateView;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -45,4 +47,13 @@ public interface LessonBlockRepository extends JpaRepository<LessonBlock, UUID> 
                     + "AND b.type = com.signasource.signa_api.learning.entity.BlockType.INTRODUCE_SIGN "
                     + "ORDER BY t.order, l.order, b.order")
     List<LessonBlock> findIntroducedSigns(@Param("versionId") UUID versionId);
+
+    /**
+     * Every block of the given types with its lesson, topic, version and course, for sign usage.
+     */
+    @Query(
+            "SELECT b FROM LessonBlock b JOIN FETCH b.lesson l JOIN FETCH l.topic t "
+                    + "JOIN FETCH t.courseVersion v JOIN FETCH v.course "
+                    + "WHERE b.type IN :types")
+    List<LessonBlock> findWithCourseByTypeIn(@Param("types") Collection<BlockType> types);
 }

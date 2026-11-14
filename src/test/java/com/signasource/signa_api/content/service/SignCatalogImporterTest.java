@@ -184,4 +184,41 @@ class SignCatalogImporterTest {
 
         verify(signRepository, never()).saveAll(any());
     }
+
+    @Test
+    void shouldKeepAnAnimationUploadedFromThePanel() {
+        LessonBlockDto block = block(1);
+        LoadedCourse course = course(LSA, block);
+        Sign existing =
+                Sign.builder()
+                        .id(UUID.randomUUID())
+                        .meaning("hola")
+                        .animationUrl("lsa/hola.mp4")
+                        .signLanguage(lsa)
+                        .build();
+        when(signLanguageRepository.findByCode(LSA)).thenReturn(Optional.of(lsa));
+        when(extractor.extract(block)).thenReturn(List.of("hola"));
+        when(signRepository.findByMeaningIgnoreCase("hola")).thenReturn(Optional.of(existing));
+
+        importer.importSigns(List.of(course));
+
+        assertEquals("lsa/hola.mp4", existing.getAnimationUrl());
+        verify(signRepository, org.mockito.Mockito.never()).save(existing);
+    }
+
+    @Test
+    void shouldFillAMissingAnimationKey() {
+        LessonBlockDto block = block(1);
+        LoadedCourse course = course(LSA, block);
+        Sign existing =
+                Sign.builder().id(UUID.randomUUID()).meaning("hola").signLanguage(lsa).build();
+        when(signLanguageRepository.findByCode(LSA)).thenReturn(Optional.of(lsa));
+        when(extractor.extract(block)).thenReturn(List.of("hola"));
+        when(signRepository.findByMeaningIgnoreCase("hola")).thenReturn(Optional.of(existing));
+
+        importer.importSigns(List.of(course));
+
+        assertEquals("lsa/hola.glb", existing.getAnimationUrl());
+        verify(signRepository).save(existing);
+    }
 }
