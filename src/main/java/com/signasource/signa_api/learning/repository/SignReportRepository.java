@@ -23,6 +23,8 @@ public interface SignReportRepository
 
     long countByStatus(ReportStatus status);
 
+    boolean existsBySignId(UUID signId);
+
     @Query("SELECT DISTINCT r.sign.id FROM SignReport r WHERE r.status IN :statuses")
     List<UUID> findDistinctSignIdsByStatusIn(@Param("statuses") List<ReportStatus> statuses);
 }

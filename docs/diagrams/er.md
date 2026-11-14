@@ -78,6 +78,10 @@ Catálogo de señas por lengua y sus reportes. `SIGN_REPORT.user_id` referencia 
 [Usuarios](#usuarios)). `SIGN.animationUrl` guarda el identificador del objeto de animación en el
 almacenamiento (no una URL pública): la URL de descarga se firma bajo demanda y expira a los pocos
 minutos (ver [Obtención de la animación de una seña](sequence.md#obtencion-de-la-animacion-de-una-sena)).
+La extensión del key dice el formato (`.glb` avatar 3D o `.mp4` video). `SIGN.lateral_animation_url` es el video lateral de una seña en `.mp4` (null en las `.glb`). `SIGN.animation_updated_at` es la
+última subida desde el panel de admins (null = archivo original del import) y sirve de cache-buster en
+`POST /signs/media`. Los bloques y `USER_LEARNED_SIGN` referencian la seña por su `meaning` (texto), por
+eso renombrarla desde el panel reescribe esas filas.
 
 ```mermaid
 erDiagram
@@ -95,6 +99,9 @@ erDiagram
         string meaning UK
         enum handedness
         string animationUrl
+        string lateralAnimationUrl
+        timestamptz animation_updated_at
+        string youtubeUrl
         uuid sign_language_id FK
     }
     SIGN_REPORT {

@@ -45,14 +45,22 @@ public class ContentImportService {
         }
 
         List<ContentImportOutcome> outcomes = new ArrayList<>();
+        List<LoadedCourse> changed = new ArrayList<>();
         for (LoadedCourse course : loaded) {
             ImportResult result = persister.importCourse(course);
             outcomes.add(
                     new ContentImportOutcome(
                             course.signLanguageCode(), course.course().course().code(), result));
+            if (result != ImportResult.UNCHANGED) {
+                changed.add(course);
+            }
         }
 
-        signCatalogImporter.importSigns(loaded);
+        // Only courses whose YAML changed feed the sign catalog. An unchanged course's signs were
+        // created when it was first imported, and since then the catalog may have been edited from
+        // the admin panel: re-reading the YAML would resurrect a sign renamed there (the YAML still
+        // has the old meaning) as an orphan duplicate.
+        signCatalogImporter.importSigns(changed);
 
         return outcomes;
     }

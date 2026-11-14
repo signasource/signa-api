@@ -13,7 +13,7 @@ import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 @Configuration
-@EnableConfigurationProperties(R2Properties.class)
+@EnableConfigurationProperties({R2Properties.class, SignMediaProperties.class})
 public class R2Config {
 
     @Bean

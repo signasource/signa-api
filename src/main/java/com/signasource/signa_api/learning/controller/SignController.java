@@ -3,9 +3,12 @@ package com.signasource.signa_api.learning.controller;
 import com.signasource.signa_api.learning.dto.CreateSignRequest;
 import com.signasource.signa_api.learning.dto.SignAnimationResponse;
 import com.signasource.signa_api.learning.dto.SignAnimationsRequest;
+import com.signasource.signa_api.learning.dto.SignMediaRequest;
+import com.signasource.signa_api.learning.dto.SignMediaResponse;
 import com.signasource.signa_api.learning.dto.SignSummaryResponse;
 import com.signasource.signa_api.learning.service.SignService;
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.NonNull;
@@ -59,5 +62,15 @@ public class SignController {
     public ResponseEntity<Map<String, String>> getSignAnimations(
             @Valid @RequestBody SignAnimationsRequest request) {
         return ResponseEntity.ok(signService.getSignAnimations(request.meanings()));
+    }
+
+    /**
+     * Where to load each sign's animation from (.glb avatar or .mp4 video), as uploaded from the
+     * admin panel. Used by the app instead of deriving the .glb URL from the meaning.
+     */
+    @PostMapping("/media")
+    public ResponseEntity<List<SignMediaResponse>> getSignMedia(
+            @Valid @RequestBody SignMediaRequest request) {
+        return ResponseEntity.ok(signService.getSignMedia(request.meanings()));
     }
 }

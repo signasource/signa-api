@@ -12,6 +12,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
@@ -50,6 +51,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleResourceAlreadyInUse(
             ResourceAlreadyInUseException ex) {
         return ResponseEntity.status(409).body(ErrorResponse.of(ex.getMessage(), 409));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleMaxUploadSize(MaxUploadSizeExceededException ex) {
+        return ResponseEntity.status(413)
+                .body(ErrorResponse.of("The uploaded file is too large", 413));
     }
 
     @ExceptionHandler(PaymentProviderException.class)

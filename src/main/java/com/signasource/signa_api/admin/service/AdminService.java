@@ -2,9 +2,7 @@ package com.signasource.signa_api.admin.service;
 
 import com.signasource.signa_api.admin.dto.AdminCourseResponse;
 import com.signasource.signa_api.admin.dto.AdminOrganizationResponse;
-import com.signasource.signa_api.admin.dto.AdminSignDetailResponse;
 import com.signasource.signa_api.admin.dto.AdminSignReportResponse;
-import com.signasource.signa_api.admin.dto.AdminSignResponse;
 import com.signasource.signa_api.admin.dto.AdminStatsResponse;
 import com.signasource.signa_api.admin.dto.AdminUserResponse;
 import com.signasource.signa_api.admin.dto.AdminWaitlistEntryResponse;
@@ -58,7 +56,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -459,60 +456,6 @@ public class AdminService {
         return courseRepository.findAll().stream()
                 .map(course -> AdminCourseResponse.from(course, 0))
                 .toList();
-    }
-
-    @Transactional(readOnly = true)
-    public Page<AdminSignResponse> getSigns(String query, Pageable pageable) {
-        List<ReportStatus> openStatuses = List.of(ReportStatus.PENDING, ReportStatus.REVIEWED);
-        org.springframework.data.domain.Page<Sign> page;
-        if (query != null && !query.isBlank()) {
-            page = signRepository.findByMeaningContainingIgnoreCase(query, pageable);
-        } else {
-            page = signRepository.findAll(pageable);
-        }
-        List<AdminSignResponse> content =
-                page.getContent().stream()
-                        .map(
-                                s -> {
-                                    long openReports =
-                                            signReportRepository.countBySignIdAndStatusIn(
-                                                    s.getId(), openStatuses);
-                                    return AdminSignResponse.from(s, openReports, 0);
-                                })
-                        .toList();
-        return new PageImpl<>(content, pageable, page.getTotalElements());
-    }
-
-    private static final Pattern YOUTUBE_URL_PATTERN =
-            Pattern.compile("^https?://(www\\.|m\\.)?(youtube\\.com|youtu\\.be)/.+");
-
-    @Transactional(readOnly = true)
-    public AdminSignDetailResponse getSign(UUID id) {
-        Sign sign =
-                signRepository
-                        .findById(id)
-                        .orElseThrow(() -> new NotFoundException("Sign not found: " + id));
-        return AdminSignDetailResponse.from(sign, countOpenReports(id));
-    }
-
-    @Transactional
-    public AdminSignDetailResponse updateSign(UUID id, String youtubeUrl) {
-        Sign sign =
-                signRepository
-                        .findById(id)
-                        .orElseThrow(() -> new NotFoundException("Sign not found: " + id));
-        String normalized = (youtubeUrl == null || youtubeUrl.isBlank()) ? null : youtubeUrl.trim();
-        if (normalized != null && !YOUTUBE_URL_PATTERN.matcher(normalized).matches()) {
-            throw new InvalidInputException("Invalid YouTube URL: " + normalized);
-        }
-        sign.setYoutubeUrl(normalized);
-        signRepository.save(sign);
-        return AdminSignDetailResponse.from(sign, countOpenReports(id));
-    }
-
-    private long countOpenReports(UUID signId) {
-        return signReportRepository.countBySignIdAndStatusIn(
-                signId, List.of(ReportStatus.PENDING, ReportStatus.REVIEWED));
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

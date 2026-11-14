@@ -1,8 +1,15 @@
 package com.signasource.signa_api.admin.dto;
 
 import com.signasource.signa_api.learning.entity.Sign;
+import com.signasource.signa_api.learning.service.SignMediaStorage;
+import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * Row of the admin sign catalog.
+ *
+ * @param lessonCount distinct lessons in draft or published course versions that reference the sign
+ */
 public record AdminSignResponse(
         UUID id,
         String meaning,
@@ -11,22 +18,20 @@ public record AdminSignResponse(
         boolean hasYoutube,
         long openReports,
         long lessonCount,
-        String animationFormat) {
+        String animationFormat,
+        Instant animationUpdatedAt) {
 
     public static AdminSignResponse from(Sign sign, long openReports, long lessonCount) {
-        String fmt = null;
-        String url = sign.getAnimationUrl();
-        if (url != null && !url.isBlank()) {
-            fmt = url.toLowerCase().endsWith(".mp4") ? "mp4" : "glb";
-        }
+        String format = SignMediaStorage.formatOf(sign.getAnimationUrl());
         return new AdminSignResponse(
                 sign.getId(),
                 sign.getMeaning(),
                 sign.getHandedness().name(),
-                url != null && !url.isBlank(),
+                format != null,
                 sign.getYoutubeUrl() != null && !sign.getYoutubeUrl().isBlank(),
                 openReports,
                 lessonCount,
-                fmt);
+                format,
+                sign.getAnimationUpdatedAt());
     }
 }

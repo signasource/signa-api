@@ -66,7 +66,8 @@ class ContentImportServiceTest {
                         new ContentImportOutcome("LSA", "course-b", ImportResult.UNCHANGED));
         verify(validator).validate(first);
         verify(validator).validate(second);
-        verify(signCatalogImporter).importSigns(List.of(first, second));
+        // course-b is unchanged: its signs may have been edited from the admin panel since.
+        verify(signCatalogImporter).importSigns(List.of(first));
     }
 
     @Test

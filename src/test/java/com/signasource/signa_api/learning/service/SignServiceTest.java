@@ -39,6 +39,8 @@ class SignServiceTest {
 
     @Mock private SignAnimationService signAnimationService;
 
+    @Mock private SignMediaStorage signMediaStorage;
+
     private R2Properties r2Properties;
     private SignService signService;
 
@@ -72,7 +74,11 @@ class SignServiceTest {
         r2Properties = new R2Properties(null, null, null, "signa-animations", 15);
         signService =
                 new SignService(
-                        signRepository, signLanguageRepository, signAnimationService, r2Properties);
+                        signRepository,
+                        signLanguageRepository,
+                        signAnimationService,
+                        r2Properties,
+                        signMediaStorage);
     }
 
     @Test
@@ -230,5 +236,41 @@ class SignServiceTest {
         assertEquals(1, response.size());
         assertEquals("https://r2.example/hola", response.get("Hola"));
         verify(signAnimationService).presignedGetUrl("lsa/hola.glb");
+    }
+
+    @Test
+    void shouldResolveSignMediaCaseInsensitivelyEchoingTheRequestedMeaning() {
+        Sign video =
+                Sign.builder()
+                        .id(UUID.randomUUID())
+                        .meaning("Hola")
+                        .animationUrl("lsa/Hola.mp4")
+                        .animationUpdatedAt(java.time.Instant.ofEpochSecond(7))
+                        .signLanguage(signLanguage)
+                        .build();
+        Sign withoutAnimation =
+                Sign.builder()
+                        .id(UUID.randomUUID())
+                        .meaning("chau")
+                        .signLanguage(signLanguage)
+                        .build();
+        when(signRepository.findByLowerMeaningIn(any()))
+                .thenReturn(List.of(video, withoutAnimation));
+        when(signMediaStorage.publicUrl("lsa/Hola.mp4", java.time.Instant.ofEpochSecond(7)))
+                .thenReturn("https://cdn/lsa/Hola.mp4?v=7");
+
+        List<com.signasource.signa_api.learning.dto.SignMediaResponse> media =
+                signService.getSignMedia(List.of("hola", "chau", "nada", " "));
+
+        assertEquals(1, media.size());
+        assertEquals("hola", media.get(0).meaning());
+        assertEquals("mp4", media.get(0).format());
+        assertEquals("https://cdn/lsa/Hola.mp4?v=7", media.get(0).url());
+        assertNull(media.get(0).lateralUrl());
+    }
+
+    @Test
+    void shouldReturnNoMediaForBlankMeanings() {
+        assertTrue(signService.getSignMedia(List.of(" ")).isEmpty());
     }
 }
