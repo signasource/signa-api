@@ -34,6 +34,7 @@ import com.signasource.signa_api.learning.repository.SignReportRepository;
 import com.signasource.signa_api.learning.repository.SignRepository;
 import com.signasource.signa_api.learning.service.SignMediaStorage;
 import com.signasource.signa_api.learning.util.SignReferences;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -53,9 +54,12 @@ import org.springframework.mock.web.MockMultipartFile;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class AdminSignServiceTest {
 
-    private static final byte[] GLB = "glTF\u0002\0\0\0\0\0\0\0data".getBytes();
-    private static final byte[] MP4 = "\0\0\0\u0018ftypisom\0\0\0\0data".getBytes();
-    private static final byte[] MOV = "\0\0\0\u0014ftypqt  \0\0\0\0data".getBytes();
+    private static final byte[] GLB =
+            "glTF\u0002\0\0\0\0\0\0\0data".getBytes(StandardCharsets.ISO_8859_1);
+    private static final byte[] MP4 =
+            "\0\0\0\u0018ftypisom\0\0\0\0data".getBytes(StandardCharsets.ISO_8859_1);
+    private static final byte[] MOV =
+            "\0\0\0\u0014ftypqt  \0\0\0\0data".getBytes(StandardCharsets.ISO_8859_1);
 
     @Mock private SignRepository signRepository;
     @Mock private SignLanguageRepository signLanguageRepository;
@@ -294,7 +298,8 @@ class AdminSignServiceTest {
                                         "file",
                                         "a.png",
                                         null,
-                                        "\u0089PNG\r\n\u001a\n0000".getBytes()),
+                                        "\u0089PNG\r\n\u001a\n0000"
+                                                .getBytes(StandardCharsets.ISO_8859_1)),
                                 AdminSignService.View.FRONT));
     }
 

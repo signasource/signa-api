@@ -29,4 +29,10 @@
         <Bug pattern="URF_UNREAD_FIELD"/>
     </Match>
 
+    <!-- isAvailable is deliberately tri-state: null means "could not tell" -->
+    <Match>
+        <Class name="com.signasource.signa_api.learning.service.SignMediaStorage"/>
+        <Bug pattern="NP_BOOLEAN_RETURN_NULL"/>
+    </Match>
+
 </FindBugsFilter>
