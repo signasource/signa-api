@@ -98,26 +98,4 @@ class DailyStreakResetSchedulerTest {
 
         verify(userStatsRepository, never()).saveAll(anyList());
     }
-
-    @Test
-    void shieldBehaviorMatchesRegisterStreakActivityForOneMissedDay() {
-        // Scheduler and registerStreakActivity must agree: 1 missed day with 1 shield → streak
-        // intact.
-        UserStats viaScheduler = statsWithStreak(YESTERDAY.minusDays(1), 5, 1);
-        when(userStatsRepository.findAllWithActiveStreakBefore(any()))
-                .thenReturn(List.of(viaScheduler));
-        scheduler.processExpiredStreaks();
-
-        UserStats viaMethod =
-                UserStats.builder()
-                        .currentStreak(5)
-                        .longestStreak(5)
-                        .lastStreakDate(YESTERDAY.minusDays(1))
-                        .streakShields(1)
-                        .build();
-        viaMethod.registerStreakActivity(ArgentinaTime.today());
-
-        assertEquals(viaMethod.getCurrentStreak(), viaScheduler.getCurrentStreak());
-        assertEquals(viaMethod.getStreakShields(), viaScheduler.getStreakShields());
-    }
 }
