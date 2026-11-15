@@ -33,6 +33,11 @@ server {
     add_header X-Frame-Options DENY always;
     add_header X-Content-Type-Options nosniff always;
 
+    # nginx defaults to 1 MB and answers 413 itself (without CORS headers, so the browser only
+    # sees a network error). Sign .mp4 uploads from the admin panel are bigger than that; keep
+    # this just above spring.servlet.multipart.max-file-size (50MB) so Spring owns the real limit.
+    client_max_body_size 55m;
+
     # Only Alloy scrapes metrics, over the internal Docker network (signa-api:8080). Nothing on
     # the public internet needs the Prometheus endpoint, so don't expose internal metrics there.
     location = /actuator/prometheus {
