@@ -50,15 +50,21 @@ public class UserStatsService {
         return UserStatsResponse.from(stats, (int) ahead + 1);
     }
 
-    /** Today's streak day, if it has not been celebrated yet (see {@link UserStats}). */
+    /** Pending streak notifications: today's new streak day and/or a shield used overnight. */
     @Transactional(readOnly = true)
     public StreakDayResponse getStreakDay(User user) {
         LocalDate today = ArgentinaTime.today();
         return userStatsRepository
                 .findByUser(user)
-                .filter(stats -> stats.isStreakDayPending(today))
-                .map(stats -> new StreakDayResponse(true, stats.getCurrentStreak()))
-                .orElseGet(() -> new StreakDayResponse(false, 0));
+                .map(
+                        stats -> {
+                            boolean dayPending = stats.isStreakDayPending(today);
+                            boolean shieldPending = stats.isStreakShieldPending();
+                            int streak =
+                                    (dayPending || shieldPending) ? stats.getCurrentStreak() : 0;
+                            return new StreakDayResponse(dayPending, streak, shieldPending);
+                        })
+                .orElseGet(() -> new StreakDayResponse(false, 0, false));
     }
 
     /** Idempotent: marking an already-seen (or non-pending) streak day does nothing. */
@@ -68,6 +74,20 @@ public class UserStatsService {
         userStatsRepository
                 .findByUser(user)
                 .filter(stats -> stats.markStreakDaySeen(today))
+                .ifPresent(userStatsRepository::save);
+    }
+
+    /** Idempotent: clears the shield-used notification set by the nightly scheduler. */
+    @Transactional
+    public void markStreakShieldSeen(User user) {
+        userStatsRepository
+                .findByUser(user)
+                .filter(
+                        stats -> {
+                            if (!stats.isStreakShieldPending()) return false;
+                            stats.setStreakShieldPending(false);
+                            return true;
+                        })
                 .ifPresent(userStatsRepository::save);
     }
 

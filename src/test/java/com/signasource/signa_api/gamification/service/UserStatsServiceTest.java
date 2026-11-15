@@ -173,6 +173,7 @@ class UserStatsServiceTest {
 
         assertTrue(result.pending());
         assertEquals(1, result.currentStreak());
+        assertFalse(result.shieldPending());
     }
 
     @Test
@@ -189,6 +190,41 @@ class UserStatsServiceTest {
         StreakDayResponse none = userStatsService.getStreakDay(user);
         assertFalse(none.pending());
         assertEquals(0, none.currentStreak());
+        assertFalse(none.shieldPending());
+    }
+
+    @Test
+    void shieldPendingReturnsStreakCountAndClearsOnMarkSeen() {
+        UserStats stats =
+                UserStats.builder().user(user).currentStreak(5).streakShieldPending(true).build();
+        when(userStatsRepository.findByUser(user)).thenReturn(Optional.of(stats));
+
+        StreakDayResponse result = userStatsService.getStreakDay(user);
+
+        assertFalse(result.pending());
+        assertTrue(result.shieldPending());
+        assertEquals(5, result.currentStreak());
+    }
+
+    @Test
+    void markStreakShieldSeenClearsFlagAndSaves() {
+        UserStats stats = UserStats.builder().user(user).streakShieldPending(true).build();
+        when(userStatsRepository.findByUser(user)).thenReturn(Optional.of(stats));
+
+        userStatsService.markStreakShieldSeen(user);
+
+        assertFalse(stats.isStreakShieldPending());
+        verify(userStatsRepository).save(stats);
+    }
+
+    @Test
+    void markStreakShieldSeenDoesNotSaveWhenNotPending() {
+        UserStats stats = UserStats.builder().user(user).build();
+        when(userStatsRepository.findByUser(user)).thenReturn(Optional.of(stats));
+
+        userStatsService.markStreakShieldSeen(user);
+
+        verify(userStatsRepository, never()).save(any());
     }
 
     @Test

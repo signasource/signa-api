@@ -420,7 +420,7 @@ class UserControllerTest {
 
     @Test
     void shouldReturnStreakDay() {
-        StreakDayResponse expected = new StreakDayResponse(true, 4);
+        StreakDayResponse expected = new StreakDayResponse(true, 4, false);
         when(userStatsService.getStreakDay(user)).thenReturn(expected);
 
         ResponseEntity<StreakDayResponse> response = userController.getStreakDay(userDetails);
@@ -434,6 +434,14 @@ class UserControllerTest {
         ResponseEntity<Void> response = userController.markStreakDaySeen(userDetails);
 
         verify(userStatsService).markStreakDaySeen(user);
+        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+    }
+
+    @Test
+    void shouldMarkStreakShieldSeen() {
+        ResponseEntity<Void> response = userController.markStreakShieldSeen(userDetails);
+
+        verify(userStatsService).markStreakShieldSeen(user);
         assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
     }
 

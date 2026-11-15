@@ -31,9 +31,11 @@ public class DailyStreakResetScheduler {
         log.info("Daily streak reset: {} users missed yesterday ({})", at_risk.size(), yesterday);
 
         for (UserStats stats : at_risk) {
-            if (stats.getStreakShields() > 0) {
-                stats.setStreakShields(stats.getStreakShields() - 1);
+            long missedDays = ChronoUnit.DAYS.between(stats.getLastStreakDate(), yesterday);
+            if (stats.getStreakShields() >= missedDays) {
+                stats.setStreakShields(stats.getStreakShields() - (int) missedDays);
                 stats.setLastStreakDate(yesterday);
+                stats.setStreakShieldPending(true);
             } else {
                 stats.setCurrentStreak(0);
             }

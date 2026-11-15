@@ -210,6 +210,13 @@ public class UserController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/me/streak-shield/seen")
+    public ResponseEntity<Void> markStreakShieldSeen(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        userStatsService.markStreakShieldSeen(userDetails.getUser());
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/me/activity")
     public ResponseEntity<Void> recordActivity(
             @AuthenticationPrincipal CustomUserDetails userDetails,

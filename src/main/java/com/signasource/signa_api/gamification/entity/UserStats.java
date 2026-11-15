@@ -108,6 +108,14 @@ public class UserStats {
     /** Rank at the end of the previous weekly cycle. Null until the first reset runs. */
     @Column private Integer previousWeeklyRank;
 
+    /**
+     * Set by the nightly scheduler when it burns a shield to keep the streak alive. Cleared once
+     * the app acknowledges it.
+     */
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean streakShieldPending = false;
+
     public double getEffectiveXpMultiplier() {
         if (xpMultiplierExpiresAt != null && xpMultiplierExpiresAt.isAfter(Instant.now())) {
             return xpMultiplier;
@@ -181,6 +189,11 @@ public class UserStats {
         longestStreak = Math.max(longestStreak, currentStreak);
         lastStreakDate = today;
         return true;
+    }
+
+    /** Whether the nightly scheduler used a shield since the app last acknowledged it. */
+    public boolean isStreakShieldPending() {
+        return streakShieldPending;
     }
 
     /**
