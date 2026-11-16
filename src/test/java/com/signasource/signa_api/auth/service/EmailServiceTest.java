@@ -112,6 +112,50 @@ class EmailServiceTest {
     }
 
     @Test
+    void seatInvitationHtmlFillsPlaceholdersEscapesAndUsesInlineImages() {
+        String html =
+                ReflectionTestUtils.invokeMethod(
+                        emailService,
+                        "buildSeatInvitationHtml",
+                        TO_EMAIL,
+                        "Hospital <San Martin>",
+                        "LSA Salud",
+                        "https://panel.example.com/invitacion?token=tok",
+                        "26 de noviembre",
+                        30,
+                        false);
+
+        assertThat(html).isNotNull();
+        assertThat(html)
+                .contains("Hospital &lt;San Martin&gt; te invitó a&nbsp;Signa")
+                .contains("LSA Salud")
+                .contains("30 días desde que aceptes")
+                .contains("Aceptala antes del 26 de noviembre")
+                .contains("href=\"https://panel.example.com/invitacion?token=tok\"")
+                .contains(TO_EMAIL)
+                .contains("cid:signa-logo")
+                .contains("cid:lisa")
+                .doesNotContain("{{");
+    }
+
+    @Test
+    void seatInvitationReminderHtmlChangesHeadline() {
+        String html =
+                ReflectionTestUtils.invokeMethod(
+                        emailService,
+                        "buildSeatInvitationHtml",
+                        TO_EMAIL,
+                        "Hospital",
+                        "LSA Salud",
+                        "https://panel.example.com/invitacion?token=tok",
+                        "26 de noviembre",
+                        30,
+                        true);
+
+        assertThat(html).contains("Tu invitación a Signa vence pronto").doesNotContain("{{");
+    }
+
+    @Test
     void testSendSeatAccessEndedEmail() {
         emailService.sendSeatAccessEndedEmail(TO_EMAIL, "Hospital <San Martin>", "LSA Salud", true);
         emailService.sendSeatAccessEndedEmail(

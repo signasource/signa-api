@@ -9,6 +9,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -29,8 +30,13 @@ public class EmailService {
     private static final String SEAT_INVITATION_PATH = "/invitacion";
     private static final String PURCHASE_PATH = "/dashboard/purchases/";
     private static final DateTimeFormatter DEADLINE_FORMAT =
-            DateTimeFormatter.ofPattern("dd/MM/yyyy")
+            DateTimeFormatter.ofPattern("d 'de' MMMM", Locale.forLanguageTag("es-AR"))
                     .withZone(ZoneId.of("America/Argentina/Buenos_Aires"));
+    private static final String SEAT_INVITATION_TEMPLATE = "email/seat-invitation.html";
+    private static final Map<String, String> SEAT_INVITATION_IMAGES =
+            Map.of(
+                    "signa-logo", "email/signa-logo.png",
+                    "lisa", "email/lisa-waving.png");
 
     // Public page that copies the code to the clipboard (see CopyCodeController).
     private static final String COPY_CODE_PATH = "/codigo";
@@ -96,12 +102,14 @@ public class EmailService {
                         ? "Recordatorio: tu invitación a SIGNA vence pronto"
                         : "Te invitaron a SIGNA",
                 buildSeatInvitationHtml(
+                        to,
                         organizationName,
                         courseName,
                         link,
                         DEADLINE_FORMAT.format(deadline),
                         durationDays,
-                        reminder));
+                        reminder),
+                SEAT_INVITATION_IMAGES);
     }
 
     @Async
@@ -217,40 +225,41 @@ public class EmailService {
     }
 
     private String buildSeatInvitationHtml(
+            String to,
             String organizationName,
             String courseName,
             String link,
             String deadline,
             int durationDays,
             boolean reminder) {
-        String intro =
+        String org = HtmlUtils.htmlEscape(organizationName);
+        String headline =
+                reminder ? "Tu invitación a Signa vence pronto" : org + " te invitó a&nbsp;Signa";
+        String lead =
                 reminder
-                        ? "Todavía no aceptaste la invitación de %s al curso <b>%s</b> de SIGNA."
-                        : "%s te invitó al curso <b>%s</b> de SIGNA para aprender Lengua de Señas Argentina.";
-        return """
-				<div style="font-family: Arial;">
-				    <h2>¡Hola!</h2>
-				    <p>%s</p>
-				    <p>Tenés %d días de acceso desde que aceptás. La invitación vence el %s.</p>
-				    <p>Creá tu cuenta o iniciá sesión con este mismo email y aceptá la invitación:</p>
-				    <a href="%s" style="
-				        background-color:#4CAF50;
-				        color:white;
-				        padding:10px 20px;
-				        text-decoration:none;
-				        border-radius:5px;">
-				        Aceptar invitación
-				    </a>
-				    <p style="color:#666; font-size:12px;">La invitación es personal: solo funciona con la cuenta de este email.</p>
-				</div>
-				"""
-                .formatted(
-                        intro.formatted(
-                                HtmlUtils.htmlEscape(organizationName),
-                                HtmlUtils.htmlEscape(courseName)),
-                        durationDays,
-                        deadline,
-                        link);
+                        ? "Todavía no aceptaste tu lugar para aprender Lengua de Señas Argentina."
+                                + " Ya está pago: solo tenés que aceptarlo."
+                        : "Te reservaron un lugar para aprender Lengua de Señas Argentina."
+                                + " Ya está pago: solo tenés que aceptarlo.";
+        String preheader =
+                reminder
+                        ? "Tu invitación a Signa vence el " + deadline + "."
+                        : org
+                                + " te regala "
+                                + durationDays
+                                + " días de Lengua de Señas Argentina. Aceptá antes del "
+                                + deadline
+                                + ".";
+        return loadTemplate(SEAT_INVITATION_TEMPLATE)
+                .replace("{{PREHEADER}}", preheader)
+                .replace("{{HEADLINE}}", headline)
+                .replace("{{LEAD}}", lead)
+                .replace("{{COURSE_NAME}}", HtmlUtils.htmlEscape(courseName))
+                .replace("{{DURATION_DAYS}}", String.valueOf(durationDays))
+                .replace("{{DEADLINE}}", HtmlUtils.htmlEscape(deadline))
+                .replace("{{INVITED_EMAIL}}", HtmlUtils.htmlEscape(to))
+                .replace("{{LINK}}", HtmlUtils.htmlEscape(link))
+                .replace("{{ORG_NAME}}", org);
     }
 
     private String buildSeatAccessEndedHtml(
