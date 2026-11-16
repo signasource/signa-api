@@ -40,7 +40,8 @@ class AuthControllerTest {
 
     @Test
     void testRegister() {
-        AuthResponse authResponse = new AuthResponse("test-jwt-token", "test-refresh-token", "USER");
+        AuthResponse authResponse =
+                new AuthResponse("test-jwt-token", "test-refresh-token", "USER");
         when(authService.register(any(RegisterRequest.class))).thenReturn(authResponse);
 
         ResponseEntity<AuthResponse> response = authController.register(registerRequest);
@@ -53,7 +54,8 @@ class AuthControllerTest {
 
     @Test
     void testLogin() {
-        AuthResponse authResponse = new AuthResponse("test-jwt-token", "test-refresh-token", "USER");
+        AuthResponse authResponse =
+                new AuthResponse("test-jwt-token", "test-refresh-token", "USER");
         when(authService.login(any(LoginRequest.class))).thenReturn(authResponse);
 
         ResponseEntity<AuthResponse> response = authController.login(loginRequest);
@@ -67,7 +69,8 @@ class AuthControllerTest {
     @Test
     void testRefresh() {
         RefreshTokenRequest refreshTokenRequest = new RefreshTokenRequest("valid-refresh-token");
-        AuthResponse authResponse = new AuthResponse("new-access-token", "new-refresh-token", "USER");
+        AuthResponse authResponse =
+                new AuthResponse("new-access-token", "new-refresh-token", "USER");
         when(authService.refreshToken(any(RefreshTokenRequest.class))).thenReturn(authResponse);
 
         ResponseEntity<AuthResponse> response = authController.refresh(refreshTokenRequest);
