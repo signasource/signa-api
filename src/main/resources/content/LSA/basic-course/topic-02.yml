@@ -22,23 +22,23 @@ lessons:
 
       - type: INTRODUCE_SIGN
         config:
-          meaning: mama
+          meaning: "mamá"
 
       - type: PERFORM_SIGN
         xp: 15
         config:
           signs:
-            - mama
+            - "mamá"
 
       - type: INTRODUCE_SIGN
         config:
-          meaning: papa
+          meaning: "papá"
 
       - type: PERFORM_SIGN
         xp: 15
         config:
           signs:
-            - papa
+            - "papá"
 
       - type: INTRODUCE_SIGN
         config:
@@ -73,20 +73,20 @@ lessons:
       - type: SELECT_MEANING
         xp: 5
         config:
-          sign: mama
+          sign: "mamá"
           options:
-            - mama
-            - papa
+            - "mamá"
+            - "papá"
             - hermano
             - familia
 
       - type: SELECT_SIGN
         xp: 5
         config:
-          word: papa
+          word: "papá"
           options:
-            - mama
-            - papa
+            - "mamá"
+            - "papá"
             - abuelo
             - familia
 
@@ -96,7 +96,7 @@ lessons:
           question: "¿Cómo llamás al padre de tu papá?"
           answer: abuelo
           options:
-            - papa
+            - "papá"
             - hermano
             - hijo
             - abuelo
@@ -118,8 +118,8 @@ lessons:
           answer: familia
           options:
             - familia
-            - mama
-            - papa
+            - "mamá"
+            - "papá"
             - hermano
 
       - type: MATCH
@@ -127,8 +127,8 @@ lessons:
         config:
           concepts:
             - familia
-            - mama
-            - papa
+            - "mamá"
+            - "papá"
             - hermano
             - hijo
 
@@ -136,14 +136,14 @@ lessons:
         xp: 15
         config:
           sign_sequence:
-            - mama
+            - "mamá"
             - hijo
             - abuelo
-            - papa
+            - "papá"
           options:
             - familia
-            - mama
-            - papa
+            - "mamá"
+            - "papá"
             - hermano
             - hijo
             - abuelo

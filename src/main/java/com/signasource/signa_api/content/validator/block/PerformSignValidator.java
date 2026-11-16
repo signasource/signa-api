@@ -37,8 +37,8 @@ public class PerformSignValidator implements BlockValidator {
                     "de nada",
                     // unidad 2 – personas
                     "familia",
-                    "mama",
-                    "papa",
+                    "mamá",
+                    "papá",
                     "hermano",
                     "hijo",
                     "abuelo",
