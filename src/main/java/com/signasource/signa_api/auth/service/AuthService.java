@@ -310,7 +310,7 @@ public class AuthService {
         Token refreshToken =
                 createToken(user, TokenType.REFRESH, Duration.ofMillis(refreshTokenExpiration));
 
-        return new AuthResponse(accessToken, refreshToken.getToken());
+        return new AuthResponse(accessToken, refreshToken.getToken(), user.getRole().name());
     }
 
     private static UserSettings newSettings(User user, Integer dailyGoalMinutes) {

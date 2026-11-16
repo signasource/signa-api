@@ -39,7 +39,7 @@ public class RankingService {
     public WeeklyRankingResponse getGlobalRanking(User currentUser) {
         List<UserStats> top =
                 userStatsRepository.findTopByWeeklyXpDesc(PageRequest.of(0, GLOBAL_LIMIT));
-        int total = (int) userStatsRepository.count();
+        int total = (int) userStatsRepository.countUsersWithUserRole();
 
         UserStats myStats = userStatsRepository.findByUser(currentUser).orElse(null);
         int myXp = myStats != null ? myStats.getWeeklyXp() : 0;

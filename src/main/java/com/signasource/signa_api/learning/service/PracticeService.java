@@ -24,6 +24,7 @@ import com.signasource.signa_api.learning.repository.UserCourseEnrollmentReposit
 import com.signasource.signa_api.learning.repository.UserLessonProgressRepository;
 import com.signasource.signa_api.learning.util.BlockSignExtractor;
 import com.signasource.signa_api.users.entity.User;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -154,6 +155,38 @@ public class PracticeService {
         if (isCorrect && ChallengeService.isCameraBlock(block.getType())) {
             challengeService.record(user, ChallengeCriteriaType.CAMERA_PRACTICES, 1);
         }
+    }
+
+    private static final int PRACTICE_XP_REWARD = 10;
+    private static final Duration PRACTICE_COOLDOWN = Duration.ofMinutes(30);
+
+    /**
+     * Grants {@link #PRACTICE_XP_REWARD} for completing any free-practice session, with a 30-min
+     * cooldown so the reward can't be farmed by repeating short sessions back-to-back.
+     *
+     * @return the XP awarded, 0 when the cooldown has not elapsed yet
+     */
+    @Transactional
+    public int completePracticeSession(User user) {
+        UserStats stats =
+                userStatsRepository
+                        .findByUser(user)
+                        .orElseGet(
+                                () ->
+                                        UserStats.builder()
+                                                .user(user)
+                                                .updatedAt(Instant.now())
+                                                .build());
+
+        if (stats.getLastPracticeAt() != null
+                && stats.getLastPracticeAt().isAfter(Instant.now().minus(PRACTICE_COOLDOWN))) {
+            return 0;
+        }
+
+        stats.setLastPracticeAt(Instant.now());
+        userStatsRepository.save(stats);
+        eventPublisher.publishEvent(new XpEarnedEvent(this, user, PRACTICE_XP_REWARD));
+        return PRACTICE_XP_REWARD;
     }
 
     /**

@@ -104,7 +104,7 @@ class UserControllerTest {
     @Test
     void shouldChangePassword() {
         ChangePasswordRequest request = new ChangePasswordRequest(CURRENT_PASSWORD, NEW_PASSWORD);
-        AuthResponse expected = new AuthResponse(ACCESS_TOKEN, REFRESH_TOKEN);
+        AuthResponse expected = new AuthResponse(ACCESS_TOKEN, REFRESH_TOKEN, "USER");
         when(authService.changePassword(request)).thenReturn(expected);
 
         ResponseEntity<AuthResponse> response = userController.changePassword(request);

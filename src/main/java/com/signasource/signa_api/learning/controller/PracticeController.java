@@ -98,4 +98,12 @@ public class PracticeController {
         int xpEarned = practiceService.completeMistakeReview(userDetails.getUser());
         return ResponseEntity.ok(new PracticeMistakeReviewCompletedResponse(xpEarned));
     }
+
+    /** Grants a small XP bonus for completing any free-practice session (30-min cooldown). */
+    @PostMapping("/complete")
+    public ResponseEntity<PracticeMistakeReviewCompletedResponse> completePracticeSession(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        int xpEarned = practiceService.completePracticeSession(userDetails.getUser());
+        return ResponseEntity.ok(new PracticeMistakeReviewCompletedResponse(xpEarned));
+    }
 }

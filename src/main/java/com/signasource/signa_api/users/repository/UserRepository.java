@@ -41,9 +41,10 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     boolean existsByUsername(String username);
 
-    /** Case-insensitive contains match. Exact username hits sort first. */
+    /** Case-insensitive contains match. Exact username hits sort first. Only USER-role accounts. */
     @Query(
             "SELECT u FROM User u WHERE u.id <> :excludeId AND u.enabled = true "
+                    + "AND u.role = com.signasource.signa_api.users.entity.Role.USER "
                     + "AND (LOWER(u.username) LIKE LOWER(CONCAT('%', :query, '%')) "
                     + "OR LOWER(u.name) LIKE LOWER(CONCAT('%', :query, '%'))) "
                     + "ORDER BY CASE WHEN LOWER(u.username) = LOWER(:query) THEN 0 ELSE 1 END, u.username ASC")

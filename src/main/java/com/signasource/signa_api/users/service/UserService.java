@@ -108,6 +108,9 @@ public class UserService {
         user.setName(DELETED_ACCOUNT_NAME);
         user.setLastName(DELETED_ACCOUNT_LAST_NAME);
         user.setPasswordHash("!" + UUID.randomUUID());
+        // Clearing googleSub allows the same Google account to be used for a new registration.
+        user.setGoogleSub(null);
+        user.getProviders().clear();
         user.setAccountVisibility(AccountVisibility.PRIVATE);
         user.setCurrentCourse(null);
         user.setAvatar(null);

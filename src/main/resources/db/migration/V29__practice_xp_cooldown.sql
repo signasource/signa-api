@@ -1,0 +1,1 @@
+ALTER TABLE user_stats ADD COLUMN last_practice_at TIMESTAMP WITH TIME ZONE;
