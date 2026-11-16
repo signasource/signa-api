@@ -30,4 +30,6 @@ public interface LessonBlockAttemptRepository extends JpaRepository<LessonBlockA
     boolean existsByUserIdAndLessonBlockLessonIdAndIsCorrectFalse(UUID userId, UUID lessonId);
 
     List<LessonBlockAttempt> findByUserIdOrderByAttemptedAtDesc(UUID userId);
+
+    long countByUserIdAndIsCorrectTrue(UUID userId);
 }

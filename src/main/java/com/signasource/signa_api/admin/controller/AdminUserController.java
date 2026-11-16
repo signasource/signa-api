@@ -1,5 +1,6 @@
 package com.signasource.signa_api.admin.controller;
 
+import com.signasource.signa_api.admin.dto.AdminUserDetailResponse;
 import com.signasource.signa_api.admin.dto.AdminUserResponse;
 import com.signasource.signa_api.admin.dto.CreateAdminRequest;
 import com.signasource.signa_api.admin.dto.UpdateAdminRequest;
@@ -45,6 +46,11 @@ public class AdminUserController {
     @GetMapping("/users/{id}")
     public ResponseEntity<AdminUserResponse> getUser(@PathVariable UUID id) {
         return ResponseEntity.ok(adminService.getUser(id));
+    }
+
+    @GetMapping("/users/{id}/detail")
+    public ResponseEntity<AdminUserDetailResponse> getUserDetail(@PathVariable UUID id) {
+        return ResponseEntity.ok(adminService.getUserDetail(id));
     }
 
     @PatchMapping("/users/{id}")

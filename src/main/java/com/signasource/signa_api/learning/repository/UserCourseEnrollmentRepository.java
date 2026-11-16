@@ -33,4 +33,6 @@ public interface UserCourseEnrollmentRepository extends JpaRepository<UserCourse
     @EntityGraph(attributePaths = {"user", "courseVersion", "courseVersion.course"})
     List<UserCourseEnrollment> findByOrganizationIdAndCourseVersionCourseId(
             UUID organizationId, UUID courseId);
+
+    long countByCourseVersionIdAndStatusNot(UUID courseVersionId, EnrollmentStatus status);
 }

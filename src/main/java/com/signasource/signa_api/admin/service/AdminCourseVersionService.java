@@ -11,6 +11,7 @@ import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.entity.Course;
 import com.signasource.signa_api.learning.entity.CourseVersion;
+import com.signasource.signa_api.learning.entity.EnrollmentStatus;
 import com.signasource.signa_api.learning.entity.Lesson;
 import com.signasource.signa_api.learning.entity.LessonBlock;
 import com.signasource.signa_api.learning.entity.SignLanguage;
@@ -19,6 +20,7 @@ import com.signasource.signa_api.learning.entity.VersionStatus;
 import com.signasource.signa_api.learning.repository.CourseRepository;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.learning.repository.SignLanguageRepository;
+import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.repository.UserRepository;
 import java.time.Instant;
@@ -43,6 +45,7 @@ public class AdminCourseVersionService {
     private final CourseVersionRepository courseVersionRepository;
     private final SignLanguageRepository signLanguageRepository;
     private final UserRepository userRepository;
+    private final UserCourseEnrollmentRepository enrollmentRepository;
     private final ObjectMapper objectMapper;
 
     @Transactional(readOnly = true)
@@ -61,7 +64,15 @@ public class AdminCourseVersionService {
                         .collect(Collectors.toMap(User::getEmail, u -> u));
 
         return versions.stream()
-                .map(v -> AdminCourseVersionListItemResponse.from(v, byEmail.get(v.getUpdatedBy())))
+                .map(
+                        v -> {
+                            int count =
+                                    (int)
+                                            enrollmentRepository.countByCourseVersionIdAndStatusNot(
+                                                    v.getId(), EnrollmentStatus.DROPPED);
+                            return AdminCourseVersionListItemResponse.from(
+                                    v, byEmail.get(v.getUpdatedBy()), count);
+                        })
                 .toList();
     }
 

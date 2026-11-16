@@ -25,9 +25,11 @@ public record AdminCourseVersionListItemResponse(
         String updatedBy,
         String updatedByName,
         String updatedByAvatar,
-        String color) {
+        String color,
+        int enrollmentCount) {
 
-    public static AdminCourseVersionListItemResponse from(CourseVersion v, User editor) {
+    public static AdminCourseVersionListItemResponse from(
+            CourseVersion v, User editor, int enrollmentCount) {
         int units = v.getTopics().size();
         int lessons = v.getTopics().stream().mapToInt(t -> t.getLessons().size()).sum();
         int blocks =
@@ -62,6 +64,7 @@ public record AdminCourseVersionListItemResponse(
                 v.getUpdatedBy(),
                 name,
                 editor != null ? editor.getAvatar() : null,
-                v.getColor());
+                v.getColor(),
+                enrollmentCount);
     }
 }

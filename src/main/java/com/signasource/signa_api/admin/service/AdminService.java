@@ -4,6 +4,10 @@ import com.signasource.signa_api.admin.dto.AdminCourseResponse;
 import com.signasource.signa_api.admin.dto.AdminOrganizationResponse;
 import com.signasource.signa_api.admin.dto.AdminSignReportResponse;
 import com.signasource.signa_api.admin.dto.AdminStatsResponse;
+import com.signasource.signa_api.admin.dto.AdminUserDetailResponse;
+import com.signasource.signa_api.admin.dto.AdminUserDetailResponse.OrgAdminDetail;
+import com.signasource.signa_api.admin.dto.AdminUserDetailResponse.OrgPurchaseSummary;
+import com.signasource.signa_api.admin.dto.AdminUserDetailResponse.UserEnrollmentInfo;
 import com.signasource.signa_api.admin.dto.AdminUserResponse;
 import com.signasource.signa_api.admin.dto.AdminWaitlistEntryResponse;
 import com.signasource.signa_api.admin.dto.CreateAdminRequest;
@@ -18,15 +22,20 @@ import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.gamification.entity.UserStats;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
+import com.signasource.signa_api.learning.entity.EnrollmentStatus;
 import com.signasource.signa_api.learning.entity.ReportReason;
 import com.signasource.signa_api.learning.entity.ReportStatus;
 import com.signasource.signa_api.learning.entity.Sign;
 import com.signasource.signa_api.learning.entity.SignReport;
+import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import com.signasource.signa_api.learning.repository.CourseRepository;
+import com.signasource.signa_api.learning.repository.LessonBlockAttemptRepository;
 import com.signasource.signa_api.learning.repository.SignReportRepository;
 import com.signasource.signa_api.learning.repository.SignRepository;
+import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
 import com.signasource.signa_api.notification.entity.NotificationCode;
 import com.signasource.signa_api.notification.service.NotificationService;
+import com.signasource.signa_api.organizations.entity.CoursePurchase;
 import com.signasource.signa_api.organizations.entity.MemberRole;
 import com.signasource.signa_api.organizations.entity.MemberStatus;
 import com.signasource.signa_api.organizations.entity.Organization;
@@ -49,6 +58,7 @@ import jakarta.persistence.criteria.Fetch;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -88,6 +98,8 @@ public class AdminService {
     private final OrganizationCourseRepository organizationCourseRepository;
     private final PasswordEncoder passwordEncoder;
     private final NotificationService notificationService;
+    private final UserCourseEnrollmentRepository enrollmentRepository;
+    private final LessonBlockAttemptRepository attemptRepository;
 
     // ── Stats ────────────────────────────────────────────────────────────────
 
@@ -352,6 +364,152 @@ public class AdminService {
                         .orElse(null);
         UserStats stats = userStatsRepository.findByUserId(userId).orElse(null);
         return AdminUserResponse.from(user, orgName, stats);
+    }
+
+    @Transactional(readOnly = true)
+    public AdminUserDetailResponse getUserDetail(UUID userId) {
+        User user = findUser(userId);
+        Optional<OrganizationMember> membership = memberRepository.findByUserId(userId);
+        String orgName =
+                membership
+                        .filter(m -> m.getStatus() == MemberStatus.ACTIVE)
+                        .map(m -> m.getOrganization().getName())
+                        .orElse(null);
+        UserStats stats = userStatsRepository.findByUserId(userId).orElse(null);
+        int streak = stats != null ? stats.getCurrentStreak() : 0;
+        LocalDate lastStreakDate = stats != null ? stats.getLastStreakDate() : null;
+        LocalDate lastSeenDate = stats != null ? stats.getLastSeenDate() : null;
+        String provider =
+                (user.getProviders() != null && user.getProviders().contains(AuthProvider.GOOGLE))
+                        ? "GOOGLE"
+                        : "EMAIL";
+
+        if (user.getRole() == Role.ADMIN) {
+            return new AdminUserDetailResponse(
+                    user.getId(),
+                    user.getEmail(),
+                    user.getUsername(),
+                    user.getName(),
+                    user.getLastName(),
+                    user.getRole(),
+                    user.isEnabled(),
+                    user.isVerified(),
+                    null,
+                    provider,
+                    0,
+                    null,
+                    null,
+                    user.getAvatar(),
+                    null,
+                    null,
+                    null,
+                    null);
+        }
+
+        if (user.getRole() == Role.ORG_ADMIN) {
+            OrgAdminDetail orgDetail = null;
+            if (membership.isPresent() && membership.get().getStatus() == MemberStatus.ACTIVE) {
+                var org = membership.get().getOrganization();
+                int memberCount =
+                        (int)
+                                memberRepository.countByOrganizationIdAndRoleAndStatus(
+                                        org.getId(), MemberRole.MEMBER, MemberStatus.ACTIVE);
+                List<CoursePurchase> purchases =
+                        coursePurchaseRepository.findByOrganizationIdOrderByCreatedAtDesc(
+                                org.getId());
+                List<OrgPurchaseSummary> purchaseSummaries =
+                        purchases.stream()
+                                .map(
+                                        p ->
+                                                new OrgPurchaseSummary(
+                                                        p.getCourse().getName(),
+                                                        p.getSeats(),
+                                                        p.getStatus().name(),
+                                                        p.getCreatedAt(),
+                                                        p.getPaidAt()))
+                                .toList();
+                orgDetail =
+                        new OrgAdminDetail(
+                                org.getId(),
+                                org.getStatus().name(),
+                                memberCount,
+                                purchaseSummaries);
+            }
+            return new AdminUserDetailResponse(
+                    user.getId(),
+                    user.getEmail(),
+                    user.getUsername(),
+                    user.getName(),
+                    user.getLastName(),
+                    user.getRole(),
+                    user.isEnabled(),
+                    user.isVerified(),
+                    orgName,
+                    provider,
+                    streak,
+                    lastStreakDate,
+                    lastSeenDate,
+                    user.getAvatar(),
+                    null,
+                    null,
+                    null,
+                    orgDetail);
+        }
+
+        // USER role
+        List<UserCourseEnrollment> enrollments =
+                enrollmentRepository.findWithCourseByUserId(userId);
+        Instant now = Instant.now();
+        List<UserEnrollmentInfo> enrollmentInfos =
+                enrollments.stream()
+                        .filter(e -> e.getStatus() != EnrollmentStatus.DROPPED)
+                        .map(
+                                e ->
+                                        new UserEnrollmentInfo(
+                                                e.getCourseVersion().getId(),
+                                                e.getCourseVersion().getCourse().getName(),
+                                                e.getCourseVersion().getVersion(),
+                                                e.getCourseVersion().getStatus().name(),
+                                                e.getStatus().name(),
+                                                e.grantsAccess(now),
+                                                e.getStartedAt(),
+                                                e.getCompletedAt()))
+                        .toList();
+
+        long totalAttempts = attemptRepository.countByUserIdAndIsCorrectIsNotNull(userId);
+        Integer accuracyPercent = null;
+        if (totalAttempts > 0) {
+            long correctAttempts = attemptRepository.countByUserIdAndIsCorrectTrue(userId);
+            accuracyPercent = (int) Math.round(correctAttempts * 100.0 / totalAttempts);
+        }
+
+        boolean isEmployee =
+                membership
+                        .map(
+                                m ->
+                                        m.getRole() == MemberRole.MEMBER
+                                                && m.getStatus() == MemberStatus.ACTIVE)
+                        .orElse(false);
+
+        return new AdminUserDetailResponse(
+                user.getId(),
+                user.getEmail(),
+                user.getUsername(),
+                user.getName(),
+                user.getLastName(),
+                user.getRole(),
+                user.isEnabled(),
+                user.isVerified(),
+                orgName,
+                provider,
+                streak,
+                lastStreakDate,
+                lastSeenDate,
+                user.getAvatar(),
+                accuracyPercent,
+                isEmployee,
+                enrollmentInfos,
+                null);
     }
 
     @Transactional
