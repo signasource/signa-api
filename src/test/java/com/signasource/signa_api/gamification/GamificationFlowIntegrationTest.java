@@ -199,7 +199,8 @@ class GamificationFlowIntegrationTest {
     void dailyAndWeekly_ProgressCompleteAndPayOut() {
         User user = userWithFirstStepsDone();
 
-        // 3 perfect lessons (each: 1 camera answer, 200 XP) + 2 camera answers in free practice.
+        // 3 perfect lessons (each: 1 camera answer, 200 XP) + 2 correct camera answers in
+        // free practice (each gives BLOCK_XP immediately) + 1 wrong (no XP, doesn't count).
         List<UUID> cameraBlocks = new ArrayList<>();
         for (int i = 0; i < 3; i++) {
             List<UUID> blocks = lesson();
@@ -221,7 +222,8 @@ class GamificationFlowIntegrationTest {
         assertThat(byCode(after.weekly(), "weekly_lessons").progress()).isEqualTo(3);
         assertThat(byCode(after.weekly(), "weekly_camera").progress()).isEqualTo(5);
         assertThat(byCode(after.weekly(), "weekly_perfect").progress()).isEqualTo(3);
-        assertThat(byCode(after.weekly(), "weekly_xp").progress()).isEqualTo(600);
+        assertThat(byCode(after.weekly(), "weekly_xp").progress())
+                .isEqualTo(3 * 2 * BLOCK_XP + 2 * BLOCK_XP); // 3 lessons × 200 + 2 practice × 100
         assertThat(after.weekly()).noneMatch(ChallengeResponse::completed);
 
         int gems = stats(user).getGems();

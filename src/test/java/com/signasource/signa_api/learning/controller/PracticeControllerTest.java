@@ -3,13 +3,13 @@ package com.signasource.signa_api.learning.controller;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.learning.dto.LearnedSignResponse;
 import com.signasource.signa_api.learning.dto.LessonBlockResponse;
 import com.signasource.signa_api.learning.dto.PracticeAttemptRequest;
+import com.signasource.signa_api.learning.dto.PracticeAttemptResponse;
 import com.signasource.signa_api.learning.dto.PracticeMistakeResponse;
 import com.signasource.signa_api.learning.dto.PracticeMistakeReviewCompletedResponse;
 import com.signasource.signa_api.learning.dto.PracticeSummaryResponse;
@@ -122,14 +122,16 @@ class PracticeControllerTest {
     }
 
     @Test
-    void recordAttempt_ShouldReturn201() {
+    void recordAttempt_ShouldReturn200WithXpEarned() {
         UUID lessonBlockId = UUID.randomUUID();
         PracticeAttemptRequest request = new PracticeAttemptRequest(lessonBlockId, true);
+        when(practiceService.recordAttempt(mockUser, lessonBlockId, true)).thenReturn(10);
 
-        ResponseEntity<Void> response = practiceController.recordAttempt(request, mockUserDetails);
+        ResponseEntity<PracticeAttemptResponse> response =
+                practiceController.recordAttempt(request, mockUserDetails);
 
-        assertEquals(HttpStatus.CREATED, response.getStatusCode());
-        verify(practiceService).recordAttempt(mockUser, lessonBlockId, true);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(new PracticeAttemptResponse(10), response.getBody());
     }
 
     @Test
