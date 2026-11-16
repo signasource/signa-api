@@ -344,6 +344,62 @@ class PracticeServiceTest {
     }
 
     @Test
+    void recordAttempt_ShouldPublishXpEvent_WhenCorrectAndBlockHasXp() {
+        LessonBlock lessonBlock = block(BlockType.MATCH);
+        when(lessonBlockRepository.findById(lessonBlock.getId()))
+                .thenReturn(Optional.of(lessonBlock));
+
+        int xpEarned = practiceService.recordAttempt(mockUser, lessonBlock.getId(), true);
+
+        ArgumentCaptor<XpEarnedEvent> captor = ArgumentCaptor.forClass(XpEarnedEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertEquals(mockUser, captor.getValue().getUser());
+        assertEquals(10, captor.getValue().getXpAmount());
+        assertEquals(10, xpEarned);
+    }
+
+    @Test
+    void recordAttempt_ShouldNotPublishXpEvent_WhenAnswerIsIncorrect() {
+        LessonBlock lessonBlock = block(BlockType.MATCH);
+        when(lessonBlockRepository.findById(lessonBlock.getId()))
+                .thenReturn(Optional.of(lessonBlock));
+
+        int xpEarned = practiceService.recordAttempt(mockUser, lessonBlock.getId(), false);
+
+        verify(eventPublisher, never()).publishEvent(any());
+        assertEquals(0, xpEarned);
+    }
+
+    @Test
+    void recordAttempt_ShouldNotPublishXpEvent_WhenBlockHasNoXpReward() {
+        LessonBlock noXpBlock =
+                LessonBlock.builder()
+                        .id(UUID.randomUUID())
+                        .type(BlockType.SELECT_MEANING)
+                        .order(0)
+                        .config("{}")
+                        .xpReward(null)
+                        .lesson(
+                                Lesson.builder()
+                                        .id(lessonId)
+                                        .topic(
+                                                Topic.builder()
+                                                        .courseVersion(
+                                                                CourseVersion.builder()
+                                                                        .id(courseVersionId)
+                                                                        .build())
+                                                        .build())
+                                        .build())
+                        .build();
+        when(lessonBlockRepository.findById(noXpBlock.getId())).thenReturn(Optional.of(noXpBlock));
+
+        int xpEarned = practiceService.recordAttempt(mockUser, noXpBlock.getId(), true);
+
+        verify(eventPublisher, never()).publishEvent(any());
+        assertEquals(0, xpEarned);
+    }
+
+    @Test
     void getSummary_ShouldCombineLearnedSignsAndPracticeAttemptCounts() {
         UserStats stats = UserStats.builder().learnedSignsCount(7).build();
         when(userStatsRepository.findByUser(mockUser)).thenReturn(Optional.of(stats));

@@ -105,9 +105,6 @@ public class UserStats {
      */
     @Column private Instant lastMistakeReviewAt;
 
-    /** When the user last claimed the free-practice XP bonus (30-min cooldown). */
-    @Column private Instant lastPracticeAt;
-
     /** Rank at the end of the previous weekly cycle. Null until the first reset runs. */
     @Column private Integer previousWeeklyRank;
 
