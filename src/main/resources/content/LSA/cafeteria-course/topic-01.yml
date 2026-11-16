@@ -1,0 +1,355 @@
+topic:
+  code: unidad-1
+  title: "Unidad 1"
+  subtitle: "En la cafetería"
+  description: Aprendé a pedir bebidas, elegir acompañamientos e indicar cómo querés pagar.
+
+lessons:
+  - code: leccion-1
+    name: "Las bebidas"
+    description: "Aprendé las señas de café, cortado, lágrima y té."
+
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: café
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - café
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: cortado
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - cortado
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: lágrima
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - lágrima
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: té
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - té
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: café
+          options:
+            - café
+            - cortado
+            - lágrima
+            - té
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: cortado
+          options:
+            - café
+            - cortado
+            - lágrima
+            - té
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Cómo le decís al café con un pequeño chorrito de leche?"
+          answer: cortado
+          options:
+            - café
+            - cortado
+            - lágrima
+            - té
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: lágrima
+          options:
+            - café
+            - cortado
+            - lágrima
+            - té
+
+      - type: MATCH
+        xp: 10
+        config:
+          concepts:
+            - café
+            - cortado
+            - lágrima
+            - té
+
+      - type: VISUAL_RECOGNITION
+        xp: 15
+        config:
+          sign_sequence:
+            - lágrima
+            - café
+            - té
+            - cortado
+          options:
+            - café
+            - cortado
+            - lágrima
+            - té
+
+  - code: leccion-2
+    name: "Para acompañar"
+    description: "Aprendé las señas de azúcar, edulcorante, medialuna dulce y medialuna salada."
+
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: azúcar
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - azúcar
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: edulcorante
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - edulcorante
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: medialuna dulce
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - medialuna dulce
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: medialuna salada
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - medialuna salada
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: azúcar
+          options:
+            - azúcar
+            - edulcorante
+            - medialuna dulce
+            - medialuna salada
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Qué endulzante se usa como reemplazo del azúcar?"
+          answer: edulcorante
+          options:
+            - azúcar
+            - edulcorante
+            - medialuna dulce
+            - medialuna salada
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: medialuna salada
+          options:
+            - azúcar
+            - edulcorante
+            - medialuna dulce
+            - medialuna salada
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: medialuna dulce
+          options:
+            - azúcar
+            - edulcorante
+            - medialuna dulce
+            - medialuna salada
+
+      - type: MATCH
+        xp: 10
+        config:
+          concepts:
+            - azúcar
+            - edulcorante
+            - medialuna dulce
+            - medialuna salada
+
+      - type: VISUAL_RECOGNITION
+        xp: 15
+        config:
+          sign_sequence:
+            - edulcorante
+            - medialuna salada
+            - azúcar
+          options:
+            - azúcar
+            - edulcorante
+            - medialuna dulce
+            - medialuna salada
+
+  - code: leccion-3
+    name: "¿Cómo pagás?"
+    description: "Aprendé las señas de efectivo, Mercado Pago, tarjeta de crédito, tarjeta de débito y transferencia."
+
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: efectivo
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - efectivo
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: mercado pago
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - mercado pago
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: tarjeta de crédito
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - tarjeta de crédito
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: tarjeta de débito
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - tarjeta de débito
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: transferencia
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - transferencia
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: efectivo
+          options:
+            - efectivo
+            - mercado pago
+            - tarjeta de crédito
+            - tarjeta de débito
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Qué usás cuando pagás con billetes?"
+          answer: efectivo
+          options:
+            - efectivo
+            - mercado pago
+            - tarjeta de crédito
+            - tarjeta de débito
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: mercado pago
+          options:
+            - efectivo
+            - mercado pago
+            - tarjeta de débito
+            - transferencia
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: tarjeta de débito
+          options:
+            - efectivo
+            - tarjeta de crédito
+            - tarjeta de débito
+            - transferencia
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Cómo enviás plata de tu cuenta bancaria a otra?"
+          answer: transferencia
+          options:
+            - efectivo
+            - mercado pago
+            - tarjeta de crédito
+            - transferencia
+
+      - type: MATCH
+        xp: 10
+        config:
+          concepts:
+            - efectivo
+            - mercado pago
+            - tarjeta de crédito
+            - tarjeta de débito
+            - transferencia
+
+      - type: VISUAL_RECOGNITION
+        xp: 15
+        config:
+          sign_sequence:
+            - tarjeta de crédito
+            - efectivo
+            - transferencia
+            - mercado pago
+          options:
+            - efectivo
+            - mercado pago
+            - tarjeta de crédito
+            - tarjeta de débito
+            - transferencia

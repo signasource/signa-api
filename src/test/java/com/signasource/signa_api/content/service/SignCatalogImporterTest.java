@@ -1,6 +1,7 @@
 package com.signasource.signa_api.content.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -24,6 +25,7 @@ import com.signasource.signa_api.learning.entity.Sign;
 import com.signasource.signa_api.learning.entity.SignLanguage;
 import com.signasource.signa_api.learning.repository.SignLanguageRepository;
 import com.signasource.signa_api.learning.repository.SignRepository;
+import com.signasource.signa_api.learning.service.SignMediaStorage;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -44,6 +46,7 @@ class SignCatalogImporterTest {
     @Mock private SignCatalogExtractor extractor;
     @Mock private SignRepository signRepository;
     @Mock private SignLanguageRepository signLanguageRepository;
+    @Mock private SignMediaStorage mediaStorage;
 
     @InjectMocks private SignCatalogImporter importer;
 
@@ -78,6 +81,8 @@ class SignCatalogImporterTest {
         LoadedCourse course = course(LSA, block);
         when(signLanguageRepository.findByCode(LSA)).thenReturn(Optional.of(lsa));
         when(extractor.extract(block)).thenReturn(List.of("hola", "por favor"));
+        when(mediaStorage.exists("lsa/hola.glb")).thenReturn(true);
+        when(mediaStorage.exists("lsa/por favor.glb")).thenReturn(true);
 
         importer.importSigns(List.of(course));
 
@@ -111,6 +116,7 @@ class SignCatalogImporterTest {
         when(extractor.extract(block)).thenReturn(List.of("hola", "chau"));
         when(signRepository.findByMeaningIgnoreCase("hola")).thenReturn(Optional.of(existingHola));
         when(signRepository.findByMeaningIgnoreCase("chau")).thenReturn(Optional.empty());
+        when(mediaStorage.exists("lsa/hola.glb")).thenReturn(true);
 
         importer.importSigns(List.of(course));
 
@@ -134,6 +140,7 @@ class SignCatalogImporterTest {
         when(signLanguageRepository.findByCode(LSA)).thenReturn(Optional.of(lsa));
         when(extractor.extract(block)).thenReturn(List.of("A"));
         when(signRepository.findByMeaningIgnoreCase("A")).thenReturn(Optional.of(existing));
+        when(mediaStorage.exists("lsa/A.glb")).thenReturn(true);
 
         importer.importSigns(List.of(course));
 
@@ -199,11 +206,41 @@ class SignCatalogImporterTest {
         when(signLanguageRepository.findByCode(LSA)).thenReturn(Optional.of(lsa));
         when(extractor.extract(block)).thenReturn(List.of("hola"));
         when(signRepository.findByMeaningIgnoreCase("hola")).thenReturn(Optional.of(existing));
+        when(mediaStorage.exists("lsa/hola.glb")).thenReturn(false);
+        when(mediaStorage.exists("lsa/hola.mp4")).thenReturn(true);
 
         importer.importSigns(List.of(course));
 
         assertEquals("lsa/hola.mp4", existing.getAnimationUrl());
         verify(signRepository, org.mockito.Mockito.never()).save(existing);
+    }
+
+    @Test
+    void shouldCreateSignWithMp4KeyWhenGlbMissingAndMp4Exists() {
+        LessonBlockDto block = block(1);
+        LoadedCourse course = course(LSA, block);
+        when(signLanguageRepository.findByCode(LSA)).thenReturn(Optional.of(lsa));
+        when(extractor.extract(block)).thenReturn(List.of("hola"));
+        when(mediaStorage.exists("lsa/hola.glb")).thenReturn(false);
+        when(mediaStorage.exists("lsa/hola.mp4")).thenReturn(true);
+
+        importer.importSigns(List.of(course));
+
+        verify(signRepository).saveAll(signsCaptor.capture());
+        assertEquals("lsa/hola.mp4", signsCaptor.getValue().get(0).getAnimationUrl());
+    }
+
+    @Test
+    void shouldCreateSignWithNullUrlWhenNoFileExists() {
+        LessonBlockDto block = block(1);
+        LoadedCourse course = course(LSA, block);
+        when(signLanguageRepository.findByCode(LSA)).thenReturn(Optional.of(lsa));
+        when(extractor.extract(block)).thenReturn(List.of("hola"));
+
+        importer.importSigns(List.of(course));
+
+        verify(signRepository).saveAll(signsCaptor.capture());
+        assertNull(signsCaptor.getValue().get(0).getAnimationUrl());
     }
 
     @Test
@@ -215,6 +252,7 @@ class SignCatalogImporterTest {
         when(signLanguageRepository.findByCode(LSA)).thenReturn(Optional.of(lsa));
         when(extractor.extract(block)).thenReturn(List.of("hola"));
         when(signRepository.findByMeaningIgnoreCase("hola")).thenReturn(Optional.of(existing));
+        when(mediaStorage.exists("lsa/hola.glb")).thenReturn(true);
 
         importer.importSigns(List.of(course));
 

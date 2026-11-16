@@ -14,17 +14,41 @@ lessons:
         config:
           meaning: escuela
 
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - escuela
+
       - type: INTRODUCE_SIGN
         config:
           meaning: universidad
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - universidad
 
       - type: INTRODUCE_SIGN
         config:
           meaning: museo
 
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - museo
+
       - type: INTRODUCE_SIGN
         config:
           meaning: "jardín de infantes"
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - "jardín de infantes"
 
       - type: SELECT_MEANING
         xp: 5
@@ -98,17 +122,41 @@ lessons:
         config:
           meaning: comercio
 
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - comercio
+
       - type: INTRODUCE_SIGN
         config:
           meaning: plaza
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - plaza
 
       - type: INTRODUCE_SIGN
         config:
           meaning: "comisaría"
 
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - "comisaría"
+
       - type: INTRODUCE_SIGN
         config:
           meaning: hospital
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - hospital
 
       - type: SELECT_MEANING
         xp: 5
@@ -172,4 +220,3 @@ lessons:
             - plaza
             - "comisaría"
             - hospital
-

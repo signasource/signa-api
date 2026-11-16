@@ -10,10 +10,12 @@ import com.signasource.signa_api.learning.entity.Sign;
 import com.signasource.signa_api.learning.entity.SignLanguage;
 import com.signasource.signa_api.learning.repository.SignLanguageRepository;
 import com.signasource.signa_api.learning.repository.SignRepository;
+import com.signasource.signa_api.learning.service.SignMediaStorage;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -23,12 +25,12 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class SignCatalogImporter {
 
-    private static final String ANIMATION_EXTENSION = ".glb";
     private static final Handedness DEFAULT_HANDEDNESS = Handedness.ONE_HANDED;
 
     private final SignCatalogExtractor extractor;
     private final SignRepository signRepository;
     private final SignLanguageRepository signLanguageRepository;
+    private final SignMediaStorage mediaStorage;
 
     @Transactional
     public void importSigns(List<LoadedCourse> courses) {
@@ -48,26 +50,28 @@ public class SignCatalogImporter {
                 if (!seen.add(meaning)) {
                     continue;
                 }
-                String expectedKey = objectKey(signLanguage, meaning);
                 signRepository
                         .findByMeaningIgnoreCase(meaning)
                         .ifPresentOrElse(
                                 existing -> {
-                                    // Sync if casing drifted between YAML versions (e.g. "a" →
-                                    // "A").
-                                    // The key is only re-derived while it is still the generated
-                                    // default (or missing): an animation uploaded from the admin
-                                    // panel (e.g. lsa/hola.mp4) must survive every import.
                                     String key = existing.getAnimationUrl();
-                                    boolean defaultKey =
+                                    boolean isDefaultKey =
                                             key == null
                                                     || key.isBlank()
-                                                    || key.equalsIgnoreCase(expectedKey);
-                                    boolean keyDrift = defaultKey && !expectedKey.equals(key);
-                                    if (!existing.getMeaning().equals(meaning) || keyDrift) {
+                                                    || key.equalsIgnoreCase(
+                                                            buildKey(signLanguage, meaning, ".glb"))
+                                                    || key.equalsIgnoreCase(
+                                                            buildKey(
+                                                                    signLanguage, meaning, ".mp4"));
+                                    String resolvedKey =
+                                            isDefaultKey ? resolveKey(signLanguage, meaning) : key;
+                                    boolean keyDrift =
+                                            isDefaultKey && !Objects.equals(resolvedKey, key);
+                                    boolean meaningDrift = !existing.getMeaning().equals(meaning);
+                                    if (meaningDrift || keyDrift) {
                                         existing.setMeaning(meaning);
                                         if (keyDrift) {
-                                            existing.setAnimationUrl(expectedKey);
+                                            existing.setAnimationUrl(resolvedKey);
                                         }
                                         signRepository.save(existing);
                                     }
@@ -77,7 +81,8 @@ public class SignCatalogImporter {
                                                 Sign.builder()
                                                         .meaning(meaning)
                                                         .handedness(DEFAULT_HANDEDNESS)
-                                                        .animationUrl(expectedKey)
+                                                        .animationUrl(
+                                                                resolveKey(signLanguage, meaning))
                                                         .signLanguage(signLanguage)
                                                         .build()));
             }
@@ -96,10 +101,19 @@ public class SignCatalogImporter {
         return meanings;
     }
 
-    private String objectKey(SignLanguage signLanguage, String meaning) {
-        return signLanguage.getCode().toLowerCase(Locale.ROOT)
-                + "/"
-                + meaning
-                + ANIMATION_EXTENSION;
+    private String resolveKey(SignLanguage signLanguage, String meaning) {
+        String glbKey = buildKey(signLanguage, meaning, ".glb");
+        if (mediaStorage.exists(glbKey)) {
+            return glbKey;
+        }
+        String mp4Key = buildKey(signLanguage, meaning, ".mp4");
+        if (mediaStorage.exists(mp4Key)) {
+            return mp4Key;
+        }
+        return null;
+    }
+
+    private static String buildKey(SignLanguage signLanguage, String meaning, String ext) {
+        return signLanguage.getCode().toLowerCase(Locale.ROOT) + "/" + meaning + ext;
     }
 }

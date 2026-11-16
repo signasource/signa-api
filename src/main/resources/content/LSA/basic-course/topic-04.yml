@@ -14,17 +14,41 @@ lessons:
         config:
           meaning: ayer
 
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - ayer
+
       - type: INTRODUCE_SIGN
         config:
           meaning: hoy
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - hoy
 
       - type: INTRODUCE_SIGN
         config:
           meaning: "mañana"
 
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - "mañana"
+
       - type: INTRODUCE_SIGN
         config:
           meaning: todos los días
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - todos los días
 
       - type: SELECT_MEANING
         xp: 5
@@ -98,17 +122,41 @@ lessons:
         config:
           meaning: la mañana
 
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - la mañana
+
       - type: INTRODUCE_SIGN
         config:
           meaning: "mediodía"
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - "mediodía"
 
       - type: INTRODUCE_SIGN
         config:
           meaning: tarde
 
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - tarde
+
       - type: INTRODUCE_SIGN
         config:
           meaning: noche
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - noche
 
       - type: SELECT_MEANING
         xp: 5
@@ -172,4 +220,3 @@ lessons:
             - "mediodía"
             - tarde
             - noche
-

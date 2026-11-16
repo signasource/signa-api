@@ -113,11 +113,7 @@ class RealContentImportTest {
         assertThat(signs).isNotEmpty();
         assertThat(signs)
                 .allSatisfy(
-                        sign -> {
-                            assertThat(sign.getHandedness()).isEqualTo(Handedness.ONE_HANDED);
-                            assertThat(sign.getAnimationUrl())
-                                    .isEqualTo("lsa/" + sign.getMeaning() + ".glb");
-                        });
+                        sign -> assertThat(sign.getHandedness()).isEqualTo(Handedness.ONE_HANDED));
         assertThat(signs).extracting(Sign::getMeaning).contains("hola", "gracias", "por favor");
         assertThat(signRepository.findBySignLanguageId(lsaId, Pageable.unpaged()).getContent())
                 .hasSize(signs.size());

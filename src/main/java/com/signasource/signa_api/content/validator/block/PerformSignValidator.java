@@ -19,7 +19,31 @@ public class PerformSignValidator implements BlockValidator {
     // Si acá figura una seña que el modelo no conoce, el ejercicio se queda
     // esperando algo que nunca va a reconocer.
     private static final Set<String> RECOGNIZABLE_SIGNS =
-            Set.of("hermano", "amigo", "papa", "mama");
+            Set.of(
+                    // unidad 1 – presentándonos
+                    "yo", "vos", "nombre", "sordo", "oyente",
+                    "hola", "chau", "cómo estás", "bien", "mal",
+                    "gracias", "por favor", "perdón", "de nada",
+                    // unidad 2 – personas
+                    "familia", "mama", "papa", "hermano", "hijo", "abuelo",
+                    "amigo", "novio", "esposo", "compañero",
+                    "hombre", "mujer", "niño", "niña", "bebé",
+                    // unidad 3 – lugares
+                    "escuela", "universidad", "museo", "jardín de infantes",
+                    "comercio", "plaza", "comisaría", "hospital",
+                    // unidad 4 – el tiempo
+                    "ayer", "hoy", "mañana", "todos los días",
+                    "la mañana", "mediodía", "tarde", "noche",
+                    // unidad 5 – transporte
+                    "auto", "moto", "bicicleta", "camión",
+                    "colectivo", "tren", "subte", "taxi", "uber",
+                    // cafetería – bebidas
+                    "café", "cortado", "lágrima", "té",
+                    // cafetería – acompañamientos
+                    "azúcar", "edulcorante", "medialuna dulce", "medialuna salada",
+                    // cafetería – medios de pago
+                    "efectivo", "mercado pago", "tarjeta de crédito",
+                    "tarjeta de débito", "transferencia");
 
     private final BlockConfigParser parser;
 

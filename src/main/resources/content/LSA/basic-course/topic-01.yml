@@ -90,21 +90,51 @@ lessons:
         config:
           meaning: yo
 
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - yo
+
       - type: INTRODUCE_SIGN
         config:
           meaning: vos
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - vos
 
       - type: INTRODUCE_SIGN
         config:
           meaning: nombre
 
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - nombre
+
       - type: INTRODUCE_SIGN
         config:
           meaning: sordo
 
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - sordo
+
       - type: INTRODUCE_SIGN
         config:
           meaning: oyente
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - oyente
 
       - type: SELECT_MEANING
         xp: 5
@@ -166,21 +196,51 @@ lessons:
         config:
           meaning: hola
 
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - hola
+
       - type: INTRODUCE_SIGN
         config:
           meaning: chau
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - chau
 
       - type: INTRODUCE_SIGN
         config:
           meaning: "cómo estás"
 
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - "cómo estás"
+
       - type: INTRODUCE_SIGN
         config:
           meaning: bien
 
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - bien
+
       - type: INTRODUCE_SIGN
         config:
           meaning: mal
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - mal
 
       - type: SELECT_MEANING
         xp: 5
@@ -256,17 +316,41 @@ lessons:
         config:
           meaning: gracias
 
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - gracias
+
       - type: INTRODUCE_SIGN
         config:
           meaning: por favor
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - por favor
 
       - type: INTRODUCE_SIGN
         config:
           meaning: "perdón"
 
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - "perdón"
+
       - type: INTRODUCE_SIGN
         config:
           meaning: de nada
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - de nada
 
       - type: SELECT_MEANING
         xp: 5
@@ -328,4 +412,3 @@ lessons:
             - por favor
             - "perdón"
             - de nada
-

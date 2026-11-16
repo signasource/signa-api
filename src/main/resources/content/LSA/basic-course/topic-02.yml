@@ -14,25 +14,61 @@ lessons:
         config:
           meaning: familia
 
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - familia
+
       - type: INTRODUCE_SIGN
         config:
           meaning: mama
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - mama
 
       - type: INTRODUCE_SIGN
         config:
           meaning: papa
 
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - papa
+
       - type: INTRODUCE_SIGN
         config:
           meaning: hermano
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - hermano
 
       - type: INTRODUCE_SIGN
         config:
           meaning: hijo
 
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - hijo
+
       - type: INTRODUCE_SIGN
         config:
           meaning: abuelo
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - abuelo
 
       - type: SELECT_MEANING
         xp: 5
@@ -121,17 +157,41 @@ lessons:
         config:
           meaning: amigo
 
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - amigo
+
       - type: INTRODUCE_SIGN
         config:
           meaning: novio
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - novio
 
       - type: INTRODUCE_SIGN
         config:
           meaning: esposo
 
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - esposo
+
       - type: INTRODUCE_SIGN
         config:
           meaning: "compañero"
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - "compañero"
 
       - type: SELECT_MEANING
         xp: 5
@@ -205,21 +265,51 @@ lessons:
         config:
           meaning: hombre
 
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - hombre
+
       - type: INTRODUCE_SIGN
         config:
           meaning: mujer
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - mujer
 
       - type: INTRODUCE_SIGN
         config:
           meaning: "niño"
 
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - "niño"
+
       - type: INTRODUCE_SIGN
         config:
           meaning: "niña"
 
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - "niña"
+
       - type: INTRODUCE_SIGN
         config:
           meaning: "bebé"
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - "bebé"
 
       - type: SELECT_MEANING
         xp: 5
@@ -286,4 +376,3 @@ lessons:
             - "niño"
             - "niña"
             - "bebé"
-

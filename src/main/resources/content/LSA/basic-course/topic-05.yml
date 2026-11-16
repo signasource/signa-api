@@ -14,17 +14,41 @@ lessons:
         config:
           meaning: auto
 
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - auto
+
       - type: INTRODUCE_SIGN
         config:
           meaning: moto
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - moto
 
       - type: INTRODUCE_SIGN
         config:
           meaning: bicicleta
 
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - bicicleta
+
       - type: INTRODUCE_SIGN
         config:
           meaning: "camión"
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - "camión"
 
       - type: SELECT_MEANING
         xp: 5
@@ -98,21 +122,51 @@ lessons:
         config:
           meaning: colectivo
 
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - colectivo
+
       - type: INTRODUCE_SIGN
         config:
           meaning: tren
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - tren
 
       - type: INTRODUCE_SIGN
         config:
           meaning: subte
 
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - subte
+
       - type: INTRODUCE_SIGN
         config:
           meaning: taxi
 
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - taxi
+
       - type: INTRODUCE_SIGN
         config:
           meaning: uber
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - uber
 
       - type: SELECT_MEANING
         xp: 5
@@ -179,4 +233,3 @@ lessons:
             - subte
             - taxi
             - uber
-
