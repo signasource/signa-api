@@ -543,7 +543,7 @@ class ChallengeServiceTest {
                         .user(user)
                         .streakShields(1)
                         .currentLives(1)
-                        .nextLifeAt(Instant.now())
+                        .nextLifeAt(Instant.now().plusSeconds(3600))
                         .build();
         when(userChallengeRepository.findByIdAndUser(shieldRow.getId(), user))
                 .thenReturn(Optional.of(shieldRow));

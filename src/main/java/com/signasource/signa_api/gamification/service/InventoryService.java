@@ -31,6 +31,9 @@ public class InventoryService {
                                                         .updatedAt(Instant.now())
                                                         .build()));
 
+        // Managed entity: the elapsed regeneration is flushed with the transaction.
+        stats.regenerateLives(Instant.now());
+
         return UserInventoryResponse.from(stats);
     }
 

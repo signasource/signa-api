@@ -75,7 +75,8 @@ class AdminCourseVersionControllerTest {
                         null,
                         null,
                         null,
-                        null);
+                        null,
+                        0);
         when(service.listVersions()).thenReturn(List.of(item));
 
         ResponseEntity<List<AdminCourseVersionListItemResponse>> resp = controller.listVersions();

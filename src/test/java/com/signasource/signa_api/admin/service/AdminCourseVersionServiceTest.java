@@ -21,6 +21,7 @@ import com.signasource.signa_api.learning.entity.VersionStatus;
 import com.signasource.signa_api.learning.repository.CourseRepository;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.learning.repository.SignLanguageRepository;
+import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
 import com.signasource.signa_api.users.repository.UserRepository;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -41,6 +42,7 @@ class AdminCourseVersionServiceTest {
     @Mock private CourseVersionRepository courseVersionRepository;
     @Mock private SignLanguageRepository signLanguageRepository;
     @Mock private UserRepository userRepository;
+    @Mock private UserCourseEnrollmentRepository enrollmentRepository;
     @InjectMocks private AdminCourseVersionService service;
 
     private final ObjectMapper objectMapper = new ObjectMapper();

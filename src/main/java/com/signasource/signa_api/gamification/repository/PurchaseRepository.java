@@ -12,6 +12,9 @@ public interface PurchaseRepository extends JpaRepository<Purchase, UUID> {
 
     long countByUser(User user);
 
+    long countByUserAndShopItem_ItemTypeAndStatus(
+            User user, ShopItemType itemType, PurchaseStatus status);
+
     Optional<Purchase> findFirstByUserAndShopItem_ItemTypeAndStatusOrderByPurchasedAtAsc(
             User user, ShopItemType itemType, PurchaseStatus status);
 }
