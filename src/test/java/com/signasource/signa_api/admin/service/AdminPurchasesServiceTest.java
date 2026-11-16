@@ -5,12 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.admin.dto.AdminPurchaseDetailResponse;
 import com.signasource.signa_api.admin.dto.AdminPurchaseListItemResponse;
-import com.signasource.signa_api.admin.dto.ConfirmPaymentRequest;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.gamification.entity.GemOrder;
 import com.signasource.signa_api.gamification.entity.GemOrderStatus;
@@ -27,7 +25,6 @@ import com.signasource.signa_api.organizations.entity.RefundRequest;
 import com.signasource.signa_api.organizations.entity.RefundRequestStatus;
 import com.signasource.signa_api.organizations.repository.CoursePurchaseRepository;
 import com.signasource.signa_api.organizations.repository.RefundRequestRepository;
-import com.signasource.signa_api.organizations.service.PurchasePaymentService;
 import com.signasource.signa_api.users.entity.User;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -51,7 +48,6 @@ class AdminPurchasesServiceTest {
     @Mock private CourseOrderRepository courseOrderRepository;
     @Mock private RefundRequestRepository refundRequestRepository;
     @Mock private AdminRefundRequestService refundRequestService;
-    @Mock private PurchasePaymentService paymentService;
 
     @InjectMocks private AdminPurchasesService service;
 
@@ -173,23 +169,6 @@ class AdminPurchasesServiceTest {
                 NotFoundException.class, () -> service.detail(id, AdminPurchasesService.TYPE_GEMS));
     }
 
-    // ── confirmPayment ────────────────────────────────────────────────────────
-
-    @Test
-    void confirmPayment_delegatesToPaymentServiceAndReturnsDetail() {
-        UUID purchaseId = UUID.randomUUID();
-        ConfirmPaymentRequest req = new ConfirmPaymentRequest("ref-123", null, null);
-        CoursePurchase p = sampleSeatsPurchase();
-        when(seatsPurchaseRepository.findForUpdateById(purchaseId)).thenReturn(Optional.of(p));
-        when(refundRequestService.listForPurchase(AdminPurchasesService.TYPE_SEATS, purchaseId))
-                .thenReturn(List.of());
-
-        AdminPurchaseDetailResponse result = service.confirmPayment(purchaseId, req, "Admin User");
-
-        verify(paymentService).confirmPaymentFull(purchaseId, req, "Admin User");
-        assertNotNull(result);
-    }
-
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private CoursePurchase sampleSeatsPurchase() {
@@ -210,12 +189,9 @@ class AdminPurchasesServiceTest {
         when(p.getCurrency()).thenReturn("ARS");
         when(p.getCreatedAt()).thenReturn(Instant.now());
         when(p.getPaymentReference()).thenReturn(null);
-        when(p.getPaymentMethod()).thenReturn(null);
         when(p.getCreatedBy()).thenReturn(null);
         when(p.getPaidAt()).thenReturn(null);
         when(p.getRefundedAt()).thenReturn(null);
-        when(p.getConfirmedByName()).thenReturn(null);
-        when(p.getConfirmedAt()).thenReturn(null);
         when(p.getDiscountPercent()).thenReturn(0);
         return p;
     }

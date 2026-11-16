@@ -1,17 +1,14 @@
 package com.signasource.signa_api.organizations.service;
 
 import com.signasource.signa_api.admin.dto.AdminPurchaseResponse;
-import com.signasource.signa_api.admin.dto.ConfirmPaymentRequest;
 import com.signasource.signa_api.common.AfterCommit;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.notification.entity.NotificationCode;
 import com.signasource.signa_api.notification.service.NotificationService;
-import com.signasource.signa_api.organizations.dto.PurchaseDetailResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseResponse;
 import com.signasource.signa_api.organizations.entity.CoursePurchase;
 import com.signasource.signa_api.organizations.entity.OrganizationCourse;
-import com.signasource.signa_api.organizations.entity.PaymentMethod;
 import com.signasource.signa_api.organizations.entity.PurchaseRefund;
 import com.signasource.signa_api.organizations.entity.PurchaseSeat;
 import com.signasource.signa_api.organizations.entity.PurchaseStatus;
@@ -55,56 +52,6 @@ public class PurchasePaymentService {
     private final PurchaseRevocationService revocationService;
     private final PurchasePolicy policy;
     private final NotificationService notificationService;
-
-    @Transactional
-    public PurchaseDetailResponse confirmPayment(UUID purchaseId, String paymentReference) {
-        CoursePurchase purchase =
-                purchaseRepository
-                        .findForUpdateById(purchaseId)
-                        .orElseThrow(() -> new NotFoundException("Purchase not found"));
-        if (purchase.getStatus() == PurchaseStatus.PAID) {
-            return purchaseService.describe(purchase);
-        }
-        if (purchase.getStatus() != PurchaseStatus.PENDING_PAYMENT) {
-            throw new InvalidInputException("Purchase was cancelled or refunded");
-        }
-        confirm(purchase, paymentReference);
-        return purchaseService.describe(purchase);
-    }
-
-    /**
-     * Manual payment confirmation with extended fields (method, date, admin name). Used by the
-     * back-office; does not set a refundableUntil because manual payments are not through MP.
-     */
-    @Transactional
-    public PurchaseDetailResponse confirmPaymentFull(
-            UUID purchaseId, ConfirmPaymentRequest req, String adminName) {
-        CoursePurchase purchase =
-                purchaseRepository
-                        .findForUpdateById(purchaseId)
-                        .orElseThrow(() -> new NotFoundException("Purchase not found"));
-        if (purchase.getStatus() == PurchaseStatus.PAID) {
-            return purchaseService.describe(purchase);
-        }
-        if (purchase.getStatus() != PurchaseStatus.PENDING_PAYMENT) {
-            throw new InvalidInputException("Purchase was cancelled or refunded");
-        }
-        String ref =
-                req != null && req.paymentReference() != null
-                        ? req.paymentReference().trim()
-                        : null;
-        PaymentMethod method =
-                req != null && req.paymentMethod() != null
-                        ? req.paymentMethod()
-                        : PaymentMethod.OTHER;
-        purchase.setPaymentMethod(method);
-        purchase.setManualPaymentDate(req != null ? req.paymentDate() : null);
-        purchase.setConfirmedByName(adminName);
-        purchase.setConfirmedAt(Instant.now());
-        confirm(purchase, ref);
-        sendPurchaseConfirmedNotification(purchase);
-        return purchaseService.describe(purchase);
-    }
 
     /** What {@link #settle} did with an approved payment. */
     public enum Settlement {
@@ -308,6 +255,28 @@ public class PurchasePaymentService {
                 .filter(purchase -> purchase.getStatus() == PurchaseStatus.PAID);
     }
 
+    @Transactional(readOnly = true)
+    public List<AdminPurchaseResponse> listForAdmin(PurchaseStatus status) {
+        List<CoursePurchase> purchases =
+                status == null
+                        ? purchaseRepository.findAllByOrderByCreatedAtDesc()
+                        : purchaseRepository.findByStatusOrderByCreatedAtAsc(status);
+        Instant now = Instant.now();
+        return purchases.stream()
+                .map(
+                        purchase ->
+                                new AdminPurchaseResponse(
+                                        purchase.getOrganization().getId(),
+                                        purchase.getOrganization().getName(),
+                                        purchase.getPaymentReference(),
+                                        PurchaseResponse.from(
+                                                purchase,
+                                                seatRepository.findByPurchaseIdOrderByEmailAsc(
+                                                        purchase.getId()),
+                                                now)))
+                .toList();
+    }
+
     private static String mercadoPagoPaymentId(CoursePurchase purchase) {
         String reference = purchase.getPaymentReference();
         return reference != null && reference.startsWith(MERCADO_PAGO_REFERENCE_PREFIX)
@@ -345,7 +314,6 @@ public class PurchasePaymentService {
         purchase.setPaymentReference(paymentReference);
         purchase.setPaidAt(now);
         purchase.setInvitationDeadline(now.plus(policy.invitationWindow()));
-        // Only a Mercado Pago payment can be refunded from the panel.
         purchase.setRefundableUntil(
                 paymentReference != null
                                 && paymentReference.startsWith(MERCADO_PAGO_REFERENCE_PREFIX)
@@ -367,27 +335,7 @@ public class PurchasePaymentService {
         for (PurchaseSeat seat : seatRepository.findByPurchaseIdOrderByEmailAsc(purchaseId)) {
             invitationService.invite(seat, now);
         }
-    }
 
-    @Transactional(readOnly = true)
-    public List<AdminPurchaseResponse> listForAdmin(PurchaseStatus status) {
-        List<CoursePurchase> purchases =
-                status == null
-                        ? purchaseRepository.findAllByOrderByCreatedAtDesc()
-                        : purchaseRepository.findByStatusOrderByCreatedAtAsc(status);
-        Instant now = Instant.now();
-        return purchases.stream()
-                .map(
-                        purchase ->
-                                new AdminPurchaseResponse(
-                                        purchase.getOrganization().getId(),
-                                        purchase.getOrganization().getName(),
-                                        purchase.getPaymentReference(),
-                                        PurchaseResponse.from(
-                                                purchase,
-                                                seatRepository.findByPurchaseIdOrderByEmailAsc(
-                                                        purchase.getId()),
-                                                now)))
-                .toList();
+        sendPurchaseConfirmedNotification(purchase);
     }
 }

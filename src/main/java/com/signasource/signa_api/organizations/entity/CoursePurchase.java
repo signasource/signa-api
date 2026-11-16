@@ -18,7 +18,6 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -109,17 +108,6 @@ public class CoursePurchase {
     @Column private Instant refundedAt;
 
     @Column private Instant cancelledAt;
-
-    @Enumerated(EnumType.STRING)
-    @Column(length = 20)
-    private PaymentMethod paymentMethod;
-
-    @Column private LocalDate manualPaymentDate;
-
-    @Column(length = 200)
-    private String confirmedByName;
-
-    @Column private Instant confirmedAt;
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt;

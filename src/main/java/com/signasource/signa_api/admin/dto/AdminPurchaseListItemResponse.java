@@ -24,8 +24,5 @@ public record AdminPurchaseListItemResponse(
         Instant refundedAt,
         String mpOrderId,
         String paymentMethod,
-        String manualRef,
-        String confirmedByName,
-        Instant confirmedAt,
         String externalRef,
         boolean pendingRefundRequest) {}

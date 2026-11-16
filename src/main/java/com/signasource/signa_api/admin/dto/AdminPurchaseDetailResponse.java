@@ -22,9 +22,6 @@ public record AdminPurchaseDetailResponse(
         Instant refundedAt,
         String mpOrderId,
         String paymentMethod,
-        String manualRef,
-        String confirmedByName,
-        Instant confirmedAt,
         String externalRef,
         // SEATS-specific
         UUID organizationId,

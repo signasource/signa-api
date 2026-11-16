@@ -3,7 +3,6 @@ package com.signasource.signa_api.admin.service;
 import com.signasource.signa_api.admin.dto.AdminPurchaseDetailResponse;
 import com.signasource.signa_api.admin.dto.AdminPurchaseListItemResponse;
 import com.signasource.signa_api.admin.dto.AdminRefundRequestResponse;
-import com.signasource.signa_api.admin.dto.ConfirmPaymentRequest;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.gamification.entity.GemOrder;
 import com.signasource.signa_api.gamification.entity.GemOrderStatus;
@@ -38,7 +37,6 @@ public class AdminPurchasesService {
     private final CourseOrderRepository courseOrderRepository;
     private final RefundRequestRepository refundRequestRepository;
     private final AdminRefundRequestService refundRequestService;
-    private final PurchasePaymentService paymentService;
 
     @Transactional(readOnly = true)
     public List<AdminPurchaseListItemResponse> listAll() {
@@ -65,13 +63,6 @@ public class AdminPurchasesService {
             case TYPE_COURSE -> detailCourseOrder(id);
             default -> throw new NotFoundException("Unknown purchase type: " + type);
         };
-    }
-
-    @Transactional
-    public AdminPurchaseDetailResponse confirmPayment(
-            UUID purchaseId, ConfirmPaymentRequest req, String adminName) {
-        paymentService.confirmPaymentFull(purchaseId, req, adminName);
-        return detailSeats(purchaseId);
     }
 
     // ── private helpers ──────────────────────────────────────────────────────
@@ -101,7 +92,6 @@ public class AdminPurchasesService {
 
     private AdminPurchaseListItemResponse seatsToListItem(CoursePurchase p, boolean pendingRefund) {
         String mpOrderId = mpOrderIdFromRef(p.getPaymentReference());
-        String manualRef = manualRefFromRef(p.getPaymentReference());
         String buyerSub =
                 p.getCreatedBy() != null
                         ? p.getCreatedBy().getName()
@@ -113,10 +103,6 @@ public class AdminPurchasesService {
                 p.getCreatedBy() != null
                         ? p.getCreatedBy().getEmail()
                         : p.getOrganization().getContactEmail();
-        String paymentMethodStr =
-                p.getPaymentMethod() != null
-                        ? p.getPaymentMethod().name()
-                        : (mpOrderId != null ? "MERCADO_PAGO" : null);
         return new AdminPurchaseListItemResponse(
                 p.getId(),
                 TYPE_SEATS,
@@ -132,10 +118,7 @@ public class AdminPurchasesService {
                 p.getPaidAt(),
                 p.getRefundedAt(),
                 mpOrderId,
-                paymentMethodStr,
-                manualRef,
-                p.getConfirmedByName(),
-                p.getConfirmedAt(),
+                mpOrderId != null ? "MERCADO_PAGO" : null,
                 "purchase_" + hex8(p.getId()),
                 pendingRefund);
     }
@@ -158,9 +141,6 @@ public class AdminPurchasesService {
                 o.getRefundedAt(),
                 o.getMercadoPagoOrderId(),
                 "MERCADO_PAGO",
-                null,
-                null,
-                null,
                 "gems_" + hex8(o.getId()),
                 pendingRefund);
     }
@@ -184,9 +164,6 @@ public class AdminPurchasesService {
                 o.getRefundedAt(),
                 o.getMercadoPagoOrderId(),
                 "MERCADO_PAGO",
-                null,
-                null,
-                null,
                 "course_" + hex8(o.getId()),
                 pendingRefund);
     }
@@ -199,7 +176,6 @@ public class AdminPurchasesService {
         List<AdminRefundRequestResponse> requests =
                 refundRequestService.listForPurchase(TYPE_SEATS, id);
         String mpOrderId = mpOrderIdFromRef(p.getPaymentReference());
-        String manualRef = manualRefFromRef(p.getPaymentReference());
         String buyerSub =
                 p.getCreatedBy() != null
                         ? p.getCreatedBy().getName()
@@ -211,10 +187,6 @@ public class AdminPurchasesService {
                 p.getCreatedBy() != null
                         ? p.getCreatedBy().getEmail()
                         : p.getOrganization().getContactEmail();
-        String paymentMethodStr =
-                p.getPaymentMethod() != null
-                        ? p.getPaymentMethod().name()
-                        : (mpOrderId != null ? "MERCADO_PAGO" : null);
         return new AdminPurchaseDetailResponse(
                 p.getId(),
                 TYPE_SEATS,
@@ -230,10 +202,7 @@ public class AdminPurchasesService {
                 p.getPaidAt(),
                 p.getRefundedAt(),
                 mpOrderId,
-                paymentMethodStr,
-                manualRef,
-                p.getConfirmedByName(),
-                p.getConfirmedAt(),
+                mpOrderId != null ? "MERCADO_PAGO" : null,
                 "purchase_" + hex8(p.getId()),
                 p.getOrganization().getId(),
                 p.getSeats(),
@@ -267,9 +236,6 @@ public class AdminPurchasesService {
                 o.getRefundedAt(),
                 o.getMercadoPagoOrderId(),
                 "MERCADO_PAGO",
-                null,
-                null,
-                null,
                 "gems_" + hex8(o.getId()),
                 null,
                 null,
@@ -303,9 +269,6 @@ public class AdminPurchasesService {
                 o.getRefundedAt(),
                 o.getMercadoPagoOrderId(),
                 "MERCADO_PAGO",
-                null,
-                null,
-                null,
                 "course_" + hex8(o.getId()),
                 null,
                 null,
@@ -342,13 +305,6 @@ public class AdminPurchasesService {
             return ref.substring(PurchasePaymentService.MERCADO_PAGO_REFERENCE_PREFIX.length());
         }
         return null;
-    }
-
-    private static String manualRefFromRef(String ref) {
-        if (ref == null || ref.startsWith(PurchasePaymentService.MERCADO_PAGO_REFERENCE_PREFIX)) {
-            return null;
-        }
-        return ref;
     }
 
     private static String hex8(UUID id) {

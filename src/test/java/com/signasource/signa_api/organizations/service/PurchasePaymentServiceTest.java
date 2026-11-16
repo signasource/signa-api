@@ -96,69 +96,37 @@ class PurchasePaymentServiceTest {
     @Test
     void shouldMarkPaidOpenTheWindowContractTheCourseAndInvite() {
         PurchaseSeat seat = PurchaseSeat.builder().purchase(purchase).email("a@x.com").build();
-        when(purchaseRepository.findForUpdateById(purchase.getId()))
-                .thenReturn(Optional.of(purchase));
+        stubLockedPurchase();
         when(organizationCourseRepository.existsByOrganizationIdAndCourseId(
                         organization.getId(), course.getId()))
                 .thenReturn(false);
         when(seatRepository.findByPurchaseIdOrderByEmailAsc(purchase.getId()))
                 .thenReturn(List.of(seat));
 
-        service.confirmPayment(purchase.getId(), "mp-123");
+        Settlement result = service.settle(purchase.getId(), "mp-123", BigDecimal.TEN, "ARS");
 
+        assertEquals(Settlement.CONFIRMED, result);
         assertEquals(PurchaseStatus.PAID, purchase.getStatus());
-        assertEquals("mp-123", purchase.getPaymentReference());
+        assertEquals("mercadopago:mp-123", purchase.getPaymentReference());
         assertEquals(
                 Duration.ofDays(10),
                 Duration.between(purchase.getPaidAt(), purchase.getInvitationDeadline()));
         verify(organizationCourseRepository).save(any(OrganizationCourse.class));
         verify(invitationService).invite(eq(seat), eq(purchase.getPaidAt()));
-        verify(purchaseService).describe(purchase);
     }
 
     @Test
     void shouldNotContractTheCourseTwice() {
-        when(purchaseRepository.findForUpdateById(purchase.getId()))
-                .thenReturn(Optional.of(purchase));
+        stubLockedPurchase();
         when(organizationCourseRepository.existsByOrganizationIdAndCourseId(
                         organization.getId(), course.getId()))
                 .thenReturn(true);
         when(seatRepository.findByPurchaseIdOrderByEmailAsc(purchase.getId()))
                 .thenReturn(List.of());
 
-        service.confirmPayment(purchase.getId(), null);
+        service.settle(purchase.getId(), "mp-123", BigDecimal.TEN, "ARS");
 
         verify(organizationCourseRepository, never()).save(any());
-    }
-
-    @Test
-    void shouldBeIdempotentForAPaidPurchase() {
-        purchase.setStatus(PurchaseStatus.PAID);
-        when(purchaseRepository.findForUpdateById(purchase.getId()))
-                .thenReturn(Optional.of(purchase));
-
-        service.confirmPayment(purchase.getId(), "mp-123");
-
-        verify(invitationService, never()).invite(any(), any());
-        verify(purchaseRepository, never()).save(any());
-    }
-
-    @Test
-    void shouldRejectACancelledPurchase() {
-        purchase.setStatus(PurchaseStatus.CANCELLED);
-        when(purchaseRepository.findForUpdateById(purchase.getId()))
-                .thenReturn(Optional.of(purchase));
-
-        assertThrows(
-                InvalidInputException.class, () -> service.confirmPayment(purchase.getId(), null));
-    }
-
-    @Test
-    void shouldReturnNotFoundForAnUnknownPurchase() {
-        UUID unknown = UUID.randomUUID();
-        when(purchaseRepository.findForUpdateById(unknown)).thenReturn(Optional.empty());
-
-        assertThrows(NotFoundException.class, () -> service.confirmPayment(unknown, null));
     }
 
     @Test
@@ -177,7 +145,7 @@ class PurchasePaymentServiceTest {
     }
 
     private void stubLockedPurchase() {
-        when(refundRepository.findByPaymentId("987")).thenReturn(Optional.empty());
+        when(refundRepository.findByPaymentId("mp-123")).thenReturn(Optional.empty());
         when(purchaseRepository.findForUpdateById(purchase.getId()))
                 .thenReturn(Optional.of(purchase));
     }
@@ -193,7 +161,9 @@ class PurchasePaymentServiceTest {
 
     @Test
     void shouldSettleAMatchingPaymentByConfirmingThePurchase() {
-        stubLockedPurchase();
+        when(refundRepository.findByPaymentId("987")).thenReturn(Optional.empty());
+        when(purchaseRepository.findForUpdateById(purchase.getId()))
+                .thenReturn(Optional.of(purchase));
         when(seatRepository.findByPurchaseIdOrderByEmailAsc(purchase.getId()))
                 .thenReturn(List.of());
 
@@ -207,7 +177,9 @@ class PurchasePaymentServiceTest {
 
     @Test
     void shouldIgnoreARepeatedNotificationOfTheConfirmingPayment() {
-        stubLockedPurchase();
+        when(refundRepository.findByPaymentId("987")).thenReturn(Optional.empty());
+        when(purchaseRepository.findForUpdateById(purchase.getId()))
+                .thenReturn(Optional.of(purchase));
         purchase.setStatus(PurchaseStatus.PAID);
         purchase.setPaymentReference("mercadopago:987");
 
@@ -219,7 +191,9 @@ class PurchasePaymentServiceTest {
 
     @Test
     void shouldRefundAPaymentForACancelledPurchase() {
-        stubLockedPurchase();
+        when(refundRepository.findByPaymentId("987")).thenReturn(Optional.empty());
+        when(purchaseRepository.findForUpdateById(purchase.getId()))
+                .thenReturn(Optional.of(purchase));
         purchase.setStatus(PurchaseStatus.CANCELLED);
 
         assertEquals(
@@ -230,7 +204,9 @@ class PurchasePaymentServiceTest {
 
     @Test
     void shouldRefundASecondPaymentForAPaidPurchase() {
-        stubLockedPurchase();
+        when(refundRepository.findByPaymentId("987")).thenReturn(Optional.empty());
+        when(purchaseRepository.findForUpdateById(purchase.getId()))
+                .thenReturn(Optional.of(purchase));
         purchase.setStatus(PurchaseStatus.PAID);
         purchase.setPaymentReference("mercadopago:111");
 
@@ -242,7 +218,9 @@ class PurchasePaymentServiceTest {
 
     @Test
     void shouldRefundAPaymentOfAnotherAmountOrCurrencyWithoutConfirming() {
-        stubLockedPurchase();
+        when(refundRepository.findByPaymentId("987")).thenReturn(Optional.empty());
+        when(purchaseRepository.findForUpdateById(purchase.getId()))
+                .thenReturn(Optional.of(purchase));
 
         assertEquals(
                 Settlement.REFUND, service.settle(purchase.getId(), "987", BigDecimal.ONE, "ARS"));
@@ -252,7 +230,9 @@ class PurchasePaymentServiceTest {
 
     @Test
     void shouldRecordTheRefundEvenWithoutAmountOrCurrency() {
-        stubLockedPurchase();
+        when(refundRepository.findByPaymentId("987")).thenReturn(Optional.empty());
+        when(purchaseRepository.findForUpdateById(purchase.getId()))
+                .thenReturn(Optional.of(purchase));
 
         assertEquals(Settlement.REFUND, service.settle(purchase.getId(), "987", null, null));
         ArgumentCaptor<PurchaseRefund> refund = ArgumentCaptor.forClass(PurchaseRefund.class);
@@ -350,7 +330,9 @@ class PurchasePaymentServiceTest {
 
     @Test
     void shouldOpenTheWithdrawalPeriodWhenMercadoPagoConfirmsThePayment() {
-        stubLockedPurchase();
+        when(refundRepository.findByPaymentId("987")).thenReturn(Optional.empty());
+        when(purchaseRepository.findForUpdateById(purchase.getId()))
+                .thenReturn(Optional.of(purchase));
         when(seatRepository.findByPurchaseIdOrderByEmailAsc(purchase.getId()))
                 .thenReturn(List.of());
         Instant before = Instant.now();
@@ -359,38 +341,6 @@ class PurchasePaymentServiceTest {
 
         assertNotNull(purchase.getRefundableUntil());
         assertTrue(!purchase.getRefundableUntil().isBefore(before.plus(Duration.ofDays(10))));
-    }
-
-    @Test
-    void shouldNotOfferAWithdrawalForAPurchaseConfirmedByHand() {
-        when(purchaseRepository.findForUpdateById(purchase.getId()))
-                .thenReturn(Optional.of(purchase));
-        when(seatRepository.findByPurchaseIdOrderByEmailAsc(purchase.getId()))
-                .thenReturn(List.of());
-
-        service.confirmPayment(purchase.getId(), "TRANSFERENCIA-12");
-
-        assertNull(purchase.getRefundableUntil());
-    }
-
-    @Test
-    void shouldNotConfirmARefundedPurchaseByHand() {
-        purchase.setStatus(PurchaseStatus.REFUNDED);
-        when(purchaseRepository.findForUpdateById(purchase.getId()))
-                .thenReturn(Optional.of(purchase));
-
-        assertThrows(
-                InvalidInputException.class, () -> service.confirmPayment(purchase.getId(), "x"));
-    }
-
-    @Test
-    void shouldRefundAPaymentForARefundedPurchase() {
-        stubLockedPurchase();
-        purchase.setStatus(PurchaseStatus.REFUNDED);
-
-        assertEquals(
-                Settlement.REFUND, service.settle(purchase.getId(), "987", BigDecimal.TEN, "ARS"));
-        assertEquals(RefundReason.PURCHASE_CANCELLED, recordedReason());
     }
 
     @Test
@@ -590,27 +540,5 @@ class PurchasePaymentServiceTest {
 
         verify(revocationService)
                 .revoke(eq(purchase), eq(RefundReason.EXTERNAL_REFUND), eq(BigDecimal.TEN), any());
-    }
-
-    @Test
-    void shouldIgnoreAReversalOfAPaymentThatPaidNothing() {
-        when(refundRepository.findByPaymentId("987")).thenReturn(Optional.empty());
-        when(purchaseRepository.findForUpdateByPaymentReference("mercadopago:987"))
-                .thenReturn(Optional.empty());
-
-        assertEquals(Reversal.IGNORED, service.reverse("987", true, BigDecimal.TEN));
-        verify(refundRepository, never()).save(any());
-        verifyNoInteractions(revocationService);
-    }
-
-    @Test
-    void shouldFindOnlyAPaidPurchaseByItsPayment() {
-        purchase.setStatus(PurchaseStatus.PAID);
-        when(purchaseRepository.findByPaymentReference("mercadopago:987"))
-                .thenReturn(Optional.of(purchase));
-        assertEquals(Optional.of(purchase), service.findPaidBy("987"));
-
-        purchase.setStatus(PurchaseStatus.REFUNDED);
-        assertTrue(service.findPaidBy("987").isEmpty());
     }
 }
