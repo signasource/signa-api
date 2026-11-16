@@ -3,6 +3,7 @@ package com.signasource.signa_api.gamification.service;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.gamification.dto.PurchaseResponse;
+import com.signasource.signa_api.gamification.dto.StoredBoostersResponse;
 import com.signasource.signa_api.gamification.entity.LivesMode;
 import com.signasource.signa_api.gamification.entity.Purchase;
 import com.signasource.signa_api.gamification.entity.PurchaseStatus;
@@ -24,6 +25,19 @@ public class BoosterService {
 
     private final PurchaseRepository purchaseRepository;
     private final UserStatsRepository userStatsRepository;
+
+    @Transactional(readOnly = true)
+    public StoredBoostersResponse getStored(User user) {
+        ensureEnabled(user);
+        return new StoredBoostersResponse(
+                countStored(user, ShopItemType.XP_MULTIPLIER),
+                countStored(user, ShopItemType.UNLIMITED_LIVES));
+    }
+
+    private long countStored(User user, ShopItemType itemType) {
+        return purchaseRepository.countByUserAndShopItem_ItemTypeAndStatus(
+                user, itemType, PurchaseStatus.STORED);
+    }
 
     @Transactional
     public PurchaseResponse activate(User user, ShopItemType itemType) {

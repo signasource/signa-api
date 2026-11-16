@@ -218,7 +218,9 @@ public class PurchaseService {
     }
 
     private int grantLives(UserStats stats, int quantity) {
-        int current = stats.getCurrentLives() == null ? 0 : stats.getCurrentLives();
+        stats.regenerateLives(Instant.now());
+        int current =
+                stats.getCurrentLives() == null ? UserStats.MAX_LIVES : stats.getCurrentLives();
         int updated = Math.min(UserStats.MAX_LIVES, current + quantity);
         stats.setCurrentLives(updated);
         if (updated >= UserStats.MAX_LIVES) {

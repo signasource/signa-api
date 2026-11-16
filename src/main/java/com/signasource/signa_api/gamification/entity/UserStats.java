@@ -33,6 +33,9 @@ public class UserStats {
 
     public static final int MAX_LIVES = 5;
 
+    /** One life comes back every this many minutes while the bar is not full. */
+    public static final int LIFE_REGEN_MINUTES = 30;
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
@@ -86,7 +89,7 @@ public class UserStats {
     @Builder.Default
     private LivesMode livesMode = LivesMode.LIMITED;
 
-    @Column private Integer currentLives;
+    @Column @Builder.Default private Integer currentLives = MAX_LIVES;
 
     @Column private Instant nextLifeAt;
 
@@ -142,6 +145,42 @@ public class UserStats {
         return unlimitedLivesExpiresAt == null || unlimitedLivesExpiresAt.isAfter(Instant.now());
     }
 
+    /** Lives and next-regeneration instant as they stand at a given moment. */
+    public record LifeState(int lives, Instant nextLifeAt) {}
+
+    /**
+     * Lives derived from {@code currentLives}/{@code nextLifeAt} at {@code now}, without mutating
+     * anything: one life per elapsed {@link #LIFE_REGEN_MINUTES} since {@code nextLifeAt}. A
+     * missing {@code currentLives} means a full bar; a missing {@code nextLifeAt} on a non-full bar
+     * (rows from before regeneration existed) starts the timer at {@code now}.
+     */
+    public LifeState lifeStateAt(Instant now) {
+        int lives = currentLives == null ? MAX_LIVES : Math.min(currentLives, MAX_LIVES);
+        if (lives >= MAX_LIVES) {
+            return new LifeState(MAX_LIVES, null);
+        }
+        Instant next =
+                nextLifeAt == null ? now.plus(LIFE_REGEN_MINUTES, ChronoUnit.MINUTES) : nextLifeAt;
+        while (lives < MAX_LIVES && !next.isAfter(now)) {
+            lives++;
+            next = next.plus(LIFE_REGEN_MINUTES, ChronoUnit.MINUTES);
+        }
+        return new LifeState(lives, lives >= MAX_LIVES ? null : next);
+    }
+
+    /** Persists the regeneration that has elapsed; also drops an expired unlimited-lives mode. */
+    public void regenerateLives(Instant now) {
+        if (livesMode == LivesMode.INFINITE && !hasActiveUnlimitedLives()) {
+            livesMode = LivesMode.LIMITED;
+        }
+        if (livesMode != LivesMode.LIMITED) {
+            return;
+        }
+        LifeState state = lifeStateAt(now);
+        currentLives = state.lives();
+        nextLifeAt = state.nextLifeAt();
+    }
+
     public LivesMode getEffectiveLivesMode() {
         return hasActiveUnlimitedLives() || livesMode != LivesMode.INFINITE
                 ? livesMode
@@ -154,14 +193,16 @@ public class UserStats {
      * @return true if a life was actually deducted
      */
     public boolean loseLife() {
-        if (livesMode != LivesMode.LIMITED) {
+        Instant now = Instant.now();
+        regenerateLives(now);
+        if (livesMode != LivesMode.LIMITED || currentLives <= 0) {
             return false;
         }
-        int lives = currentLives == null ? MAX_LIVES : currentLives;
-        if (lives <= 0) {
-            return false;
+        boolean wasFull = currentLives >= MAX_LIVES;
+        currentLives = currentLives - 1;
+        if (wasFull || nextLifeAt == null) {
+            nextLifeAt = now.plus(LIFE_REGEN_MINUTES, ChronoUnit.MINUTES);
         }
-        currentLives = lives - 1;
         return true;
     }
 

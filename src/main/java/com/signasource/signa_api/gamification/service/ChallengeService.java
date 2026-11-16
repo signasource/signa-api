@@ -159,6 +159,7 @@ public class ChallengeService {
             case GEMS -> stats.setGems(stats.getGems() + quantity);
             case STREAK_SHIELD -> stats.setStreakShields(stats.getStreakShields() + quantity);
             case LIFE -> {
+                stats.regenerateLives(Instant.now());
                 int current =
                         stats.getCurrentLives() == null
                                 ? UserStats.MAX_LIVES
