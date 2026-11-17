@@ -303,4 +303,51 @@ class SignCatalogImporterTest {
         verify(signRepository, never()).save(uploaded);
         verify(signRepository, never()).save(unchanged);
     }
+
+    @Test
+    void shouldMatchBucketFilesIgnoringCaseAndAccents() {
+        Sign clinic = Sign.builder().meaning("clinica").signLanguage(lsa).build();
+        Sign cafe = Sign.builder().meaning("café").signLanguage(lsa).build();
+        Sign lateralOnly = Sign.builder().meaning("autorizacion").signLanguage(lsa).build();
+        when(signRepository.findAll()).thenReturn(List.of(clinic, cafe, lateralOnly));
+        when(mediaStorage.exists(org.mockito.ArgumentMatchers.anyString())).thenReturn(false);
+        when(mediaStorage.listKeys("lsa/"))
+                .thenReturn(
+                        List.of(
+                                "lsa/Clínica.mp4",
+                                "lsa/Café.glb",
+                                "lsa/Autorización.mp4",
+                                "lsa/Autorización_lateral.mp4",
+                                "lsa/_history/Café-123.glb"));
+
+        int changed = importer.refreshMediaKeys();
+
+        assertEquals(3, changed);
+        assertEquals("lsa/Clínica.mp4", clinic.getAnimationUrl());
+        assertEquals("lsa/Café.glb", cafe.getAnimationUrl());
+        assertEquals("lsa/Autorización.mp4", lateralOnly.getAnimationUrl());
+        assertEquals("lsa/Autorización_lateral.mp4", lateralOnly.getLateralAnimationUrl());
+    }
+
+    @Test
+    void shouldKeepAnAccentedKeyAlreadyResolvedFromTheBucket() {
+        Sign resolved =
+                Sign.builder()
+                        .meaning("clinica")
+                        .animationUrl("lsa/Clínica.mp4")
+                        .signLanguage(lsa)
+                        .build();
+        when(signRepository.findAll()).thenReturn(List.of(resolved));
+        when(mediaStorage.exists(org.mockito.ArgumentMatchers.anyString())).thenReturn(false);
+        when(mediaStorage.listKeys("lsa/")).thenReturn(List.of("lsa/Clínica.mp4"));
+
+        assertEquals(0, importer.refreshMediaKeys());
+        verify(signRepository, never()).save(resolved);
+    }
+
+    @Test
+    void shouldNormalizeNames() {
+        assertEquals("manana", SignCatalogImporter.normalize("Mañana"));
+        assertEquals("de nada", SignCatalogImporter.normalize("  De-Nada "));
+    }
 }
