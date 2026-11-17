@@ -84,6 +84,7 @@ class SignMediaStorageTest {
         assertEquals("mp4", SignMediaStorage.formatOf("lsa/hola.MP4"));
         assertEquals("glb", SignMediaStorage.formatOf("lsa/hola.glb"));
         assertNull(SignMediaStorage.formatOf(" "));
+        assertNull(SignMediaStorage.formatOf("lsa/hola"));
         assertEquals("lsa/Hola.mp4", SignMediaStorage.defaultKey("LSA", "Hola", "mp4"));
         assertEquals(
                 "lsa/_history/hola-5.glb",

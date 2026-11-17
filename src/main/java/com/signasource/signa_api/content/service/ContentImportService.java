@@ -62,6 +62,10 @@ public class ContentImportService {
         // has the old meaning) as an orphan duplicate.
         signCatalogImporter.importSigns(changed);
 
+        // Files are uploaded to R2 independently of the YAML, so every import also re-points the
+        // signs still on a default key at what the bucket really has (.glb, .mp4 or nothing).
+        signCatalogImporter.refreshMediaKeys();
+
         return outcomes;
     }
 }

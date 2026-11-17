@@ -67,6 +67,7 @@ class AdminSignServiceTest {
     @Mock private LessonBlockRepository lessonBlockRepository;
     @Mock private UserLearnedSignRepository userLearnedSignRepository;
     @Mock private SignMediaStorage mediaStorage;
+    @Mock private com.signasource.signa_api.content.service.SignCatalogImporter catalogImporter;
 
     private AdminSignService service;
     private SignLanguage lsa;
@@ -82,7 +83,8 @@ class AdminSignServiceTest {
                         lessonBlockRepository,
                         userLearnedSignRepository,
                         new SignReferences(new ObjectMapper()),
-                        mediaStorage);
+                        mediaStorage,
+                        catalogImporter);
         lsa = SignLanguage.builder().id(UUID.randomUUID()).code("LSA").name("LSA").build();
         hola =
                 Sign.builder()
@@ -410,5 +412,12 @@ class AdminSignServiceTest {
 
         service.removeLateral(hola.getId());
         assertNull(hola.getLateralAnimationUrl());
+    }
+
+    @Test
+    void shouldDelegateMediaRebuildToTheCatalogImporter() {
+        when(catalogImporter.refreshMediaKeys()).thenReturn(3);
+
+        org.junit.jupiter.api.Assertions.assertEquals(3, service.rebuildMedia());
     }
 }

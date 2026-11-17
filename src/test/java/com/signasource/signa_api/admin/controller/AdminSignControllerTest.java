@@ -75,4 +75,14 @@ class AdminSignControllerTest {
         assertEquals(HttpStatus.NO_CONTENT, controller.delete(id).getStatusCode());
         verify(service).delete(id);
     }
+
+    @Test
+    void shouldReturnTheNumberOfRebuiltSigns() {
+        org.mockito.Mockito.when(service.rebuildMedia()).thenReturn(7);
+
+        var response = controller.rebuildMedia();
+
+        org.junit.jupiter.api.Assertions.assertEquals(200, response.getStatusCode().value());
+        org.junit.jupiter.api.Assertions.assertEquals(7, response.getBody().get("updated"));
+    }
 }
