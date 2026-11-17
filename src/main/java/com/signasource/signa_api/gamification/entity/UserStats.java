@@ -34,7 +34,7 @@ public class UserStats {
     public static final int MAX_LIVES = 5;
 
     /** One life comes back every this many minutes while the bar is not full. */
-    public static final int LIFE_REGEN_MINUTES = 30;
+    public static final int LIFE_REGEN_MINUTES = 10;
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
