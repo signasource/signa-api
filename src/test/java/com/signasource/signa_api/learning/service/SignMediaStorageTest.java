@@ -58,6 +58,20 @@ class SignMediaStorageTest {
     }
 
     @Test
+    void listKeysReturnsTheLocalFilesUnderThePrefix() {
+        assertTrue(storage.listKeys("lsa/").isEmpty());
+
+        storage.replace("lsa/Clínica.mp4", new byte[] {1}, "video/mp4");
+        storage.replace("lsa/hola.glb", new byte[] {1}, "model/gltf-binary");
+
+        List<String> keys = storage.listKeys("lsa/");
+
+        assertEquals(2, keys.size());
+        assertTrue(keys.contains("lsa/Clínica.mp4"));
+        assertTrue(keys.contains("lsa/hola.glb"));
+    }
+
+    @Test
     void copyReturnsFalseWhenTheSourceIsNotStoredLocally() {
         assertFalse(storage.copy("lsa/hola.glb", "lsa/saludo.glb"));
 

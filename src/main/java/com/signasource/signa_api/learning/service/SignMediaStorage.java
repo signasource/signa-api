@@ -2,6 +2,7 @@ package com.signasource.signa_api.learning.service;
 
 import com.signasource.signa_api.config.R2Properties;
 import com.signasource.signa_api.config.SignMediaProperties;
+import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
@@ -14,7 +15,9 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -26,8 +29,10 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.model.S3Object;
 
 /**
  * Reads and writes sign animation files (.glb / .mp4) by object key ({@code lsa/hola.glb}).
@@ -136,6 +141,41 @@ public class SignMediaStorage {
             }
         }
         return Files.isRegularFile(localPath(key));
+    }
+
+    /**
+     * Every object key under {@code prefix} (for example {@code lsa/}). Only what this API can
+     * list: the R2 bucket with credentials, otherwise the local directory (the public bucket cannot
+     * be listed).
+     */
+    public List<String> listKeys(String prefix) {
+        List<String> keys = new ArrayList<>();
+        if (isRemote()) {
+            r2Client
+                    .listObjectsV2Paginator(
+                            ListObjectsV2Request.builder()
+                                    .bucket(r2Properties.bucket())
+                                    .prefix(prefix)
+                                    .build())
+                    .contents()
+                    .stream()
+                    .map(S3Object::key)
+                    .forEach(keys::add);
+            return keys;
+        }
+        Path root = localRoot();
+        Path dir = root.resolve(prefix).normalize();
+        if (!dir.startsWith(root) || !Files.isDirectory(dir)) {
+            return keys;
+        }
+        try (var files = Files.walk(dir)) {
+            files.filter(Files::isRegularFile)
+                    .map(file -> root.relativize(file).toString().replace(File.separatorChar, '/'))
+                    .forEach(keys::add);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Could not list " + dir, e);
+        }
+        return keys;
     }
 
     /**
