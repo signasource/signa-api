@@ -32,6 +32,19 @@ public class SignCatalogImporter {
 
     private static final Handedness DEFAULT_HANDEDNESS = Handedness.ONE_HANDED;
 
+    /**
+     * Signs whose file in the bucket is named differently from the YAML meaning (the video is
+     * {@code nene.mp4}, the lesson teaches "niño"). Keys and values are compared normalized.
+     */
+    private static final Map<String, String> FILE_NAME_ALIASES =
+            Map.of(
+                    "niño", "nene",
+                    "niña", "nena",
+                    "hoy", "hoy-ahora",
+                    "comisaría", "policía",
+                    "mañana", "mañana (día siguiente)",
+                    "la mañana", "mañana (parte del día)");
+
     private final SignCatalogExtractor extractor;
     private final SignRepository signRepository;
     private final SignLanguageRepository signLanguageRepository;
@@ -148,7 +161,21 @@ public class SignCatalogImporter {
             return false;
         }
         String stem = stripExtension(key.substring(prefix.length()));
-        return stem != null && normalize(stem).equals(normalize(meaning));
+        if (stem == null) {
+            return false;
+        }
+        String name = normalize(stem);
+        return name.equals(normalize(meaning)) || name.equals(normalize(fileName(meaning)));
+    }
+
+    /** The name the bucket file carries for this meaning: an alias, or the meaning itself. */
+    private static String fileName(String meaning) {
+        String key = normalize(meaning);
+        return FILE_NAME_ALIASES.entrySet().stream()
+                .filter(alias -> normalize(alias.getKey()).equals(key))
+                .map(Map.Entry::getValue)
+                .findFirst()
+                .orElse(meaning);
     }
 
     /**
@@ -185,7 +212,9 @@ public class SignCatalogImporter {
             if (mediaStorage.exists(exact)) {
                 return exact;
             }
-            return keys(language).get(normalize(meaning) + "|" + suffix);
+            Map<String, String> keys = keys(language);
+            String found = keys.get(normalize(meaning) + "|" + suffix);
+            return found != null ? found : keys.get(normalize(fileName(meaning)) + "|" + suffix);
         }
 
         private Map<String, String> keys(SignLanguage language) {
