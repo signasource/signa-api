@@ -36,13 +36,13 @@ class UserStatsLivesTest {
         UserStats stats =
                 UserStats.builder()
                         .currentLives(1)
-                        .nextLifeAt(now.minus(70, ChronoUnit.MINUTES))
+                        .nextLifeAt(now.minus(25, ChronoUnit.MINUTES))
                         .build();
 
         UserStats.LifeState state = stats.lifeStateAt(now);
 
         assertEquals(4, state.lives());
-        assertEquals(now.plus(20, ChronoUnit.MINUTES), state.nextLifeAt());
+        assertEquals(now.plus(5, ChronoUnit.MINUTES), state.nextLifeAt());
     }
 
     @Test
