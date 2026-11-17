@@ -1,7 +1,6 @@
 package com.signasource.signa_api.content.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -231,7 +230,7 @@ class SignCatalogImporterTest {
     }
 
     @Test
-    void shouldCreateSignWithNullUrlWhenNoFileExists() {
+    void shouldCreateSignWithExtensionlessKeyWhenNoFileExists() {
         LessonBlockDto block = block(1);
         LoadedCourse course = course(LSA, block);
         when(signLanguageRepository.findByCode(LSA)).thenReturn(Optional.of(lsa));
@@ -240,7 +239,7 @@ class SignCatalogImporterTest {
         importer.importSigns(List.of(course));
 
         verify(signRepository).saveAll(signsCaptor.capture());
-        assertNull(signsCaptor.getValue().get(0).getAnimationUrl());
+        assertEquals("lsa/hola", signsCaptor.getValue().get(0).getAnimationUrl());
     }
 
     @Test
@@ -258,5 +257,50 @@ class SignCatalogImporterTest {
 
         assertEquals("lsa/hola.glb", existing.getAnimationUrl());
         verify(signRepository).save(existing);
+    }
+
+    @Test
+    void shouldRefreshMediaKeysOfExistingSignsWithoutReadingContent() {
+        Sign stale =
+                Sign.builder()
+                        .meaning("hola")
+                        .animationUrl("lsa/hola.glb")
+                        .signLanguage(lsa)
+                        .build();
+        Sign video =
+                Sign.builder()
+                        .meaning("chau")
+                        .animationUrl("lsa/chau.glb")
+                        .signLanguage(lsa)
+                        .build();
+        Sign uploaded =
+                Sign.builder()
+                        .meaning("gracias")
+                        .animationUrl("lsa/custom/gracias.mp4")
+                        .signLanguage(lsa)
+                        .build();
+        Sign unchanged =
+                Sign.builder()
+                        .meaning("mamá")
+                        .animationUrl("lsa/mamá.glb")
+                        .signLanguage(lsa)
+                        .build();
+        when(signRepository.findAll()).thenReturn(List.of(stale, video, uploaded, unchanged));
+        when(mediaStorage.exists(org.mockito.ArgumentMatchers.anyString())).thenReturn(false);
+        when(mediaStorage.exists("lsa/chau.mp4")).thenReturn(true);
+        when(mediaStorage.exists("lsa/chau_lateral.mp4")).thenReturn(true);
+        when(mediaStorage.exists("lsa/mamá.glb")).thenReturn(true);
+
+        int changed = importer.refreshMediaKeys();
+
+        assertEquals(2, changed);
+        assertEquals("lsa/hola", stale.getAnimationUrl());
+        assertEquals("lsa/chau.mp4", video.getAnimationUrl());
+        assertEquals("lsa/chau_lateral.mp4", video.getLateralAnimationUrl());
+        assertEquals("lsa/custom/gracias.mp4", uploaded.getAnimationUrl());
+        verify(signRepository).save(stale);
+        verify(signRepository).save(video);
+        verify(signRepository, never()).save(uploaded);
+        verify(signRepository, never()).save(unchanged);
     }
 }

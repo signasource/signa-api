@@ -54,41 +54,88 @@ public class SignCatalogImporter {
                         .findByMeaningIgnoreCase(meaning)
                         .ifPresentOrElse(
                                 existing -> {
-                                    String key = existing.getAnimationUrl();
-                                    boolean isDefaultKey =
-                                            key == null
-                                                    || key.isBlank()
-                                                    || key.equalsIgnoreCase(
-                                                            buildKey(signLanguage, meaning, ".glb"))
-                                                    || key.equalsIgnoreCase(
-                                                            buildKey(
-                                                                    signLanguage, meaning, ".mp4"));
-                                    String resolvedKey =
-                                            isDefaultKey ? resolveKey(signLanguage, meaning) : key;
-                                    boolean keyDrift =
-                                            isDefaultKey && !Objects.equals(resolvedKey, key);
                                     boolean meaningDrift = !existing.getMeaning().equals(meaning);
-                                    if (meaningDrift || keyDrift) {
+                                    boolean mediaDrift = syncMedia(existing, signLanguage, meaning);
+                                    if (meaningDrift || mediaDrift) {
                                         existing.setMeaning(meaning);
-                                        if (keyDrift) {
-                                            existing.setAnimationUrl(resolvedKey);
-                                        }
                                         signRepository.save(existing);
                                     }
                                 },
-                                () ->
-                                        newSigns.add(
-                                                Sign.builder()
-                                                        .meaning(meaning)
-                                                        .handedness(DEFAULT_HANDEDNESS)
-                                                        .animationUrl(
-                                                                resolveKey(signLanguage, meaning))
-                                                        .signLanguage(signLanguage)
-                                                        .build()));
+                                () -> newSigns.add(newSign(signLanguage, meaning)));
             }
         }
 
         signRepository.saveAll(newSigns);
+    }
+
+    /**
+     * Re-resolves the media of every sign that still points at a default key (or has none), without
+     * reading the YAML: unchanged courses are not re-imported, so this is how an existing catalog
+     * gets rebuilt without resurrecting names renamed from the admin panel. Returns how many signs
+     * changed.
+     */
+    @Transactional
+    public int refreshMediaKeys() {
+        int changed = 0;
+        for (Sign sign : signRepository.findAll()) {
+            SignLanguage language = sign.getSignLanguage();
+            if (language != null && syncMedia(sign, language, sign.getMeaning())) {
+                signRepository.save(sign);
+                changed++;
+            }
+        }
+        return changed;
+    }
+
+    private Sign newSign(SignLanguage signLanguage, String meaning) {
+        Sign sign =
+                Sign.builder()
+                        .meaning(meaning)
+                        .handedness(DEFAULT_HANDEDNESS)
+                        .signLanguage(signLanguage)
+                        .build();
+        syncMedia(sign, signLanguage, meaning);
+        return sign;
+    }
+
+    /**
+     * Points the sign at what is really in the bucket: {@code <meaning>.glb}, else {@code
+     * <meaning>.mp4} (plus {@code _lateral.mp4} if present), else the bare {@code <meaning>} key
+     * with no extension. A key that is not one of those defaults was uploaded from the panel and is
+     * left alone. Returns whether anything changed.
+     */
+    private boolean syncMedia(Sign sign, SignLanguage signLanguage, String meaning) {
+        String key = sign.getAnimationUrl();
+        if (!isDefaultKey(key, signLanguage, meaning)) {
+            return false;
+        }
+        String glbKey = buildKey(signLanguage, meaning, ".glb");
+        String mp4Key = buildKey(signLanguage, meaning, ".mp4");
+        String resolved;
+        String lateral = null;
+        if (mediaStorage.exists(glbKey)) {
+            resolved = glbKey;
+        } else if (mediaStorage.exists(mp4Key)) {
+            resolved = mp4Key;
+            String lateralKey = buildKey(signLanguage, meaning, "_lateral.mp4");
+            lateral = mediaStorage.exists(lateralKey) ? lateralKey : null;
+        } else {
+            resolved = buildKey(signLanguage, meaning, "");
+        }
+        boolean changed =
+                !Objects.equals(resolved, key)
+                        || !Objects.equals(lateral, sign.getLateralAnimationUrl());
+        sign.setAnimationUrl(resolved);
+        sign.setLateralAnimationUrl(lateral);
+        return changed;
+    }
+
+    private static boolean isDefaultKey(String key, SignLanguage signLanguage, String meaning) {
+        return key == null
+                || key.isBlank()
+                || key.equalsIgnoreCase(buildKey(signLanguage, meaning, ".glb"))
+                || key.equalsIgnoreCase(buildKey(signLanguage, meaning, ".mp4"))
+                || key.equalsIgnoreCase(buildKey(signLanguage, meaning, ""));
     }
 
     private Set<String> meanings(LoadedCourse course) {
@@ -99,18 +146,6 @@ public class SignCatalogImporter {
             }
         }
         return meanings;
-    }
-
-    private String resolveKey(SignLanguage signLanguage, String meaning) {
-        String glbKey = buildKey(signLanguage, meaning, ".glb");
-        if (mediaStorage.exists(glbKey)) {
-            return glbKey;
-        }
-        String mp4Key = buildKey(signLanguage, meaning, ".mp4");
-        if (mediaStorage.exists(mp4Key)) {
-            return mp4Key;
-        }
-        return null;
     }
 
     private static String buildKey(SignLanguage signLanguage, String meaning, String ext) {

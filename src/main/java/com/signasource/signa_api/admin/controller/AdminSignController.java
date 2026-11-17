@@ -6,6 +6,7 @@ import com.signasource.signa_api.admin.dto.CreateAdminSignRequest;
 import com.signasource.signa_api.admin.dto.UpdateSignRequest;
 import com.signasource.signa_api.admin.service.AdminSignService;
 import jakarta.validation.Valid;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -79,6 +80,12 @@ public class AdminSignController {
     @DeleteMapping("/{id}/animation/lateral")
     public ResponseEntity<AdminSignDetailResponse> removeLateral(@PathVariable UUID id) {
         return ResponseEntity.ok(adminSignService.removeLateral(id));
+    }
+
+    /** Rebuilds each sign's media key from what exists in the bucket (.glb, .mp4, none). */
+    @PostMapping("/rebuild-media")
+    public ResponseEntity<Map<String, Integer>> rebuildMedia() {
+        return ResponseEntity.ok(Map.of("updated", adminSignService.rebuildMedia()));
     }
 
     @DeleteMapping("/{id}")

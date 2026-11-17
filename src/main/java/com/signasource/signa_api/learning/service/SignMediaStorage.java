@@ -182,12 +182,19 @@ public class SignMediaStorage {
         return Path.of(properties.localDir()).toAbsolutePath().normalize();
     }
 
-    /** {@code mp4} or {@code glb} from the object key's extension; null when there is no key. */
+    /**
+     * {@code mp4} or {@code glb} from the object key's extension; null when there is no key or it
+     * has no known extension (a sign whose file was not found in the bucket).
+     */
     public static String formatOf(String objectKey) {
         if (objectKey == null || objectKey.isBlank()) {
             return null;
         }
-        return objectKey.toLowerCase(Locale.ROOT).endsWith(".mp4") ? MP4 : GLB;
+        String lower = objectKey.toLowerCase(Locale.ROOT);
+        if (lower.endsWith(".mp4")) {
+            return MP4;
+        }
+        return lower.endsWith(".glb") ? GLB : null;
     }
 
     /** {@code <language code>/<meaning>.<format>}: the key the importer and the app derive too. */

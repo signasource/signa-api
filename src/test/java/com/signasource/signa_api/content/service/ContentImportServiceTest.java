@@ -68,6 +68,7 @@ class ContentImportServiceTest {
         verify(validator).validate(second);
         // course-b is unchanged: its signs may have been edited from the admin panel since.
         verify(signCatalogImporter).importSigns(List.of(first));
+        verify(signCatalogImporter).refreshMediaKeys();
     }
 
     @Test
@@ -94,5 +95,6 @@ class ContentImportServiceTest {
         verify(persister, never()).importCourse(first);
         verify(persister, never()).importCourse(second);
         verify(signCatalogImporter, never()).importSigns(anyList());
+        verify(signCatalogImporter, never()).refreshMediaKeys();
     }
 }

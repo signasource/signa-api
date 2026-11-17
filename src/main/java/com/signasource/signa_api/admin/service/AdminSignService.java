@@ -5,6 +5,7 @@ import com.signasource.signa_api.admin.dto.AdminSignResponse;
 import com.signasource.signa_api.admin.dto.CreateAdminSignRequest;
 import com.signasource.signa_api.admin.dto.SignUsageResponse;
 import com.signasource.signa_api.admin.dto.UpdateSignRequest;
+import com.signasource.signa_api.content.service.SignCatalogImporter;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
@@ -71,6 +72,12 @@ public class AdminSignService {
     private final UserLearnedSignRepository userLearnedSignRepository;
     private final SignReferences signReferences;
     private final SignMediaStorage mediaStorage;
+    private final SignCatalogImporter signCatalogImporter;
+
+    /** Re-resolves every default-keyed sign against the bucket; returns how many changed. */
+    public int rebuildMedia() {
+        return signCatalogImporter.refreshMediaKeys();
+    }
 
     @Transactional(readOnly = true)
     public Page<AdminSignResponse> list(String query, Pageable pageable) {
