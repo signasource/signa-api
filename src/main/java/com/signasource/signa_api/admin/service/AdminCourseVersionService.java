@@ -1,11 +1,15 @@
 package com.signasource.signa_api.admin.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.signasource.signa_api.admin.dto.AdminCourseVersionDetailResponse;
 import com.signasource.signa_api.admin.dto.AdminCourseVersionListItemResponse;
 import com.signasource.signa_api.admin.dto.CreateCourseRequest;
 import com.signasource.signa_api.admin.dto.SaveCourseVersionRequest;
+import com.signasource.signa_api.content.dto.validation.ValidationError;
+import com.signasource.signa_api.content.dto.yaml.LessonBlockDto;
+import com.signasource.signa_api.content.validator.ContentValidator;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.learning.entity.BlockType;
@@ -47,6 +51,7 @@ public class AdminCourseVersionService {
     private final UserRepository userRepository;
     private final UserCourseEnrollmentRepository enrollmentRepository;
     private final ObjectMapper objectMapper;
+    private final ContentValidator contentValidator;
 
     @Transactional(readOnly = true)
     public List<AdminCourseVersionListItemResponse> listVersions() {
@@ -268,6 +273,7 @@ public class AdminCourseVersionService {
         if (version.getStatus() != VersionStatus.DRAFT) {
             throw new InvalidInputException("Only draft versions can be published");
         }
+        requireValidBlocks(version);
 
         courseVersionRepository.findByCourseId(version.getCourse().getId()).stream()
                 .filter(v -> v.getStatus() == VersionStatus.PUBLISHED)
@@ -310,6 +316,51 @@ public class AdminCourseVersionService {
             throw new InvalidInputException("Only draft versions can be deleted");
         }
         courseVersionRepository.delete(version);
+    }
+
+    /** Same block validators as the YAML import, so the panel cannot publish broken blocks. */
+    private void requireValidBlocks(CourseVersion version) {
+        List<ValidationError> errors = new ArrayList<>();
+        List<Topic> topics =
+                version.getTopics().stream()
+                        .sorted((a, b) -> Integer.compare(a.getOrder(), b.getOrder()))
+                        .toList();
+        for (int ti = 0; ti < topics.size(); ti++) {
+            List<Lesson> lessons =
+                    topics.get(ti).getLessons().stream()
+                            .sorted((a, b) -> Integer.compare(a.getOrder(), b.getOrder()))
+                            .toList();
+            for (int li = 0; li < lessons.size(); li++) {
+                List<LessonBlockDto> blocks =
+                        lessons.get(li).getLessonBlocks().stream()
+                                .sorted((a, b) -> Integer.compare(a.getOrder(), b.getOrder()))
+                                .map(this::toBlockDto)
+                                .toList();
+                errors.addAll(
+                        contentValidator.validateBlocks(
+                                blocks, String.valueOf(ti + 1), String.valueOf(li + 1)));
+            }
+        }
+        if (!errors.isEmpty()) {
+            throw new InvalidInputException(
+                    "Course has invalid blocks: "
+                            + errors.stream()
+                                    .limit(10)
+                                    .map(ValidationError::render)
+                                    .collect(Collectors.joining("; ")));
+        }
+    }
+
+    private LessonBlockDto toBlockDto(LessonBlock block) {
+        try {
+            JsonNode config =
+                    block.getConfig() == null || block.getConfig().isBlank()
+                            ? objectMapper.createObjectNode()
+                            : objectMapper.readTree(block.getConfig());
+            return new LessonBlockDto(block.getType(), block.getXpReward(), config);
+        } catch (JsonProcessingException e) {
+            return new LessonBlockDto(block.getType(), block.getXpReward(), null);
+        }
     }
 
     private int nextVersionNumber(UUID courseId) {
