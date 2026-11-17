@@ -3,7 +3,10 @@ package com.signasource.signa_api.admin.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -12,11 +15,18 @@ import com.signasource.signa_api.admin.dto.AdminCourseVersionDetailResponse;
 import com.signasource.signa_api.admin.dto.AdminCourseVersionListItemResponse;
 import com.signasource.signa_api.admin.dto.CreateCourseRequest;
 import com.signasource.signa_api.admin.dto.SaveCourseVersionRequest;
+import com.signasource.signa_api.content.dto.validation.ValidationError;
+import com.signasource.signa_api.content.dto.yaml.LessonBlockDto;
+import com.signasource.signa_api.content.validator.ContentValidator;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
+import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.entity.Course;
 import com.signasource.signa_api.learning.entity.CourseVersion;
+import com.signasource.signa_api.learning.entity.Lesson;
+import com.signasource.signa_api.learning.entity.LessonBlock;
 import com.signasource.signa_api.learning.entity.SignLanguage;
+import com.signasource.signa_api.learning.entity.Topic;
 import com.signasource.signa_api.learning.entity.VersionStatus;
 import com.signasource.signa_api.learning.repository.CourseRepository;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
@@ -31,6 +41,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -43,6 +54,7 @@ class AdminCourseVersionServiceTest {
     @Mock private SignLanguageRepository signLanguageRepository;
     @Mock private UserRepository userRepository;
     @Mock private UserCourseEnrollmentRepository enrollmentRepository;
+    @Mock private ContentValidator contentValidator;
     @InjectMocks private AdminCourseVersionService service;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -200,6 +212,64 @@ class AdminCourseVersionServiceTest {
 
         assertEquals("PUBLISHED", result.status());
         assertNotNull(result.publishedAt());
+    }
+
+    private void addLessonWithBlocks(LessonBlock... blocks) {
+        Topic topic = Topic.builder().order(0).lessons(new ArrayList<>()).build();
+        Lesson lesson = Lesson.builder().order(0).lessonBlocks(new ArrayList<>()).build();
+        lesson.getLessonBlocks().addAll(List.of(blocks));
+        topic.getLessons().add(lesson);
+        draftVersion.getTopics().add(topic);
+    }
+
+    @Test
+    void shouldNotPublishWhenBlocksAreInvalid() {
+        addLessonWithBlocks(
+                LessonBlock.builder()
+                        .type(BlockType.PERFORM_SIGN)
+                        .order(0)
+                        .config("{\"signs\":[]}")
+                        .build());
+        when(courseVersionRepository.findWithFullTreeById(draftVersion.getId()))
+                .thenReturn(Optional.of(draftVersion));
+        when(contentValidator.validateBlocks(any(), eq("1"), eq("1")))
+                .thenReturn(
+                        List.of(new ValidationError("Topic 1 > Lesson 1 > Block #1", "bad signs")));
+
+        InvalidInputException ex =
+                assertThrows(
+                        InvalidInputException.class,
+                        () -> service.publishVersion(draftVersion.getId()));
+
+        assertTrue(ex.getMessage().contains("bad signs"));
+        assertEquals(VersionStatus.DRAFT, draftVersion.getStatus());
+        verify(courseVersionRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldValidateBlocksWithParsedConfigOnPublish() {
+        addLessonWithBlocks(
+                LessonBlock.builder()
+                        .type(BlockType.PERFORM_SIGN)
+                        .order(0)
+                        .config("{\"signs\":[\"cafe\"]}")
+                        .build(),
+                LessonBlock.builder().type(BlockType.SPELL_NAME).order(1).build(),
+                LessonBlock.builder().type(BlockType.INFO).order(2).config("{broken").build());
+        when(courseVersionRepository.findWithFullTreeById(draftVersion.getId()))
+                .thenReturn(Optional.of(draftVersion));
+        when(courseVersionRepository.findByCourseId(course.getId()))
+                .thenReturn(List.of(draftVersion));
+        when(courseVersionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        service.publishVersion(draftVersion.getId());
+
+        ArgumentCaptor<List<LessonBlockDto>> captor = ArgumentCaptor.forClass(List.class);
+        verify(contentValidator).validateBlocks(captor.capture(), eq("1"), eq("1"));
+        List<LessonBlockDto> blocks = captor.getValue();
+        assertEquals("cafe", blocks.get(0).config().get("signs").get(0).asText());
+        assertTrue(blocks.get(1).config().isEmpty());
+        assertEquals(null, blocks.get(2).config());
     }
 
     @Test

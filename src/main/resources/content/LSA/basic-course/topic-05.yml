@@ -7,7 +7,7 @@ topic:
 lessons:
   - code: leccion-12
     name: "Vehículos"
-    description: "Aprendé las señas de auto, moto, bicicleta y camión."
+    description: "Aprendé las señas de auto, bicicleta y camión."
 
     blocks:
       - type: INTRODUCE_SIGN
@@ -19,16 +19,6 @@ lessons:
         config:
           signs:
             - auto
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: moto
-
-      - type: PERFORM_SIGN
-        xp: 15
-        config:
-          signs:
-            - moto
 
       - type: INTRODUCE_SIGN
         config:
@@ -56,17 +46,15 @@ lessons:
           sign: auto
           options:
             - auto
-            - moto
             - bicicleta
             - "camión"
 
       - type: SELECT_SIGN
         xp: 5
         config:
-          word: moto
+          word: auto
           options:
             - auto
-            - moto
             - bicicleta
             - "camión"
 
@@ -77,7 +65,6 @@ lessons:
           answer: "camión"
           options:
             - auto
-            - moto
             - bicicleta
             - "camión"
 
@@ -87,7 +74,6 @@ lessons:
           sign: bicicleta
           options:
             - auto
-            - moto
             - bicicleta
             - "camión"
 
@@ -96,7 +82,6 @@ lessons:
         config:
           concepts:
             - auto
-            - moto
             - bicicleta
             - "camión"
 
@@ -109,7 +94,6 @@ lessons:
             - "camión"
           options:
             - auto
-            - moto
             - bicicleta
             - "camión"
 
