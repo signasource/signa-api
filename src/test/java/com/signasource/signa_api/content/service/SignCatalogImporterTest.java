@@ -350,4 +350,28 @@ class SignCatalogImporterTest {
         assertEquals("manana", SignCatalogImporter.normalize("Mañana"));
         assertEquals("de nada", SignCatalogImporter.normalize("  De-Nada "));
     }
+
+    @Test
+    void shouldResolveSignsWhoseFileIsNamedDifferently() {
+        Sign boy = Sign.builder().meaning("niño").signLanguage(lsa).build();
+        Sign tomorrow = Sign.builder().meaning("mañana").signLanguage(lsa).build();
+        Sign morning = Sign.builder().meaning("la mañana").signLanguage(lsa).build();
+        Sign today = Sign.builder().meaning("hoy").signLanguage(lsa).build();
+        when(signRepository.findAll()).thenReturn(List.of(boy, tomorrow, morning, today));
+        when(mediaStorage.exists(org.mockito.ArgumentMatchers.anyString())).thenReturn(false);
+        when(mediaStorage.listKeys("lsa/"))
+                .thenReturn(
+                        List.of(
+                                "lsa/nene.mp4",
+                                "lsa/mañana (día siguiente).mp4",
+                                "lsa/mañana (parte del día).mp4",
+                                "lsa/hoy-ahora.mp4"));
+
+        assertEquals(4, importer.refreshMediaKeys());
+        assertEquals("lsa/nene.mp4", boy.getAnimationUrl());
+        assertEquals("lsa/mañana (día siguiente).mp4", tomorrow.getAnimationUrl());
+        assertEquals("lsa/mañana (parte del día).mp4", morning.getAnimationUrl());
+        assertEquals("lsa/hoy-ahora.mp4", today.getAnimationUrl());
+        assertEquals(0, importer.refreshMediaKeys());
+    }
 }
