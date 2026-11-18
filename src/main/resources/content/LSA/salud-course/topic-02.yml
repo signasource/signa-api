@@ -14,19 +14,19 @@ lessons:
           meaning: hospital
       - type: INTRODUCE_SIGN
         config:
-          meaning: clinica
+          meaning: clínica
       - type: INTRODUCE_SIGN
         config:
           meaning: guardia
       - type: INTRODUCE_SIGN
         config:
-          meaning: internacion
+          meaning: internación
       - type: INTRODUCE_SIGN
         config:
           meaning: obra social
       - type: INTRODUCE_SIGN
         config:
-          meaning: autorizacion
+          meaning: autorización
 
       - type: SELECT_MEANING
         xp: 10
@@ -34,34 +34,34 @@ lessons:
           sign: hospital
           options:
             - hospital
-            - clinica
+            - clínica
             - guardia
-            - internacion
+            - internación
       - type: SELECT_SIGN
         xp: 10
         config:
           word: guardia
           options:
             - guardia
-            - internacion
+            - internación
             - hospital
-            - clinica
+            - clínica
       - type: SELECT_MEANING
         xp: 10
         config:
           sign: obra social
           options:
-            - autorizacion
+            - autorización
             - obra social
-            - internacion
-            - clinica
+            - internación
+            - clínica
       - type: SELECT_SIGN
         xp: 10
         config:
-          word: autorizacion
+          word: autorización
           options:
             - obra social
-            - autorizacion
+            - autorización
             - hospital
             - guardia
       - type: CONTEXT_RESPONSE
@@ -71,17 +71,17 @@ lessons:
           answer: guardia
           options:
             - obra social
-            - internacion
+            - internación
             - guardia
-            - autorizacion
+            - autorización
       - type: MATCH
         xp: 20
         config:
           concepts:
             - hospital
-            - clinica
+            - clínica
             - guardia
-            - internacion
+            - internación
             - obra social
-            - autorizacion
+            - autorización
 

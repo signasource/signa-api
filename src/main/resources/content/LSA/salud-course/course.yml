@@ -3,7 +3,7 @@ course:
   name: La salud
   description: Aprendé el vocabulario de la salud en LSA para contar cómo te sentís, moverte por los lugares de atención y comunicarte con los profesionales.
   free: false
-  price: 3500
+  price: 5500
   cover: "mock-cover"
   camera_recognition: false
   media_format: "VIDEO"

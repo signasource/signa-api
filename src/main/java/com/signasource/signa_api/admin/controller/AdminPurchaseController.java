@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -29,5 +30,11 @@ public class AdminPurchaseController {
     public ResponseEntity<AdminPurchaseDetailResponse> detail(
             @PathVariable UUID id, @RequestParam String type) {
         return ResponseEntity.ok(service.detail(id, type));
+    }
+
+    @PostMapping("/{id}/confirm")
+    public ResponseEntity<Void> confirm(@PathVariable UUID id, @RequestParam String type) {
+        service.confirmPayment(id, type);
+        return ResponseEntity.ok().build();
     }
 }

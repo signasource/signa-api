@@ -11,71 +11,71 @@ lessons:
     blocks:
       - type: INTRODUCE_SIGN
         config:
-          meaning: medico
+          meaning: médico
       - type: INTRODUCE_SIGN
         config:
           meaning: enfermero
       - type: INTRODUCE_SIGN
         config:
-          meaning: psicologo
+          meaning: psicólogo
       - type: INTRODUCE_SIGN
         config:
-          meaning: fonoaudiologo
+          meaning: fonoaudiólogo
 
       - type: SELECT_MEANING
         xp: 10
         config:
-          sign: medico
+          sign: médico
           options:
-            - medico
+            - médico
             - enfermero
-            - psicologo
-            - fonoaudiologo
+            - psicólogo
+            - fonoaudiólogo
       - type: SELECT_SIGN
         xp: 10
         config:
           word: enfermero
           options:
-            - medico
+            - médico
             - enfermero
-            - psicologo
-            - fonoaudiologo
+            - psicólogo
+            - fonoaudiólogo
       - type: SELECT_MEANING
         xp: 10
         config:
-          sign: psicologo
+          sign: psicólogo
           options:
-            - fonoaudiologo
-            - psicologo
-            - medico
+            - fonoaudiólogo
+            - psicólogo
+            - médico
             - enfermero
       - type: SELECT_SIGN
         xp: 10
         config:
-          word: fonoaudiologo
+          word: fonoaudiólogo
           options:
             - enfermero
-            - medico
-            - fonoaudiologo
-            - psicologo
+            - médico
+            - fonoaudiólogo
+            - psicólogo
       - type: CONTEXT_RESPONSE
         xp: 15
         config:
           question: "¿Quién te acompaña en la salud emocional y mental?"
-          answer: psicologo
+          answer: psicólogo
           options:
-            - medico
+            - médico
             - enfermero
-            - psicologo
-            - fonoaudiologo
+            - psicólogo
+            - fonoaudiólogo
       - type: MATCH
         xp: 20
         config:
           concepts:
-            - medico
+            - médico
             - enfermero
-            - psicologo
-            - fonoaudiologo
+            - psicólogo
+            - fonoaudiólogo
 
   - code: leccion-2
     name: "Médicos especialistas"
@@ -86,70 +86,70 @@ lessons:
           meaning: cirujano
       - type: INTRODUCE_SIGN
         config:
-          meaning: ginecologo
+          meaning: ginecólogo
       - type: INTRODUCE_SIGN
         config:
-          meaning: odontologo
+          meaning: odontólogo
       - type: INTRODUCE_SIGN
         config:
-          meaning: oftalmologo
+          meaning: oftalmólogo
       - type: INTRODUCE_SIGN
         config:
-          meaning: traumatologo
+          meaning: traumatólogo
 
       - type: SELECT_MEANING
         xp: 10
         config:
-          sign: odontologo
+          sign: odontólogo
           options:
-            - odontologo
-            - oftalmologo
+            - odontólogo
+            - oftalmólogo
             - cirujano
-            - ginecologo
+            - ginecólogo
       - type: SELECT_SIGN
         xp: 10
         config:
-          word: oftalmologo
+          word: oftalmólogo
           options:
-            - oftalmologo
-            - odontologo
-            - traumatologo
+            - oftalmólogo
+            - odontólogo
+            - traumatólogo
             - cirujano
       - type: SELECT_MEANING
         xp: 10
         config:
           sign: cirujano
           options:
-            - ginecologo
+            - ginecólogo
             - cirujano
-            - traumatologo
-            - odontologo
+            - traumatólogo
+            - odontólogo
       - type: SELECT_SIGN
         xp: 10
         config:
-          word: traumatologo
+          word: traumatólogo
           options:
             - cirujano
-            - ginecologo
-            - traumatologo
-            - oftalmologo
+            - ginecólogo
+            - traumatólogo
+            - oftalmólogo
       - type: CONTEXT_RESPONSE
         xp: 15
         config:
           question: "¿A qué especialista vas por un problema en los dientes?"
-          answer: odontologo
+          answer: odontólogo
           options:
-            - oftalmologo
-            - traumatologo
-            - odontologo
-            - ginecologo
+            - oftalmólogo
+            - traumatólogo
+            - odontólogo
+            - ginecólogo
       - type: MATCH
         xp: 20
         config:
           concepts:
             - cirujano
-            - ginecologo
-            - odontologo
-            - oftalmologo
-            - traumatologo
+            - ginecólogo
+            - odontólogo
+            - oftalmólogo
+            - traumatólogo
 

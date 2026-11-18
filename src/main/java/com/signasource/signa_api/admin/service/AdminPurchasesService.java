@@ -7,9 +7,11 @@ import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.gamification.entity.GemOrder;
 import com.signasource.signa_api.gamification.entity.GemOrderStatus;
 import com.signasource.signa_api.gamification.repository.GemOrderRepository;
+import com.signasource.signa_api.gamification.service.GemOrderSettlementService;
 import com.signasource.signa_api.learning.entity.CourseOrder;
 import com.signasource.signa_api.learning.entity.CourseOrderStatus;
 import com.signasource.signa_api.learning.repository.CourseOrderRepository;
+import com.signasource.signa_api.learning.service.CourseOrderSettlementService;
 import com.signasource.signa_api.organizations.entity.CoursePurchase;
 import com.signasource.signa_api.organizations.repository.CoursePurchaseRepository;
 import com.signasource.signa_api.organizations.repository.RefundRequestRepository;
@@ -37,6 +39,9 @@ public class AdminPurchasesService {
     private final CourseOrderRepository courseOrderRepository;
     private final RefundRequestRepository refundRequestRepository;
     private final AdminRefundRequestService refundRequestService;
+    private final PurchasePaymentService purchasePaymentService;
+    private final GemOrderSettlementService gemOrderSettlementService;
+    private final CourseOrderSettlementService courseOrderSettlementService;
 
     @Transactional(readOnly = true)
     public List<AdminPurchaseListItemResponse> listAll() {
@@ -63,6 +68,15 @@ public class AdminPurchasesService {
             case TYPE_COURSE -> detailCourseOrder(id);
             default -> throw new NotFoundException("Unknown purchase type: " + type);
         };
+    }
+
+    public void confirmPayment(UUID id, String type) {
+        switch (type) {
+            case TYPE_SEATS -> purchasePaymentService.confirmManual(id);
+            case TYPE_GEMS -> gemOrderSettlementService.creditManual(id);
+            case TYPE_COURSE -> courseOrderSettlementService.grantManual(id);
+            default -> throw new NotFoundException("Unknown purchase type: " + type);
+        }
     }
 
     // ── private helpers ──────────────────────────────────────────────────────

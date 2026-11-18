@@ -1,0 +1,116 @@
+topic:
+  code: unidad-3
+  title: "Unidad 3"
+  subtitle: "El aula"
+  description: "Aprendé el vocabulario del pizarrón y el mobiliario del aula."
+
+lessons:
+  - code: leccion-1
+    name: "El pizarrón"
+    description: "Lo que se usa para escribir y borrar en el pizarrón."
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: "pizarrón"
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: tiza
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: fibra para pizarrón
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: borrador
+
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: "pizarrón"
+          options:
+            - "pizarrón"
+            - tiza
+            - fibra para pizarrón
+            - borrador
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: tiza
+          options:
+            - tiza
+            - borrador
+            - fibra para pizarrón
+            - "pizarrón"
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: fibra para pizarrón
+          options:
+            - fibra para pizarrón
+            - tiza
+            - borrador
+            - "pizarrón"
+      - type: CONTEXT_RESPONSE
+        xp: 15
+        config:
+          question: "¿Qué usás para borrar lo que escribiste en el pizarrón?"
+          answer: borrador
+          options:
+            - tiza
+            - borrador
+            - fibra para pizarrón
+            - "pizarrón"
+      - type: MATCH
+        xp: 20
+        config:
+          concepts:
+            - "pizarrón"
+            - tiza
+            - fibra para pizarrón
+            - borrador
+
+  - code: leccion-2
+    name: "Mobiliario del aula"
+    description: "Los muebles y elementos del aula."
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: escritorio
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: silla
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: mapa
+
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: escritorio
+          options:
+            - escritorio
+            - silla
+            - mapa
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: silla
+          options:
+            - silla
+            - escritorio
+            - mapa
+      - type: CONTEXT_RESPONSE
+        xp: 15
+        config:
+          question: "¿Qué colgás en la pared para ubicar países y lugares?"
+          answer: mapa
+          options:
+            - escritorio
+            - silla
+            - mapa
+      - type: MATCH
+        xp: 20
+        config:
+          concepts:
+            - escritorio
+            - silla
+            - mapa

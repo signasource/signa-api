@@ -3,7 +3,7 @@ course:
   name: Curso Educación
   description: Aprende vocabulario útil en entornos educativos.
   free: false
-  price: 2900
+  price: 5500
   cover: "mock-cover"
   camera_recognition: false
   media_format: "VIDEO"
@@ -14,3 +14,6 @@ version:
 
 topics:
   - topic-01.yml
+  - topic-02.yml
+  - topic-03.yml
+  - topic-04.yml

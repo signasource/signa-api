@@ -1,0 +1,136 @@
+topic:
+  code: unidad-4
+  title: "Unidad 4"
+  subtitle: "Tecnología y oficina"
+  description: "Aprendé el vocabulario de los equipos tecnológicos y las herramientas de oficina."
+
+lessons:
+  - code: leccion-1
+    name: "Equipos tecnológicos"
+    description: "Los equipos que se usan en la escuela y la oficina."
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: cpu
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: impresora
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: "escáner"
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: proyector
+
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: impresora
+          options:
+            - impresora
+            - cpu
+            - "escáner"
+            - proyector
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: proyector
+          options:
+            - proyector
+            - impresora
+            - "escáner"
+            - cpu
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: "escáner"
+          options:
+            - "escáner"
+            - impresora
+            - proyector
+            - cpu
+      - type: CONTEXT_RESPONSE
+        xp: 15
+        config:
+          question: "¿Qué equipo usás para pasar un documento de papel a la computadora?"
+          answer: "escáner"
+          options:
+            - impresora
+            - "escáner"
+            - proyector
+            - cpu
+      - type: MATCH
+        xp: 20
+        config:
+          concepts:
+            - cpu
+            - impresora
+            - "escáner"
+            - proyector
+
+  - code: leccion-2
+    name: "Más herramientas"
+    description: "Otras herramientas de oficina que se usan a diario."
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: cinta
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: perforadora
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: calculadora
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: filmadora
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: fotocopia
+
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: calculadora
+          options:
+            - calculadora
+            - perforadora
+            - cinta
+            - fotocopia
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: perforadora
+          options:
+            - perforadora
+            - calculadora
+            - filmadora
+            - cinta
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: filmadora
+          options:
+            - filmadora
+            - calculadora
+            - fotocopia
+            - cinta
+      - type: CONTEXT_RESPONSE
+        xp: 15
+        config:
+          question: "¿Qué usás para hacer cuentas rápidamente?"
+          answer: calculadora
+          options:
+            - perforadora
+            - calculadora
+            - filmadora
+            - fotocopia
+      - type: MATCH
+        xp: 20
+        config:
+          concepts:
+            - cinta
+            - perforadora
+            - calculadora
+            - filmadora
+            - fotocopia

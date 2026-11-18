@@ -1,54 +1,30 @@
 topic:
-  code: unidad-4
-  title: "Unidad 4"
+  code: unidad-3
+  title: "Unidad 3"
   subtitle: "El tiempo"
   description: Aprendé a señar expresiones temporales y los momentos del día.
 
 lessons:
-  - code: leccion-10
+  - code: leccion-1
     name: "Ayer, hoy y mañana"
-    description: "Aprendé las señas de ayer, hoy, mañana y todos los días."
+    description: "Aprendé las señas de ayer, hoy-ahora, mañana (día siguiente) y todos los días."
 
     blocks:
       - type: INTRODUCE_SIGN
         config:
           meaning: ayer
 
-      - type: PERFORM_SIGN
-        xp: 15
+      - type: INTRODUCE_SIGN
         config:
-          signs:
-            - ayer
+          meaning: hoy-ahora
 
       - type: INTRODUCE_SIGN
         config:
-          meaning: hoy
-
-      - type: PERFORM_SIGN
-        xp: 15
-        config:
-          signs:
-            - hoy
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: "mañana"
-
-      - type: PERFORM_SIGN
-        xp: 15
-        config:
-          signs:
-            - "mañana"
+          meaning: "mañana (día siguiente)"
 
       - type: INTRODUCE_SIGN
         config:
           meaning: todos los días
-
-      - type: PERFORM_SIGN
-        xp: 15
-        config:
-          signs:
-            - todos los días
 
       - type: SELECT_MEANING
         xp: 5
@@ -56,29 +32,29 @@ lessons:
           sign: ayer
           options:
             - ayer
-            - hoy
-            - "mañana"
+            - hoy-ahora
+            - "mañana (día siguiente)"
             - todos los días
 
       - type: SELECT_SIGN
         xp: 5
         config:
-          word: hoy
+          word: hoy-ahora
           options:
             - ayer
-            - hoy
-            - "mañana"
+            - hoy-ahora
+            - "mañana (día siguiente)"
             - todos los días
 
       - type: CONTEXT_RESPONSE
         xp: 5
         config:
           question: "¿Qué palabra usás para referirte al día que viene?"
-          answer: "mañana"
+          answer: "mañana (día siguiente)"
           options:
             - ayer
-            - hoy
-            - "mañana"
+            - hoy-ahora
+            - "mañana (día siguiente)"
             - todos los días
 
       - type: SELECT_MEANING
@@ -87,8 +63,8 @@ lessons:
           sign: todos los días
           options:
             - ayer
-            - hoy
-            - "mañana"
+            - hoy-ahora
+            - "mañana (día siguiente)"
             - todos los días
 
       - type: MATCH
@@ -96,74 +72,50 @@ lessons:
         config:
           concepts:
             - ayer
-            - hoy
-            - "mañana"
+            - hoy-ahora
+            - "mañana (día siguiente)"
             - todos los días
 
       - type: VISUAL_RECOGNITION
         xp: 15
         config:
           sign_sequence:
-            - hoy
+            - hoy-ahora
             - ayer
-            - "mañana"
+            - "mañana (día siguiente)"
           options:
             - ayer
-            - hoy
-            - "mañana"
+            - hoy-ahora
+            - "mañana (día siguiente)"
             - todos los días
 
-  - code: leccion-11
+  - code: leccion-2
     name: "Momentos del día"
     description: "Aprendé las señas de la mañana, el mediodía, la tarde y la noche."
 
     blocks:
       - type: INTRODUCE_SIGN
         config:
-          meaning: la mañana
-
-      - type: PERFORM_SIGN
-        xp: 15
-        config:
-          signs:
-            - la mañana
+          meaning: "mañana (parte del día)"
 
       - type: INTRODUCE_SIGN
         config:
           meaning: "mediodía"
 
-      - type: PERFORM_SIGN
-        xp: 15
-        config:
-          signs:
-            - "mediodía"
-
       - type: INTRODUCE_SIGN
         config:
           meaning: tarde
-
-      - type: PERFORM_SIGN
-        xp: 15
-        config:
-          signs:
-            - tarde
 
       - type: INTRODUCE_SIGN
         config:
           meaning: noche
 
-      - type: PERFORM_SIGN
-        xp: 15
-        config:
-          signs:
-            - noche
-
       - type: SELECT_MEANING
         xp: 5
         config:
-          sign: la mañana
+          sign: "mañana (parte del día)"
           options:
-            - la mañana
+            - "mañana (parte del día)"
             - "mediodía"
             - tarde
             - noche
@@ -173,7 +125,7 @@ lessons:
         config:
           word: tarde
           options:
-            - la mañana
+            - "mañana (parte del día)"
             - "mediodía"
             - tarde
             - noche
@@ -184,7 +136,7 @@ lessons:
           question: "¿Cómo llamás al momento del día cuando el sol está en el punto más alto?"
           answer: "mediodía"
           options:
-            - la mañana
+            - "mañana (parte del día)"
             - "mediodía"
             - tarde
             - noche
@@ -194,7 +146,7 @@ lessons:
         config:
           sign: noche
           options:
-            - la mañana
+            - "mañana (parte del día)"
             - "mediodía"
             - tarde
             - noche
@@ -203,7 +155,7 @@ lessons:
         xp: 10
         config:
           concepts:
-            - la mañana
+            - "mañana (parte del día)"
             - "mediodía"
             - tarde
             - noche
@@ -216,7 +168,7 @@ lessons:
             - "mediodía"
             - tarde
           options:
-            - la mañana
+            - "mañana (parte del día)"
             - "mediodía"
             - tarde
             - noche

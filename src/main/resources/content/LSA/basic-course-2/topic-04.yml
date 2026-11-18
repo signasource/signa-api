@@ -1,11 +1,11 @@
 topic:
-  code: unidad-5
-  title: "Unidad 5"
+  code: unidad-4
+  title: "Unidad 4"
   subtitle: "Medios de transporte"
   description: Aprendé a señar los medios de transporte más comunes.
 
 lessons:
-  - code: leccion-12
+  - code: leccion-1
     name: "Vehículos"
     description: "Aprendé las señas de auto, bicicleta y camión."
 
@@ -14,31 +14,13 @@ lessons:
         config:
           meaning: auto
 
-      - type: PERFORM_SIGN
-        xp: 15
-        config:
-          signs:
-            - auto
-
       - type: INTRODUCE_SIGN
         config:
           meaning: bicicleta
 
-      - type: PERFORM_SIGN
-        xp: 15
-        config:
-          signs:
-            - bicicleta
-
       - type: INTRODUCE_SIGN
         config:
           meaning: "camión"
-
-      - type: PERFORM_SIGN
-        xp: 15
-        config:
-          signs:
-            - "camión"
 
       - type: SELECT_MEANING
         xp: 5
@@ -97,7 +79,7 @@ lessons:
             - bicicleta
             - "camión"
 
-  - code: leccion-13
+  - code: leccion-2
     name: "Transporte público y más"
     description: "Aprendé las señas de colectivo, tren, subte, taxi y uber."
 
@@ -106,51 +88,21 @@ lessons:
         config:
           meaning: colectivo
 
-      - type: PERFORM_SIGN
-        xp: 15
-        config:
-          signs:
-            - colectivo
-
       - type: INTRODUCE_SIGN
         config:
           meaning: tren
-
-      - type: PERFORM_SIGN
-        xp: 15
-        config:
-          signs:
-            - tren
 
       - type: INTRODUCE_SIGN
         config:
           meaning: subte
 
-      - type: PERFORM_SIGN
-        xp: 15
-        config:
-          signs:
-            - subte
-
       - type: INTRODUCE_SIGN
         config:
           meaning: taxi
 
-      - type: PERFORM_SIGN
-        xp: 15
-        config:
-          signs:
-            - taxi
-
       - type: INTRODUCE_SIGN
         config:
           meaning: uber
-
-      - type: PERFORM_SIGN
-        xp: 15
-        config:
-          signs:
-            - uber
 
       - type: SELECT_MEANING
         xp: 5

@@ -1,0 +1,19 @@
+course:
+  code: basic-course-2
+  name: Curso base segunda parte
+  description: Seguí ampliando tu vocabulario en Lengua de Señas Argentina con personas, lugares, expresiones de tiempo y medios de transporte.
+  free: false
+  price: 5500
+  cover: "mock-cover"
+  camera_recognition: false
+  media_format: "VIDEO"
+
+version:
+  version: "1"
+  status: PUBLISHED
+
+topics:
+  - topic-01.yml
+  - topic-02.yml
+  - topic-03.yml
+  - topic-04.yml

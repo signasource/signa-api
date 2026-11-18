@@ -14,10 +14,10 @@ lessons:
           meaning: revisar
       - type: INTRODUCE_SIGN
         config:
-          meaning: hacer analisis
+          meaning: hacer análisis
       - type: INTRODUCE_SIGN
         config:
-          meaning: sacar radiografia
+          meaning: sacar radiografía
       - type: INTRODUCE_SIGN
         config:
           meaning: resonancia
@@ -28,8 +28,8 @@ lessons:
           sign: revisar
           options:
             - revisar
-            - hacer analisis
-            - sacar radiografia
+            - hacer análisis
+            - sacar radiografía
             - resonancia
       - type: SELECT_SIGN
         xp: 10
@@ -37,44 +37,44 @@ lessons:
           word: resonancia
           options:
             - revisar
-            - hacer analisis
-            - sacar radiografia
+            - hacer análisis
+            - sacar radiografía
             - resonancia
       - type: SELECT_MEANING
         xp: 10
         config:
-          sign: hacer analisis
+          sign: hacer análisis
           options:
             - resonancia
-            - hacer analisis
+            - hacer análisis
             - revisar
-            - sacar radiografia
+            - sacar radiografía
       - type: SELECT_SIGN
         xp: 10
         config:
-          word: sacar radiografia
+          word: sacar radiografía
           options:
             - revisar
             - resonancia
-            - sacar radiografia
-            - hacer analisis
+            - sacar radiografía
+            - hacer análisis
       - type: CONTEXT_RESPONSE
         xp: 15
         config:
           question: "¿Qué estudio mira los huesos por dentro?"
-          answer: sacar radiografia
+          answer: sacar radiografía
           options:
-            - hacer analisis
+            - hacer análisis
             - revisar
-            - sacar radiografia
+            - sacar radiografía
             - resonancia
       - type: MATCH
         xp: 20
         config:
           concepts:
             - revisar
-            - hacer analisis
-            - sacar radiografia
+            - hacer análisis
+            - sacar radiografía
             - resonancia
 
   - code: leccion-2
@@ -89,7 +89,7 @@ lessons:
           meaning: remedio
       - type: INTRODUCE_SIGN
         config:
-          meaning: inyeccion
+          meaning: inyección
       - type: INTRODUCE_SIGN
         config:
           meaning: curar
@@ -103,16 +103,16 @@ lessons:
           sign: remedio
           options:
             - remedio
-            - inyeccion
+            - inyección
             - tratamiento
             - curar
       - type: SELECT_SIGN
         xp: 10
         config:
-          word: inyeccion
+          word: inyección
           options:
             - remedio
-            - inyeccion
+            - inyección
             - mejorar
             - curar
       - type: SELECT_MEANING
@@ -132,14 +132,14 @@ lessons:
             - tratamiento
             - curar
             - mejorar
-            - inyeccion
+            - inyección
       - type: CONTEXT_RESPONSE
         xp: 15
         config:
           question: "¿Qué tomás cuando el médico te lo indica para curarte?"
           answer: remedio
           options:
-            - inyeccion
+            - inyección
             - remedio
             - tratamiento
             - mejorar
@@ -149,7 +149,7 @@ lessons:
           concepts:
             - tratamiento
             - remedio
-            - inyeccion
+            - inyección
             - curar
             - mejorar
 
@@ -159,13 +159,13 @@ lessons:
     blocks:
       - type: INTRODUCE_SIGN
         config:
-          meaning: termometro
+          meaning: termómetro
       - type: INTRODUCE_SIGN
         config:
           meaning: yeso
       - type: INTRODUCE_SIGN
         config:
-          meaning: audifono
+          meaning: audífono
       - type: INTRODUCE_SIGN
         config:
           meaning: anteojos
@@ -173,55 +173,55 @@ lessons:
       - type: SELECT_MEANING
         xp: 10
         config:
-          sign: termometro
+          sign: termómetro
           options:
-            - termometro
+            - termómetro
             - yeso
-            - audifono
+            - audífono
             - anteojos
       - type: SELECT_SIGN
         xp: 10
         config:
           word: anteojos
           options:
-            - termometro
+            - termómetro
             - yeso
-            - audifono
+            - audífono
             - anteojos
       - type: SELECT_MEANING
         xp: 10
         config:
           sign: yeso
           options:
-            - audifono
+            - audífono
             - yeso
             - anteojos
-            - termometro
+            - termómetro
       - type: SELECT_SIGN
         xp: 10
         config:
-          word: audifono
+          word: audífono
           options:
             - anteojos
-            - termometro
-            - audifono
+            - termómetro
+            - audífono
             - yeso
       - type: CONTEXT_RESPONSE
         xp: 15
         config:
           question: "¿Qué usás para medir la fiebre?"
-          answer: termometro
+          answer: termómetro
           options:
             - yeso
-            - audifono
-            - termometro
+            - audífono
+            - termómetro
             - anteojos
       - type: MATCH
         xp: 20
         config:
           concepts:
-            - termometro
+            - termómetro
             - yeso
-            - audifono
+            - audífono
             - anteojos
 

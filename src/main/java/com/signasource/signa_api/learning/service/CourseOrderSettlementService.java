@@ -1,5 +1,7 @@
 package com.signasource.signa_api.learning.service;
 
+import com.signasource.signa_api.exceptions.InvalidInputException;
+import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.learning.entity.Course;
 import com.signasource.signa_api.learning.entity.CourseOrder;
 import com.signasource.signa_api.learning.entity.CourseOrderStatus;
@@ -76,6 +78,22 @@ public class CourseOrderSettlementService {
                     order.getAmount(),
                     order.getCurrency());
             return;
+        }
+        grantPermanentAccess(order.getUser(), order.getCourse());
+        order.setStatus(CourseOrderStatus.PAID);
+        order.setPaidAt(Instant.now());
+        orderRepository.save(order);
+    }
+
+    /** Grants access from a pending course order without a Mercado Pago payment. */
+    @Transactional
+    public void grantManual(UUID orderId) {
+        CourseOrder order =
+                orderRepository
+                        .findForUpdate(orderId)
+                        .orElseThrow(() -> new NotFoundException("Course order not found"));
+        if (order.getStatus() != CourseOrderStatus.PENDING) {
+            throw new InvalidInputException("Only a pending course order can be confirmed manually");
         }
         grantPermanentAccess(order.getUser(), order.getCourse());
         order.setStatus(CourseOrderStatus.PAID);

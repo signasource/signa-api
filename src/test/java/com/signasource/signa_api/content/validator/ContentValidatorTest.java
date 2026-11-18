@@ -58,14 +58,16 @@ class ContentValidatorTest {
     @Test
     void shouldFailWhenCourseCodeIsBlank() {
         assertValidationFails(
-                courseWithMeta(new CourseMetadataDto("", "Name", null, false, null, null, false, null)),
+                courseWithMeta(
+                        new CourseMetadataDto("", "Name", null, false, null, null, false, null)),
                 "Course: code is required");
     }
 
     @Test
     void shouldFailWhenCourseNameIsBlank() {
         assertValidationFails(
-                courseWithMeta(new CourseMetadataDto("code", null, null, false, null, null, false, null)),
+                courseWithMeta(
+                        new CourseMetadataDto("code", null, null, false, null, null, false, null)),
                 "Course: name is required");
     }
 
@@ -215,7 +217,8 @@ class ContentValidatorTest {
     }
 
     private CourseMetadataDto validMeta() {
-        return new CourseMetadataDto("course-01", "My Course", "Desc", false, null, null, false, null);
+        return new CourseMetadataDto(
+                "course-01", "My Course", "Desc", false, null, null, false, null);
     }
 
     private CourseVersionDto validVersion() {

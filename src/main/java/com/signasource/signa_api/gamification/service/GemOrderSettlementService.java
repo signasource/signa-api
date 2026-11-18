@@ -1,5 +1,7 @@
 package com.signasource.signa_api.gamification.service;
 
+import com.signasource.signa_api.exceptions.InvalidInputException;
+import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.gamification.entity.GemOrder;
 import com.signasource.signa_api.gamification.entity.GemOrderStatus;
 import com.signasource.signa_api.gamification.entity.UserStats;
@@ -64,6 +66,25 @@ public class GemOrderSettlementService {
                     order.getAmount(),
                     order.getCurrency());
             return;
+        }
+        UserStats stats = purchaseService.getOrCreateStats(order.getUser());
+        stats.setGems(stats.getGems() + order.getGems());
+        stats.setUpdatedAt(Instant.now());
+        userStatsRepository.save(stats);
+        order.setStatus(GemOrderStatus.PAID);
+        order.setPaidAt(Instant.now());
+        orderRepository.save(order);
+    }
+
+    /** Credits a pending gem order without a Mercado Pago payment. */
+    @Transactional
+    public void creditManual(UUID orderId) {
+        GemOrder order =
+                orderRepository
+                        .findForUpdate(orderId)
+                        .orElseThrow(() -> new NotFoundException("Gem order not found"));
+        if (order.getStatus() != GemOrderStatus.PENDING) {
+            throw new InvalidInputException("Only a pending gem order can be confirmed manually");
         }
         UserStats stats = purchaseService.getOrCreateStats(order.getUser());
         stats.setGems(stats.getGems() + order.getGems());

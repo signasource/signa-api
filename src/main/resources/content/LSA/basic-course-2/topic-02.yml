@@ -1,11 +1,11 @@
 topic:
-  code: unidad-3
-  title: "Unidad 3"
+  code: unidad-2
+  title: "Unidad 2"
   subtitle: "Lugares"
   description: Aprendé a señar los lugares más comunes de la ciudad.
 
 lessons:
-  - code: leccion-8
+  - code: leccion-1
     name: "Educación y cultura"
     description: "Aprendé las señas de escuela, universidad, museo y jardín de infantes."
 
@@ -14,41 +14,17 @@ lessons:
         config:
           meaning: escuela
 
-      - type: PERFORM_SIGN
-        xp: 15
-        config:
-          signs:
-            - escuela
-
       - type: INTRODUCE_SIGN
         config:
           meaning: universidad
-
-      - type: PERFORM_SIGN
-        xp: 15
-        config:
-          signs:
-            - universidad
 
       - type: INTRODUCE_SIGN
         config:
           meaning: museo
 
-      - type: PERFORM_SIGN
-        xp: 15
-        config:
-          signs:
-            - museo
-
       - type: INTRODUCE_SIGN
         config:
           meaning: "jardín de infantes"
-
-      - type: PERFORM_SIGN
-        xp: 15
-        config:
-          signs:
-            - "jardín de infantes"
 
       - type: SELECT_MEANING
         xp: 5
@@ -113,50 +89,26 @@ lessons:
             - museo
             - "jardín de infantes"
 
-  - code: leccion-9
+  - code: leccion-2
     name: "En la ciudad"
-    description: "Aprendé las señas de comercio, plaza, comisaría y hospital."
+    description: "Aprendé las señas de comercio, plaza, policía y hospital."
 
     blocks:
       - type: INTRODUCE_SIGN
         config:
           meaning: comercio
 
-      - type: PERFORM_SIGN
-        xp: 15
-        config:
-          signs:
-            - comercio
-
       - type: INTRODUCE_SIGN
         config:
           meaning: plaza
 
-      - type: PERFORM_SIGN
-        xp: 15
-        config:
-          signs:
-            - plaza
-
       - type: INTRODUCE_SIGN
         config:
-          meaning: "comisaría"
-
-      - type: PERFORM_SIGN
-        xp: 15
-        config:
-          signs:
-            - "comisaría"
+          meaning: "policía"
 
       - type: INTRODUCE_SIGN
         config:
           meaning: hospital
-
-      - type: PERFORM_SIGN
-        xp: 15
-        config:
-          signs:
-            - hospital
 
       - type: SELECT_MEANING
         xp: 5
@@ -165,7 +117,7 @@ lessons:
           options:
             - comercio
             - plaza
-            - "comisaría"
+            - "policía"
             - hospital
 
       - type: SELECT_SIGN
@@ -175,7 +127,7 @@ lessons:
           options:
             - comercio
             - plaza
-            - "comisaría"
+            - "policía"
             - hospital
 
       - type: CONTEXT_RESPONSE
@@ -186,17 +138,17 @@ lessons:
           options:
             - comercio
             - plaza
-            - "comisaría"
+            - "policía"
             - hospital
 
       - type: SELECT_MEANING
         xp: 5
         config:
-          sign: "comisaría"
+          sign: "policía"
           options:
             - comercio
             - plaza
-            - "comisaría"
+            - "policía"
             - hospital
 
       - type: MATCH
@@ -205,7 +157,7 @@ lessons:
           concepts:
             - comercio
             - plaza
-            - "comisaría"
+            - "policía"
             - hospital
 
       - type: VISUAL_RECOGNITION
@@ -218,5 +170,5 @@ lessons:
           options:
             - comercio
             - plaza
-            - "comisaría"
+            - "policía"
             - hospital

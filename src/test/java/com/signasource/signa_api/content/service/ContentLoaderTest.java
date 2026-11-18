@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.signasource.signa_api.content.dto.load.CourseRef;
 import com.signasource.signa_api.content.dto.load.LoadedCourse;
 import com.signasource.signa_api.content.exception.ContentLoadException;
@@ -26,10 +27,11 @@ class ContentLoaderTest {
 
     @BeforeEach
     void setUp() {
+        ObjectMapper objectMapper =
+                new ObjectMapper().setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
         loader =
                 new ContentLoader(
-                        new PathMatchingResourcePatternResolver(),
-                        new YamlParser(new ObjectMapper()));
+                        new PathMatchingResourcePatternResolver(), new YamlParser(objectMapper));
     }
 
     @Test

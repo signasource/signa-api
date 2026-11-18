@@ -307,6 +307,19 @@ public class PurchasePaymentService {
                 });
     }
 
+    /** Marks a pending purchase as paid without a Mercado Pago payment. */
+    @Transactional
+    public void confirmManual(UUID purchaseId) {
+        CoursePurchase purchase =
+                purchaseRepository
+                        .findForUpdateById(purchaseId)
+                        .orElseThrow(() -> new NotFoundException("Purchase not found"));
+        if (purchase.getStatus() != PurchaseStatus.PENDING_PAYMENT) {
+            throw new InvalidInputException("Only a pending purchase can be confirmed manually");
+        }
+        confirm(purchase, "MANUAL");
+    }
+
     private void confirm(CoursePurchase purchase, String paymentReference) {
         UUID purchaseId = purchase.getId();
         Instant now = Instant.now();
