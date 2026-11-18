@@ -4,6 +4,8 @@ course:
   description: A course for testing.
   free: true
   cover: cover.png
+  camera_recognition: false
+  media_format: "3D"
 
 version:
   version: "1.0.0"

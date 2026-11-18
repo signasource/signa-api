@@ -10,7 +10,9 @@ public record CourseMetadataDto(
         String description,
         boolean free,
         BigDecimal price,
-        String cover) {
+        String cover,
+        boolean cameraRecognition,
+        String mediaFormat) {
 
     public Course toEntity(SignLanguage signLanguage) {
         return Course.builder()
@@ -21,6 +23,8 @@ public record CourseMetadataDto(
                 .price(free ? null : price)
                 .coverUrl(cover)
                 .signLanguage(signLanguage)
+                .hasCameraRecognition(cameraRecognition)
+                .mediaFormat(mediaFormat)
                 .build();
     }
 }

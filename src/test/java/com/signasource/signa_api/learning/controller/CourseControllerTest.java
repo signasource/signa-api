@@ -83,6 +83,9 @@ class CourseControllerTest {
                         0,
                         0,
                         false,
+                        false,
+                        false,
+                        false,
                         List.of(),
                         null,
                         List.of());

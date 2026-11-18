@@ -52,6 +52,12 @@ public class Course {
 
     @Column private String coverUrl;
 
+    @Column(nullable = false)
+    private boolean hasCameraRecognition;
+
+    @Column(length = 10)
+    private String mediaFormat;
+
     @Column(length = 64)
     private String contentHash;
 

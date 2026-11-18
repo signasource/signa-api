@@ -10,4 +10,7 @@ public record CatalogCourseResponse(
         String description,
         String coverUrl,
         int signCount,
+        boolean hasCameraRecognition,
+        boolean hasAnimations,
+        boolean hasVideos,
         List<CatalogModuleResponse> modules) {}

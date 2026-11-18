@@ -5,6 +5,8 @@ course:
   free: false
   price: 3500
   cover: "mock-cover"
+  camera_recognition: true
+  media_format: "3D"
 
 version:
   version: "0.1.0"

@@ -13,6 +13,9 @@ import java.util.UUID;
  *
  * @param signCount distinct signs taught across the whole course
  * @param hasCameraPractice whether any exercise uses on-device sign recognition
+ * @param hasCameraRecognition explicitly declared in the course YAML
+ * @param hasAnimations whether the course uses 3D animated avatars
+ * @param hasVideos whether the course uses video recordings
  * @param exerciseTypes distinct exercise block types the course uses (never {@code INFO} or {@code
  *     INTRODUCE_SIGN})
  * @param sampleSign meaning of the first sign taught, or {@code null} if the course teaches none
@@ -30,6 +33,9 @@ public record CourseDetailResponse(
         int lessonCount,
         int signCount,
         boolean hasCameraPractice,
+        boolean hasCameraRecognition,
+        boolean hasAnimations,
+        boolean hasVideos,
         List<BlockType> exerciseTypes,
         String sampleSign,
         List<TopicSummaryResponse> topics) {
@@ -52,6 +58,9 @@ public record CourseDetailResponse(
                 stats.lessonCount(),
                 stats.signCount(),
                 stats.hasCameraPractice(),
+                course.isHasCameraRecognition(),
+                "3D".equals(course.getMediaFormat()),
+                "VIDEO".equals(course.getMediaFormat()),
                 stats.exerciseTypes(),
                 stats.sampleSign(),
                 topics);

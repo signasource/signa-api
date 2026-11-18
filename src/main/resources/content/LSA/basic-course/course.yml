@@ -4,6 +4,8 @@ course:
   description: Aprende las bases de la Lengua de Señas Argentina.
   free: true
   cover: "mock-cover"
+  camera_recognition: true
+  media_format: "3D"
 
 version:
   version: "0.2.0"

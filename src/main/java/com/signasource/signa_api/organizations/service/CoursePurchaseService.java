@@ -334,6 +334,9 @@ public class CoursePurchaseService {
                 course.getDescription(),
                 course.getCoverUrl(),
                 CourseSignCatalog.signCount(modules),
+                course.isHasCameraRecognition(),
+                "3D".equals(course.getMediaFormat()),
+                "VIDEO".equals(course.getMediaFormat()),
                 modules);
     }
 

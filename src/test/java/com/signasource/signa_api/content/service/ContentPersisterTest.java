@@ -210,7 +210,9 @@ class ContentPersisterTest {
                         "Updated description",
                         meta.free(),
                         meta.price(),
-                        meta.cover());
+                        meta.cover(),
+                        meta.cameraRecognition(),
+                        meta.mediaFormat());
         LoadedCourse changed =
                 new LoadedCourse(
                         SIGN_LANG_CODE,
@@ -299,7 +301,9 @@ class ContentPersisterTest {
                                 description,
                                 meta.free(),
                                 meta.price(),
-                                meta.cover()),
+                                meta.cover(),
+                                meta.cameraRecognition(),
+                                meta.mediaFormat()),
                         original.version(),
                         original.topics()),
                 happyCourse.topics());
@@ -342,7 +346,7 @@ class ContentPersisterTest {
                 new TopicYaml(new TopicDto("t1", "Topic", null, null, null), List.of(lesson));
         CourseYaml yaml =
                 new CourseYaml(
-                        new CourseMetadataDto(null, "Rollback Course", null, false, null, null),
+                        new CourseMetadataDto(null, "Rollback Course", null, false, null, null, false, null),
                         new CourseVersionDto("1.0.0", VersionStatus.DRAFT),
                         List.of("t1.yml"));
         LoadedCourse loaded = new LoadedCourse("TSLANG", yaml, List.of(topic));

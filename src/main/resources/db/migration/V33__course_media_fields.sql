@@ -1,0 +1,2 @@
+ALTER TABLE courses ADD COLUMN has_camera_recognition BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE courses ADD COLUMN media_format VARCHAR(10);
