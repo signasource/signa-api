@@ -600,7 +600,8 @@ class CourseTrackingServiceTest {
 
         courseTrackingService.recordBlockInteraction(mockUser, blockId, true);
 
-        verify(eventPublisher).publishEvent(any(XpEarnedEvent.class));
+        // Block XP is only paid when the whole lesson completes.
+        verify(eventPublisher, never()).publishEvent(any(XpEarnedEvent.class));
         verify(lessonProgressRepository, never()).save(any());
     }
 
@@ -863,7 +864,8 @@ class CourseTrackingServiceTest {
 
         courseTrackingService.recordBlockInteraction(mockUser, exerciseBlockId, true);
 
-        verify(eventPublisher, never()).publishEvent(any(XpEarnedEvent.class));
+        // The lesson completes now, so its XP is paid once, on completion.
+        verify(eventPublisher).publishEvent(any(XpEarnedEvent.class));
         ArgumentCaptor<UserLessonProgress> progressCaptor =
                 ArgumentCaptor.forClass(UserLessonProgress.class);
         verify(lessonProgressRepository).save(progressCaptor.capture());

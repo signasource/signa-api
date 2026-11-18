@@ -398,12 +398,12 @@ sequenceDiagram
             API->>DB: Registrar el intento
             API->>DB: Marcar lección y tema en progreso (si estaban bloqueados)
             opt primer hito (primer acierto / primera vista)
-                API-)Gam: XP ganado
                 API-)Gam: Señas aprendidas (bloques de ejercicio)
             end
             API->>DB: ¿Todos los bloques requeridos de la lección resueltos?
             opt lección completa (y no lo estaba)
                 API->>DB: Completar lección (con XP acumulado)
+                API-)Gam: XP ganado (una vez, al completar la lección)
                 opt todos los temas... completos
                     API->>DB: Completar tema y, si corresponde, la inscripción
                 end

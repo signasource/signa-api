@@ -334,10 +334,8 @@ public class CourseTrackingService {
         }
 
         if (isNewMilestone) {
-            // Content may leave xpReward empty (e.g. INTRODUCE_SIGN): such a block awards no XP.
-            if (block.getXpReward() != null) {
-                eventPublisher.publishEvent(new XpEarnedEvent(this, user, block.getXpReward()));
-            }
+            // No XP per block: a course lesson pays its whole XP once, on completion (see
+            // checkLessonCompletion). Only Free Practice grants XP per correct block.
             if (!isInfo) {
                 List<String> signs = blockSignExtractor.extract(block);
                 if (!signs.isEmpty()) {
@@ -466,6 +464,9 @@ public class CourseTrackingService {
         lessonProgressRepository.save(progress);
         metricsService.recordLessonCompletion();
         eventPublisher.publishEvent(new LessonCompletedEvent(this, user));
+        if (xpEarned > 0) {
+            eventPublisher.publishEvent(new XpEarnedEvent(this, user, xpEarned));
+        }
         recordLessonChallenges(user, lesson);
         achievementService.awardReached(
                 user,
