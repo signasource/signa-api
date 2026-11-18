@@ -2,7 +2,8 @@ course:
   code: cafeteria-course
   name: En la cafetería
   description: Aprendé a pedir bebidas y acompañamientos, y a indicar cómo querés pagar, en Lengua de Señas Argentina.
-  free: true
+  free: false
+  price: 3500
   cover: "mock-cover"
 
 version:
