@@ -9,7 +9,7 @@ course:
   media_format: "3D"
 
 version:
-  version: "0.1.0"
+  version: "1"
   status: PUBLISHED
 
 topics:
