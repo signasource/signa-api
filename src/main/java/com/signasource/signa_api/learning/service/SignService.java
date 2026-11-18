@@ -116,8 +116,17 @@ public class SignService {
      * case-insensitive and each entry echoes the meaning as requested. Signs that do not exist or
      * have no animation are omitted: the client falls back to the default .glb by meaning.
      */
-    @Transactional(readOnly = true)
     public List<SignMediaResponse> getSignMedia(List<String> meanings) {
+        return getSignMedia(meanings, false);
+    }
+
+    /**
+     * Same as {@link #getSignMedia(List)}; with {@code includeMissing} every requested sign gets an
+     * entry, and one with no file carries a null {@code url}/{@code format}. That tells the client
+     * "there is nothing to show" instead of leaving it to guess file names in the bucket.
+     */
+    @Transactional(readOnly = true)
+    public List<SignMediaResponse> getSignMedia(List<String> meanings, boolean includeMissing) {
         Map<String, String> requestedByLower = new LinkedHashMap<>();
         for (String meaning : meanings) {
             if (meaning != null && !meaning.isBlank()) {
@@ -144,7 +153,13 @@ public class SignService {
                                                 sign.getLateralAnimationUrl(),
                                                 sign.getAnimationUpdatedAt())
                                         : null));
+                requestedByLower.remove(sign.getMeaning().toLowerCase(Locale.ROOT));
             }
+        }
+        if (includeMissing) {
+            requestedByLower
+                    .values()
+                    .forEach(m -> out.add(new SignMediaResponse(m, null, null, null)));
         }
         return out;
     }

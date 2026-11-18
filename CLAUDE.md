@@ -254,7 +254,7 @@ Resumen de alta prioridad; el detalle y los ejemplos están en los bloques sigui
   (la seña se direcciona por su `meaning`, que es único) devuelve una **presigned URL** de descarga con
   expiración corta (`r2.presign-expiry-minutes`, 15 min por defecto). Ojo: el bucket **ya es de lectura
   pública** (`https://pub-f40a1de4d1fc46b0b6f07299847c66e0.r2.dev`, de donde la app y la landing leen los
-  .glb por nombre), y `POST /signs/media` devuelve esas URLs públicas (`sign-media.public-base-url`). Lo
+  .glb por nombre), y `POST /signs/media` devuelve esas URLs públicas (`sign-media.public-base-url`). Con `include_missing: true` en el body devuelve además una entrada con `url`/`format` en null por cada seña pedida que no tiene archivo (opt-in: las apps ya instaladas no entienden entradas sin URL), para que el cliente muestre el placeholder en vez de adivinar nombres en el bucket. Lo
   que nunca sale del backend son las credenciales: solo `ADMIN` escribe, vía `/admin/signs/{id}/animation`.
 - Tokens de un solo uso (reset/verificación/refresh) se borran tras usarse; el refresh se rota.
 - **Reset de contraseña por código:** `forgot-password` manda un código de 6 dígitos (`SecureRandom`)
