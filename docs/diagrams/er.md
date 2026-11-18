@@ -5,7 +5,8 @@ temáticas para facilitar la lectura.
 
 ## Usuarios
 
-Perfil, settings, tokens, amistades y los "me gusta" del feed social.
+Perfil, settings, tokens, amistades, los "me gusta" del feed social y la telemetría de uso
+(actividad, minutos diarios y sesiones de la app).
 
 Los eventos del feed social **no se almacenan**: se derivan al vuelo de los logros y las señas
 aprendidas de cada amigo. Por eso `FRIEND_EVENT_LIKE` no apunta a una tabla de eventos sino a la
@@ -18,6 +19,9 @@ erDiagram
     USER ||--o{ FRIENDSHIP : "requester"
     USER ||--o{ FRIENDSHIP : "addressee"
     USER ||--o{ FRIEND_EVENT_LIKE : "da me gusta"
+    USER ||--o{ USER_ACTIVITY : "estuvo activo"
+    USER ||--o{ USER_DAILY_ACTIVITY : "suma minutos"
+    USER ||--o{ USER_SESSION : "abre la app"
 
     USER {
         uuid id PK
@@ -34,6 +38,7 @@ erDiagram
         enum accountVisibility
         set providers "AuthProvider; default LOCAL"
         instant createdAt "alta de la cuenta; métricas de crecimiento"
+        uuid current_course_id FK "curso que el usuario eligió como actual; opcional"
     }
     USER_SETTINGS {
         uuid id PK
@@ -52,15 +57,18 @@ erDiagram
     TOKEN {
         bigint id PK
         uuid user_id FK
-        string token
-        enum type
+        string token "hash BCrypt en los códigos de 6 dígitos"
+        enum type "EMAIL_VERIFICATION | PASSWORD_RESET | REFRESH"
         instant expiryDate
+        int attempts "intentos fallidos; al 5.º el código se descarta"
     }
     FRIENDSHIP {
         bigint id PK
         uuid requester_user_id FK
         uuid addressee_user_id FK
         enum status
+        datetime createdAt
+        datetime updatedAt
     }
     FRIEND_EVENT_LIKE {
         bigint id PK
@@ -70,14 +78,40 @@ erDiagram
         uuid event_owner_id "amigo dueño del evento; destinatario de la notificación"
         instant createdAt
     }
+    USER_ACTIVITY {
+        uuid id PK
+        uuid user_id FK
+        instant occurredAt "como mucho una fila por minuto y usuario"
+    }
+    USER_DAILY_ACTIVITY {
+        uuid id PK
+        uuid user_id FK
+        date activityDate "único junto con user_id"
+        int minutes
+    }
+    USER_SESSION {
+        uuid id PK
+        uuid user_id FK
+        instant startedAt "reloj del cliente"
+        int durationSeconds
+        uuid clientSessionId "id que genera la app; los latidos actualizan una sola fila"
+        instant recordedAt "reloj del servidor"
+    }
 ```
+
+`USER_ACTIVITY` es el registro de «quién estuvo activo»: la API escribe una fila (limitada a una por
+minuto y usuario) cuando alguien autenticado hace cualquier pedido, y las métricas de usuarios
+activos cuentan usuarios distintos sobre ella. `USER_DAILY_ACTIVITY` guarda los minutos de uso por
+día que reporta la app, y `USER_SESSION` cada sesión de primer plano (la app la actualiza con un
+latido cada 30 s). Las cuentas `ADMIN` se excluyen de las métricas.
 
 ## Señas
 
 Catálogo de señas por lengua y sus reportes. `SIGN_REPORT.user_id` referencia a `USER` (vista
-[Usuarios](#usuarios)). `SIGN.animationUrl` guarda el identificador del objeto de animación en el
-almacenamiento (no una URL pública): la URL de descarga se firma bajo demanda y expira a los pocos
-minutos (ver [Obtención de la animación de una seña](sequence.md#obtencion-de-la-animacion-de-una-sena)).
+[Usuarios](#usuarios)). `SIGN.animationUrl` guarda el identificador (*key*) del objeto de animación
+en el almacenamiento, no una URL. Los clientes piden la URL pública del archivo (con un
+cache-buster) a la API, que además busca en el almacenamiento las señas que el catálogo no tiene o
+tiene sin archivo (ver [Resolución de la animación de una seña](sequence.md#resolucion-de-la-animacion-de-una-sena)).
 La extensión del key dice el formato (`.glb` avatar 3D o `.mp4` video). `SIGN.lateral_animation_url` es el video lateral de una seña en `.mp4` (null en las `.glb`). `SIGN.animation_updated_at` es la
 última subida desde el panel de admins (null = archivo original del import) y sirve de cache-buster en
 `POST /signs/media`. Los bloques y `USER_LEARNED_SIGN` referencian la seña por su `meaning` (texto), por
@@ -112,6 +146,9 @@ erDiagram
         text description
         enum status
         datetime createdAt
+        string adminNote "nota de quien lo moderó"
+        uuid resolved_by FK "admin que lo resolvió o rechazó"
+        datetime resolvedAt
     }
 ```
 
@@ -133,6 +170,7 @@ erDiagram
         string name
         text description
         boolean isFree
+        decimal price "ARS; solo cursos pagos (viene del YAML)"
         string coverUrl
         string contentHash
         uuid sign_language_id FK
@@ -142,6 +180,10 @@ erDiagram
         string version
         enum status
         instant publishedAt
+        instant updatedAt "última edición desde el panel"
+        string updatedBy "email del admin que editó"
+        string basedOnVersion "versión de la que se bifurcó el borrador"
+        string color "color de la tarjeta en el panel"
         uuid course_id FK
     }
     TOPIC {
@@ -181,8 +223,8 @@ guarda la seña como texto (no es FK a `SIGN`).
 
 `PRACTICE_ATTEMPT` registra los intentos de la práctica libre (por tipo de ejercicio, por seña
 aprendida o repaso de errores) — mismo shape que `LESSON_BLOCK_ATTEMPT` pero deliberadamente
-separada: guardarla **no** dispara XP, pérdida de vidas ni avance de `USER_LESSON_PROGRESS`/
-`USER_TOPIC_PROGRESS` (ver [`PracticeService`](../../src/main/java/com/signasource/signa_api/learning/service/PracticeService.java)).
+separada: guardarla **no** cuesta vidas ni avanza `USER_LESSON_PROGRESS`/`USER_TOPIC_PROGRESS`.
+Lo único que dispara es el XP del ejercicio, que se otorga al instante al acertar (ver [`PracticeService`](../../src/main/java/com/signasource/signa_api/learning/service/PracticeService.java)).
 El repaso de errores lee de ambas tablas: un bloque es un "error pendiente" si su intento más
 reciente (en cualquiera de las dos) fue incorrecto. `USER_STATS.lastMistakeReviewAt` marca el último
 cobro del XP del repaso de errores: un nuevo cobro exige un error resuelto después de esa fecha.
@@ -234,6 +276,7 @@ erDiagram
         uuid id PK
         uuid user_id FK
         uuid lesson_block_id FK
+        uuid organization_id FK "nulo si el curso no es de una organización"
         boolean isCorrect
         instant attemptedAt
     }
@@ -292,6 +335,11 @@ erDiagram
         uuid user_id FK "único"
         int currentStreak
         int longestStreak
+        date lastStreakDate "último día que sumó a la racha (hora de Argentina)"
+        date streakCelebratedDate "último día de racha que la app ya festejó"
+        date lastSeenDate
+        boolean streakShieldPending "un escudo se gastó a medianoche y falta avisarlo"
+        int previousWeeklyRank "puesto de la semana anterior; lo fija el reinicio semanal"
         long totalXp
         int weeklyXp
         int gems
@@ -315,6 +363,8 @@ erDiagram
         enum criteriaType
         int criteriaValue
         boolean active
+        int rewardGems
+        int rewardStreakShields
     }
     USER_ACHIEVEMENT {
         uuid id PK
@@ -401,6 +451,55 @@ erDiagram
         string mercadoPagoOrderId UK
         instant createdAt
         instant paidAt
+        instant refundedAt "reembolso o contracargo; nulo si no se devolvió"
+    }
+```
+
+## Compras de usuarios finales y pedidos de reembolso
+
+Además de las gemas (`GEM_ORDER`, vista [Gamificación](#gamificacion)), un usuario puede comprar
+**acceso permanente** a un curso pago con un pago único de Mercado Pago: `COURSE_ORDER` es el espejo de
+`GEM_ORDER` (precio congelado al crear la orden, `PAID` solo cuando Mercado Pago confirma, `REFUNDED`
+si se devuelve). Al pagarse se crea o reactiva una inscripción permanente (sin organización y sin
+vencimiento). Convive con la compra por cupos de las organizaciones.
+
+`REFUND_REQUEST` es el pedido que una persona (o un admin de organización) le hace al equipo para que
+se le devuelva una compra; sirve para gemas, cursos individuales y cupos. **No devuelve nada por sí
+solo**: es una señal que el equipo revisa y ejecuta en Mercado Pago. Como la compra vive en tablas
+distintas según el tipo, se la identifica con el par (`purchaseType`, `purchaseId`) y no hay clave
+foránea.
+
+```mermaid
+erDiagram
+    USER ||--o{ COURSE_ORDER : "compra un curso"
+    COURSE ||--o{ COURSE_ORDER : "referido por"
+    USER ||--o{ REFUND_REQUEST : "pide reembolso"
+
+    COURSE_ORDER {
+        uuid id PK
+        uuid user_id FK
+        uuid course_id FK
+        decimal amount "precio congelado"
+        string currency
+        enum status "PENDING | PAID | REFUNDED"
+        string mercadoPagoOrderId
+        instant createdAt
+        instant paidAt
+        instant refundedAt
+    }
+    REFUND_REQUEST {
+        uuid id PK
+        string purchaseType "GEMS | COURSE | SEATS"
+        uuid purchaseId "sin FK: depende del tipo"
+        uuid requested_by_id FK
+        enum reason "NOT_RECEIVED | MISTAKE | DUPLICATE | TECHNICAL | NOT_AS_EXPECTED | OTHER"
+        string channel "app | web"
+        string message
+        string note "nota interna del equipo"
+        enum status "PENDING | RESOLVED"
+        string resolvedByName
+        instant resolvedAt
+        instant createdAt
     }
 ```
 
@@ -515,8 +614,8 @@ erDiagram
         decimal totalAmount
         string currency
         enum status "PENDING_PAYMENT | PAID | CANCELLED | REFUNDED"
-        string paymentReference "mercadopago:<id> o la del back-office"
-        string mercadoPagoPreferenceId "última preferencia de Checkout Pro"
+        string paymentReference "mercadopago:<id>"
+        string mercadoPagoPreferenceId "id de la order de Mercado Pago (nombre heredado)"
         instant paidAt
         instant invitationDeadline "paidAt + 10 días"
         instant refundableUntil "fin del arrepentimiento; solo pagos de Mercado Pago"

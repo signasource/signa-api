@@ -7,7 +7,7 @@ Backend de **SignaSource**, plataforma de aprendizaje de lenguas de señas (Spri
 - **[`CLAUDE.md`](CLAUDE.md)** — contexto de alto nivel del repo (arquitectura, convenciones,
   seguridad, performance). Punto de partida para agentes de IA.
 - **[`docs/`](docs/README.md)** — documentación técnica detallada + sitio renderizable con diagramas
-  (clases, secuencia, estados, entidad-relación).
+  (entidad-relación, secuencia y estados).
 
   ```bash
   python -m pip install -r requirements-docs.txt
@@ -30,7 +30,7 @@ además de las variables de `.env.example` (`DB_URL`, `DB_USERNAME`, `DB_PASSWOR
 
 | Variable | Valor | Por qué |
 |---|---|---|
-| `SPRING_PROFILES_ACTIVE` | `local` | Seguridad desactivada y Google Play en modo falso. |
+| `SPRING_PROFILES_ACTIVE` | `local` | Seguridad desactivada (solo para desarrollo). |
 | `SPRING_DOCKER_COMPOSE_ENABLED` | `false` | Si no, `spring-boot-docker-compose` intenta levantar todo `docker-compose.yml` (API, nginx, alloy). |
 | `JAVA_TOOL_OPTIONS` | `-Duser.timezone=America/Argentina/Buenos_Aires` | La JVM de Windows usa por defecto `America/Buenos_Aires`, que Postgres 17 rechaza al conectar. |
 | `FIREBASE_CREDENTIALS_JSON` | base64 de un JSON de service account | `FirebaseService` necesita el bean aunque no mandes push. Sirve uno falso generado localmente (con cualquier clave RSA): arranca y no envía nada. |
@@ -141,9 +141,14 @@ docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 > en [`CLAUDE.md` §10](CLAUDE.md).
 
 ```
-MAIL_PASSWORD= // Contraseña que se genera en http://myaccount.google.com/apppasswords
-MAIL_USERNAME= // Mail
+MAIL_HOST=     // Servidor SMTP (default smtp.gmail.com)
+MAIL_PORT=     // Puerto SMTP (default 587; 2525 si el proveedor bloquea los demás)
+MAIL_USERNAME= // Usuario / mail
+MAIL_PASSWORD= // Con Gmail: contraseña de aplicación de http://myaccount.google.com/apppasswords
 ```
+
+Como el `docker-compose.yml` pasa al contenedor solo las variables de `environment:`, cualquier
+variable nueva va en el `.env` **y** en esa lista.
 
 ## Configuración de Google Auth
 
