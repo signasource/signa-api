@@ -171,7 +171,7 @@ public class AdminPurchasesService {
     private AdminPurchaseDetailResponse detailSeats(UUID id) {
         CoursePurchase p =
                 seatsPurchaseRepository
-                        .findForUpdateById(id)
+                        .findDetailById(id)
                         .orElseThrow(() -> new NotFoundException("Purchase not found"));
         List<AdminRefundRequestResponse> requests =
                 refundRequestService.listForPurchase(TYPE_SEATS, id);
