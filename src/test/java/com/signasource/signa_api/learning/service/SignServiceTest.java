@@ -41,6 +41,8 @@ class SignServiceTest {
 
     @Mock private SignMediaStorage signMediaStorage;
 
+    @Mock private SignMediaResolver signMediaResolver;
+
     private R2Properties r2Properties;
     private SignService signService;
 
@@ -78,7 +80,8 @@ class SignServiceTest {
                         signLanguageRepository,
                         signAnimationService,
                         r2Properties,
-                        signMediaStorage);
+                        signMediaStorage,
+                        signMediaResolver);
     }
 
     @Test
@@ -294,6 +297,7 @@ class SignServiceTest {
                 signService.getSignMedia(List.of("hola", "Niño", "nada"));
         assertEquals(1, legacy.size(), legacy.toString());
 
+        when(signMediaResolver.resolve(any())).thenReturn(java.util.Optional.empty());
         List<com.signasource.signa_api.learning.dto.SignMediaResponse> all =
                 signService.getSignMedia(List.of("hola", "Niño", "nada"), true);
         assertEquals(3, all.size());
@@ -301,6 +305,30 @@ class SignServiceTest {
         assertEquals(
                 List.of("Niño", "nada"), all.subList(1, 3).stream().map(m -> m.meaning()).toList());
         assertTrue(all.subList(1, 3).stream().allMatch(m -> m.url() == null && m.format() == null));
+    }
+
+    @Test
+    void shouldFindInTheBucketASignTheCatalogDoesNotKnow() {
+        when(signRepository.findByLowerMeaningIn(any())).thenReturn(List.of());
+        when(signMediaResolver.resolve("niño"))
+                .thenReturn(
+                        java.util.Optional.of(
+                                new SignMediaResolver.Resolved(
+                                        "lsa/nene.mp4", "lsa/nene_lateral.mp4")));
+        when(signMediaResolver.resolve("nada")).thenReturn(java.util.Optional.empty());
+        when(signMediaStorage.publicUrl("lsa/nene.mp4", null))
+                .thenReturn("https://cdn/lsa/nene.mp4");
+        when(signMediaStorage.publicUrl("lsa/nene_lateral.mp4", null))
+                .thenReturn("https://cdn/lsa/nene_lateral.mp4");
+
+        List<com.signasource.signa_api.learning.dto.SignMediaResponse> media =
+                signService.getSignMedia(List.of("niño", "nada"));
+
+        assertEquals(1, media.size());
+        assertEquals("niño", media.get(0).meaning());
+        assertEquals("mp4", media.get(0).format());
+        assertEquals("https://cdn/lsa/nene.mp4", media.get(0).url());
+        assertEquals("https://cdn/lsa/nene_lateral.mp4", media.get(0).lateralUrl());
     }
 
     @Test
