@@ -169,7 +169,7 @@ public class SignCatalogImporter {
     }
 
     /** The name the bucket file carries for this meaning: an alias, or the meaning itself. */
-    private static String fileName(String meaning) {
+    public static String fileName(String meaning) {
         String key = normalize(meaning);
         return FILE_NAME_ALIASES.entrySet().stream()
                 .filter(alias -> normalize(alias.getKey()).equals(key))
@@ -190,7 +190,7 @@ public class SignCatalogImporter {
     }
 
     /** Lowercase, accent-free, with every run of non-alphanumerics collapsed into one space. */
-    static String normalize(String text) {
+    public static String normalize(String text) {
         String plain =
                 Normalizer.normalize(text, Normalizer.Form.NFD)
                         .replaceAll("\\p{M}+", "")

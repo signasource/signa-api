@@ -33,6 +33,7 @@ public class SignService {
     private final SignAnimationService signAnimationService;
     private final R2Properties r2Properties;
     private final SignMediaStorage signMediaStorage;
+    private final SignMediaResolver signMediaResolver;
 
     @Transactional(readOnly = true)
     public Page<SignSummaryResponse> getSignsCatalog(
@@ -155,6 +156,24 @@ public class SignService {
                                         : null));
                 requestedByLower.remove(sign.getMeaning().toLowerCase(Locale.ROOT));
             }
+        }
+        // Not in the catalog (or registered while its file did not exist): the bucket decides.
+        for (Map.Entry<String, String> pending : new ArrayList<>(requestedByLower.entrySet())) {
+            signMediaResolver
+                    .resolve(pending.getValue())
+                    .ifPresent(
+                            found -> {
+                                out.add(
+                                        new SignMediaResponse(
+                                                pending.getValue(),
+                                                signMediaStorage.publicUrl(found.key(), null),
+                                                SignMediaStorage.formatOf(found.key()),
+                                                found.lateralKey() == null
+                                                        ? null
+                                                        : signMediaStorage.publicUrl(
+                                                                found.lateralKey(), null)));
+                                requestedByLower.remove(pending.getKey());
+                            });
         }
         if (includeMissing) {
             requestedByLower
