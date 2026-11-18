@@ -270,6 +270,40 @@ class SignServiceTest {
     }
 
     @Test
+    void shouldListSignsWithoutFileAsMissingOnlyWhenAsked() {
+        Sign video =
+                Sign.builder()
+                        .id(UUID.randomUUID())
+                        .meaning("hola")
+                        .animationUrl("lsa/hola.mp4")
+                        .signLanguage(signLanguage)
+                        .build();
+        // No extension: the importer found no file in the bucket.
+        Sign noFile =
+                Sign.builder()
+                        .id(UUID.randomUUID())
+                        .meaning("niño")
+                        .animationUrl("lsa/niño")
+                        .signLanguage(signLanguage)
+                        .build();
+        when(signRepository.findByLowerMeaningIn(any())).thenReturn(List.of(video, noFile));
+        when(signMediaStorage.publicUrl("lsa/hola.mp4", null))
+                .thenReturn("https://cdn/lsa/hola.mp4");
+
+        List<com.signasource.signa_api.learning.dto.SignMediaResponse> legacy =
+                signService.getSignMedia(List.of("hola", "Niño", "nada"));
+        assertEquals(1, legacy.size(), legacy.toString());
+
+        List<com.signasource.signa_api.learning.dto.SignMediaResponse> all =
+                signService.getSignMedia(List.of("hola", "Niño", "nada"), true);
+        assertEquals(3, all.size());
+        assertEquals("mp4", all.get(0).format());
+        assertEquals(
+                List.of("Niño", "nada"), all.subList(1, 3).stream().map(m -> m.meaning()).toList());
+        assertTrue(all.subList(1, 3).stream().allMatch(m -> m.url() == null && m.format() == null));
+    }
+
+    @Test
     void shouldReturnNoMediaForBlankMeanings() {
         assertTrue(signService.getSignMedia(List.of(" ")).isEmpty());
     }

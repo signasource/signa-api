@@ -7,8 +7,9 @@ package com.signasource.signa_api.learning.dto;
  * camelCase, which would mangle meanings used as keys.
  *
  * @param meaning echoed exactly as the client asked for it
- * @param url public URL, cache-busted with {@code ?v=} after a re-upload
- * @param format {@code glb} (3D avatar) or {@code mp4} (video)
+ * @param url public URL, cache-busted with {@code ?v=} after a re-upload; null for a sign with no
+ *     file (only when the client asked with {@code includeMissing})
+ * @param format {@code glb} (3D avatar) or {@code mp4} (video); null for a sign with no file
  * @param lateralUrl side-view video of an {@code mp4} sign; null when there is none
  */
 public record SignMediaResponse(String meaning, String url, String format, String lateralUrl) {}

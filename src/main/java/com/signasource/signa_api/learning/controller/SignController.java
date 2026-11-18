@@ -71,6 +71,7 @@ public class SignController {
     @PostMapping("/media")
     public ResponseEntity<List<SignMediaResponse>> getSignMedia(
             @Valid @RequestBody SignMediaRequest request) {
-        return ResponseEntity.ok(signService.getSignMedia(request.meanings()));
+        return ResponseEntity.ok(
+                signService.getSignMedia(request.meanings(), request.wantsMissing()));
     }
 }
