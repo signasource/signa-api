@@ -106,7 +106,7 @@ class AdminPurchasesServiceTest {
     void detail_returnsSeatsDetail() {
         UUID id = UUID.randomUUID();
         CoursePurchase p = sampleSeatsPurchase();
-        when(seatsPurchaseRepository.findForUpdateById(id)).thenReturn(Optional.of(p));
+        when(seatsPurchaseRepository.findDetailById(id)).thenReturn(Optional.of(p));
         when(refundRequestService.listForPurchase(AdminPurchasesService.TYPE_SEATS, id))
                 .thenReturn(List.of());
 
@@ -153,7 +153,7 @@ class AdminPurchasesServiceTest {
     @Test
     void detail_throwsWhenSeatsNotFound() {
         UUID id = UUID.randomUUID();
-        when(seatsPurchaseRepository.findForUpdateById(id)).thenReturn(Optional.empty());
+        when(seatsPurchaseRepository.findDetailById(id)).thenReturn(Optional.empty());
 
         assertThrows(
                 NotFoundException.class,
