@@ -26,6 +26,8 @@ public record AdminCourseVersionListItemResponse(
         String updatedByName,
         String updatedByAvatar,
         String color,
+        boolean hasCameraRecognition,
+        String mediaFormat,
         int enrollmentCount) {
 
     public static AdminCourseVersionListItemResponse from(
@@ -65,6 +67,8 @@ public record AdminCourseVersionListItemResponse(
                 name,
                 editor != null ? editor.getAvatar() : null,
                 v.getColor(),
+                v.getCourse().isHasCameraRecognition(),
+                v.getCourse().getMediaFormat(),
                 enrollmentCount);
     }
 }

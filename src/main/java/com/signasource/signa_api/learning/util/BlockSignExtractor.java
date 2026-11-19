@@ -19,8 +19,12 @@ public class BlockSignExtractor {
         return switch (block.getType()) {
             case INFO, INVISIBLE_SIGNS -> List.of();
             default -> {
+                String configStr = block.getConfig();
+                if (configStr == null || configStr.isBlank()) {
+                    yield List.of();
+                }
                 try {
-                    JsonNode config = objectMapper.readTree(block.getConfig());
+                    JsonNode config = objectMapper.readTree(configStr);
                     yield extractFromConfig(block.getType(), config);
                 } catch (JsonProcessingException e) {
                     yield List.of();

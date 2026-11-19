@@ -27,6 +27,8 @@ public record AdminCourseVersionDetailResponse(
         Instant updatedAt,
         String updatedBy,
         String color,
+        boolean hasCameraRecognition,
+        String mediaFormat,
         List<TopicResponse> topics) {
 
     public record TopicResponse(
@@ -62,6 +64,8 @@ public record AdminCourseVersionDetailResponse(
                 v.getUpdatedAt(),
                 v.getUpdatedBy(),
                 v.getColor(),
+                v.getCourse().isHasCameraRecognition(),
+                v.getCourse().getMediaFormat(),
                 topics);
     }
 

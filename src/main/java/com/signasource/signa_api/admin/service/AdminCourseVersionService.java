@@ -204,6 +204,8 @@ public class AdminCourseVersionService {
         course.setDescription(req.description());
         course.setFree(req.isFree());
         course.setPrice(req.price());
+        course.setHasCameraRecognition(req.hasCameraRecognition());
+        course.setMediaFormat(req.mediaFormat());
         courseRepository.save(course);
 
         version.getTopics().clear();

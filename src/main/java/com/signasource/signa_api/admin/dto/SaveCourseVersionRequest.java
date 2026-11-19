@@ -13,6 +13,8 @@ public record SaveCourseVersionRequest(
         boolean isFree,
         BigDecimal price,
         @Size(max = 20) String color,
+        boolean hasCameraRecognition,
+        @Size(max = 10) String mediaFormat,
         List<TopicData> topics) {
 
     public record TopicData(
