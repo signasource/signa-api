@@ -502,7 +502,7 @@ class PracticeServiceTest {
 
     @Test
     void recordAttempt_CountsACorrectCameraAnswerTowardsChallenges() {
-        LessonBlock lessonBlock = block(BlockType.VISUAL_RECOGNITION);
+        LessonBlock lessonBlock = block(BlockType.PERFORM_SIGN);
         when(lessonBlockRepository.findById(lessonBlock.getId()))
                 .thenReturn(Optional.of(lessonBlock));
 
@@ -513,7 +513,7 @@ class PracticeServiceTest {
 
     @Test
     void recordAttempt_DoesNotCountWrongOrNonCameraAnswers() {
-        LessonBlock camera = block(BlockType.VISUAL_RECOGNITION);
+        LessonBlock camera = block(BlockType.PERFORM_SIGN);
         LessonBlock match = block(BlockType.MATCH);
         when(lessonBlockRepository.findById(camera.getId())).thenReturn(Optional.of(camera));
         when(lessonBlockRepository.findById(match.getId())).thenReturn(Optional.of(match));

@@ -144,7 +144,7 @@ class OrganizationMetricsRepositoryTest {
                 lessonRepository.save(
                         Lesson.builder().code("l1").name("Hello").order(1).topic(topic).build());
         meaningBlock = saveBlock(BlockType.SELECT_MEANING, 1);
-        recognitionBlock = saveBlock(BlockType.VISUAL_RECOGNITION, 2);
+        recognitionBlock = saveBlock(BlockType.PERFORM_SIGN, 2);
         infoBlock = saveBlock(BlockType.INFO, 3);
     }
 
@@ -238,7 +238,7 @@ class OrganizationMetricsRepositoryTest {
                         organization.getId(),
                         List.of(ana.getId(), bruno.getId()),
                         List.of(course.getId()),
-                        List.of(BlockType.VISUAL_RECOGNITION),
+                        List.of(BlockType.PERFORM_SIGN),
                         BEGINNING,
                         Instant.now().plus(1, ChronoUnit.DAYS));
         AttemptTotalsView none =

@@ -44,7 +44,6 @@ public class CourseService {
                     BlockType.SELECT_SIGN,
                     BlockType.CONTEXT_RESPONSE,
                     BlockType.MATCH,
-                    BlockType.VISUAL_RECOGNITION,
                     BlockType.PERFORM_SIGN,
                     BlockType.SPELL_NAME);
 

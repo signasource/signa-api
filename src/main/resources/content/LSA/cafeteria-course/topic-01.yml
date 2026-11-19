@@ -100,20 +100,6 @@ lessons:
             - lágrima
             - té
 
-      - type: VISUAL_RECOGNITION
-        xp: 15
-        config:
-          sign_sequence:
-            - lágrima
-            - café
-            - té
-            - cortado
-          options:
-            - café
-            - cortado
-            - lágrima
-            - té
-
   - code: leccion-2
     name: "Para acompañar"
     description: "Aprendé las señas de azúcar, edulcorante, medialuna dulce y medialuna salada."
@@ -204,19 +190,6 @@ lessons:
         xp: 10
         config:
           concepts:
-            - azúcar
-            - edulcorante
-            - medialuna dulce
-            - medialuna salada
-
-      - type: VISUAL_RECOGNITION
-        xp: 15
-        config:
-          sign_sequence:
-            - edulcorante
-            - medialuna salada
-            - azúcar
-          options:
             - azúcar
             - edulcorante
             - medialuna dulce
@@ -339,17 +312,3 @@ lessons:
             - tarjeta de débito
             - transferencia
 
-      - type: VISUAL_RECOGNITION
-        xp: 15
-        config:
-          sign_sequence:
-            - tarjeta de crédito
-            - efectivo
-            - transferencia
-            - mercado pago
-          options:
-            - efectivo
-            - mercado pago
-            - tarjeta de crédito
-            - tarjeta de débito
-            - transferencia

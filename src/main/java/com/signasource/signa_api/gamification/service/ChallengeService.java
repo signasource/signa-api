@@ -54,7 +54,7 @@ public class ChallengeService {
 
     /** Exercises driven by the camera; the same set counts in lessons and in free practice. */
     private static final Set<BlockType> CAMERA_BLOCKS =
-            EnumSet.of(BlockType.VISUAL_RECOGNITION, BlockType.PERFORM_SIGN, BlockType.SPELL_NAME);
+            EnumSet.of(BlockType.PERFORM_SIGN, BlockType.SPELL_NAME);
 
     private final ChallengeRepository challengeRepository;
     private final UserChallengeRepository userChallengeRepository;

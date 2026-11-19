@@ -724,7 +724,6 @@ class ChallengeServiceTest {
 
     @Test
     void isCameraBlock_CoversCameraDrivenTypesOnly() {
-        assertTrue(ChallengeService.isCameraBlock(BlockType.VISUAL_RECOGNITION));
         assertTrue(ChallengeService.isCameraBlock(BlockType.PERFORM_SIGN));
         assertTrue(ChallengeService.isCameraBlock(BlockType.SPELL_NAME));
         assertFalse(ChallengeService.isCameraBlock(BlockType.MATCH));

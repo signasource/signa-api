@@ -76,19 +76,6 @@ lessons:
             - "mañana (día siguiente)"
             - todos los días
 
-      - type: VISUAL_RECOGNITION
-        xp: 15
-        config:
-          sign_sequence:
-            - hoy-ahora
-            - ayer
-            - "mañana (día siguiente)"
-          options:
-            - ayer
-            - hoy-ahora
-            - "mañana (día siguiente)"
-            - todos los días
-
   - code: leccion-2
     name: "Momentos del día"
     description: "Aprendé las señas de la mañana, el mediodía, la tarde y la noche."
@@ -160,15 +147,3 @@ lessons:
             - tarde
             - noche
 
-      - type: VISUAL_RECOGNITION
-        xp: 15
-        config:
-          sign_sequence:
-            - noche
-            - "mediodía"
-            - tarde
-          options:
-            - "mañana (parte del día)"
-            - "mediodía"
-            - tarde
-            - noche

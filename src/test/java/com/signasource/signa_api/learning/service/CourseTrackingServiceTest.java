@@ -1333,7 +1333,7 @@ class CourseTrackingServiceTest {
         LessonBlock block =
                 LessonBlock.builder()
                         .id(blockId)
-                        .type(BlockType.VISUAL_RECOGNITION)
+                        .type(BlockType.PERFORM_SIGN)
                         .xpReward(15)
                         .lesson(lesson)
                         .build();

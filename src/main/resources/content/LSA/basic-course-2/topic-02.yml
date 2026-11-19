@@ -76,19 +76,6 @@ lessons:
             - museo
             - "jardín de infantes"
 
-      - type: VISUAL_RECOGNITION
-        xp: 15
-        config:
-          sign_sequence:
-            - escuela
-            - museo
-            - "jardín de infantes"
-          options:
-            - escuela
-            - universidad
-            - museo
-            - "jardín de infantes"
-
   - code: leccion-2
     name: "En la ciudad"
     description: "Aprendé las señas de comercio, plaza, policía y hospital."
@@ -160,15 +147,3 @@ lessons:
             - "policía"
             - hospital
 
-      - type: VISUAL_RECOGNITION
-        xp: 15
-        config:
-          sign_sequence:
-            - plaza
-            - hospital
-            - comercio
-          options:
-            - comercio
-            - plaza
-            - "policía"
-            - hospital

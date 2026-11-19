@@ -160,8 +160,7 @@ public interface LearningMetricsRepository extends Repository<UserCourseEnrollme
     /**
      * Camera-block attempt rows for ML metrics: {@code [UUID blockId, BlockType type, long
      * evaluated, long correct, String config]}. Covers PERFORM_SIGN and SPELL_NAME blocks only
-     * (single-sign types that map cleanly to one sign per attempt). VISUAL_RECOGNITION is excluded
-     * because its signSequence is multi-sign and cannot be attributed to a single sign.
+     * (single-sign types that map cleanly to one sign per attempt).
      */
     @Query(
             "SELECT a.lessonBlock.id, a.lessonBlock.type, COUNT(a), "

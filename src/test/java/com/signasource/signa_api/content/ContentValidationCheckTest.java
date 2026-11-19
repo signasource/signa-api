@@ -19,7 +19,6 @@ import com.signasource.signa_api.content.validator.block.PerformSignValidator;
 import com.signasource.signa_api.content.validator.block.SelectMeaningValidator;
 import com.signasource.signa_api.content.validator.block.SelectSignValidator;
 import com.signasource.signa_api.content.validator.block.SpellNameValidator;
-import com.signasource.signa_api.content.validator.block.VisualRecognitionValidator;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -51,7 +50,6 @@ class ContentValidationCheckTest {
                         new SelectMeaningValidator(configParser),
                         new SelectSignValidator(configParser),
                         new MatchValidator(configParser),
-                        new VisualRecognitionValidator(configParser),
                         new ContextResponseValidator(configParser),
                         new InvisibleSignsValidator(configParser),
                         new PerformSignValidator(configParser),

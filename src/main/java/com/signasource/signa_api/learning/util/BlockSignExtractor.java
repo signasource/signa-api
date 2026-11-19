@@ -41,7 +41,6 @@ public class BlockSignExtractor {
             case SELECT_SIGN -> singleText(config, "word");
             case CONTEXT_RESPONSE -> singleText(config, "answer");
             case MATCH -> arrayTexts(config, "concepts");
-            case VISUAL_RECOGNITION -> arrayTexts(config, "sign_sequence");
             // Ver SignCatalogExtractor: son etiquetas del modelo, no señas del catálogo.
             case INFO, INVISIBLE_SIGNS, PERFORM_SIGN, SPELL_NAME -> List.of();
         };

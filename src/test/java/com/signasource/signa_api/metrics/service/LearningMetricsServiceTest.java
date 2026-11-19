@@ -136,7 +136,7 @@ class LearningMetricsServiceTest {
                 .thenReturn(
                         List.<Object[]>of(
                                 new Object[] {b, "{\"sign\":\"gracias\"}"},
-                                new Object[] {b, "{\"signSequence\":[\"Chau\",\"Hola\"]}"},
+                                new Object[] {b, "{\"concepts\":[\"Chau\",\"Hola\"]}"},
                                 new Object[] {a, "{\"word\":\"hola\"}"},
                                 new Object[] {a, "not json"}));
 
@@ -194,11 +194,11 @@ class LearningMetricsServiceTest {
                                 new Object[] {
                                     "b2",
                                     "Difícil",
-                                    BlockType.VISUAL_RECOGNITION,
+                                    BlockType.MATCH,
                                     100L,
                                     20L,
                                     25L,
-                                    "{\"signSequence\":[\"seña_dificil\"]}"
+                                    "{\"concepts\":[\"seña_dificil\"]}"
                                 },
                                 new Object[] {
                                     "b3",
@@ -246,7 +246,6 @@ class LearningMetricsServiceTest {
         // Rankings: b3 (5 evaluated) is above the floor of 3, so all 3 blocks appear.
         assertEquals(3, r.highestErrorExercises().size());
         assertEquals(80.0, r.highestErrorExercises().get(0).errorPercent());
-        // Label comes from signSequence extracted from VISUAL_RECOGNITION config.
         assertEquals("seña_dificil", r.highestErrorExercises().get(0).label());
         assertEquals(4.0, r.mostRetriedExercises().get(0).averageAttempts());
 

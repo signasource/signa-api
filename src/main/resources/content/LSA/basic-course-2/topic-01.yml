@@ -81,17 +81,3 @@ lessons:
             - nena
             - "bebé"
 
-      - type: VISUAL_RECOGNITION
-        xp: 15
-        config:
-          sign_sequence:
-            - nena
-            - "bebé"
-            - hombre
-            - mujer
-          options:
-            - hombre
-            - mujer
-            - nene
-            - nena
-            - "bebé"

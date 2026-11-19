@@ -292,21 +292,6 @@ lessons:
             - bien
             - mal
 
-      - type: VISUAL_RECOGNITION
-        xp: 15
-        config:
-          sign_sequence:
-            - hola
-            - bien
-            - "cómo estás"
-            - chau
-          options:
-            - hola
-            - chau
-            - "cómo estás"
-            - bien
-            - mal
-
   - code: leccion-4
     name: "Fórmulas de cortesía"
     description: "Aprendé a decir gracias, por favor, perdón y de nada."

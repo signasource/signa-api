@@ -67,18 +67,6 @@ lessons:
             - bicicleta
             - "camión"
 
-      - type: VISUAL_RECOGNITION
-        xp: 15
-        config:
-          sign_sequence:
-            - bicicleta
-            - auto
-            - "camión"
-          options:
-            - auto
-            - bicicleta
-            - "camión"
-
   - code: leccion-2
     name: "Transporte público y más"
     description: "Aprendé las señas de colectivo, tren, subte, taxi y uber."
@@ -155,17 +143,3 @@ lessons:
             - taxi
             - uber
 
-      - type: VISUAL_RECOGNITION
-        xp: 15
-        config:
-          sign_sequence:
-            - uber
-            - subte
-            - colectivo
-            - taxi
-          options:
-            - colectivo
-            - tren
-            - subte
-            - taxi
-            - uber

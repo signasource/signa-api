@@ -39,8 +39,7 @@ public class SignReferences {
                     BlockType.SELECT_MEANING,
                     BlockType.SELECT_SIGN,
                     BlockType.CONTEXT_RESPONSE,
-                    BlockType.MATCH,
-                    BlockType.VISUAL_RECOGNITION);
+                    BlockType.MATCH);
 
     private final ObjectMapper objectMapper;
 

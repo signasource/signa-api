@@ -132,22 +132,6 @@ lessons:
             - hermano
             - hijo
 
-      - type: VISUAL_RECOGNITION
-        xp: 15
-        config:
-          sign_sequence:
-            - "mamá"
-            - hijo
-            - abuelo
-            - "papá"
-          options:
-            - familia
-            - "mamá"
-            - "papá"
-            - hermano
-            - hijo
-            - abuelo
-
   - code: leccion-6
     name: "Relaciones cercanas"
     description: "Aprendé las señas de amigo, novio, esposo y compañero."
@@ -243,15 +227,3 @@ lessons:
             - esposo
             - "compañero"
 
-      - type: VISUAL_RECOGNITION
-        xp: 15
-        config:
-          sign_sequence:
-            - amigo
-            - esposo
-            - novio
-          options:
-            - amigo
-            - novio
-            - esposo
-            - "compañero"

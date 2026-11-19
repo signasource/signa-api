@@ -234,30 +234,6 @@ Ejercicio de emparejar conceptos.
 |---|---|
 | `concepts` | Obligatorio. Al menos **2** conceptos. |
 
-### `VISUAL_RECOGNITION` — reconocimiento visual
-
-Se muestra una secuencia de señas y el usuario selecciona cuáles reconoce dentro de la secuencia.
-
-```yaml
-- type: VISUAL_RECOGNITION
-  xp: 15
-  config:
-    signSequence:
-      - hola
-      - gracias
-    options:
-      - hola
-      - gracias
-      - por_favor
-    keepOrder: true
-```
-
-| Campo | Regla |
-|---|---|
-| `signSequence` | Obligatorio. Al menos **1** seña. Secuencia que se muestra al usuario. |
-| `options` | Obligatorio. Al menos **1** opción. Puede incluir señas que no están en la secuencia (distractores). |
-| `keepOrder` | Obligatorio. `true` si las señas seleccionadas deben respetar el orden de la secuencia, `false` si no. |
-
 ---
 
 ## 6. Qué se valida (y qué errores vas a ver)

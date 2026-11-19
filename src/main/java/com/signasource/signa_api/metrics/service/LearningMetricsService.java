@@ -410,8 +410,8 @@ public class LearningMetricsService {
 
     /**
      * Signs ranked by error rate, derived from SELECT_MEANING and SELECT_SIGN blocks (single-sign
-     * exercises). Multi-sign blocks (MATCH, VISUAL_RECOGNITION) are excluded — they don't map
-     * cleanly to one sign's difficulty.
+     * exercises). Multi-sign blocks (MATCH) are excluded — they don't map cleanly to one sign's
+     * difficulty.
      */
     private List<SignDifficulty> hardestSigns(List<Object[]> rows) {
         Map<String, long[]> bySign = new LinkedHashMap<>();
@@ -458,13 +458,6 @@ public class LearningMetricsService {
                 case MATCH -> {
                     Object concepts = map.get("concepts");
                     if (concepts instanceof List<?> list) {
-                        yield list.stream().map(Object::toString).collect(Collectors.joining(", "));
-                    }
-                    yield null;
-                }
-                case VISUAL_RECOGNITION -> {
-                    Object seq = map.get("signSequence");
-                    if (seq instanceof List<?> list) {
                         yield list.stream().map(Object::toString).collect(Collectors.joining(", "));
                     }
                     yield null;
