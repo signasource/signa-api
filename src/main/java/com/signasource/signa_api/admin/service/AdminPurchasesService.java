@@ -79,6 +79,15 @@ public class AdminPurchasesService {
         }
     }
 
+    public void refundManual(UUID id, String type) {
+        switch (type) {
+            case TYPE_SEATS -> purchasePaymentService.reverseManual(id);
+            case TYPE_GEMS -> gemOrderSettlementService.reverseManual(id);
+            case TYPE_COURSE -> courseOrderSettlementService.reverseManual(id);
+            default -> throw new NotFoundException("Unknown purchase type: " + type);
+        }
+    }
+
     // ── private helpers ──────────────────────────────────────────────────────
 
     private List<AdminPurchaseListItemResponse> mapSeats(Set<String> pendingKeys) {

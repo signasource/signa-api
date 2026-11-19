@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.admin.dto.AdminPurchaseDetailResponse;
@@ -14,10 +15,12 @@ import com.signasource.signa_api.gamification.entity.GemOrder;
 import com.signasource.signa_api.gamification.entity.GemOrderStatus;
 import com.signasource.signa_api.gamification.entity.GemPack;
 import com.signasource.signa_api.gamification.repository.GemOrderRepository;
+import com.signasource.signa_api.gamification.service.GemOrderSettlementService;
 import com.signasource.signa_api.learning.entity.Course;
 import com.signasource.signa_api.learning.entity.CourseOrder;
 import com.signasource.signa_api.learning.entity.CourseOrderStatus;
 import com.signasource.signa_api.learning.repository.CourseOrderRepository;
+import com.signasource.signa_api.learning.service.CourseOrderSettlementService;
 import com.signasource.signa_api.organizations.entity.CoursePurchase;
 import com.signasource.signa_api.organizations.entity.Organization;
 import com.signasource.signa_api.organizations.entity.PurchaseStatus;
@@ -25,6 +28,7 @@ import com.signasource.signa_api.organizations.entity.RefundRequest;
 import com.signasource.signa_api.organizations.entity.RefundRequestStatus;
 import com.signasource.signa_api.organizations.repository.CoursePurchaseRepository;
 import com.signasource.signa_api.organizations.repository.RefundRequestRepository;
+import com.signasource.signa_api.organizations.service.PurchasePaymentService;
 import com.signasource.signa_api.users.entity.User;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -48,6 +52,9 @@ class AdminPurchasesServiceTest {
     @Mock private CourseOrderRepository courseOrderRepository;
     @Mock private RefundRequestRepository refundRequestRepository;
     @Mock private AdminRefundRequestService refundRequestService;
+    @Mock private PurchasePaymentService purchasePaymentService;
+    @Mock private GemOrderSettlementService gemOrderSettlementService;
+    @Mock private CourseOrderSettlementService courseOrderSettlementService;
 
     @InjectMocks private AdminPurchasesService service;
 
@@ -167,6 +174,35 @@ class AdminPurchasesServiceTest {
 
         assertThrows(
                 NotFoundException.class, () -> service.detail(id, AdminPurchasesService.TYPE_GEMS));
+    }
+
+    // ── refundManual ─────────────────────────────────────────────────────────
+
+    @Test
+    void shouldDelegateToReverseManualOnPurchasePaymentServiceForSeats() {
+        UUID id = UUID.randomUUID();
+        service.refundManual(id, AdminPurchasesService.TYPE_SEATS);
+        verify(purchasePaymentService).reverseManual(id);
+    }
+
+    @Test
+    void shouldDelegateToReverseManualOnGemOrderSettlementServiceForGems() {
+        UUID id = UUID.randomUUID();
+        service.refundManual(id, AdminPurchasesService.TYPE_GEMS);
+        verify(gemOrderSettlementService).reverseManual(id);
+    }
+
+    @Test
+    void shouldDelegateToReverseManualOnCourseOrderSettlementServiceForCourse() {
+        UUID id = UUID.randomUUID();
+        service.refundManual(id, AdminPurchasesService.TYPE_COURSE);
+        verify(courseOrderSettlementService).reverseManual(id);
+    }
+
+    @Test
+    void shouldThrowNotFoundForUnknownTypeOnRefundManual() {
+        assertThrows(
+                NotFoundException.class, () -> service.refundManual(UUID.randomUUID(), "UNKNOWN"));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

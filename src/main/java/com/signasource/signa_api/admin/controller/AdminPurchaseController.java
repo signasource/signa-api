@@ -37,4 +37,10 @@ public class AdminPurchaseController {
         service.confirmPayment(id, type);
         return ResponseEntity.ok().build();
     }
+
+    @PostMapping("/{id}/refund")
+    public ResponseEntity<Void> refund(@PathVariable UUID id, @RequestParam String type) {
+        service.refundManual(id, type);
+        return ResponseEntity.ok().build();
+    }
 }

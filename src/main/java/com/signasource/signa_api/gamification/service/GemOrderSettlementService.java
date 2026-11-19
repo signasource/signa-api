@@ -76,6 +76,19 @@ public class GemOrderSettlementService {
         orderRepository.save(order);
     }
 
+    /** Reverses a paid gem order without a Mercado Pago refund (admin-initiated). */
+    @Transactional
+    public void reverseManual(UUID orderId) {
+        GemOrder order =
+                orderRepository
+                        .findForUpdate(orderId)
+                        .orElseThrow(() -> new NotFoundException("Gem order not found"));
+        if (order.getStatus() != GemOrderStatus.PAID) {
+            throw new InvalidInputException("Only a paid gem order can be refunded manually");
+        }
+        reverse(order);
+    }
+
     /** Credits a pending gem order without a Mercado Pago payment. */
     @Transactional
     public void creditManual(UUID orderId) {

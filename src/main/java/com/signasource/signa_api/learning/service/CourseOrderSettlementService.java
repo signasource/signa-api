@@ -85,6 +85,19 @@ public class CourseOrderSettlementService {
         orderRepository.save(order);
     }
 
+    /** Reverses a paid course order without a Mercado Pago refund (admin-initiated). */
+    @Transactional
+    public void reverseManual(UUID orderId) {
+        CourseOrder order =
+                orderRepository
+                        .findForUpdate(orderId)
+                        .orElseThrow(() -> new NotFoundException("Course order not found"));
+        if (order.getStatus() != CourseOrderStatus.PAID) {
+            throw new InvalidInputException("Only a paid course order can be refunded manually");
+        }
+        reverse(order);
+    }
+
     /** Grants access from a pending course order without a Mercado Pago payment. */
     @Transactional
     public void grantManual(UUID orderId) {

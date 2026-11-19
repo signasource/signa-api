@@ -541,4 +541,40 @@ class PurchasePaymentServiceTest {
         verify(revocationService)
                 .revoke(eq(purchase), eq(RefundReason.EXTERNAL_REFUND), eq(BigDecimal.TEN), any());
     }
+
+    @Test
+    void shouldRevokeAndRecordRefundWhenManuallyRefunded() {
+        purchase.setStatus(PurchaseStatus.PAID);
+        when(purchaseRepository.findForUpdateById(purchase.getId()))
+                .thenReturn(Optional.of(purchase));
+
+        service.reverseManual(purchase.getId());
+
+        ArgumentCaptor<PurchaseRefund> refund = ArgumentCaptor.forClass(PurchaseRefund.class);
+        verify(refundRepository).save(refund.capture());
+        assertEquals(RefundReason.EXTERNAL_REFUND, refund.getValue().getReason());
+        assertEquals(RefundStatus.REFUNDED, refund.getValue().getStatus());
+        assertNotNull(refund.getValue().getRefundedAt());
+        assertTrue(refund.getValue().getPaymentId().startsWith("ADMIN-"));
+        verify(revocationService)
+                .revoke(eq(purchase), eq(RefundReason.EXTERNAL_REFUND), eq(BigDecimal.TEN), any());
+    }
+
+    @Test
+    void shouldRejectManualRefundOfNonPaidPurchase() {
+        when(purchaseRepository.findForUpdateById(purchase.getId()))
+                .thenReturn(Optional.of(purchase));
+
+        assertThrows(InvalidInputException.class, () -> service.reverseManual(purchase.getId()));
+        verify(refundRepository, never()).save(any());
+        verifyNoInteractions(revocationService);
+    }
+
+    @Test
+    void shouldThrowNotFoundWhenManualRefundPurchaseDoesNotExist() {
+        UUID unknown = UUID.randomUUID();
+        when(purchaseRepository.findForUpdateById(unknown)).thenReturn(Optional.empty());
+
+        assertThrows(NotFoundException.class, () -> service.reverseManual(unknown));
+    }
 }

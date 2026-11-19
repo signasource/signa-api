@@ -307,6 +307,33 @@ public class PurchasePaymentService {
                 });
     }
 
+    /** Marks a paid purchase as refunded without a Mercado Pago refund (admin-initiated). */
+    @Transactional
+    public void reverseManual(UUID purchaseId) {
+        CoursePurchase purchase =
+                purchaseRepository
+                        .findForUpdateById(purchaseId)
+                        .orElseThrow(() -> new NotFoundException("Purchase not found"));
+        if (purchase.getStatus() != PurchaseStatus.PAID) {
+            throw new InvalidInputException("Only a paid purchase can be refunded manually");
+        }
+        Instant now = Instant.now();
+        String syntheticId =
+                "ADMIN-" + UUID.randomUUID().toString().replace("-", "").substring(0, 24);
+        refundRepository.save(
+                PurchaseRefund.builder()
+                        .purchase(purchase)
+                        .paymentId(syntheticId)
+                        .amount(purchase.getTotalAmount())
+                        .currency(purchase.getCurrency())
+                        .reason(RefundReason.EXTERNAL_REFUND)
+                        .status(RefundStatus.REFUNDED)
+                        .refundedAt(now)
+                        .build());
+        revocationService.revoke(
+                purchase, RefundReason.EXTERNAL_REFUND, purchase.getTotalAmount(), now);
+    }
+
     /** Marks a pending purchase as paid without a Mercado Pago payment. */
     @Transactional
     public void confirmManual(UUID purchaseId) {

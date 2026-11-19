@@ -60,8 +60,7 @@ public class OrganizationMetricsService {
 
     static final int ACTIVE_WINDOW_DAYS = 7;
     private static final int EVOLUTION_WEEKS = 8;
-    private static final List<BlockType> SIGN_RECOGNITION_TYPES =
-            List.of(BlockType.PERFORM_SIGN);
+    private static final List<BlockType> SIGN_RECOGNITION_TYPES = List.of(BlockType.PERFORM_SIGN);
 
     private final OrganizationRepository organizationRepository;
     private final OrganizationMemberRepository memberRepository;
