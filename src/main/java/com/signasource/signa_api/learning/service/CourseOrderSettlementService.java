@@ -93,7 +93,8 @@ public class CourseOrderSettlementService {
                         .findForUpdate(orderId)
                         .orElseThrow(() -> new NotFoundException("Course order not found"));
         if (order.getStatus() != CourseOrderStatus.PENDING) {
-            throw new InvalidInputException("Only a pending course order can be confirmed manually");
+            throw new InvalidInputException(
+                    "Only a pending course order can be confirmed manually");
         }
         grantPermanentAccess(order.getUser(), order.getCourse());
         order.setStatus(CourseOrderStatus.PAID);

@@ -27,10 +27,19 @@ public record PurchaseResponse(
         Instant refundableUntil,
         Instant cancelledAt,
         Instant refundedAt,
-        SeatCountsResponse seatCounts) {
+        SeatCountsResponse seatCounts,
+        boolean hasRefundRequest) {
 
     public static PurchaseResponse from(
             CoursePurchase purchase, Collection<PurchaseSeat> seats, Instant now) {
+        return from(purchase, seats, now, false);
+    }
+
+    public static PurchaseResponse from(
+            CoursePurchase purchase,
+            Collection<PurchaseSeat> seats,
+            Instant now,
+            boolean hasRefundRequest) {
         return new PurchaseResponse(
                 purchase.getId(),
                 purchase.getCourse().getId(),
@@ -51,6 +60,7 @@ public record PurchaseResponse(
                 purchase.getStatus() == PurchaseStatus.PAID ? purchase.getRefundableUntil() : null,
                 purchase.getCancelledAt(),
                 purchase.getRefundedAt(),
-                SeatCountsResponse.of(seats, now));
+                SeatCountsResponse.of(seats, now),
+                hasRefundRequest);
     }
 }

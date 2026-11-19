@@ -23,14 +23,17 @@ import com.signasource.signa_api.organizations.entity.Organization;
 import com.signasource.signa_api.organizations.entity.OrganizationStatus;
 import com.signasource.signa_api.organizations.entity.PurchaseSeat;
 import com.signasource.signa_api.organizations.entity.PurchaseStatus;
+import com.signasource.signa_api.organizations.entity.RefundRequestStatus;
 import com.signasource.signa_api.organizations.entity.SeatStatus;
 import com.signasource.signa_api.organizations.repository.CoursePurchaseRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationRepository;
 import com.signasource.signa_api.organizations.repository.PurchaseRefundRepository;
 import com.signasource.signa_api.organizations.repository.PurchaseSeatRepository;
+import com.signasource.signa_api.organizations.repository.RefundRequestRepository;
 import com.signasource.signa_api.users.entity.User;
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +55,7 @@ public class CoursePurchaseService {
     private final CoursePurchaseRepository purchaseRepository;
     private final PurchaseSeatRepository seatRepository;
     private final PurchaseRefundRepository refundRepository;
+    private final RefundRequestRepository refundRequestRepository;
     private final OrganizationRepository organizationRepository;
     private final CourseRepository courseRepository;
     private final CourseVersionRepository courseVersionRepository;
@@ -150,17 +154,29 @@ public class CoursePurchaseService {
     @Transactional(readOnly = true)
     public List<PurchaseResponse> list(User actor, UUID organizationId) {
         accessService.requireManage(actor, organizationId);
+        List<CoursePurchase> purchases =
+                purchaseRepository.findByOrganizationIdOrderByCreatedAtDesc(organizationId);
         Map<UUID, List<PurchaseSeat>> seatsByPurchase =
                 seatRepository.findByPurchaseOrganizationId(organizationId).stream()
                         .collect(Collectors.groupingBy(seat -> seat.getPurchase().getId()));
+        List<UUID> purchaseIds = purchases.stream().map(CoursePurchase::getId).toList();
+        Set<UUID> withPendingRequest =
+                purchaseIds.isEmpty()
+                        ? Set.of()
+                        : new HashSet<>(
+                                refundRequestRepository.findPurchaseIdsWithPendingRequest(
+                                        UserRefundRequestService.TYPE_SEATS,
+                                        RefundRequestStatus.PENDING,
+                                        purchaseIds));
         Instant now = Instant.now();
-        return purchaseRepository.findByOrganizationIdOrderByCreatedAtDesc(organizationId).stream()
+        return purchases.stream()
                 .map(
                         purchase ->
                                 PurchaseResponse.from(
                                         purchase,
                                         seatsByPurchase.getOrDefault(purchase.getId(), List.of()),
-                                        now))
+                                        now,
+                                        withPendingRequest.contains(purchase.getId())))
                 .toList();
     }
 
@@ -239,8 +255,13 @@ public class CoursePurchaseService {
     public PurchaseDetailResponse describe(CoursePurchase purchase) {
         Instant now = Instant.now();
         List<PurchaseSeat> seats = seatRepository.findByPurchaseIdOrderByEmailAsc(purchase.getId());
+        boolean hasRefundRequest =
+                refundRequestRepository.existsByPurchaseTypeAndPurchaseIdAndStatus(
+                        UserRefundRequestService.TYPE_SEATS,
+                        purchase.getId(),
+                        RefundRequestStatus.PENDING);
         return new PurchaseDetailResponse(
-                PurchaseResponse.from(purchase, seats, now),
+                PurchaseResponse.from(purchase, seats, now, hasRefundRequest),
                 seats.stream().map(seat -> invitationService.toResponse(seat, now)).toList(),
                 refundRepository.findByPurchaseIdOrderByCreatedAtAsc(purchase.getId()).stream()
                         .map(PurchaseRefundResponse::from)

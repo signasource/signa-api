@@ -38,6 +38,7 @@ import com.signasource.signa_api.organizations.repository.CoursePurchaseReposito
 import com.signasource.signa_api.organizations.repository.OrganizationRepository;
 import com.signasource.signa_api.organizations.repository.PurchaseRefundRepository;
 import com.signasource.signa_api.organizations.repository.PurchaseSeatRepository;
+import com.signasource.signa_api.organizations.repository.RefundRequestRepository;
 import com.signasource.signa_api.users.entity.User;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -58,6 +59,7 @@ class CoursePurchaseServiceTest {
     @Mock private CoursePurchaseRepository purchaseRepository;
     @Mock private PurchaseSeatRepository seatRepository;
     @Mock private PurchaseRefundRepository refundRepository;
+    @Mock private RefundRequestRepository refundRequestRepository;
     @Mock private OrganizationRepository organizationRepository;
     @Mock private CourseRepository courseRepository;
     @Mock private CourseVersionRepository courseVersionRepository;
@@ -79,6 +81,7 @@ class CoursePurchaseServiceTest {
                         purchaseRepository,
                         seatRepository,
                         refundRepository,
+                        refundRequestRepository,
                         organizationRepository,
                         courseRepository,
                         courseVersionRepository,
@@ -191,6 +194,7 @@ class CoursePurchaseServiceTest {
                         purchaseRepository,
                         seatRepository,
                         refundRepository,
+                        refundRequestRepository,
                         organizationRepository,
                         courseRepository,
                         courseVersionRepository,
