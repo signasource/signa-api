@@ -2,6 +2,7 @@ package com.signasource.signa_api.organizations.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -336,6 +337,26 @@ class UserRefundRequestServiceTest {
 
         verify(refundRequestRepository).save(any(RefundRequest.class));
         assertEquals(UserRefundRequestService.TYPE_SEATS, result.purchaseType());
+    }
+
+    @Test
+    void createForSeats_acceptsMissingReasonAndBlankMessage() {
+        UUID orgId = UUID.randomUUID();
+        UUID purchaseId = UUID.randomUUID();
+        CoursePurchase purchase = paidPurchase(purchaseId, orgId);
+        when(purchase.getSeatList()).thenReturn(List.of());
+        when(coursePurchaseRepository.findById(purchaseId)).thenReturn(Optional.of(purchase));
+        when(refundRequestRepository.findByPurchaseTypeAndPurchaseId(
+                        UserRefundRequestService.TYPE_SEATS, purchaseId))
+                .thenReturn(List.of());
+        when(refundRequestRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        UserRefundRequestResponse result =
+                service.createForSeats(
+                        orgId, purchaseId, user, new CreateRefundRequestRequest(null, "   "));
+
+        assertNull(result.reason());
+        assertNull(result.message());
     }
 
     // ── listForUser ───────────────────────────────────────────────────────────
