@@ -24,6 +24,7 @@ public interface UserStatsRepository extends JpaRepository<UserStats, UUID> {
     @Query(
             "SELECT us FROM UserStats us JOIN FETCH us.user u "
                     + "WHERE u.role = com.signasource.signa_api.users.entity.Role.USER "
+                    + "AND u.accountVisibility = com.signasource.signa_api.users.entity.AccountVisibility.PUBLIC "
                     + "ORDER BY us.weeklyXp DESC, u.id ASC")
     List<UserStats> findTopByWeeklyXpDesc(Pageable pageable);
 
@@ -34,12 +35,14 @@ public interface UserStatsRepository extends JpaRepository<UserStats, UUID> {
     @Query(
             "SELECT COUNT(us) FROM UserStats us JOIN us.user u "
                     + "WHERE us.weeklyXp > :xp AND u.id != :excludeId "
-                    + "AND u.role = com.signasource.signa_api.users.entity.Role.USER")
+                    + "AND u.role = com.signasource.signa_api.users.entity.Role.USER "
+                    + "AND u.accountVisibility = com.signasource.signa_api.users.entity.AccountVisibility.PUBLIC")
     long countUsersAheadByWeeklyXp(@Param("xp") int xp, @Param("excludeId") UUID excludeId);
 
     @Query(
             "SELECT COUNT(us) FROM UserStats us JOIN us.user u "
-                    + "WHERE u.role = com.signasource.signa_api.users.entity.Role.USER")
+                    + "WHERE u.role = com.signasource.signa_api.users.entity.Role.USER "
+                    + "AND u.accountVisibility = com.signasource.signa_api.users.entity.AccountVisibility.PUBLIC")
     long countUsersWithUserRole();
 
     @Modifying
