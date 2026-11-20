@@ -54,14 +54,16 @@ public class RefundRequest {
     @EqualsAndHashCode.Exclude
     private User requestedBy;
 
+    /** Optional: null when the buyer did not pick one. */
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
+    @Column(length = 30)
     private RefundRequestReason reason;
 
     @Column(nullable = false, length = 50)
     private String channel;
 
-    @Column(nullable = false, length = 2000)
+    /** Optional: null when the buyer left no comment. */
+    @Column(length = 2000)
     private String message;
 
     @Column(length = 2000)
