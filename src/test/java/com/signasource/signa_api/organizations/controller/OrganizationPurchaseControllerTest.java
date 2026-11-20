@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.organizations.dto.CheckoutResponse;
 import com.signasource.signa_api.organizations.dto.CreatePurchaseRequest;
+import com.signasource.signa_api.organizations.dto.OrganizationInvitationResponse;
 import com.signasource.signa_api.organizations.dto.PaymentSyncResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseCatalogResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseDetailResponse;
@@ -81,6 +82,19 @@ class OrganizationPurchaseControllerTest {
         when(purchaseService.list(user, organizationId)).thenReturn(purchases);
 
         assertSame(purchases, controller.listPurchases(organizationId, principal).getBody());
+    }
+
+    @Test
+    void shouldListInvitations() {
+        when(principal.getUser()).thenReturn(user);
+        UUID courseId = UUID.randomUUID();
+        List<OrganizationInvitationResponse> invitations = List.of();
+        when(purchaseService.listInvitations(user, organizationId, courseId))
+                .thenReturn(invitations);
+
+        assertSame(
+                invitations,
+                controller.listInvitations(organizationId, courseId, principal).getBody());
     }
 
     @Test
