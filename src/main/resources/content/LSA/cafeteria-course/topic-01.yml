@@ -73,8 +73,8 @@ lessons:
       - type: CONTEXT_RESPONSE
         xp: 5
         config:
-          question: "¿Cómo le decís al café con un pequeño chorrito de leche?"
-          answer: cortado
+          question: "¿Qué bebida tomarías para relajarte?"
+          answer: té
           options:
             - café
             - cortado

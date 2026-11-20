@@ -159,7 +159,7 @@ lessons:
       - type: CONTEXT_RESPONSE
         xp: 5
         config:
-          question: "¿Cómo se llama la persona que puede escuchar?"
+          question: "¿Cómo se le llama a una persona que no tiene sordera?"
           answer: oyente
           options:
             - sordo
