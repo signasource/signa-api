@@ -285,6 +285,60 @@ class GrowthMetricsRepositoryTest {
         assertEquals(1L, ((Number) courseCounts.get(0)[1]).longValue());
     }
 
+    /**
+     * A refunded GemOrder or CourseOrder must still appear in paidAmount (and in buyer counts) so
+     * that net income stays non-negative and the refund rate has the right denominator. Without
+     * this, status = REFUNDED would remove the original payment from gross while the refund is
+     * still counted, producing a negative net income and a 0% refund rate.
+     */
+    @Test
+    void refundedEndUserOrdersAreStillCountedInRevenue() {
+        User buyer = saveUser();
+        GemPack pack =
+                gemPackRepository.save(
+                        GemPack.builder()
+                                .productId("gems_" + UUID.randomUUID())
+                                .gems(500)
+                                .price(new BigDecimal("5000"))
+                                .build());
+        gemOrderRepository.save(
+                GemOrder.builder()
+                        .user(buyer)
+                        .gemPack(pack)
+                        .gems(500)
+                        .amount(new BigDecimal("5000"))
+                        .currency("ARS")
+                        .status(GemOrderStatus.REFUNDED)
+                        .paidAt(Instant.now())
+                        .refundedAt(Instant.now())
+                        .build());
+        courseOrderRepository.save(
+                CourseOrder.builder()
+                        .user(buyer)
+                        .course(course)
+                        .amount(new BigDecimal("9000"))
+                        .currency("ARS")
+                        .status(CourseOrderStatus.REFUNDED)
+                        .paidAt(Instant.now())
+                        .refundedAt(Instant.now())
+                        .build());
+
+        // paidAmount must include the original payment even after refund.
+        assertEquals(
+                0, new BigDecimal("5000").compareTo(repository.sumGemRevenueBetween(FROM, until)));
+        assertEquals(
+                0,
+                new BigDecimal("9000").compareTo(repository.sumCourseRevenueBetween(FROM, until)));
+        assertEquals(1, repository.countGemPurchasesBetween(FROM, until));
+        assertEquals(1, repository.countCoursePurchasesBetween(FROM, until));
+        assertEquals(1, repository.dailyGemRevenue(FROM, until, BUCKET).size());
+        assertEquals(1, repository.dailyCourseRevenue(FROM, until, BUCKET).size());
+
+        // The buyer must still appear in buyer counts.
+        assertEquals(1, repository.gemBuyerOrderCounts(FROM, until).size());
+        assertEquals(1, repository.courseBuyerOrderCounts(FROM, until).size());
+    }
+
     @Test
     void countsUsersInPaidCourses() {
         // The course from setUp is not free (isFree defaults to false).
