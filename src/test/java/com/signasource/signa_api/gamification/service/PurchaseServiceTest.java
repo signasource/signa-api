@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -26,6 +27,7 @@ import com.signasource.signa_api.gamification.repository.UserStatsRepository;
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
@@ -163,6 +165,53 @@ class PurchaseServiceTest {
         assertEquals(1, response.effect().livesGranted());
         assertEquals(ShopItemType.LIFE, response.effect().type());
         assertEquals(PurchaseStatus.ACTIVATED, response.status());
+    }
+
+    @Test
+    void purchaseForSelf_whenLifeItemAndLivesFull_throwsWithoutDebitingGems() {
+        stats.setCurrentLives(UserStats.MAX_LIVES);
+        ShopItem item = shopItem(ShopItemType.LIFE, 20, 1);
+        when(shopItemRepository.findById(item.getId())).thenReturn(Optional.of(item));
+
+        InvalidInputException ex =
+                assertThrows(
+                        InvalidInputException.class,
+                        () -> purchaseService.purchaseForSelf(user, item.getId()));
+
+        assertEquals(PurchaseService.LIVES_FULL_MESSAGE, ex.getMessage());
+        assertEquals(1000, stats.getGems());
+        verify(purchaseRepository, never()).save(any(Purchase.class));
+    }
+
+    @Test
+    void purchaseForSelf_whenLifeItemAndUnlimitedLivesActive_throwsWithoutDebitingGems() {
+        stats.setCurrentLives(2);
+        stats.setLivesMode(LivesMode.INFINITE);
+        stats.setUnlimitedLivesExpiresAt(Instant.now().plus(10, ChronoUnit.MINUTES));
+        ShopItem item = shopItem(ShopItemType.LIFE, 20, 1);
+        when(shopItemRepository.findById(item.getId())).thenReturn(Optional.of(item));
+
+        assertThrows(
+                InvalidInputException.class,
+                () -> purchaseService.purchaseForSelf(user, item.getId()));
+
+        assertEquals(1000, stats.getGems());
+    }
+
+    @Test
+    void purchaseForSelf_whenLifeItemAndUnlimitedLivesExpired_grantsLife() {
+        stats.setCurrentLives(2);
+        stats.setNextLifeAt(Instant.now().plus(5, ChronoUnit.MINUTES));
+        stats.setLivesMode(LivesMode.INFINITE);
+        stats.setUnlimitedLivesExpiresAt(Instant.now().minus(1, ChronoUnit.MINUTES));
+        ShopItem item = shopItem(ShopItemType.LIFE, 20, 1);
+        when(shopItemRepository.findById(item.getId())).thenReturn(Optional.of(item));
+
+        PurchaseResponse response = purchaseService.purchaseForSelf(user, item.getId());
+
+        assertEquals(1, response.effect().livesGranted());
+        assertEquals(3, stats.getCurrentLives());
+        assertEquals(980, stats.getGems());
     }
 
     @Test
