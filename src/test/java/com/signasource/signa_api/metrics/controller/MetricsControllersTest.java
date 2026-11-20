@@ -34,10 +34,10 @@ class MetricsControllersTest {
         BusinessMetricsController controller = new BusinessMetricsController(globalMetricsService);
         BusinessMetricsResponse body =
                 new BusinessMetricsResponse(null, List.of(), null, null, null, null, List.of());
-        when(globalMetricsService.getBusinessMetrics(any())).thenReturn(body);
+        when(globalMetricsService.getBusinessMetrics(any(), any())).thenReturn(body);
 
         ResponseEntity<BusinessMetricsResponse> response =
-                controller.business("2026-11-01T00:00:00Z", "2026-11-02T00:00:00Z");
+                controller.business("2026-11-01T00:00:00Z", "2026-11-02T00:00:00Z", null);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(body, response.getBody());

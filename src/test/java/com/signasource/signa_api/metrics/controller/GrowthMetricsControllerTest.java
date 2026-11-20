@@ -2,6 +2,7 @@ package com.signasource.signa_api.metrics.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -87,21 +88,21 @@ class GrowthMetricsControllerTest {
     @Test
     void returnsTheSnapshotForTheRequestedWindow() {
         ArgumentCaptor<MetricsRange> range = ArgumentCaptor.forClass(MetricsRange.class);
-        when(service.getGrowthMetrics(range.capture())).thenReturn(SAMPLE);
+        when(service.getGrowthMetrics(range.capture(), any())).thenReturn(SAMPLE);
 
         ResponseEntity<GrowthMetricsResponse> response =
-                controller.growth("2026-11-01T00:00:00Z", "2026-11-08T00:00:00Z");
+                controller.growth("2026-11-01T00:00:00Z", "2026-11-08T00:00:00Z", null);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertSame(SAMPLE, response.getBody());
-        verify(service).getGrowthMetrics(range.getValue());
+        verify(service).getGrowthMetrics(range.getValue(), List.of());
     }
 
     @Test
     void treatsMissingParamsAsTheWholeHistory() {
-        when(service.getGrowthMetrics(MetricsRange.ALL_TIME)).thenReturn(SAMPLE);
+        when(service.getGrowthMetrics(MetricsRange.ALL_TIME, List.of())).thenReturn(SAMPLE);
 
-        ResponseEntity<GrowthMetricsResponse> response = controller.growth(null, null);
+        ResponseEntity<GrowthMetricsResponse> response = controller.growth(null, null, null);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
     }
