@@ -35,6 +35,7 @@ import com.signasource.signa_api.users.repository.UserActivityRepository;
 import com.signasource.signa_api.users.repository.UserRepository;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -166,6 +167,49 @@ class GlobalMetricsRepositoryTest {
         assertEquals(1, repository.countLessonsCompletedBetween(FROM, until));
         assertEquals(1, repository.countTopicsCompletedBetween(FROM, until));
         assertEquals(1, repository.dailyLessonsCompleted(FROM, until).size());
+    }
+
+    @Test
+    void courseFilteredVariantsMatchByCourseId() {
+        enrollmentRepository.save(
+                UserCourseEnrollment.builder()
+                        .user(user)
+                        .courseVersion(version)
+                        .status(EnrollmentStatus.ENROLLED)
+                        .build());
+        attemptRepository.save(attempt(true));
+        attemptRepository.save(attempt(false));
+        lessonProgressRepository.save(
+                UserLessonProgress.builder()
+                        .user(user)
+                        .lesson(lesson)
+                        .status(ProgressStatus.COMPLETED)
+                        .completedAt(Instant.now())
+                        .build());
+        topicProgressRepository.save(
+                UserTopicProgress.builder()
+                        .user(user)
+                        .topic(topic)
+                        .status(ProgressStatus.COMPLETED)
+                        .completedAt(Instant.now())
+                        .build());
+
+        UUID courseId = version.getCourse().getId();
+        UUID otherId = UUID.randomUUID();
+
+        assertEquals(2, repository.countEvaluatedAttemptsByCourse(FROM, until, List.of(courseId)));
+        assertEquals(0, repository.countEvaluatedAttemptsByCourse(FROM, until, List.of(otherId)));
+        assertEquals(1, repository.countCorrectAttemptsByCourse(FROM, until, List.of(courseId)));
+        assertEquals(
+                1, repository.accuracyByBlockTypeByCourse(FROM, until, List.of(courseId)).size());
+        assertEquals(
+                0, repository.accuracyByBlockTypeByCourse(FROM, until, List.of(otherId)).size());
+        assertEquals(1, repository.dailyAttemptsByCourse(FROM, until, List.of(courseId)).size());
+        assertEquals(1, repository.countLessonsCompletedByCourse(FROM, until, List.of(courseId)));
+        assertEquals(0, repository.countLessonsCompletedByCourse(FROM, until, List.of(otherId)));
+        assertEquals(1, repository.countTopicsCompletedByCourse(FROM, until, List.of(courseId)));
+        assertEquals(
+                1, repository.dailyLessonsCompletedByCourse(FROM, until, List.of(courseId)).size());
     }
 
     @Test
