@@ -26,4 +26,6 @@ public record AdminRefundRequestResponse(
         BigDecimal amount,
         String currency,
         String purchaseStatus,
-        Instant purchasePaidAt) {}
+        Instant purchasePaidAt,
+        // true for refunds with no customer request (withdrawal, Mercado Pago, chargeback)
+        boolean informational) {}
