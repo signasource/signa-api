@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -23,6 +24,10 @@ public interface GemOrderRepository extends JpaRepository<GemOrder, UUID> {
 
     /** All orders for a user, newest first. */
     List<GemOrder> findByUserIdOrderByCreatedAtDesc(UUID userId);
+
+    /** Every order in {@code status}, with its buyer and pack loaded. */
+    @EntityGraph(attributePaths = {"user", "gemPack"})
+    List<GemOrder> findByStatus(GemOrderStatus status);
 
     /** Locks the row so the webhook and the app's sync never credit the same order twice. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)

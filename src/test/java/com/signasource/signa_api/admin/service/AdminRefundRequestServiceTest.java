@@ -140,6 +140,84 @@ class AdminRefundRequestServiceTest {
         assertEquals(true, item.informational());
     }
 
+    @Test
+    void listAll_includesRefundedGemAndCourseOrdersWithoutRequestAsInformational() {
+        UUID gemOrderId = UUID.randomUUID();
+        UUID courseOrderId = UUID.randomUUID();
+        GemOrder gemOrder = refundedGemOrder(gemOrderId);
+        CourseOrder courseOrder = refundedCourseOrder(courseOrderId);
+        when(repository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of());
+        when(gemOrderRepository.findByStatus(GemOrderStatus.REFUNDED))
+                .thenReturn(List.of(gemOrder));
+        when(courseOrderRepository.findByStatus(CourseOrderStatus.REFUNDED))
+                .thenReturn(List.of(courseOrder));
+
+        List<AdminRefundRequestResponse> result = service.listAll();
+
+        assertEquals(2, result.size());
+        AdminRefundRequestResponse gems =
+                result.stream()
+                        .filter(r -> r.purchaseType().equals(AdminPurchasesService.TYPE_GEMS))
+                        .findFirst()
+                        .orElseThrow();
+        assertEquals(gemOrderId, gems.purchaseId());
+        assertEquals("300 gemas", gems.productDetail());
+        assertEquals("REFUNDED", gems.purchaseStatus());
+        assertEquals("María López", gems.requesterName());
+        assertEquals(true, gems.informational());
+        AdminRefundRequestResponse course =
+                result.stream()
+                        .filter(r -> r.purchaseType().equals(AdminPurchasesService.TYPE_COURSE))
+                        .findFirst()
+                        .orElseThrow();
+        assertEquals(courseOrderId, course.purchaseId());
+        assertEquals("LSA básico", course.productName());
+        assertEquals(true, course.informational());
+    }
+
+    @Test
+    void listAll_showsRefundedOrderWithRequestOnlyThroughTheRequest() {
+        UUID gemOrderId = UUID.randomUUID();
+        GemOrder order = refundedGemOrder(gemOrderId);
+        when(gemOrderRepository.findById(gemOrderId)).thenReturn(Optional.of(order));
+        RefundRequest r = sampleRequest(AdminPurchasesService.TYPE_GEMS, gemOrderId);
+        r.setStatus(RefundRequestStatus.RESOLVED);
+        when(repository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(r));
+        when(gemOrderRepository.findByStatus(GemOrderStatus.REFUNDED)).thenReturn(List.of(order));
+
+        List<AdminRefundRequestResponse> result = service.listAll();
+
+        assertEquals(1, result.size());
+        assertEquals(false, result.get(0).informational());
+    }
+
+    @Test
+    void listAll_showsSeatRefundWithRequestOnlyThroughTheRequest() {
+        UUID purchaseId = UUID.randomUUID();
+        stubSeatsPurchase(purchaseId);
+        CoursePurchase purchase = mock(CoursePurchase.class);
+        when(purchase.getId()).thenReturn(purchaseId);
+        PurchaseRefund refund =
+                PurchaseRefund.builder()
+                        .id(UUID.randomUUID())
+                        .purchase(purchase)
+                        .amount(BigDecimal.valueOf(5000))
+                        .currency("ARS")
+                        .reason(RefundReason.EXTERNAL_REFUND)
+                        .status(RefundStatus.REFUNDED)
+                        .createdAt(Instant.now())
+                        .build();
+        when(repository.findAllByOrderByCreatedAtDesc())
+                .thenReturn(List.of(sampleRequest(AdminPurchasesService.TYPE_SEATS, purchaseId)));
+        when(purchaseRefundRepository.findByStatusOrderByRefundedAtDesc(RefundStatus.REFUNDED))
+                .thenReturn(List.of(refund));
+
+        List<AdminRefundRequestResponse> result = service.listAll();
+
+        assertEquals(1, result.size());
+        assertEquals(false, result.get(0).informational());
+    }
+
     // ── listForPurchase ───────────────────────────────────────────────────────
 
     @Test
@@ -413,6 +491,47 @@ class AdminRefundRequestServiceTest {
                 .message("Pido reembolso por error")
                 .status(RefundRequestStatus.PENDING)
                 .build();
+    }
+
+    private static User buyer() {
+        return User.builder()
+                .id(UUID.randomUUID())
+                .name("María")
+                .lastName("López")
+                .username("marialopez")
+                .email("maria@example.com")
+                .build();
+    }
+
+    private static GemOrder refundedGemOrder(UUID id) {
+        GemPack pack = mock(GemPack.class);
+        when(pack.getProductId()).thenReturn("pack-300");
+        GemOrder o = mock(GemOrder.class);
+        when(o.getId()).thenReturn(id);
+        when(o.getUser()).thenReturn(buyer());
+        when(o.getGemPack()).thenReturn(pack);
+        when(o.getGems()).thenReturn(300);
+        when(o.getAmount()).thenReturn(BigDecimal.valueOf(500));
+        when(o.getCurrency()).thenReturn("ARS");
+        when(o.getStatus()).thenReturn(GemOrderStatus.REFUNDED);
+        when(o.getCreatedAt()).thenReturn(Instant.now().minusSeconds(3600));
+        when(o.getRefundedAt()).thenReturn(Instant.now());
+        return o;
+    }
+
+    private static CourseOrder refundedCourseOrder(UUID id) {
+        Course course = mock(Course.class);
+        when(course.getName()).thenReturn("LSA básico");
+        CourseOrder o = mock(CourseOrder.class);
+        when(o.getId()).thenReturn(id);
+        when(o.getUser()).thenReturn(buyer());
+        when(o.getCourse()).thenReturn(course);
+        when(o.getAmount()).thenReturn(BigDecimal.valueOf(2000));
+        when(o.getCurrency()).thenReturn("ARS");
+        when(o.getStatus()).thenReturn(CourseOrderStatus.REFUNDED);
+        when(o.getCreatedAt()).thenReturn(Instant.now().minusSeconds(7200));
+        when(o.getRefundedAt()).thenReturn(Instant.now().minusSeconds(60));
+        return o;
     }
 
     private void stubSeatsPurchase(UUID purchaseId) {
