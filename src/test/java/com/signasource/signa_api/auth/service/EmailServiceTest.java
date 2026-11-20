@@ -94,6 +94,28 @@ class EmailServiceTest {
     }
 
     @Test
+    void testSendOrganizationApprovedEmail() {
+        emailService.sendOrganizationApprovedEmail(TO_EMAIL, "Hospital <San Martin>");
+
+        verify(mailSender).send(mimeMessage);
+    }
+
+    @Test
+    void organizationApprovedHtmlEscapesTheNameAndLinksToBuySeats() {
+        String html =
+                ReflectionTestUtils.invokeMethod(
+                        emailService,
+                        "buildOrganizationApprovedHtml",
+                        "Hospital <San Martin>",
+                        "https://panel.example.com/dashboard/purchases/new");
+
+        assertThat(html)
+                .contains("Hospital &lt;San Martin&gt;")
+                .contains("href=\"https://panel.example.com/dashboard/purchases/new\"")
+                .contains("Comprar cupos");
+    }
+
+    @Test
     void testSendOrganizationAdminInviteEmail() {
         emailService.sendOrganizationAdminInviteEmail(
                 TO_EMAIL, "Hospital <San Martin>", "ABCD2345");

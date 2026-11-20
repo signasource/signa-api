@@ -17,6 +17,8 @@ import com.signasource.signa_api.admin.dto.UpdateSignReportRequest;
 import com.signasource.signa_api.admin.dto.UpdateUserRequest;
 import com.signasource.signa_api.auth.entity.TokenType;
 import com.signasource.signa_api.auth.repository.TokenRepository;
+import com.signasource.signa_api.auth.service.EmailService;
+import com.signasource.signa_api.common.AfterCommit;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
@@ -98,6 +100,7 @@ public class AdminService {
     private final OrganizationCourseRepository organizationCourseRepository;
     private final PasswordEncoder passwordEncoder;
     private final NotificationService notificationService;
+    private final EmailService emailService;
     private final UserCourseEnrollmentRepository enrollmentRepository;
     private final LessonBlockAttemptRepository attemptRepository;
 
@@ -195,6 +198,9 @@ public class AdminService {
             org.setStatus(OrganizationStatus.ACTIVE);
             org.setSuspensionReason(null);
             organizationRepository.save(org);
+            if (current == OrganizationStatus.PENDING) {
+                notifyApproved(org);
+            }
         } else if (newStatus == OrganizationStatus.SUSPENDED) {
             String reason = request.reason() == null ? "" : request.reason().trim();
             if (reason.isEmpty()) {
@@ -213,6 +219,16 @@ public class AdminService {
         }
 
         return getOrganization(id);
+    }
+
+    /** Tells the email the organization registered with that it can now buy seats. */
+    private void notifyApproved(Organization org) {
+        String to = org.getContactEmail();
+        if (to == null || to.isBlank()) {
+            return;
+        }
+        String name = org.getName();
+        AfterCommit.run(() -> emailService.sendOrganizationApprovedEmail(to, name));
     }
 
     /**

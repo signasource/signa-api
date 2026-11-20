@@ -22,6 +22,7 @@ import com.signasource.signa_api.admin.dto.UpdateSignReportRequest;
 import com.signasource.signa_api.admin.dto.UpdateUserRequest;
 import com.signasource.signa_api.auth.entity.TokenType;
 import com.signasource.signa_api.auth.repository.TokenRepository;
+import com.signasource.signa_api.auth.service.EmailService;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
@@ -90,6 +91,7 @@ class AdminServiceTest {
     @Mock private UserService userService;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private NotificationService notificationService;
+    @Mock private EmailService emailService;
     @Mock private CoursePurchaseRepository coursePurchaseRepository;
     @Mock private InviteCodeRepository inviteCodeRepository;
     @Mock private OrganizationCourseRepository organizationCourseRepository;
@@ -182,6 +184,35 @@ class AdminServiceTest {
         adminService.updateOrganizationStatus(orgId, req);
 
         verify(organizationRepository).save(any());
+        verify(emailService).sendOrganizationApprovedEmail("test@test.com", "Test Org");
+    }
+
+    @Test
+    void shouldNotSendApprovalEmailWhenReactivatingSuspendedOrganization() {
+        org = orgWithStatus(OrganizationStatus.SUSPENDED);
+        org.setContactEmail("test@test.com");
+        when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
+        when(organizationRepository.save(any())).thenReturn(org);
+        when(memberRepository.findByOrganizationIdAndRoleAndStatus(any(), any(), any()))
+                .thenReturn(List.of());
+
+        adminService.updateOrganizationStatus(
+                orgId, new UpdateOrganizationStatusRequest(OrganizationStatus.ACTIVE));
+
+        verify(emailService, never()).sendOrganizationApprovedEmail(any(), any());
+    }
+
+    @Test
+    void shouldNotSendApprovalEmailWhenRejectingOrganization() {
+        when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
+        when(organizationRepository.save(any())).thenReturn(org);
+        when(memberRepository.findByOrganizationIdAndRoleAndStatus(any(), any(), any()))
+                .thenReturn(List.of());
+
+        adminService.updateOrganizationStatus(
+                orgId, new UpdateOrganizationStatusRequest(OrganizationStatus.REJECTED));
+
+        verify(emailService, never()).sendOrganizationApprovedEmail(any(), any());
     }
 
     @Test
