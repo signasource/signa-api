@@ -161,6 +161,27 @@ class PurchaseSeatRepositoryTest {
     }
 
     @Test
+    void shouldIgnoreSeatsOfRefundedOrCancelledPurchases() {
+        CoursePurchase refunded = purchase(now.minus(1, ChronoUnit.DAYS));
+        refunded.setStatus(PurchaseStatus.REFUNDED);
+        purchaseRepository.save(refunded);
+        seat(refunded, "pepito@x.com", SeatStatus.ACTIVE);
+        CoursePurchase cancelled = purchase(null);
+        cancelled.setStatus(PurchaseStatus.CANCELLED);
+        purchaseRepository.save(cancelled);
+        seat(cancelled, "pepito@x.com", SeatStatus.PENDING_PAYMENT);
+
+        List<PurchaseSeat> result =
+                seatRepository.findCourseSeatsByEmails(
+                        organization.getId(),
+                        course.getId(),
+                        List.of("pepito@x.com"),
+                        List.of(SeatStatus.PENDING_PAYMENT, SeatStatus.INVITED, SeatStatus.ACTIVE));
+
+        assertEquals(List.of(), result);
+    }
+
+    @Test
     void shouldListTheSignsIntroducedByAVersionInLearningOrder() {
         Topic second =
                 topicRepository.save(
