@@ -164,7 +164,8 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
     @Query(
             "SELECT COUNT(g) FROM GemOrder g "
                     + "WHERE g.paidAt >= :from AND g.paidAt < :until "
-                    + "AND g.status = com.signasource.signa_api.gamification.entity.GemOrderStatus.PAID ")
+                    + "AND g.status IN (com.signasource.signa_api.gamification.entity.GemOrderStatus.PAID, "
+                    + "com.signasource.signa_api.gamification.entity.GemOrderStatus.REFUNDED) ")
     long countGemPurchasesBetween(@Param("from") Instant from, @Param("until") Instant until);
 
     @Query(
@@ -186,11 +187,13 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
 
     /**
      * Confirmed real-money revenue from gem packs (sum of the frozen order amount) in the window.
+     * Includes orders later refunded so the gross reflects money actually received.
      */
     @Query(
             "SELECT COALESCE(SUM(g.amount), 0) FROM GemOrder g "
                     + "WHERE g.paidAt >= :from AND g.paidAt < :until "
-                    + "AND g.status = com.signasource.signa_api.gamification.entity.GemOrderStatus.PAID ")
+                    + "AND g.status IN (com.signasource.signa_api.gamification.entity.GemOrderStatus.PAID, "
+                    + "com.signasource.signa_api.gamification.entity.GemOrderStatus.REFUNDED) ")
     BigDecimal sumGemRevenueBetween(@Param("from") Instant from, @Param("until") Instant until);
 
     /** Rows of {@code [long bucketIndex, BigDecimal amount]} of confirmed gem revenue. */
@@ -198,7 +201,8 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
             "SELECT FLOOR(extract(epoch from g.paidAt) / :bucket), COALESCE(SUM(g.amount), 0) "
                     + "FROM GemOrder g "
                     + "WHERE g.paidAt >= :from AND g.paidAt < :until "
-                    + "AND g.status = com.signasource.signa_api.gamification.entity.GemOrderStatus.PAID "
+                    + "AND g.status IN (com.signasource.signa_api.gamification.entity.GemOrderStatus.PAID, "
+                    + "com.signasource.signa_api.gamification.entity.GemOrderStatus.REFUNDED) "
                     + "GROUP BY 1")
     List<Object[]> dailyGemRevenue(
             @Param("from") Instant from,
@@ -219,16 +223,19 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
 
     // ── Paid-course orders (individual, non-organization course purchases)
     // ──────────────────────────
+    /** Includes orders later refunded so the gross reflects money actually received. */
     @Query(
             "SELECT COALESCE(SUM(c.amount), 0) FROM CourseOrder c "
                     + "WHERE c.paidAt >= :from AND c.paidAt < :until "
-                    + "AND c.status = com.signasource.signa_api.learning.entity.CourseOrderStatus.PAID ")
+                    + "AND c.status IN (com.signasource.signa_api.learning.entity.CourseOrderStatus.PAID, "
+                    + "com.signasource.signa_api.learning.entity.CourseOrderStatus.REFUNDED) ")
     BigDecimal sumCourseRevenueBetween(@Param("from") Instant from, @Param("until") Instant until);
 
     @Query(
             "SELECT COUNT(c) FROM CourseOrder c "
                     + "WHERE c.paidAt >= :from AND c.paidAt < :until "
-                    + "AND c.status = com.signasource.signa_api.learning.entity.CourseOrderStatus.PAID ")
+                    + "AND c.status IN (com.signasource.signa_api.learning.entity.CourseOrderStatus.PAID, "
+                    + "com.signasource.signa_api.learning.entity.CourseOrderStatus.REFUNDED) ")
     long countCoursePurchasesBetween(@Param("from") Instant from, @Param("until") Instant until);
 
     /** Rows of {@code [long bucketIndex, BigDecimal amount]} of confirmed paid-course revenue. */
@@ -236,7 +243,8 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
             "SELECT FLOOR(extract(epoch from c.paidAt) / :bucket), COALESCE(SUM(c.amount), 0) "
                     + "FROM CourseOrder c "
                     + "WHERE c.paidAt >= :from AND c.paidAt < :until "
-                    + "AND c.status = com.signasource.signa_api.learning.entity.CourseOrderStatus.PAID "
+                    + "AND c.status IN (com.signasource.signa_api.learning.entity.CourseOrderStatus.PAID, "
+                    + "com.signasource.signa_api.learning.entity.CourseOrderStatus.REFUNDED) "
                     + "GROUP BY 1")
     List<Object[]> dailyCourseRevenue(
             @Param("from") Instant from,
@@ -263,8 +271,8 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
     // ── End users who paid (gem packs or paid courses) ───────────────────────────────────────────
     /**
      * Rows of {@code [UUID userId, long paidGemOrders]} per end user who paid for a gem pack in the
-     * window. Merged with {@link #courseBuyerOrderCounts} in the service to count distinct payers
-     * and the repeat-buyer share.
+     * window (refunded orders excluded). Merged with {@link #courseBuyerOrderCounts} in the service
+     * to count distinct payers and the repeat-buyer share.
      */
     @Query(
             "SELECT g.user.id, COUNT(g) FROM GemOrder g "
@@ -377,6 +385,7 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
     @Query(
             "SELECT FLOOR(extract(epoch from p.paidAt) / :bucket), COUNT(p) FROM CoursePurchase p "
                     + "WHERE p.paidAt IS NOT NULL AND p.paidAt >= :from AND p.paidAt < :until "
+                    + "AND p.status <> com.signasource.signa_api.organizations.entity.PurchaseStatus.REFUNDED "
                     + "GROUP BY 1")
     List<Object[]> dailyPurchases(
             @Param("from") Instant from,
@@ -426,11 +435,88 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
             @Param("bucket") long bucket);
 
     /**
-     * Rows of {@code [UUID orgId, BigDecimal revenue]} of confirmed B2B revenue within the window.
+     * Rows of {@code [UUID orgId, BigDecimal revenue]} of confirmed B2B revenue within the window,
+     * net of purchases that were refunded.
      */
     @Query(
             "SELECT p.organization.id, COALESCE(SUM(p.totalAmount), 0) FROM CoursePurchase p "
                     + "WHERE p.paidAt IS NOT NULL AND p.paidAt >= :from AND p.paidAt < :until "
+                    + "AND p.status <> com.signasource.signa_api.organizations.entity.PurchaseStatus.REFUNDED "
                     + "GROUP BY p.organization.id")
     List<Object[]> revenueByOrgBetween(@Param("from") Instant from, @Param("until") Instant until);
+
+    // ── Net revenue (refunded purchases excluded, attributed to the period they were paid in) ────
+    @Query(
+            "SELECT COALESCE(SUM(p.totalAmount), 0) FROM CoursePurchase p "
+                    + "WHERE p.paidAt IS NOT NULL AND p.paidAt >= :from AND p.paidAt < :until "
+                    + "AND p.status <> com.signasource.signa_api.organizations.entity.PurchaseStatus.REFUNDED")
+    BigDecimal sumNetPaidAmountBetween(@Param("from") Instant from, @Param("until") Instant until);
+
+    @Query(
+            "SELECT COUNT(p) FROM CoursePurchase p "
+                    + "WHERE p.paidAt IS NOT NULL AND p.paidAt >= :from AND p.paidAt < :until "
+                    + "AND p.status <> com.signasource.signa_api.organizations.entity.PurchaseStatus.REFUNDED")
+    long countNetPaidBetween(@Param("from") Instant from, @Param("until") Instant until);
+
+    /**
+     * Rows of {@code [long bucketIndex, BigDecimal amount]} of B2B revenue net of refunded
+     * purchases.
+     */
+    @Query(
+            "SELECT FLOOR(extract(epoch from p.paidAt) / :bucket), COALESCE(SUM(p.totalAmount), 0) "
+                    + "FROM CoursePurchase p "
+                    + "WHERE p.paidAt IS NOT NULL AND p.paidAt >= :from AND p.paidAt < :until "
+                    + "AND p.status <> com.signasource.signa_api.organizations.entity.PurchaseStatus.REFUNDED "
+                    + "GROUP BY 1")
+    List<Object[]> dailyNetRevenue(
+            @Param("from") Instant from,
+            @Param("until") Instant until,
+            @Param("bucket") long bucket);
+
+    @Query(
+            "SELECT COUNT(g) FROM GemOrder g "
+                    + "WHERE g.paidAt >= :from AND g.paidAt < :until "
+                    + "AND g.status = com.signasource.signa_api.gamification.entity.GemOrderStatus.PAID")
+    long countGemNetPurchasesBetween(@Param("from") Instant from, @Param("until") Instant until);
+
+    @Query(
+            "SELECT COALESCE(SUM(g.amount), 0) FROM GemOrder g "
+                    + "WHERE g.paidAt >= :from AND g.paidAt < :until "
+                    + "AND g.status = com.signasource.signa_api.gamification.entity.GemOrderStatus.PAID")
+    BigDecimal sumGemNetRevenueBetween(@Param("from") Instant from, @Param("until") Instant until);
+
+    @Query(
+            "SELECT FLOOR(extract(epoch from g.paidAt) / :bucket), COALESCE(SUM(g.amount), 0) "
+                    + "FROM GemOrder g "
+                    + "WHERE g.paidAt >= :from AND g.paidAt < :until "
+                    + "AND g.status = com.signasource.signa_api.gamification.entity.GemOrderStatus.PAID "
+                    + "GROUP BY 1")
+    List<Object[]> dailyGemNetRevenue(
+            @Param("from") Instant from,
+            @Param("until") Instant until,
+            @Param("bucket") long bucket);
+
+    @Query(
+            "SELECT COALESCE(SUM(c.amount), 0) FROM CourseOrder c "
+                    + "WHERE c.paidAt >= :from AND c.paidAt < :until "
+                    + "AND c.status = com.signasource.signa_api.learning.entity.CourseOrderStatus.PAID")
+    BigDecimal sumCourseNetRevenueBetween(
+            @Param("from") Instant from, @Param("until") Instant until);
+
+    @Query(
+            "SELECT COUNT(c) FROM CourseOrder c "
+                    + "WHERE c.paidAt >= :from AND c.paidAt < :until "
+                    + "AND c.status = com.signasource.signa_api.learning.entity.CourseOrderStatus.PAID")
+    long countCourseNetPurchasesBetween(@Param("from") Instant from, @Param("until") Instant until);
+
+    @Query(
+            "SELECT FLOOR(extract(epoch from c.paidAt) / :bucket), COALESCE(SUM(c.amount), 0) "
+                    + "FROM CourseOrder c "
+                    + "WHERE c.paidAt >= :from AND c.paidAt < :until "
+                    + "AND c.status = com.signasource.signa_api.learning.entity.CourseOrderStatus.PAID "
+                    + "GROUP BY 1")
+    List<Object[]> dailyCourseNetRevenue(
+            @Param("from") Instant from,
+            @Param("until") Instant until,
+            @Param("bucket") long bucket);
 }

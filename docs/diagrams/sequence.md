@@ -573,7 +573,7 @@ sequenceDiagram
 
 ## Compra de cupos
 
-La organización elige un curso (viendo las señas que incluye, por módulo), la duración (15 a 60
+La organización elige un curso (viendo las señas que incluye, por módulo), la duración (5 a 60
 días) y carga un email por cupo. El panel le muestra un resumen (curso, señas, cupos, días, precio de
 lista, descuento por volumen y total) y, al confirmar, crea la compra pendiente de pago y la manda a
 Mercado Pago Checkout Pro. El pago se acredita solo después de releerlo en la API de Mercado Pago, por

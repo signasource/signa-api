@@ -13,6 +13,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -77,6 +78,42 @@ public class SignReferences {
         }
         try {
             return objectMapper.writeValueAsString(root);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Could not serialize block config", e);
+        }
+    }
+
+    /**
+     * For an {@code INTRODUCE_SIGN} block whose {@code meaning} is {@code meaning}: the config with
+     * {@code video_url} set to {@code url} (removed when null), or {@code null} when the block is
+     * not for that sign or already holds that value. The app reads the link from here, not from the
+     * catalog, so the sign editor has to keep these copies in sync.
+     */
+    public String withVideoUrl(LessonBlock block, String meaning, String url) {
+        if (block.getType() != BlockType.INTRODUCE_SIGN) {
+            return null;
+        }
+        if (!(parse(block.getConfig()) instanceof ObjectNode object)) {
+            return null;
+        }
+        JsonNode current = object.get("meaning");
+        if (current == null
+                || !current.isTextual()
+                || !normalize(current.asText()).equals(normalize(meaning))) {
+            return null;
+        }
+        JsonNode existing = object.get("video_url");
+        String existingUrl = existing != null && existing.isTextual() ? existing.asText() : null;
+        if (Objects.equals(existingUrl, url)) {
+            return null;
+        }
+        if (url == null) {
+            object.remove("video_url");
+        } else {
+            object.put("video_url", url);
+        }
+        try {
+            return objectMapper.writeValueAsString(object);
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Could not serialize block config", e);
         }

@@ -28,7 +28,13 @@ public record PurchaseResponse(
         Instant cancelledAt,
         Instant refundedAt,
         SeatCountsResponse seatCounts,
-        boolean hasRefundRequest) {
+        boolean hasRefundRequest,
+        boolean hasAcceptedSeats) {
+
+    /** Business rule shown to the buyer before paying and on the refund screen. */
+    public static final String REFUND_RULE =
+            "Solo podés pedir el reembolso mientras ninguna persona invitada haya aceptado su"
+                    + " invitación. Cuando alguien acepta, el reembolso deja de estar disponible.";
 
     public static PurchaseResponse from(
             CoursePurchase purchase, Collection<PurchaseSeat> seats, Instant now) {
@@ -61,6 +67,7 @@ public record PurchaseResponse(
                 purchase.getCancelledAt(),
                 purchase.getRefundedAt(),
                 SeatCountsResponse.of(seats, now),
-                hasRefundRequest);
+                hasRefundRequest,
+                seats.stream().anyMatch(PurchaseSeat::hasAccepted));
     }
 }

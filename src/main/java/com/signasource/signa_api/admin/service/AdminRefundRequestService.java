@@ -6,30 +6,80 @@ import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.gamification.repository.GemOrderRepository;
 import com.signasource.signa_api.learning.repository.CourseOrderRepository;
+import com.signasource.signa_api.organizations.entity.PurchaseRefund;
 import com.signasource.signa_api.organizations.entity.RefundRequest;
 import com.signasource.signa_api.organizations.entity.RefundRequestStatus;
+import com.signasource.signa_api.organizations.entity.RefundStatus;
 import com.signasource.signa_api.organizations.repository.CoursePurchaseRepository;
+import com.signasource.signa_api.organizations.repository.PurchaseRefundRepository;
 import com.signasource.signa_api.organizations.repository.RefundRequestRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 @RequiredArgsConstructor
 public class AdminRefundRequestService {
 
     private final RefundRequestRepository repository;
+    private final PurchaseRefundRepository purchaseRefundRepository;
     private final CoursePurchaseRepository seatsPurchaseRepository;
     private final GemOrderRepository gemOrderRepository;
     private final CourseOrderRepository courseOrderRepository;
+    private final AdminRefundService adminRefundService;
+    private final TransactionTemplate transactionTemplate;
 
     @Transactional(readOnly = true)
     public List<AdminRefundRequestResponse> listAll() {
-        return repository.findAllByOrderByCreatedAtDesc().stream().map(this::toResponse).toList();
+        List<AdminRefundRequestResponse> result =
+                new ArrayList<>(
+                        repository.findAllByOrderByCreatedAtDesc().stream()
+                                .map(this::toResponse)
+                                .toList());
+        purchaseRefundRepository.findByStatusOrderByRefundedAtDesc(RefundStatus.REFUNDED).stream()
+                .map(this::toResponse)
+                .forEach(result::add);
+        result.sort(Comparator.comparing(AdminRefundRequestResponse::createdAt).reversed());
+        return result;
+    }
+
+    /** Seat refunds nobody requested (withdrawal, Mercado Pago, chargeback), read-only. */
+    private AdminRefundRequestResponse toResponse(PurchaseRefund refund) {
+        var purchase = refund.getPurchase();
+        var by = refund.getRequestedBy();
+        Instant at =
+                refund.getRefundedAt() != null ? refund.getRefundedAt() : refund.getCreatedAt();
+        return new AdminRefundRequestResponse(
+                refund.getId(),
+                AdminPurchasesService.TYPE_SEATS,
+                purchase.getId(),
+                refund.getReason().name(),
+                "system",
+                refund.getNote() != null ? refund.getNote() : "",
+                null,
+                RefundRequestStatus.RESOLVED.name(),
+                null,
+                at,
+                at,
+                by != null
+                        ? by.getName() + " " + by.getLastName()
+                        : purchase.getOrganization().getName(),
+                by != null ? "@" + by.getUsername() : "",
+                by != null ? by.getEmail() : purchase.getOrganization().getContactEmail(),
+                purchase.getCourse().getName(),
+                purchase.getSeats() + " cupos × " + purchase.getDurationDays() + " días",
+                refund.getAmount(),
+                refund.getCurrency(),
+                purchase.getStatus().name(),
+                purchase.getPaidAt(),
+                true);
     }
 
     @Transactional(readOnly = true)
@@ -44,8 +94,23 @@ public class AdminRefundRequestService {
         return toResponse(findOrThrow(id));
     }
 
-    @Transactional
+    /**
+     * Resolving a request gives the money back first, outside any database transaction, and only
+     * then marks the request resolved: if Mercado Pago fails the request stays pending to retry.
+     */
     public AdminRefundRequestResponse update(
+            UUID id, UpdateRefundRequestRequest req, String adminName) {
+        if ("RESOLVE".equals(req.action())) {
+            RefundRequest pending = findOrThrow(id);
+            if (pending.getStatus() != RefundRequestStatus.PENDING) {
+                throw new InvalidInputException("Already resolved");
+            }
+            adminRefundService.refund(pending.getPurchaseType(), pending.getPurchaseId(), true);
+        }
+        return transactionTemplate.execute(status -> applyUpdate(id, req, adminName));
+    }
+
+    private AdminRefundRequestResponse applyUpdate(
             UUID id, UpdateRefundRequestRequest req, String adminName) {
         RefundRequest r = findOrThrow(id);
         String action = req.action();
@@ -105,7 +170,8 @@ public class AdminRefundRequestService {
                 summary.amount(),
                 summary.currency(),
                 summary.status(),
-                summary.paidAt());
+                summary.paidAt(),
+                false);
     }
 
     private record PurchaseSummary(

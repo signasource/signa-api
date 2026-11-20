@@ -42,6 +42,7 @@ public class AdminPurchasesService {
     private final PurchasePaymentService purchasePaymentService;
     private final GemOrderSettlementService gemOrderSettlementService;
     private final CourseOrderSettlementService courseOrderSettlementService;
+    private final AdminRefundService adminRefundService;
 
     @Transactional(readOnly = true)
     public List<AdminPurchaseListItemResponse> listAll() {
@@ -80,12 +81,7 @@ public class AdminPurchasesService {
     }
 
     public void refundManual(UUID id, String type) {
-        switch (type) {
-            case TYPE_SEATS -> purchasePaymentService.reverseManual(id);
-            case TYPE_GEMS -> gemOrderSettlementService.reverseManual(id);
-            case TYPE_COURSE -> courseOrderSettlementService.reverseManual(id);
-            default -> throw new NotFoundException("Unknown purchase type: " + type);
-        }
+        adminRefundService.refund(type, id, false);
     }
 
     // ── private helpers ──────────────────────────────────────────────────────

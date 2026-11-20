@@ -11,6 +11,7 @@ import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.organizations.dto.CatalogCourseResponse;
 import com.signasource.signa_api.organizations.dto.CatalogModuleResponse;
 import com.signasource.signa_api.organizations.dto.CreatePurchaseRequest;
+import com.signasource.signa_api.organizations.dto.OrganizationInvitationResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseCatalogResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseDetailResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseQuoteResponse;
@@ -104,7 +105,8 @@ public class CoursePurchaseService {
                 quote.subtotal(),
                 quote.discountAmount(),
                 quote.totalAmount(),
-                pricing.getCurrency());
+                pricing.getCurrency(),
+                PurchaseResponse.REFUND_RULE);
     }
 
     @Transactional
@@ -177,6 +179,37 @@ public class CoursePurchaseService {
                                         seatsByPurchase.getOrDefault(purchase.getId(), List.of()),
                                         now,
                                         withPendingRequest.contains(purchase.getId())))
+                .toList();
+    }
+
+    /**
+     * Invitations sent and not yet accepted (pending or expired) across the organization's paid
+     * purchases, newest first, optionally of one course. Whoever accepts becomes a member and
+     * leaves this list. Seats of an unpaid purchase have no invitation yet, so they are not listed.
+     */
+    @Transactional(readOnly = true)
+    public List<OrganizationInvitationResponse> listInvitations(
+            User actor, UUID organizationId, UUID courseId) {
+        accessService.requireManage(actor, organizationId);
+        Instant now = Instant.now();
+        return seatRepository
+                .findByPurchaseOrganizationIdAndPurchaseStatusAndStatus(
+                        organizationId, PurchaseStatus.PAID, SeatStatus.INVITED)
+                .stream()
+                .filter(
+                        seat ->
+                                courseId == null
+                                        || seat.getPurchase().getCourse().getId().equals(courseId))
+                .sorted(
+                        Comparator.comparing(
+                                        PurchaseSeat::getInvitedAt,
+                                        Comparator.nullsLast(Comparator.<Instant>reverseOrder()))
+                                .thenComparing(PurchaseSeat::getEmail))
+                .map(
+                        seat ->
+                                OrganizationInvitationResponse.of(
+                                        seat.getPurchase(),
+                                        invitationService.toResponse(seat, now)))
                 .toList();
     }
 

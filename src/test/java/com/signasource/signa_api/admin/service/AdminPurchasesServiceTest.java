@@ -55,6 +55,7 @@ class AdminPurchasesServiceTest {
     @Mock private PurchasePaymentService purchasePaymentService;
     @Mock private GemOrderSettlementService gemOrderSettlementService;
     @Mock private CourseOrderSettlementService courseOrderSettlementService;
+    @Mock private AdminRefundService adminRefundService;
 
     @InjectMocks private AdminPurchasesService service;
 
@@ -179,30 +180,12 @@ class AdminPurchasesServiceTest {
     // ── refundManual ─────────────────────────────────────────────────────────
 
     @Test
-    void shouldDelegateToReverseManualOnPurchasePaymentServiceForSeats() {
+    void shouldDelegateRefundManualToAdminRefundService() {
         UUID id = UUID.randomUUID();
-        service.refundManual(id, AdminPurchasesService.TYPE_SEATS);
-        verify(purchasePaymentService).reverseManual(id);
-    }
 
-    @Test
-    void shouldDelegateToReverseManualOnGemOrderSettlementServiceForGems() {
-        UUID id = UUID.randomUUID();
         service.refundManual(id, AdminPurchasesService.TYPE_GEMS);
-        verify(gemOrderSettlementService).reverseManual(id);
-    }
 
-    @Test
-    void shouldDelegateToReverseManualOnCourseOrderSettlementServiceForCourse() {
-        UUID id = UUID.randomUUID();
-        service.refundManual(id, AdminPurchasesService.TYPE_COURSE);
-        verify(courseOrderSettlementService).reverseManual(id);
-    }
-
-    @Test
-    void shouldThrowNotFoundForUnknownTypeOnRefundManual() {
-        assertThrows(
-                NotFoundException.class, () -> service.refundManual(UUID.randomUUID(), "UNKNOWN"));
+        verify(adminRefundService).refund(AdminPurchasesService.TYPE_GEMS, id, false);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

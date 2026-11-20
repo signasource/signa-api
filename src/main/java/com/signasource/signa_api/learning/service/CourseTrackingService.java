@@ -400,19 +400,6 @@ public class CourseTrackingService {
     }
 
     /**
-     * Blocks that count as done once attempted, with no correct answer required.
-     *
-     * <p>INFO blocks have no answer at all. Camera blocks do, but recognition can fail because of
-     * lighting, framing or the model itself, and the exercise offers a way out. Requiring a correct
-     * attempt left the lesson permanently unfinishable. XP is still only awarded on success.
-     */
-    private boolean countsAsDoneWhenAttempted(LessonBlock block) {
-        return block.getType() == BlockType.INFO
-                || block.getType() == BlockType.PERFORM_SIGN
-                || block.getType() == BlockType.SPELL_NAME;
-    }
-
-    /**
      * Blocks the mobile player never reports: INTRODUCE_SIGN only presents a sign (the player just
      * moves on) and INVISIBLE_SIGNS is not shown at all. Requiring an attempt on them left every
      * lesson containing one permanently IN_PROGRESS.
@@ -422,12 +409,13 @@ public class CourseTrackingService {
                 && block.getType() != BlockType.INVISIBLE_SIGNS;
     }
 
+    /**
+     * A block is done once the user has attempted it, right or wrong: a lesson only has to be
+     * finished, not aced. Skipped camera exercises are never reported by the client, so they stay
+     * unattempted and keep the lesson open.
+     */
     private boolean isCompletedByUser(User user, LessonBlock block) {
-        if (countsAsDoneWhenAttempted(block)) {
-            return attemptRepository.existsByUserIdAndLessonBlockId(user.getId(), block.getId());
-        }
-        return attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(
-                user.getId(), block.getId());
+        return attemptRepository.existsByUserIdAndLessonBlockId(user.getId(), block.getId());
     }
 
     private void checkLessonCompletion(User user, Lesson lesson) {

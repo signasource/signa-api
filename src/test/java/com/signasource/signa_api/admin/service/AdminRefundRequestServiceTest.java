@@ -4,13 +4,18 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.admin.dto.AdminRefundRequestResponse;
 import com.signasource.signa_api.admin.dto.UpdateRefundRequestRequest;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
+import com.signasource.signa_api.exceptions.PaymentProviderException;
 import com.signasource.signa_api.gamification.entity.GemOrder;
 import com.signasource.signa_api.gamification.entity.GemOrderStatus;
 import com.signasource.signa_api.gamification.entity.GemPack;
@@ -20,11 +25,16 @@ import com.signasource.signa_api.learning.entity.CourseOrder;
 import com.signasource.signa_api.learning.entity.CourseOrderStatus;
 import com.signasource.signa_api.learning.repository.CourseOrderRepository;
 import com.signasource.signa_api.organizations.entity.CoursePurchase;
+import com.signasource.signa_api.organizations.entity.Organization;
+import com.signasource.signa_api.organizations.entity.PurchaseRefund;
 import com.signasource.signa_api.organizations.entity.PurchaseStatus;
+import com.signasource.signa_api.organizations.entity.RefundReason;
 import com.signasource.signa_api.organizations.entity.RefundRequest;
 import com.signasource.signa_api.organizations.entity.RefundRequestReason;
 import com.signasource.signa_api.organizations.entity.RefundRequestStatus;
+import com.signasource.signa_api.organizations.entity.RefundStatus;
 import com.signasource.signa_api.organizations.repository.CoursePurchaseRepository;
+import com.signasource.signa_api.organizations.repository.PurchaseRefundRepository;
 import com.signasource.signa_api.organizations.repository.RefundRequestRepository;
 import com.signasource.signa_api.users.entity.User;
 import java.math.BigDecimal;
@@ -32,6 +42,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -39,17 +50,32 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 class AdminRefundRequestServiceTest {
 
     @Mock private RefundRequestRepository repository;
+    @Mock private PurchaseRefundRepository purchaseRefundRepository;
     @Mock private CoursePurchaseRepository seatsPurchaseRepository;
     @Mock private GemOrderRepository gemOrderRepository;
     @Mock private CourseOrderRepository courseOrderRepository;
+    @Mock private AdminRefundService adminRefundService;
+
+    @Mock private TransactionTemplate transactionTemplate;
 
     @InjectMocks private AdminRefundRequestService service;
+
+    @BeforeEach
+    void runTransactionCallbacksInline() {
+        when(transactionTemplate.execute(any()))
+                .thenAnswer(
+                        invocation ->
+                                ((TransactionCallback<?>) invocation.getArgument(0))
+                                        .doInTransaction(null));
+    }
 
     // ── listAll ───────────────────────────────────────────────────────────────
 
@@ -73,6 +99,45 @@ class AdminRefundRequestServiceTest {
 
         assertEquals(1, result.size());
         assertEquals(AdminPurchasesService.TYPE_SEATS, result.get(0).purchaseType());
+    }
+
+    @Test
+    void listAll_includesSeatRefundsWithoutRequestAsInformational() {
+        Organization org = mock(Organization.class);
+        when(org.getName()).thenReturn("Acme");
+        when(org.getContactEmail()).thenReturn("acme@example.com");
+        Course course = mock(Course.class);
+        when(course.getName()).thenReturn("LSA básico");
+        CoursePurchase purchase = mock(CoursePurchase.class);
+        when(purchase.getId()).thenReturn(UUID.randomUUID());
+        when(purchase.getOrganization()).thenReturn(org);
+        when(purchase.getCourse()).thenReturn(course);
+        when(purchase.getSeats()).thenReturn(3);
+        when(purchase.getDurationDays()).thenReturn(30);
+        when(purchase.getStatus()).thenReturn(PurchaseStatus.REFUNDED);
+        PurchaseRefund refund =
+                PurchaseRefund.builder()
+                        .id(UUID.randomUUID())
+                        .purchase(purchase)
+                        .amount(BigDecimal.valueOf(1000))
+                        .currency("ARS")
+                        .reason(RefundReason.EXTERNAL_REFUND)
+                        .status(RefundStatus.REFUNDED)
+                        .createdAt(Instant.now())
+                        .build();
+        when(repository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of());
+        when(purchaseRefundRepository.findByStatusOrderByRefundedAtDesc(RefundStatus.REFUNDED))
+                .thenReturn(List.of(refund));
+
+        List<AdminRefundRequestResponse> result = service.listAll();
+
+        assertEquals(1, result.size());
+        AdminRefundRequestResponse item = result.get(0);
+        assertEquals(AdminPurchasesService.TYPE_SEATS, item.purchaseType());
+        assertEquals("EXTERNAL_REFUND", item.reason());
+        assertEquals("Acme", item.requesterName());
+        assertEquals("acme@example.com", item.requesterEmail());
+        assertEquals(true, item.informational());
     }
 
     // ── listForPurchase ───────────────────────────────────────────────────────
@@ -149,6 +214,51 @@ class AdminRefundRequestServiceTest {
                 () ->
                         service.update(
                                 id, new UpdateRefundRequestRequest("RESOLVE", null), "Admin Test"));
+    }
+
+    @Test
+    void update_resolve_refundsPurchaseLeniently() {
+        UUID id = UUID.randomUUID();
+        UUID orderId = UUID.randomUUID();
+        GemPack pack = mock(GemPack.class);
+        when(pack.getProductId()).thenReturn("pack-300");
+        GemOrder order = mock(GemOrder.class);
+        when(order.getStatus()).thenReturn(GemOrderStatus.PAID);
+        when(order.getGemPack()).thenReturn(pack);
+        when(order.getGems()).thenReturn(300);
+        when(order.getAmount()).thenReturn(BigDecimal.valueOf(500));
+        when(order.getCurrency()).thenReturn("ARS");
+        when(gemOrderRepository.findById(orderId)).thenReturn(Optional.of(order));
+        RefundRequest r = sampleRequest(AdminPurchasesService.TYPE_GEMS, orderId);
+        r.setId(id);
+        when(repository.findById(id)).thenReturn(Optional.of(r));
+
+        AdminRefundRequestResponse result =
+                service.update(id, new UpdateRefundRequestRequest("RESOLVE", null), "Admin Test");
+
+        assertEquals("RESOLVED", result.status());
+        verify(adminRefundService).refund(AdminPurchasesService.TYPE_GEMS, orderId, true);
+    }
+
+    @Test
+    void update_resolve_keepsRequestPendingWhenRefundFails() {
+        UUID id = UUID.randomUUID();
+        UUID orderId = UUID.randomUUID();
+        RefundRequest r = sampleRequest(AdminPurchasesService.TYPE_COURSE, orderId);
+        r.setId(id);
+        when(repository.findById(id)).thenReturn(Optional.of(r));
+        doThrow(new PaymentProviderException("Mercado Pago down"))
+                .when(adminRefundService)
+                .refund(AdminPurchasesService.TYPE_COURSE, orderId, true);
+
+        assertThrows(
+                PaymentProviderException.class,
+                () ->
+                        service.update(
+                                id, new UpdateRefundRequestRequest("RESOLVE", null), "Admin Test"));
+
+        assertEquals(RefundRequestStatus.PENDING, r.getStatus());
+        verify(repository, never()).save(any());
     }
 
     // ── update – REOPEN ───────────────────────────────────────────────────────

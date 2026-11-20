@@ -22,6 +22,7 @@ import com.signasource.signa_api.learning.repository.CourseRepository;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.organizations.dto.CatalogModuleResponse;
 import com.signasource.signa_api.organizations.dto.CreatePurchaseRequest;
+import com.signasource.signa_api.organizations.dto.OrganizationInvitationResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseCatalogResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseDetailResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseQuoteResponse;
@@ -75,7 +76,7 @@ class CoursePurchaseServiceTest {
 
     @BeforeEach
     void setUp() {
-        PurchasePolicy policy = new PurchasePolicy(15, 60, 10, 5, 24, 3, 10);
+        PurchasePolicy policy = new PurchasePolicy(5, 60, 10, 5, 24, 3, 10);
         service =
                 new CoursePurchaseService(
                         purchaseRepository,
@@ -149,6 +150,88 @@ class CoursePurchaseServiceTest {
                 .build();
     }
 
+    private PurchaseSeat invitedSeat(CoursePurchase purchase, String email, Instant invitedAt) {
+        return PurchaseSeat.builder()
+                .id(UUID.randomUUID())
+                .purchase(purchase)
+                .email(email)
+                .status(SeatStatus.INVITED)
+                .invitedAt(invitedAt)
+                .build();
+    }
+
+    private void stubSeatResponses() {
+        when(invitationService.toResponse(any(), any()))
+                .thenAnswer(
+                        call ->
+                                SeatResponse.from(
+                                        call.getArgument(0, PurchaseSeat.class),
+                                        call.getArgument(1, Instant.class),
+                                        null));
+    }
+
+    @Test
+    void shouldListPendingInvitationsNewestFirstIncludingExpiredOnes() {
+        Instant now = Instant.now();
+        CoursePurchase open = purchase(PurchaseStatus.PAID);
+        open.setInvitationDeadline(now.plus(5, ChronoUnit.DAYS));
+        CoursePurchase closed = purchase(PurchaseStatus.PAID);
+        closed.setInvitationDeadline(now.minus(1, ChronoUnit.DAYS));
+        PurchaseSeat older = invitedSeat(open, "older@x.com", now.minus(3, ChronoUnit.DAYS));
+        PurchaseSeat newer = invitedSeat(open, "newer@x.com", now.minus(1, ChronoUnit.DAYS));
+        PurchaseSeat expired = invitedSeat(closed, "expired@x.com", now.minus(9, ChronoUnit.DAYS));
+        when(seatRepository.findByPurchaseOrganizationIdAndPurchaseStatusAndStatus(
+                        organization.getId(), PurchaseStatus.PAID, SeatStatus.INVITED))
+                .thenReturn(List.of(older, expired, newer));
+        stubSeatResponses();
+
+        List<OrganizationInvitationResponse> result =
+                service.listInvitations(actor, organization.getId(), null);
+
+        verify(accessService).requireManage(actor, organization.getId());
+        assertEquals(
+                List.of("newer@x.com", "older@x.com", "expired@x.com"),
+                result.stream().map(r -> r.seat().email()).toList());
+        assertEquals(SeatStatus.INVITATION_EXPIRED, result.get(2).seat().status());
+        assertEquals(course.getId(), result.get(0).courseId());
+        assertEquals("LSA Salud", result.get(0).courseName());
+        assertEquals(PurchaseStatus.PAID, result.get(0).purchaseStatus());
+        assertEquals(open.getId(), result.get(0).purchaseId());
+    }
+
+    @Test
+    void shouldFilterInvitationsByCourse() {
+        Course other = Course.builder().id(UUID.randomUUID()).name("Otro").build();
+        CoursePurchase mine = purchase(PurchaseStatus.PAID);
+        CoursePurchase theirs = purchase(PurchaseStatus.PAID);
+        theirs.setCourse(other);
+        when(seatRepository.findByPurchaseOrganizationIdAndPurchaseStatusAndStatus(
+                        organization.getId(), PurchaseStatus.PAID, SeatStatus.INVITED))
+                .thenReturn(
+                        List.of(
+                                invitedSeat(mine, "a@x.com", Instant.now()),
+                                invitedSeat(theirs, "b@x.com", Instant.now())));
+        stubSeatResponses();
+
+        List<OrganizationInvitationResponse> result =
+                service.listInvitations(actor, organization.getId(), course.getId());
+
+        assertEquals(List.of("a@x.com"), result.stream().map(r -> r.seat().email()).toList());
+    }
+
+    @Test
+    void shouldNotListInvitationsForWhoCannotManageTheOrganization() {
+        doThrow(new ForbiddenException("no"))
+                .when(accessService)
+                .requireManage(actor, organization.getId());
+
+        assertThrows(
+                ForbiddenException.class,
+                () -> service.listInvitations(actor, organization.getId(), null));
+        verify(seatRepository, never())
+                .findByPurchaseOrganizationIdAndPurchaseStatusAndStatus(any(), any(), any());
+    }
+
     @Test
     void shouldListOnlyPaidPublishedCoursesInTheCatalog() {
         Course free = Course.builder().id(UUID.randomUUID()).name("Base").isFree(true).build();
@@ -169,7 +252,7 @@ class CoursePurchaseServiceTest {
         assertEquals(5, catalog.courses().get(0).modules().size());
         assertEquals(2, catalog.volumeDiscounts().size());
         assertEquals(10, catalog.volumeDiscounts().get(0).minSeats());
-        assertEquals(15, catalog.minDays());
+        assertEquals(5, catalog.minDays());
         assertEquals(60, catalog.maxDays());
     }
 
@@ -188,7 +271,7 @@ class CoursePurchaseServiceTest {
     @Test
     void shouldDiscountTheQuoteByVolume() {
         stubCourse();
-        PurchasePolicy roomy = new PurchasePolicy(15, 60, 10, 5, 24, 500, 10);
+        PurchasePolicy roomy = new PurchasePolicy(5, 60, 10, 5, 24, 500, 10);
         service =
                 new CoursePurchaseService(
                         purchaseRepository,
@@ -224,7 +307,7 @@ class CoursePurchaseServiceTest {
     @Test
     void shouldRejectADurationOutsideTheRange() {
         assertThrows(InvalidInputException.class, () -> service.quote(course.getId(), 1, 61));
-        assertThrows(InvalidInputException.class, () -> service.quote(course.getId(), 1, 14));
+        assertThrows(InvalidInputException.class, () -> service.quote(course.getId(), 1, 4));
     }
 
     @Test

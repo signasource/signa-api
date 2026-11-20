@@ -24,6 +24,13 @@ public interface UserLearnedSignRepository extends JpaRepository<UserLearnedSign
     long countByUserIdAndCourseVersionIdAndLearnedAtBefore(
             UUID userId, UUID courseVersionId, Instant before);
 
+    /** Distinct signs learned in {@code [from, to)}; the same sign in two courses counts once. */
+    @Query(
+            "SELECT COUNT(DISTINCT lower(u.sign)) FROM UserLearnedSign u"
+                    + " WHERE u.user.id = :userId AND u.learnedAt >= :from AND u.learnedAt < :to")
+    long countDistinctLearnedBetween(
+            @Param("userId") UUID userId, @Param("from") Instant from, @Param("to") Instant to);
+
     List<UserLearnedSign> findByUserOrderByLearnedAtDesc(User user, Pageable pageable);
 
     /** Follows a sign rename from the admin panel; learned rows store the meaning, not the id. */

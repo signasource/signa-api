@@ -82,8 +82,8 @@ public class OrganizationMetricsService {
         if (userIds.isEmpty()) {
             return new OrganizationOverviewResponse(
                     new Participation(0, 0, 0, 0, period.activeWindowDays(), 0, 0, 0),
-                    new Progress(0, 0, 0, 0, 0, 0, 0),
-                    new Performance(0, 0, 0, 0, evolution(List.of(), period)));
+                    new Progress(0, 0, 0, 0, 0, 0, 0, 0),
+                    new Performance(0, 0, 0, 0, false, evolution(List.of(), period)));
         }
 
         long participants = userIds.size();
@@ -109,7 +109,8 @@ public class OrganizationMetricsService {
                         .sum();
         long minutes =
                 metricsRepository
-                        .findLearningMinutesByUser(userIds, period.firstDay(), period.lastDay())
+                        .findLearningMinutesByUserScopedToOrg(
+                                userIds, organizationId, period.firstDay(), period.lastDay())
                         .stream()
                         .mapToLong(UserCountView::getTotal)
                         .sum();
@@ -150,15 +151,17 @@ public class OrganizationMetricsService {
                                 .filter(done -> done >= scope.totalLessons())
                                 .count();
 
+        long pendingLessons = Math.max(0, participants * scope.totalLessons() - completedByEnd);
         Progress progress =
                 new Progress(
                         (int) Math.round(percentageSum / (double) participants),
                         completedInPeriod,
-                        Math.max(0, participants * scope.totalLessons() - completedByEnd),
+                        pendingLessons,
                         modulesCompleted,
                         finishedEverything,
                         minutes,
-                        MetricMath.average(minutes, participants));
+                        MetricMath.average(minutes, participants),
+                        (int) Math.round(pendingLessons / (double) participants));
 
         AttemptTotalsView recognition =
                 metricsRepository.findAttemptTotalsByBlockTypes(
@@ -168,12 +171,16 @@ public class OrganizationMetricsService {
                         SIGN_RECOGNITION_TYPES,
                         start,
                         end);
+        boolean hasCameraExercises =
+                !scope.versionIds().isEmpty()
+                        && metricsRepository.countCameraExercises(scope.versionIds()) > 0;
         Performance performance =
                 new Performance(
                         exerciseAttempts,
                         MetricMath.percentage(correct, exerciseAttempts),
                         recognition.getEvaluated(),
                         MetricMath.percentage(recognition.getCorrect(), recognition.getEvaluated()),
+                        hasCameraExercises,
                         evolution(
                                 metricsRepository.findDailyAttemptStats(
                                         organizationId,

@@ -405,7 +405,8 @@ class CourseTrackingServiceTest {
         when(lessonBlockRepository.findWithCourseVersionById(blockId))
                 .thenReturn(Optional.of(block));
         when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, blockId))
-                .thenReturn(false, true);
+                .thenReturn(false);
+        when(attemptRepository.existsByUserIdAndLessonBlockId(userId, blockId)).thenReturn(true);
         when(attemptRepository.save(any(LessonBlockAttempt.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(lessonProgressRepository.findByUserIdAndLessonId(userId, lessonId))
@@ -464,7 +465,8 @@ class CourseTrackingServiceTest {
         when(lessonBlockRepository.findWithCourseVersionById(blockId))
                 .thenReturn(Optional.of(block));
         when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, blockId))
-                .thenReturn(false, true);
+                .thenReturn(false);
+        when(attemptRepository.existsByUserIdAndLessonBlockId(userId, blockId)).thenReturn(true);
         when(attemptRepository.save(any(LessonBlockAttempt.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(lessonProgressRepository.findByUserIdAndLessonId(userId, lessonId))
@@ -537,8 +539,8 @@ class CourseTrackingServiceTest {
         when(lessonBlockRepository.findWithCourseVersionById(blockId))
                 .thenReturn(Optional.of(block));
         when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, blockId))
-                .thenReturn(false, true);
-        when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, otherBlockId))
+                .thenReturn(false);
+        when(attemptRepository.existsByUserIdAndLessonBlockId(userId, otherBlockId))
                 .thenReturn(false);
         when(attemptRepository.save(any(LessonBlockAttempt.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -585,8 +587,9 @@ class CourseTrackingServiceTest {
         when(lessonBlockRepository.findWithCourseVersionById(blockId))
                 .thenReturn(Optional.of(block));
         when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, blockId))
-                .thenReturn(false, true);
-        when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, otherBlockId))
+                .thenReturn(false);
+        when(attemptRepository.existsByUserIdAndLessonBlockId(userId, blockId)).thenReturn(true);
+        when(attemptRepository.existsByUserIdAndLessonBlockId(userId, otherBlockId))
                 .thenReturn(false);
         when(attemptRepository.save(any(LessonBlockAttempt.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -740,8 +743,7 @@ class CourseTrackingServiceTest {
                 .thenReturn(Optional.of(infoBlock));
         when(attemptRepository.existsByUserIdAndLessonBlockId(userId, infoBlockId))
                 .thenReturn(false, true);
-        when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(
-                        userId, exerciseBlockId))
+        when(attemptRepository.existsByUserIdAndLessonBlockId(userId, exerciseBlockId))
                 .thenReturn(true);
         when(attemptRepository.save(any(LessonBlockAttempt.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -798,7 +800,9 @@ class CourseTrackingServiceTest {
                 .thenReturn(Optional.of(exerciseBlock));
         when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(
                         userId, exerciseBlockId))
-                .thenReturn(false, true);
+                .thenReturn(false);
+        when(attemptRepository.existsByUserIdAndLessonBlockId(userId, exerciseBlockId))
+                .thenReturn(true);
         when(attemptRepository.save(any(LessonBlockAttempt.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(lessonProgressRepository.findByUserIdAndLessonId(userId, lesson.getId()))
@@ -818,9 +822,9 @@ class CourseTrackingServiceTest {
         verify(lessonProgressRepository).save(progressCaptor.capture());
         assertEquals(ProgressStatus.COMPLETED, progressCaptor.getValue().getStatus());
         verify(attemptRepository, never())
-                .existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, introduceBlock.getId());
+                .existsByUserIdAndLessonBlockId(userId, introduceBlock.getId());
         verify(attemptRepository, never())
-                .existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, invisibleBlock.getId());
+                .existsByUserIdAndLessonBlockId(userId, invisibleBlock.getId());
     }
 
     @Test
@@ -849,6 +853,8 @@ class CourseTrackingServiceTest {
         // Already answered right before the fix: not a new milestone, no XP again.
         when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(
                         userId, exerciseBlockId))
+                .thenReturn(true);
+        when(attemptRepository.existsByUserIdAndLessonBlockId(userId, exerciseBlockId))
                 .thenReturn(true);
         when(attemptRepository.save(any(LessonBlockAttempt.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -890,7 +896,8 @@ class CourseTrackingServiceTest {
         when(lessonBlockRepository.findWithCourseVersionById(blockId))
                 .thenReturn(Optional.of(block));
         when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, blockId))
-                .thenReturn(false, true);
+                .thenReturn(false);
+        when(attemptRepository.existsByUserIdAndLessonBlockId(userId, blockId)).thenReturn(true);
         when(attemptRepository.save(any(LessonBlockAttempt.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(lessonProgressRepository.findByUserIdAndLessonId(userId, lesson.getId()))
@@ -926,7 +933,8 @@ class CourseTrackingServiceTest {
         when(lessonBlockRepository.findWithCourseVersionById(blockId))
                 .thenReturn(Optional.of(block));
         when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, blockId))
-                .thenReturn(false, true);
+                .thenReturn(false);
+        when(attemptRepository.existsByUserIdAndLessonBlockId(userId, blockId)).thenReturn(true);
         when(attemptRepository.save(any(LessonBlockAttempt.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(lessonProgressRepository.findByUserIdAndLessonId(userId, lesson.getId()))
@@ -1249,7 +1257,8 @@ class CourseTrackingServiceTest {
         when(lessonBlockRepository.findWithCourseVersionById(blockId))
                 .thenReturn(Optional.of(block));
         when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, blockId))
-                .thenReturn(false, true);
+                .thenReturn(false);
+        when(attemptRepository.existsByUserIdAndLessonBlockId(userId, blockId)).thenReturn(true);
         when(attemptRepository.save(any(LessonBlockAttempt.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(lessonProgressRepository.findByUserIdAndLessonId(userId, lessonId))
@@ -1298,7 +1307,8 @@ class CourseTrackingServiceTest {
         when(lessonBlockRepository.findWithCourseVersionById(blockId))
                 .thenReturn(Optional.of(block));
         when(attemptRepository.existsByUserIdAndLessonBlockIdAndIsCorrectTrue(userId, blockId))
-                .thenReturn(false, true);
+                .thenReturn(false);
+        when(attemptRepository.existsByUserIdAndLessonBlockId(userId, blockId)).thenReturn(true);
         when(attemptRepository.save(any(LessonBlockAttempt.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(lessonProgressRepository.findByUserIdAndLessonId(userId, lessonId))
@@ -1322,6 +1332,87 @@ class CourseTrackingServiceTest {
         verify(challengeService).record(mockUser, ChallengeCriteriaType.COMPLETE_LESSONS, 1);
         verify(challengeService, never())
                 .record(mockUser, ChallengeCriteriaType.PERFECT_LESSONS, 1);
+    }
+
+    @Test
+    void recordBlockInteraction_WrongAnswerOnLastBlock_StillCompletesTheLesson() {
+        UUID blockId = UUID.randomUUID();
+        UUID lessonId = UUID.randomUUID();
+        Topic topic =
+                Topic.builder().id(UUID.randomUUID()).courseVersion(new CourseVersion()).build();
+        Lesson lesson = Lesson.builder().id(lessonId).topic(topic).build();
+        LessonBlock block =
+                LessonBlock.builder()
+                        .id(blockId)
+                        .type(BlockType.SELECT_MEANING)
+                        .xpReward(50)
+                        .lesson(lesson)
+                        .build();
+        lesson.setLessonBlocks(List.of(block));
+
+        when(lessonBlockRepository.findWithCourseVersionById(blockId))
+                .thenReturn(Optional.of(block));
+        when(attemptRepository.existsByUserIdAndLessonBlockId(userId, blockId)).thenReturn(true);
+        when(attemptRepository.save(any(LessonBlockAttempt.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(lessonProgressRepository.findByUserIdAndLessonId(userId, lessonId))
+                .thenReturn(
+                        Optional.of(
+                                UserLessonProgress.builder()
+                                        .lesson(lesson)
+                                        .status(ProgressStatus.IN_PROGRESS)
+                                        .build()));
+        when(lessonProgressRepository.save(any(UserLessonProgress.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        courseTrackingService.recordBlockInteraction(mockUser, blockId, false);
+
+        ArgumentCaptor<UserLessonProgress> captor =
+                ArgumentCaptor.forClass(UserLessonProgress.class);
+        verify(lessonProgressRepository).save(captor.capture());
+        assertEquals(ProgressStatus.COMPLETED, captor.getValue().getStatus());
+    }
+
+    @Test
+    void recordBlockInteraction_SkippedCameraBlock_KeepsTheLessonOpen() {
+        UUID blockId = UUID.randomUUID();
+        Topic topic =
+                Topic.builder().id(UUID.randomUUID()).courseVersion(new CourseVersion()).build();
+        Lesson lesson = Lesson.builder().id(UUID.randomUUID()).topic(topic).build();
+        LessonBlock block =
+                LessonBlock.builder()
+                        .id(blockId)
+                        .type(BlockType.SELECT_MEANING)
+                        .xpReward(50)
+                        .lesson(lesson)
+                        .build();
+        LessonBlock cameraBlock =
+                LessonBlock.builder()
+                        .id(UUID.randomUUID())
+                        .type(BlockType.PERFORM_SIGN)
+                        .xpReward(50)
+                        .lesson(lesson)
+                        .build();
+        lesson.setLessonBlocks(List.of(block, cameraBlock));
+
+        when(lessonBlockRepository.findWithCourseVersionById(blockId))
+                .thenReturn(Optional.of(block));
+        when(attemptRepository.existsByUserIdAndLessonBlockId(userId, blockId)).thenReturn(true);
+        when(attemptRepository.existsByUserIdAndLessonBlockId(userId, cameraBlock.getId()))
+                .thenReturn(false);
+        when(attemptRepository.save(any(LessonBlockAttempt.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(lessonProgressRepository.findByUserIdAndLessonId(userId, lesson.getId()))
+                .thenReturn(
+                        Optional.of(
+                                UserLessonProgress.builder()
+                                        .lesson(lesson)
+                                        .status(ProgressStatus.IN_PROGRESS)
+                                        .build()));
+
+        courseTrackingService.recordBlockInteraction(mockUser, blockId, false);
+
+        verify(lessonProgressRepository, never()).save(any());
     }
 
     @Test

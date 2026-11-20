@@ -54,6 +54,16 @@ class GrowthMetricsServiceTest {
                                 new Object[] {LocalDate.of(2026, 11, 3).toEpochDay(), 5L}));
         when(repository.sumPaidAmountBetween(any(), any())).thenReturn(new BigDecimal("10000.00"));
         when(repository.countPaidBetween(any(), any())).thenReturn(4L);
+        // One of the four purchases (2000) was refunded: net leaves it out.
+        when(repository.sumNetPaidAmountBetween(any(), any()))
+                .thenReturn(new BigDecimal("8000.00"));
+        when(repository.countNetPaidBetween(any(), any())).thenReturn(3L);
+        when(repository.sumGemNetRevenueBetween(any(), any()))
+                .thenReturn(new BigDecimal("15000.00"));
+        when(repository.countGemNetPurchasesBetween(any(), any())).thenReturn(6L);
+        when(repository.sumCourseNetRevenueBetween(any(), any()))
+                .thenReturn(new BigDecimal("50000.00"));
+        when(repository.countCourseNetPurchasesBetween(any(), any())).thenReturn(3L);
         when(repository.sumRefundedBetween(any(), any())).thenReturn(new BigDecimal("1000.00"));
         when(repository.dailyRevenue(any(), any(), anyLong()))
                 .thenReturn(
@@ -245,7 +255,7 @@ class GrowthMetricsServiceTest {
         assertEquals(Instant.parse("2026-11-02T00:00:00Z"), orgs.oldestPendingCreatedAt());
         assertEquals(7.0, orgs.avgUsersPerOrg()); // 7 active members in 1 org with any activity
         assertEquals(0, new BigDecimal("75000.00").compareTo(orgs.avgRevenuePerOrg()));
-        assertEquals(4L, orgs.purchasesInRange());
+        assertEquals(3L, orgs.purchasesInRange());
         assertEquals(2, orgs.utilization().size());
         // Biggest client first; its licenses are badly under-used (5/100).
         assertEquals("Org A", orgs.utilization().get(0).name());
@@ -292,7 +302,13 @@ class GrowthMetricsServiceTest {
 
         assertEquals(0, new BigDecimal("10000.00").compareTo(r.revenue().paidAmount()));
         assertEquals(4L, r.revenue().paidCount());
-        assertEquals(0, new BigDecimal("2500.00").compareTo(r.revenue().averageTicket()));
+        assertEquals(3L, r.revenue().netCount());
+        assertEquals(0, new BigDecimal("8000.00").compareTo(r.revenue().netAmount()));
+        // The ticket is net of the refunded purchase: 8000 / 3.
+        assertEquals(0, new BigDecimal("2666.67").compareTo(r.revenue().averageTicket()));
+        assertEquals(0, new BigDecimal("15000.00").compareTo(r.gems().netAmount()));
+        assertEquals(6L, r.gems().netPurchases());
+        assertEquals(3L, r.courseSales().netPurchases());
         assertEquals(10.0, r.revenue().refundRatePercent());
         assertEquals(1, r.revenue().daily().size());
     }
@@ -354,6 +370,8 @@ class GrowthMetricsServiceTest {
     void handlesEmptyRevenueWithoutDivisionByZero() {
         when(repository.sumPaidAmountBetween(any(), any())).thenReturn(BigDecimal.ZERO);
         when(repository.countPaidBetween(any(), any())).thenReturn(0L);
+        when(repository.sumNetPaidAmountBetween(any(), any())).thenReturn(BigDecimal.ZERO);
+        when(repository.countNetPaidBetween(any(), any())).thenReturn(0L);
 
         GrowthMetricsResponse r = service.getGrowthMetrics(range);
 

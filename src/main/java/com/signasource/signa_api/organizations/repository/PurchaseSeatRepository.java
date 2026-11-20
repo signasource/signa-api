@@ -1,6 +1,7 @@
 package com.signasource.signa_api.organizations.repository;
 
 import com.signasource.signa_api.organizations.entity.PurchaseSeat;
+import com.signasource.signa_api.organizations.entity.PurchaseStatus;
 import com.signasource.signa_api.organizations.entity.SeatStatus;
 import jakarta.persistence.LockModeType;
 import java.time.Instant;
@@ -22,6 +23,15 @@ public interface PurchaseSeatRepository extends JpaRepository<PurchaseSeat, UUID
 
     @EntityGraph(attributePaths = {"purchase"})
     List<PurchaseSeat> findByPurchaseOrganizationId(UUID organizationId);
+
+    /**
+     * Seats with a stored status of the organization's purchases in a given status, with what the
+     * invitations list shows. Whether an {@code INVITED} seat expired is derived, so callers
+     * filter.
+     */
+    @EntityGraph(attributePaths = {"purchase", "purchase.course", "user"})
+    List<PurchaseSeat> findByPurchaseOrganizationIdAndPurchaseStatusAndStatus(
+            UUID organizationId, PurchaseStatus purchaseStatus, SeatStatus status);
 
     @EntityGraph(attributePaths = {"purchase", "purchase.organization", "purchase.course"})
     Optional<PurchaseSeat> findByIdAndPurchaseId(UUID id, UUID purchaseId);
@@ -47,7 +57,9 @@ public interface PurchaseSeatRepository extends JpaRepository<PurchaseSeat, UUID
     @Query(
             "SELECT s FROM PurchaseSeat s JOIN FETCH s.purchase p "
                     + "WHERE p.organization.id = :organizationId AND p.course.id = :courseId "
-                    + "AND s.email IN :emails AND s.status IN :statuses")
+                    + "AND s.email IN :emails AND s.status IN :statuses "
+                    + "AND p.status IN (com.signasource.signa_api.organizations.entity.PurchaseStatus.PENDING_PAYMENT, "
+                    + "com.signasource.signa_api.organizations.entity.PurchaseStatus.PAID)")
     List<PurchaseSeat> findCourseSeatsByEmails(
             @Param("organizationId") UUID organizationId,
             @Param("courseId") UUID courseId,

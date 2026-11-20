@@ -147,8 +147,26 @@ public class AdminSignService {
         }
         if (request.youtubeUrl() != null) {
             sign.setYoutubeUrl(validYoutubeUrl(request.youtubeUrl()));
+            // The app reads the link from each INTRODUCE_SIGN block's config (video_url), so keep
+            // every course version's copy (published included) equal to the catalog.
+            syncVideoUrl(sign);
         }
         return toDetail(signRepository.save(sign));
+    }
+
+    /** Copies the sign's YouTube link into every lesson block that presents it. */
+    private void syncVideoUrl(Sign sign) {
+        List<LessonBlock> changed = new ArrayList<>();
+        for (LessonBlock block :
+                lessonBlockRepository.findWithCourseByTypeIn(SignReferences.CATALOG_BLOCK_TYPES)) {
+            String config =
+                    signReferences.withVideoUrl(block, sign.getMeaning(), sign.getYoutubeUrl());
+            if (config != null) {
+                block.setConfig(config);
+                changed.add(block);
+            }
+        }
+        lessonBlockRepository.saveAll(changed);
     }
 
     /** Which video of an .mp4 sign an upload is for. A .glb sign only has the front one. */

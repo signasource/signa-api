@@ -33,7 +33,6 @@ import com.signasource.signa_api.organizations.entity.PurchaseStatus;
 import com.signasource.signa_api.organizations.entity.RefundRequest;
 import com.signasource.signa_api.organizations.entity.RefundRequestReason;
 import com.signasource.signa_api.organizations.entity.RefundRequestStatus;
-import com.signasource.signa_api.organizations.entity.SeatStatus;
 import com.signasource.signa_api.organizations.repository.CoursePurchaseRepository;
 import com.signasource.signa_api.organizations.repository.RefundRequestRepository;
 import com.signasource.signa_api.users.entity.User;
@@ -289,7 +288,7 @@ class UserRefundRequestServiceTest {
         UUID purchaseId = UUID.randomUUID();
         CoursePurchase purchase = paidPurchase(purchaseId, orgId);
         PurchaseSeat activeSeat = mock(PurchaseSeat.class);
-        when(activeSeat.getStatus()).thenReturn(SeatStatus.ACTIVE);
+        when(activeSeat.hasAccepted()).thenReturn(true);
         when(purchase.getSeatList()).thenReturn(List.of(activeSeat));
         when(coursePurchaseRepository.findById(purchaseId)).thenReturn(Optional.of(purchase));
 

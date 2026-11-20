@@ -27,12 +27,14 @@ public record OrganizationOverviewResponse(
             long modulesCompleted,
             long participantsCompletedAll,
             long totalLearningMinutes,
-            double averageLearningMinutes) {}
+            double averageLearningMinutes,
+            int averagePendingLessons) {}
 
     public record Performance(
             long exerciseAttempts,
             int correctPercentage,
             long signRecognitionAttempts,
             int signRecognitionCorrectPercentage,
+            boolean hasCameraExercises,
             List<WeeklyPerformanceResponse> weeklyEvolution) {}
 }

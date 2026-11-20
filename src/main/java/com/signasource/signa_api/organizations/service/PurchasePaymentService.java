@@ -152,6 +152,12 @@ public class PurchasePaymentService {
         if (!now.isBefore(purchase.getRefundableUntil())) {
             throw new InvalidInputException("The withdrawal period for this purchase has ended");
         }
+        // Locking the seats makes a concurrent acceptance wait for this decision (or vice versa).
+        if (seatRepository.findForUpdateByPurchaseId(purchaseId).stream()
+                .anyMatch(PurchaseSeat::hasAccepted)) {
+            throw new InvalidInputException(
+                    "This purchase cannot be refunded: an invitee already accepted their seat");
+        }
         refundRepository.save(
                 PurchaseRefund.builder()
                         .purchase(purchase)
@@ -161,6 +167,44 @@ public class PurchasePaymentService {
                         .reason(RefundReason.BUYER_REQUESTED)
                         .note(note == null || note.isBlank() ? null : note.strip())
                         .requestedBy(actor)
+                        .build());
+        return paymentId;
+    }
+
+    /**
+     * Starts an admin-initiated refund of a paid purchase: records a pending refund of its whole
+     * Mercado Pago payment so a failed call can be retried. Returns the payment to refund, or null
+     * when the purchase was not paid with Mercado Pago (then it can only be reversed manually).
+     * Unlike a withdrawal it ignores the withdrawal period and accepted seats.
+     */
+    @Transactional
+    public String startAdminRefund(UUID purchaseId) {
+        CoursePurchase purchase =
+                purchaseRepository
+                        .findForUpdateById(purchaseId)
+                        .orElseThrow(() -> new NotFoundException("Purchase not found"));
+        String paymentId = mercadoPagoPaymentId(purchase);
+        if (paymentId != null
+                && refundRepository
+                        .findByPaymentId(paymentId)
+                        .filter(r -> r.getStatus() == RefundStatus.PENDING)
+                        .filter(r -> r.getReason().revokesPurchase())
+                        .isPresent()) {
+            return paymentId;
+        }
+        if (purchase.getStatus() != PurchaseStatus.PAID) {
+            throw new InvalidInputException("Only a paid purchase can be refunded manually");
+        }
+        if (paymentId == null) {
+            return null;
+        }
+        refundRepository.save(
+                PurchaseRefund.builder()
+                        .purchase(purchase)
+                        .paymentId(paymentId)
+                        .amount(purchase.getTotalAmount())
+                        .currency(purchase.getCurrency())
+                        .reason(RefundReason.EXTERNAL_REFUND)
                         .build());
         return paymentId;
     }
