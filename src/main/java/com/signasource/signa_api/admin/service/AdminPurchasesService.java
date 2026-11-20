@@ -15,6 +15,7 @@ import com.signasource.signa_api.learning.service.CourseOrderSettlementService;
 import com.signasource.signa_api.organizations.entity.CoursePurchase;
 import com.signasource.signa_api.organizations.repository.CoursePurchaseRepository;
 import com.signasource.signa_api.organizations.repository.RefundRequestRepository;
+import com.signasource.signa_api.organizations.service.MercadoPagoClient;
 import com.signasource.signa_api.organizations.service.PurchasePaymentService;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -23,9 +24,11 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AdminPurchasesService {
@@ -42,6 +45,7 @@ public class AdminPurchasesService {
     private final PurchasePaymentService purchasePaymentService;
     private final GemOrderSettlementService gemOrderSettlementService;
     private final CourseOrderSettlementService courseOrderSettlementService;
+    private final MercadoPagoClient mercadoPagoClient;
 
     @Transactional(readOnly = true)
     public List<AdminPurchaseListItemResponse> listAll() {
@@ -82,9 +86,41 @@ public class AdminPurchasesService {
     public void refundManual(UUID id, String type) {
         switch (type) {
             case TYPE_SEATS -> purchasePaymentService.reverseManual(id);
-            case TYPE_GEMS -> gemOrderSettlementService.reverseManual(id);
-            case TYPE_COURSE -> courseOrderSettlementService.reverseManual(id);
+            case TYPE_GEMS -> {
+                GemOrder order =
+                        gemOrderRepository
+                                .findById(id)
+                                .orElseThrow(() -> new NotFoundException("Gem order not found"));
+                String mpOrderId = order.getMercadoPagoOrderId();
+                gemOrderSettlementService.reverseManual(id);
+                if (mpOrderId != null) {
+                    issueMercadoPagoRefund(mpOrderId, "gem order " + id);
+                }
+            }
+            case TYPE_COURSE -> {
+                CourseOrder order =
+                        courseOrderRepository
+                                .findById(id)
+                                .orElseThrow(() -> new NotFoundException("Course order not found"));
+                String mpOrderId = order.getMercadoPagoOrderId();
+                courseOrderSettlementService.reverseManual(id);
+                if (mpOrderId != null) {
+                    issueMercadoPagoRefund(mpOrderId, "course order " + id);
+                }
+            }
             default -> throw new NotFoundException("Unknown purchase type: " + type);
+        }
+    }
+
+    private void issueMercadoPagoRefund(String mpOrderId, String context) {
+        try {
+            mercadoPagoClient.refund(mpOrderId);
+        } catch (Exception e) {
+            log.error(
+                    "Failed to issue Mercado Pago refund for {}, mp order {}: {}",
+                    context,
+                    mpOrderId,
+                    e.getMessage());
         }
     }
 

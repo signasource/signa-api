@@ -26,8 +26,9 @@ import lombok.ToString;
  * A user or org admin's request for a refund on any purchase type (SEATS, GEMS, COURSE). The linked
  * purchase is tracked polymorphically via {@code purchaseType} + {@code purchaseId}; there is no
  * JPA foreign-key constraint because the purchase lives in different tables depending on the type.
- * The request does not trigger an automatic refund — it is a signal for the admin team to review
- * and act in Mercado Pago.
+ * Resolving a GEMS or COURSE request automatically reverses the purchase in the database and
+ * triggers a Mercado Pago refund after the transaction commits; SEATS refunds are handled
+ * automatically via the Mercado Pago webhook.
  */
 @Data
 @Entity

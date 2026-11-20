@@ -4,7 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -28,6 +30,7 @@ import com.signasource.signa_api.organizations.entity.RefundRequest;
 import com.signasource.signa_api.organizations.entity.RefundRequestStatus;
 import com.signasource.signa_api.organizations.repository.CoursePurchaseRepository;
 import com.signasource.signa_api.organizations.repository.RefundRequestRepository;
+import com.signasource.signa_api.organizations.service.MercadoPagoClient;
 import com.signasource.signa_api.organizations.service.PurchasePaymentService;
 import com.signasource.signa_api.users.entity.User;
 import java.math.BigDecimal;
@@ -55,6 +58,7 @@ class AdminPurchasesServiceTest {
     @Mock private PurchasePaymentService purchasePaymentService;
     @Mock private GemOrderSettlementService gemOrderSettlementService;
     @Mock private CourseOrderSettlementService courseOrderSettlementService;
+    @Mock private MercadoPagoClient mercadoPagoClient;
 
     @InjectMocks private AdminPurchasesService service;
 
@@ -186,17 +190,45 @@ class AdminPurchasesServiceTest {
     }
 
     @Test
-    void shouldDelegateToReverseManualOnGemOrderSettlementServiceForGems() {
+    void shouldReverseAndRefundInMercadoPagoForGems() {
         UUID id = UUID.randomUUID();
+        GemOrder order = sampleGemOrder();
+        when(order.getId()).thenReturn(id);
+        when(order.getMercadoPagoOrderId()).thenReturn("mp-order-abc");
+        when(gemOrderRepository.findById(id)).thenReturn(Optional.of(order));
+
         service.refundManual(id, AdminPurchasesService.TYPE_GEMS);
+
         verify(gemOrderSettlementService).reverseManual(id);
+        verify(mercadoPagoClient).refund("mp-order-abc");
     }
 
     @Test
-    void shouldDelegateToReverseManualOnCourseOrderSettlementServiceForCourse() {
+    void shouldReverseWithoutMercadoPagoForGemsWhenNoMpOrderId() {
         UUID id = UUID.randomUUID();
+        GemOrder order = sampleGemOrder();
+        when(order.getId()).thenReturn(id);
+        when(order.getMercadoPagoOrderId()).thenReturn(null);
+        when(gemOrderRepository.findById(id)).thenReturn(Optional.of(order));
+
+        service.refundManual(id, AdminPurchasesService.TYPE_GEMS);
+
+        verify(gemOrderSettlementService).reverseManual(id);
+        verify(mercadoPagoClient, never()).refund(any());
+    }
+
+    @Test
+    void shouldReverseAndRefundInMercadoPagoForCourse() {
+        UUID id = UUID.randomUUID();
+        CourseOrder order = sampleCourseOrder();
+        when(order.getId()).thenReturn(id);
+        when(order.getMercadoPagoOrderId()).thenReturn("mp-course-xyz");
+        when(courseOrderRepository.findById(id)).thenReturn(Optional.of(order));
+
         service.refundManual(id, AdminPurchasesService.TYPE_COURSE);
+
         verify(courseOrderSettlementService).reverseManual(id);
+        verify(mercadoPagoClient).refund("mp-course-xyz");
     }
 
     @Test

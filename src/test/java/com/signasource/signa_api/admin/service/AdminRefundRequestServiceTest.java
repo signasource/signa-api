@@ -4,7 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.admin.dto.AdminRefundRequestResponse;
@@ -15,10 +18,12 @@ import com.signasource.signa_api.gamification.entity.GemOrder;
 import com.signasource.signa_api.gamification.entity.GemOrderStatus;
 import com.signasource.signa_api.gamification.entity.GemPack;
 import com.signasource.signa_api.gamification.repository.GemOrderRepository;
+import com.signasource.signa_api.gamification.service.GemOrderSettlementService;
 import com.signasource.signa_api.learning.entity.Course;
 import com.signasource.signa_api.learning.entity.CourseOrder;
 import com.signasource.signa_api.learning.entity.CourseOrderStatus;
 import com.signasource.signa_api.learning.repository.CourseOrderRepository;
+import com.signasource.signa_api.learning.service.CourseOrderSettlementService;
 import com.signasource.signa_api.organizations.entity.CoursePurchase;
 import com.signasource.signa_api.organizations.entity.PurchaseStatus;
 import com.signasource.signa_api.organizations.entity.RefundRequest;
@@ -26,6 +31,7 @@ import com.signasource.signa_api.organizations.entity.RefundRequestReason;
 import com.signasource.signa_api.organizations.entity.RefundRequestStatus;
 import com.signasource.signa_api.organizations.repository.CoursePurchaseRepository;
 import com.signasource.signa_api.organizations.repository.RefundRequestRepository;
+import com.signasource.signa_api.organizations.service.MercadoPagoClient;
 import com.signasource.signa_api.users.entity.User;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -48,6 +54,9 @@ class AdminRefundRequestServiceTest {
     @Mock private CoursePurchaseRepository seatsPurchaseRepository;
     @Mock private GemOrderRepository gemOrderRepository;
     @Mock private CourseOrderRepository courseOrderRepository;
+    @Mock private GemOrderSettlementService gemOrderSettlementService;
+    @Mock private CourseOrderSettlementService courseOrderSettlementService;
+    @Mock private MercadoPagoClient mercadoPagoClient;
 
     @InjectMocks private AdminRefundRequestService service;
 
@@ -149,6 +158,124 @@ class AdminRefundRequestServiceTest {
                 () ->
                         service.update(
                                 id, new UpdateRefundRequestRequest("RESOLVE", null), "Admin Test"));
+    }
+
+    @Test
+    void update_resolve_gems_reversesAndTriggersRefund() {
+        UUID id = UUID.randomUUID();
+        UUID orderId = UUID.randomUUID();
+        GemPack pack = mock(GemPack.class);
+        when(pack.getProductId()).thenReturn("pack-300");
+        GemOrder order = mock(GemOrder.class);
+        when(order.getStatus()).thenReturn(GemOrderStatus.PAID);
+        when(order.getMercadoPagoOrderId()).thenReturn("mp-order-123");
+        when(order.getGemPack()).thenReturn(pack);
+        when(order.getGems()).thenReturn(300);
+        when(order.getAmount()).thenReturn(BigDecimal.valueOf(500));
+        when(order.getCurrency()).thenReturn("ARS");
+        when(order.getPaidAt()).thenReturn(null);
+        when(gemOrderRepository.findById(orderId)).thenReturn(Optional.of(order));
+        RefundRequest r = sampleRequest(AdminPurchasesService.TYPE_GEMS, orderId);
+        r.setId(id);
+        when(repository.findById(id)).thenReturn(Optional.of(r));
+
+        AdminRefundRequestResponse result =
+                service.update(id, new UpdateRefundRequestRequest("RESOLVE", null), "Admin Test");
+
+        assertEquals("RESOLVED", result.status());
+        verify(gemOrderSettlementService).reverseManual(orderId);
+        verify(mercadoPagoClient).refund("mp-order-123");
+    }
+
+    @Test
+    void update_resolve_gems_skipsRefundWhenAlreadyRefunded() {
+        UUID id = UUID.randomUUID();
+        UUID orderId = UUID.randomUUID();
+        GemPack pack = mock(GemPack.class);
+        when(pack.getProductId()).thenReturn("pack-300");
+        GemOrder order = mock(GemOrder.class);
+        when(order.getStatus()).thenReturn(GemOrderStatus.REFUNDED);
+        when(order.getGemPack()).thenReturn(pack);
+        when(order.getGems()).thenReturn(300);
+        when(order.getAmount()).thenReturn(BigDecimal.valueOf(500));
+        when(order.getCurrency()).thenReturn("ARS");
+        when(order.getPaidAt()).thenReturn(null);
+        when(gemOrderRepository.findById(orderId)).thenReturn(Optional.of(order));
+        RefundRequest r = sampleRequest(AdminPurchasesService.TYPE_GEMS, orderId);
+        r.setId(id);
+        when(repository.findById(id)).thenReturn(Optional.of(r));
+
+        service.update(id, new UpdateRefundRequestRequest("RESOLVE", null), "Admin Test");
+
+        verify(gemOrderSettlementService, never()).reverseManual(any());
+        verify(mercadoPagoClient, never()).refund(any());
+    }
+
+    @Test
+    void update_resolve_gems_skipsMercadoPagoWhenManualPayment() {
+        UUID id = UUID.randomUUID();
+        UUID orderId = UUID.randomUUID();
+        GemPack pack = mock(GemPack.class);
+        when(pack.getProductId()).thenReturn("pack-300");
+        GemOrder order = mock(GemOrder.class);
+        when(order.getStatus()).thenReturn(GemOrderStatus.PAID);
+        when(order.getMercadoPagoOrderId()).thenReturn(null);
+        when(order.getGemPack()).thenReturn(pack);
+        when(order.getGems()).thenReturn(300);
+        when(order.getAmount()).thenReturn(BigDecimal.valueOf(500));
+        when(order.getCurrency()).thenReturn("ARS");
+        when(order.getPaidAt()).thenReturn(null);
+        when(gemOrderRepository.findById(orderId)).thenReturn(Optional.of(order));
+        RefundRequest r = sampleRequest(AdminPurchasesService.TYPE_GEMS, orderId);
+        r.setId(id);
+        when(repository.findById(id)).thenReturn(Optional.of(r));
+
+        service.update(id, new UpdateRefundRequestRequest("RESOLVE", null), "Admin Test");
+
+        verify(gemOrderSettlementService).reverseManual(orderId);
+        verify(mercadoPagoClient, never()).refund(any());
+    }
+
+    @Test
+    void update_resolve_course_reversesAndTriggersRefund() {
+        UUID id = UUID.randomUUID();
+        UUID orderId = UUID.randomUUID();
+        Course course = mock(Course.class);
+        when(course.getName()).thenReturn("LSA avanzado");
+        CourseOrder order = mock(CourseOrder.class);
+        when(order.getStatus()).thenReturn(CourseOrderStatus.PAID);
+        when(order.getMercadoPagoOrderId()).thenReturn("mp-course-456");
+        when(order.getCourse()).thenReturn(course);
+        when(order.getAmount()).thenReturn(BigDecimal.valueOf(2000));
+        when(order.getCurrency()).thenReturn("ARS");
+        when(order.getPaidAt()).thenReturn(null);
+        when(courseOrderRepository.findById(orderId)).thenReturn(Optional.of(order));
+        RefundRequest r = sampleRequest(AdminPurchasesService.TYPE_COURSE, orderId);
+        r.setId(id);
+        when(repository.findById(id)).thenReturn(Optional.of(r));
+
+        AdminRefundRequestResponse result =
+                service.update(id, new UpdateRefundRequestRequest("RESOLVE", null), "Admin Test");
+
+        assertEquals("RESOLVED", result.status());
+        verify(courseOrderSettlementService).reverseManual(orderId);
+        verify(mercadoPagoClient).refund("mp-course-456");
+    }
+
+    @Test
+    void update_resolve_seats_doesNotCallMercadoPago() {
+        UUID id = UUID.randomUUID();
+        UUID purchaseId = UUID.randomUUID();
+        stubSeatsPurchase(purchaseId);
+        RefundRequest r = sampleRequest(AdminPurchasesService.TYPE_SEATS, purchaseId);
+        r.setId(id);
+        when(repository.findById(id)).thenReturn(Optional.of(r));
+
+        service.update(id, new UpdateRefundRequestRequest("RESOLVE", null), "Admin Test");
+
+        verify(mercadoPagoClient, never()).refund(any());
+        verify(gemOrderSettlementService, never()).reverseManual(any());
+        verify(courseOrderSettlementService, never()).reverseManual(any());
     }
 
     // ── update – REOPEN ───────────────────────────────────────────────────────

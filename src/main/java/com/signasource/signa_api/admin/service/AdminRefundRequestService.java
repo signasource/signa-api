@@ -2,22 +2,32 @@ package com.signasource.signa_api.admin.service;
 
 import com.signasource.signa_api.admin.dto.AdminRefundRequestResponse;
 import com.signasource.signa_api.admin.dto.UpdateRefundRequestRequest;
+import com.signasource.signa_api.common.AfterCommit;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
+import com.signasource.signa_api.gamification.entity.GemOrder;
+import com.signasource.signa_api.gamification.entity.GemOrderStatus;
 import com.signasource.signa_api.gamification.repository.GemOrderRepository;
+import com.signasource.signa_api.gamification.service.GemOrderSettlementService;
+import com.signasource.signa_api.learning.entity.CourseOrder;
+import com.signasource.signa_api.learning.entity.CourseOrderStatus;
 import com.signasource.signa_api.learning.repository.CourseOrderRepository;
+import com.signasource.signa_api.learning.service.CourseOrderSettlementService;
 import com.signasource.signa_api.organizations.entity.RefundRequest;
 import com.signasource.signa_api.organizations.entity.RefundRequestStatus;
 import com.signasource.signa_api.organizations.repository.CoursePurchaseRepository;
 import com.signasource.signa_api.organizations.repository.RefundRequestRepository;
+import com.signasource.signa_api.organizations.service.MercadoPagoClient;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AdminRefundRequestService {
@@ -26,6 +36,9 @@ public class AdminRefundRequestService {
     private final CoursePurchaseRepository seatsPurchaseRepository;
     private final GemOrderRepository gemOrderRepository;
     private final CourseOrderRepository courseOrderRepository;
+    private final GemOrderSettlementService gemOrderSettlementService;
+    private final CourseOrderSettlementService courseOrderSettlementService;
+    private final MercadoPagoClient mercadoPagoClient;
 
     @Transactional(readOnly = true)
     public List<AdminRefundRequestResponse> listAll() {
@@ -55,6 +68,7 @@ public class AdminRefundRequestService {
                     if (r.getStatus() != RefundRequestStatus.PENDING) {
                         throw new InvalidInputException("Already resolved");
                     }
+                    reverseIfNeeded(r.getPurchaseType(), r.getPurchaseId());
                     r.setStatus(RefundRequestStatus.RESOLVED);
                     r.setResolvedByName(adminName);
                     r.setResolvedAt(Instant.now());
@@ -75,6 +89,51 @@ public class AdminRefundRequestService {
         }
         repository.save(r);
         return toResponse(r);
+    }
+
+    /** Reverses a GEMS or COURSE purchase when the admin resolves a refund request. */
+    private void reverseIfNeeded(String purchaseType, UUID purchaseId) {
+        switch (purchaseType) {
+            case AdminPurchasesService.TYPE_GEMS -> reverseGems(purchaseId);
+            case AdminPurchasesService.TYPE_COURSE -> reverseCourse(purchaseId);
+                // SEATS: automatically reversed when Mercado Pago issues a refund via webhook.
+        }
+    }
+
+    private void reverseGems(UUID orderId) {
+        GemOrder order = gemOrderRepository.findById(orderId).orElse(null);
+        if (order == null || order.getStatus() != GemOrderStatus.PAID) {
+            return;
+        }
+        String mpOrderId = order.getMercadoPagoOrderId();
+        gemOrderSettlementService.reverseManual(orderId);
+        if (mpOrderId != null) {
+            AfterCommit.run(() -> issueMercadoPagoRefund(mpOrderId, "gem order " + orderId));
+        }
+    }
+
+    private void reverseCourse(UUID orderId) {
+        CourseOrder order = courseOrderRepository.findById(orderId).orElse(null);
+        if (order == null || order.getStatus() != CourseOrderStatus.PAID) {
+            return;
+        }
+        String mpOrderId = order.getMercadoPagoOrderId();
+        courseOrderSettlementService.reverseManual(orderId);
+        if (mpOrderId != null) {
+            AfterCommit.run(() -> issueMercadoPagoRefund(mpOrderId, "course order " + orderId));
+        }
+    }
+
+    private void issueMercadoPagoRefund(String mpOrderId, String context) {
+        try {
+            mercadoPagoClient.refund(mpOrderId);
+        } catch (Exception e) {
+            log.error(
+                    "Failed to issue Mercado Pago refund for {}, mp order {}: {}",
+                    context,
+                    mpOrderId,
+                    e.getMessage());
+        }
     }
 
     private RefundRequest findOrThrow(UUID id) {
