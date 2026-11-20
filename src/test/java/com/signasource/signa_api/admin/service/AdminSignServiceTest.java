@@ -201,6 +201,39 @@ class AdminSignServiceTest {
     }
 
     @Test
+    void youtubeChangeIsCopiedToEveryIntroduceSignBlockOfThatSign() {
+        LessonBlock published =
+                block(
+                        VersionStatus.PUBLISHED,
+                        BlockType.INTRODUCE_SIGN,
+                        "{\"meaning\":\"Hola\",\"video_url\":\"https://youtu.be/old\"}");
+        LessonBlock draft =
+                block(VersionStatus.DRAFT, BlockType.INTRODUCE_SIGN, "{\"meaning\":\"hola\"}");
+        LessonBlock other =
+                block(VersionStatus.DRAFT, BlockType.INTRODUCE_SIGN, "{\"meaning\":\"chau\"}");
+        LessonBlock quiz =
+                block(VersionStatus.DRAFT, BlockType.SELECT_MEANING, "{\"sign\":\"hola\"}");
+        when(lessonBlockRepository.findWithCourseByTypeIn(any()))
+                .thenReturn(List.of(published, draft, other, quiz));
+
+        service.update(hola.getId(), new UpdateSignRequest(null, null, "https://youtu.be/new"));
+
+        assertEquals(
+                "{\"meaning\":\"Hola\",\"video_url\":\"https://youtu.be/new\"}",
+                published.getConfig());
+        assertEquals(
+                "{\"meaning\":\"hola\",\"video_url\":\"https://youtu.be/new\"}", draft.getConfig());
+        assertEquals("{\"meaning\":\"chau\"}", other.getConfig());
+        assertEquals("{\"sign\":\"hola\"}", quiz.getConfig());
+        verify(lessonBlockRepository).saveAll(List.of(published, draft));
+
+        service.update(hola.getId(), new UpdateSignRequest(null, null, ""));
+
+        assertEquals("{\"meaning\":\"Hola\"}", published.getConfig());
+        assertEquals("{\"meaning\":\"hola\"}", draft.getConfig());
+    }
+
+    @Test
     void renameKeepsTheOldKeyWhenTheFileCannotBeCopied() {
         when(signRepository.findByMeaningIgnoreCase("saludo")).thenReturn(Optional.empty());
         when(mediaStorage.copy(anyString(), anyString())).thenReturn(false);
