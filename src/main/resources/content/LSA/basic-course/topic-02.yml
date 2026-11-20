@@ -12,16 +12,6 @@ lessons:
     blocks:
       - type: INTRODUCE_SIGN
         config:
-          meaning: familia
-
-      - type: PERFORM_SIGN
-        xp: 15
-        config:
-          signs:
-            - familia
-
-      - type: INTRODUCE_SIGN
-        config:
           meaning: "mamá"
 
       - type: PERFORM_SIGN
@@ -78,7 +68,6 @@ lessons:
             - "mamá"
             - "papá"
             - hermano
-            - familia
 
       - type: SELECT_SIGN
         xp: 5
@@ -88,7 +77,6 @@ lessons:
             - "mamá"
             - "papá"
             - abuelo
-            - familia
 
       - type: CONTEXT_RESPONSE
         xp: 5
@@ -109,24 +97,11 @@ lessons:
             - hermano
             - hijo
             - abuelo
-            - familia
-
-      - type: CONTEXT_RESPONSE
-        xp: 5
-        config:
-          question: "¿Cómo llamás al conjunto de tus parientes más cercanos?"
-          answer: familia
-          options:
-            - familia
-            - "mamá"
-            - "papá"
-            - hermano
 
       - type: MATCH
         xp: 10
         config:
           concepts:
-            - familia
             - "mamá"
             - "papá"
             - hermano

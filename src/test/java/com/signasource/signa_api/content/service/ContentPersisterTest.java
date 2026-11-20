@@ -17,6 +17,7 @@ import com.signasource.signa_api.content.dto.yaml.TopicYaml;
 import com.signasource.signa_api.content.exception.SignLanguageNotFoundException;
 import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.entity.Course;
+import com.signasource.signa_api.learning.entity.CourseVersion;
 import com.signasource.signa_api.learning.entity.LessonBlock;
 import com.signasource.signa_api.learning.entity.SignLanguage;
 import com.signasource.signa_api.learning.entity.VersionStatus;
@@ -257,6 +258,24 @@ class ContentPersisterTest {
                         .orElseThrow();
         assertThat(moved.getId()).isEqualTo(idBefore);
         assertThat(moved.getOrder()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldLeaveACoursePanelEditedAloneWhenItsYamlChanges() {
+        contentPersister.importCourse(happyCourse);
+        CourseVersion version = courseVersionRepository.findAll().get(0);
+        version.setUpdatedBy("admin@signa.test");
+        courseVersionRepository.save(version);
+        long lessons = lessonRepository.count();
+
+        assertThat(contentPersister.importCourse(withCourseDescription("Edited")))
+                .isEqualTo(ImportResult.UNCHANGED);
+
+        Course course =
+                courseRepository.findByCode(happyCourse.course().course().code()).orElseThrow();
+        assertThat(course.getDescription()).isNotEqualTo("Edited");
+        assertThat(courseVersionRepository.count()).isEqualTo(1);
+        assertThat(lessonRepository.count()).isEqualTo(lessons);
     }
 
     @Test
