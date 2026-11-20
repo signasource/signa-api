@@ -396,13 +396,15 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
     List<Object[]> revenueByOrg(@Param("until") Instant until);
 
     /**
-     * Rows of {@code [UUID orgId, String name, long seatsSold, long seatsActive]} of paid seats.
+     * Rows of {@code [UUID orgId, String name, long seatsSold, long seatsActive]} of paid seats,
+     * excluding seats from purchases that were refunded.
      */
     @Query(
             "SELECT s.purchase.organization.id, s.purchase.organization.name, COUNT(s), "
                     + "SUM(CASE WHEN s.status = com.signasource.signa_api.organizations.entity.SeatStatus.ACTIVE THEN 1L ELSE 0L END) "
                     + "FROM PurchaseSeat s "
                     + "WHERE s.purchase.paidAt IS NOT NULL AND s.purchase.paidAt < :until "
+                    + "AND s.purchase.status <> com.signasource.signa_api.organizations.entity.PurchaseStatus.REFUNDED "
                     + "GROUP BY s.purchase.organization.id, s.purchase.organization.name")
     List<Object[]> seatsByOrg(@Param("until") Instant until);
 
