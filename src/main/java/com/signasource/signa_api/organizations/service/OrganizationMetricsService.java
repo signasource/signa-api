@@ -34,7 +34,6 @@ import com.signasource.signa_api.users.entity.User;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -372,16 +371,18 @@ public class OrganizationMetricsService {
     /** The whole history charts the last weeks; a period charts its own weeks. */
     private static LocalDate firstWeek(MetricsPeriod period) {
         return period.isOpen()
-                ? weekStart(LocalDate.now(ZoneOffset.UTC)).minusWeeks(EVOLUTION_WEEKS - 1L)
+                ? weekStart(LocalDate.now(ArgentinaTime.ZONE)).minusWeeks(EVOLUTION_WEEKS - 1L)
                 : weekStart(period.from());
     }
 
     private static LocalDate lastWeek(MetricsPeriod period) {
-        return period.isOpen() ? weekStart(LocalDate.now(ZoneOffset.UTC)) : weekStart(period.to());
+        return period.isOpen()
+                ? weekStart(LocalDate.now(ArgentinaTime.ZONE))
+                : weekStart(period.to());
     }
 
     private static Instant evolutionStart(MetricsPeriod period) {
-        Instant firstWeek = firstWeek(period).atStartOfDay().toInstant(ZoneOffset.UTC);
+        Instant firstWeek = firstWeek(period).atStartOfDay(ArgentinaTime.ZONE).toInstant();
         return period.isOpen() || firstWeek.isAfter(period.start()) ? firstWeek : period.start();
     }
 

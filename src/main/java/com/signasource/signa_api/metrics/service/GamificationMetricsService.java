@@ -1,5 +1,6 @@
 package com.signasource.signa_api.metrics.service;
 
+import com.signasource.signa_api.common.ArgentinaTime;
 import com.signasource.signa_api.metrics.dto.GamificationMetricsResponse;
 import com.signasource.signa_api.metrics.dto.GamificationMetricsResponse.AchievementsSection;
 import com.signasource.signa_api.metrics.dto.GamificationMetricsResponse.ChallengeClaim;
@@ -14,7 +15,6 @@ import com.signasource.signa_api.metrics.repository.GamificationMetricsRepositor
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -36,9 +36,9 @@ public class GamificationMetricsService {
     public GamificationMetricsResponse getGamificationMetrics(MetricsRange range) {
         Instant from = range.start();
         Instant until = range.end();
-        LocalDate fromDate = from.atZone(ZoneOffset.UTC).toLocalDate();
+        LocalDate fromDate = from.atZone(ArgentinaTime.ZONE).toLocalDate();
         // `until` is exclusive: a window ending at midnight must not pull in the next day's XP.
-        LocalDate toDate = until.minusNanos(1).atZone(ZoneOffset.UTC).toLocalDate();
+        LocalDate toDate = until.minusNanos(1).atZone(ArgentinaTime.ZONE).toLocalDate();
 
         return new GamificationMetricsResponse(
                 xp(fromDate, toDate, from, until, range),
@@ -63,7 +63,7 @@ public class GamificationMetricsService {
         if (!range.isOpen()) {
             Duration d = Duration.between(from, until);
             Instant prevFrom = from.minus(d);
-            LocalDate prevFromDate = prevFrom.atZone(ZoneOffset.UTC).toLocalDate();
+            LocalDate prevFromDate = prevFrom.atZone(ArgentinaTime.ZONE).toLocalDate();
             // Previous window ends the day before the current one starts (no shared day).
             long prevTotal = repository.sumXpBetween(prevFromDate, fromDate.minusDays(1));
             long prevActiveUsers = repository.countActiveUsersBetween(prevFrom, from);
