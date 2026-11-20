@@ -8,6 +8,7 @@ import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import com.signasource.signa_api.learning.entity.VersionStatus;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
+import com.signasource.signa_api.learning.service.CourseEnrollmentResolver;
 import com.signasource.signa_api.organizations.entity.Organization;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.repository.UserRepository;
@@ -30,6 +31,7 @@ public class OrganizationEnrollmentService {
     private final CourseVersionRepository courseVersionRepository;
     private final UserCourseEnrollmentRepository enrollmentRepository;
     private final UserRepository userRepository;
+    private final CourseEnrollmentResolver enrollmentResolver;
 
     @Transactional
     public void revokeAllFromUser(User user, UUID organizationId) {
@@ -57,23 +59,16 @@ public class OrganizationEnrollmentService {
     @Transactional
     public void grantCourse(
             User user, Organization organization, Course course, Instant accessExpiresAt) {
-        CourseVersion version =
-                courseVersionRepository
-                        .findByCourseIdAndStatus(course.getId(), VersionStatus.PUBLISHED)
-                        .orElseThrow(
-                                () ->
-                                        new NotFoundException(
-                                                "Active published version not found for course ID: "
-                                                        + course.getId()));
-
+        // Whoever already takes the course (in any version) keeps that enrollment, its version and
+        // its progress; only a newcomer starts on the published version.
         UserCourseEnrollment enrollment =
-                enrollmentRepository
-                        .findByUserIdAndCourseVersionId(user.getId(), version.getId())
+                enrollmentResolver
+                        .forCourse(user.getId(), course.getId(), Instant.now())
                         .orElseGet(
                                 () ->
                                         UserCourseEnrollment.builder()
                                                 .user(user)
-                                                .courseVersion(version)
+                                                .courseVersion(publishedVersion(course))
                                                 .status(EnrollmentStatus.ENROLLED)
                                                 .build());
 
@@ -105,6 +100,16 @@ public class OrganizationEnrollmentService {
                 enrollmentRepository.save(enrollment);
             }
         }
+    }
+
+    private CourseVersion publishedVersion(Course course) {
+        return courseVersionRepository
+                .findByCourseIdAndStatus(course.getId(), VersionStatus.PUBLISHED)
+                .orElseThrow(
+                        () ->
+                                new NotFoundException(
+                                        "Active published version not found for course ID: "
+                                                + course.getId()));
     }
 
     /**

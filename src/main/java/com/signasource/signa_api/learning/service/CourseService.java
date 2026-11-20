@@ -12,7 +12,6 @@ import com.signasource.signa_api.learning.entity.CourseVersion;
 import com.signasource.signa_api.learning.entity.Lesson;
 import com.signasource.signa_api.learning.entity.LessonBlock;
 import com.signasource.signa_api.learning.entity.Topic;
-import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import com.signasource.signa_api.learning.entity.VersionStatus;
 import com.signasource.signa_api.learning.repository.CourseRepository;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
@@ -24,6 +23,7 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -55,6 +55,7 @@ public class CourseService {
     private final CourseVersionRepository courseVersionRepository;
     private final UserCourseEnrollmentRepository enrollmentRepository;
     private final BlockSignExtractor blockSignExtractor;
+    private final CourseEnrollmentResolver enrollmentResolver;
 
     @Transactional(readOnly = true)
     public Page<CourseSummaryResponse> getCoursesCatalog(
@@ -104,33 +105,19 @@ public class CourseService {
     }
 
     /**
-     * Returns the course version to show in the detail view. Enrolled users see the version they
-     * are subscribed to (which may be archived if admins published a newer version after they
-     * enrolled). Non-enrolled users see the currently published version.
-     *
-     * <p>When a user has active enrollments in multiple versions of the same course — e.g. they
-     * were in v1 and later re-enrolled in v2 — the published version takes precedence.
+     * Returns the course version to show in the detail view: the one the learner takes (see {@link
+     * CourseEnrollmentPicker}; it may be archived if a newer version was published after they
+     * enrolled), or the published version for someone without access.
      */
     private CourseVersion resolveVersionForUser(User user, UUID courseId, Instant now) {
-        List<UserCourseEnrollment> active =
-                enrollmentRepository
-                        .findByUserIdAndCourseVersionCourseId(user.getId(), courseId)
-                        .stream()
+        Optional<UUID> taken =
+                enrollmentResolver
+                        .forCourse(user.getId(), courseId, now)
                         .filter(e -> e.grantsAccess(now))
-                        .toList();
-
-        if (!active.isEmpty()) {
-            UUID versionId =
-                    active.stream()
-                            .filter(
-                                    e ->
-                                            e.getCourseVersion().getStatus()
-                                                    == VersionStatus.PUBLISHED)
-                            .map(e -> e.getCourseVersion().getId())
-                            .findFirst()
-                            .orElse(active.get(0).getCourseVersion().getId());
+                        .map(e -> e.getCourseVersion().getId());
+        if (taken.isPresent()) {
             return courseVersionRepository
-                    .findWithFullTreeById(versionId)
+                    .findWithFullTreeById(taken.get())
                     .orElseThrow(() -> new NotFoundException("Course version not found"));
         }
 

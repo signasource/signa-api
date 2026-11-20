@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -19,9 +20,12 @@ import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import com.signasource.signa_api.learning.entity.VersionStatus;
 import com.signasource.signa_api.learning.repository.CourseOrderRepository;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
+import com.signasource.signa_api.learning.repository.TopicRepository;
 import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
+import com.signasource.signa_api.learning.repository.UserLessonProgressRepository;
 import com.signasource.signa_api.users.entity.User;
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,7 +52,13 @@ class CourseOrderSettlementServiceTest {
     void setUp() {
         service =
                 new CourseOrderSettlementService(
-                        orderRepository, enrollmentRepository, courseVersionRepository);
+                        orderRepository,
+                        enrollmentRepository,
+                        courseVersionRepository,
+                        new CourseEnrollmentResolver(
+                                enrollmentRepository,
+                                mock(UserLessonProgressRepository.class),
+                                mock(TopicRepository.class)));
         user = User.builder().id(UUID.randomUUID()).build();
         course = Course.builder().id(UUID.randomUUID()).name("LSA Básico").isFree(false).build();
         version =
@@ -78,11 +88,9 @@ class CourseOrderSettlementServiceTest {
     @Test
     void shouldDropEnrollmentAndMarkRefundedWhenReversedManually() {
         when(orderRepository.findForUpdate(order.getId())).thenReturn(Optional.of(order));
-        when(courseVersionRepository.findByCourseIdAndStatus(
-                        course.getId(), VersionStatus.PUBLISHED))
-                .thenReturn(Optional.of(version));
-        when(enrollmentRepository.findByUserIdAndCourseVersionId(user.getId(), version.getId()))
-                .thenReturn(Optional.of(enrollment));
+        when(enrollmentRepository.findByUserIdAndCourseVersionCourseId(
+                        user.getId(), course.getId()))
+                .thenReturn(List.of(enrollment));
 
         service.reverseManual(order.getId());
 
@@ -91,6 +99,25 @@ class CourseOrderSettlementServiceTest {
         assertEquals(EnrollmentStatus.DROPPED, enrollment.getStatus());
         verify(enrollmentRepository).save(enrollment);
         verify(orderRepository).save(order);
+    }
+
+    @Test
+    void shouldDropTheEnrollmentEvenWhenItIsInAnOlderVersion() {
+        CourseVersion archived =
+                CourseVersion.builder()
+                        .id(UUID.randomUUID())
+                        .course(course)
+                        .status(VersionStatus.ARCHIVED)
+                        .build();
+        enrollment.setCourseVersion(archived);
+        when(orderRepository.findForUpdate(order.getId())).thenReturn(Optional.of(order));
+        when(enrollmentRepository.findByUserIdAndCourseVersionCourseId(
+                        user.getId(), course.getId()))
+                .thenReturn(List.of(enrollment));
+
+        service.reverseManual(order.getId());
+
+        assertEquals(EnrollmentStatus.DROPPED, enrollment.getStatus());
     }
 
     @Test

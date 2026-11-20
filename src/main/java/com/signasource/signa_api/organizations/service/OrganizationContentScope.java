@@ -3,7 +3,6 @@ package com.signasource.signa_api.organizations.service;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.learning.entity.Course;
 import com.signasource.signa_api.learning.entity.CourseVersion;
-import com.signasource.signa_api.learning.entity.EnrollmentStatus;
 import com.signasource.signa_api.learning.entity.Topic;
 import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import com.signasource.signa_api.learning.entity.VersionStatus;
@@ -11,6 +10,7 @@ import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.learning.repository.TopicRepository;
 import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
 import com.signasource.signa_api.learning.repository.projection.TopicLessonTotalView;
+import com.signasource.signa_api.learning.service.CourseEnrollmentPicker;
 import com.signasource.signa_api.organizations.entity.OrganizationCourse;
 import com.signasource.signa_api.organizations.repository.OrganizationCourseRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationMetricsRepository;
@@ -136,7 +136,8 @@ public class OrganizationContentScope {
                     perCourse.forEach(
                             (course, candidates) ->
                                     assigned.put(
-                                            course, assign(candidates, done, lessonsByVersion)));
+                                            course,
+                                            assign(candidates, until, done, lessonsByVersion)));
                     assignments.put(userId, assigned);
                 });
 
@@ -150,35 +151,22 @@ public class OrganizationContentScope {
     }
 
     /**
-     * The version a participant is measured against, among their enrollments in one course.
-     *
-     * <ol>
-     *   <li>Enrollments still in force come first; dropped ones only count when there is nothing
-     *       else (a removed participant keeps showing the progress they made).
-     *   <li>The enrollment where they got furthest wins: finishing a course is never undone by a
-     *       newer version being published, nor by an empty enrollment in it.
-     *   <li>On a tie, the most recent enrollment: the one they are taking now.
-     * </ol>
+     * The version a participant is measured against, among their enrollments in one course: the
+     * same {@link CourseEnrollmentPicker} rule the app uses, as of {@code until}.
      */
     static UUID assign(
             List<UserCourseEnrollment> candidates,
+            Instant until,
             Map<UUID, Long> completedByVersion,
             Map<UUID, Long> lessonsByVersion) {
-        List<UserCourseEnrollment> inForce =
-                candidates.stream().filter(e -> e.getStatus() != EnrollmentStatus.DROPPED).toList();
-        List<UserCourseEnrollment> pool = inForce.isEmpty() ? candidates : inForce;
-        Comparator<UserCourseEnrollment> furthest =
-                Comparator.comparingDouble(
+        return CourseEnrollmentPicker.pick(
+                        candidates,
+                        until,
                         e ->
                                 completion(
                                         e.getCourseVersion().getId(),
                                         completedByVersion,
-                                        lessonsByVersion));
-        return pool.stream()
-                .max(
-                        furthest.thenComparing(
-                                UserCourseEnrollment::getStartedAt,
-                                Comparator.nullsFirst(Comparator.naturalOrder())))
+                                        lessonsByVersion))
                 .orElseThrow()
                 .getCourseVersion()
                 .getId();

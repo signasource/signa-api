@@ -3,6 +3,7 @@ package com.signasource.signa_api.learning.service;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -22,7 +23,9 @@ import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import com.signasource.signa_api.learning.entity.VersionStatus;
 import com.signasource.signa_api.learning.repository.CourseRepository;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
+import com.signasource.signa_api.learning.repository.TopicRepository;
 import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
+import com.signasource.signa_api.learning.repository.UserLessonProgressRepository;
 import com.signasource.signa_api.users.entity.User;
 import java.time.Instant;
 import java.util.List;
@@ -38,6 +41,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class CourseServiceTest {
@@ -47,6 +51,8 @@ class CourseServiceTest {
     @Mock private CourseVersionRepository courseVersionRepository;
 
     @Mock private UserCourseEnrollmentRepository enrollmentRepository;
+
+    @Mock private TopicRepository topicRepository;
 
     @Mock private com.signasource.signa_api.learning.util.BlockSignExtractor blockSignExtractor;
 
@@ -63,6 +69,13 @@ class CourseServiceTest {
 
     @BeforeEach
     void setUp() {
+        ReflectionTestUtils.setField(
+                courseService,
+                "enrollmentResolver",
+                new CourseEnrollmentResolver(
+                        enrollmentRepository,
+                        mock(UserLessonProgressRepository.class),
+                        topicRepository));
         signLanguageId = UUID.randomUUID();
         courseId = UUID.randomUUID();
         userId = UUID.randomUUID();
@@ -271,7 +284,7 @@ class CourseServiceTest {
     }
 
     @Test
-    void shouldPreferPublishedVersionWhenUserHasEnrollmentInBoth() {
+    void shouldUseTheMostRecentEnrollmentWhenNeitherHasProgress() {
         UUID archivedVersionId = UUID.randomUUID();
         UUID publishedVersionId = UUID.randomUUID();
 
@@ -297,12 +310,14 @@ class CourseServiceTest {
                         .user(user)
                         .courseVersion(archivedVersion)
                         .status(EnrollmentStatus.ENROLLED)
+                        .startedAt(java.time.Instant.parse("2026-10-01T00:00:00Z"))
                         .build();
         UserCourseEnrollment enrollmentV2 =
                 UserCourseEnrollment.builder()
                         .user(user)
                         .courseVersion(publishedVersion)
                         .status(EnrollmentStatus.ENROLLED)
+                        .startedAt(java.time.Instant.parse("2026-11-01T00:00:00Z"))
                         .build();
 
         when(enrollmentRepository.findByUserIdAndCourseVersionCourseId(userId, courseId))
