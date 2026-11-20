@@ -29,6 +29,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Supplier;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -82,8 +83,8 @@ public class UserRefundRequestService {
             UUID orderId, User user, CreateRefundRequestRequest req) {
         record Saved(UUID requestId, String productId, BigDecimal amount, String currency) {}
         Saved saved =
-                transactionTemplate.execute(
-                        status -> {
+                inTransaction(
+                        () -> {
                             GemOrder order =
                                     gemOrderRepository
                                             .findByIdAndUserId(orderId, user.getId())
@@ -104,8 +105,8 @@ public class UserRefundRequestService {
                         });
         adminRefundService.refund(TYPE_GEMS, orderId, false);
         RefundRequest resolved =
-                transactionTemplate.execute(
-                        status -> {
+                inTransaction(
+                        () -> {
                             RefundRequest r =
                                     refundRequestRepository
                                             .findById(saved.requestId())
@@ -127,8 +128,8 @@ public class UserRefundRequestService {
             UUID orderId, User user, CreateRefundRequestRequest req) {
         record Saved(UUID requestId, String productName, BigDecimal amount, String currency) {}
         Saved saved =
-                transactionTemplate.execute(
-                        status -> {
+                inTransaction(
+                        () -> {
                             CourseOrder order =
                                     courseOrderRepository
                                             .findByIdAndUserId(orderId, user.getId())
@@ -149,8 +150,8 @@ public class UserRefundRequestService {
                         });
         adminRefundService.refund(TYPE_COURSE, orderId, false);
         RefundRequest resolved =
-                transactionTemplate.execute(
-                        status -> {
+                inTransaction(
+                        () -> {
                             RefundRequest r =
                                     refundRequestRepository
                                             .findById(saved.requestId())
@@ -280,8 +281,20 @@ public class UserRefundRequestService {
                 .requestedBy(user)
                 .reason(req.reason())
                 .channel(channel)
-                .message(req.message())
+                .message(
+                        req.message() == null || req.message().isBlank()
+                                ? null
+                                : req.message().strip())
                 .status(RefundRequestStatus.PENDING)
                 .build();
+    }
+
+    /** Runs {@code work} in a transaction; the callbacks here never return null. */
+    private <T> T inTransaction(Supplier<T> work) {
+        T result = transactionTemplate.execute(status -> work.get());
+        if (result == null) {
+            throw new IllegalStateException("Transaction callback returned null");
+        }
+        return result;
     }
 }

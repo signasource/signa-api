@@ -250,7 +250,7 @@ public class AdminRefundRequestService {
                 r.getId(),
                 r.getPurchaseType(),
                 r.getPurchaseId(),
-                r.getReason().name(),
+                r.getReason() != null ? r.getReason().name() : null,
                 r.getChannel(),
                 r.getMessage(),
                 r.getNote(),

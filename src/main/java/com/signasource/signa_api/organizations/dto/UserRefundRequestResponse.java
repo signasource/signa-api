@@ -23,7 +23,7 @@ public record UserRefundRequestResponse(
                 r.getId(),
                 r.getPurchaseType(),
                 r.getPurchaseId(),
-                r.getReason().name(),
+                r.getReason() != null ? r.getReason().name() : null,
                 r.getMessage(),
                 r.getStatus().name(),
                 r.getCreatedAt(),

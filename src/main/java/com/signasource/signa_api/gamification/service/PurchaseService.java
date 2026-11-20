@@ -33,6 +33,7 @@ public class PurchaseService {
     private static final int MYSTERY_CHEST_MAX_GEMS = 50;
     private static final int MYSTERY_CHEST_MULTIPLIER_DURATION_MINUTES = 30;
     private static final int MYSTERY_CHEST_UNLIMITED_LIVES_MINUTES = 15;
+    static final String LIVES_FULL_MESSAGE = "Lives are already full";
 
     private final ShopItemRepository shopItemRepository;
     private final PurchaseRepository purchaseRepository;
@@ -45,6 +46,9 @@ public class PurchaseService {
 
         ShopItem item = getActiveItem(shopItemId);
         UserStats stats = getOrCreateStats(buyer);
+        if (item.getItemType() == ShopItemType.LIFE) {
+            ensureLivesNotFull(stats);
+        }
         debitGems(stats, item.getPriceGems());
 
         AppliedEffectResponse effect = null;
@@ -184,10 +188,6 @@ public class PurchaseService {
                 stats.setGems(stats.getGems() + amount);
                 yield new AppliedEffectResponse(ShopItemType.GEMS, amount, null, null, null, null);
             }
-            case LIFE -> {
-                int granted = grantLives(stats, 1);
-                yield new AppliedEffectResponse(ShopItemType.LIFE, null, granted, null, null, null);
-            }
             case STREAK_SHIELD -> {
                 stats.setStreakShields(stats.getStreakShields() + 1);
                 yield new AppliedEffectResponse(
@@ -239,6 +239,21 @@ public class PurchaseService {
         stats.setUnlimitedLivesExpiresAt(Instant.now().plus(durationMinutes, ChronoUnit.MINUTES));
     }
 
+    /**
+     * A life bought with a full bar (or while unlimited lives run) would charge the gems and grant
+     * nothing, so the purchase is rejected before debiting.
+     */
+    private void ensureLivesNotFull(UserStats stats) {
+        stats.regenerateLives(Instant.now());
+        boolean full =
+                stats.hasActiveUnlimitedLives()
+                        || stats.getCurrentLives() == null
+                        || stats.getCurrentLives() >= UserStats.MAX_LIVES;
+        if (full) {
+            throw new InvalidInputException(LIVES_FULL_MESSAGE);
+        }
+    }
+
     void debitGems(UserStats stats, int price) {
         if (stats.getGems() < price) {
             throw new InvalidInputException("Insufficient gems");
@@ -271,7 +286,6 @@ public class PurchaseService {
 
     private enum MysteryChestOutcome {
         GEMS,
-        LIFE,
         STREAK_SHIELD,
         XP_MULTIPLIER,
         UNLIMITED_LIVES
