@@ -18,6 +18,7 @@ import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.Theme;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.entity.UserSettings;
+import com.signasource.signa_api.users.repository.UserRepository;
 import com.signasource.signa_api.users.repository.UserSettingsRepository;
 import java.time.LocalTime;
 import java.util.Optional;
@@ -58,6 +59,7 @@ class UserSettingsServiceTest {
     private static final int MINUTES_TODAY = 10;
 
     @Mock private UserSettingsRepository userSettingsRepository;
+    @Mock private UserRepository userRepository;
     @Mock private UserActivityService userActivityService;
 
     @InjectMocks private UserSettingsService userSettingsService;
@@ -75,6 +77,7 @@ class UserSettingsServiceTest {
                         .passwordHash("hashed_password")
                         .role(Role.USER)
                         .enabled(true)
+                        .accountVisibility(INITIAL_ACCOUNT_VISIBILITY)
                         .build();
 
         settings =
@@ -86,7 +89,6 @@ class UserSettingsServiceTest {
                         .theme(INITIAL_THEME)
                         .fontSize(INITIAL_FONT_SIZE)
                         .vibrationEnabled(INITIAL_VIBRATION_ENABLED)
-                        .accountVisibility(INITIAL_ACCOUNT_VISIBILITY)
                         .dailyGoalMinutes(INITIAL_DAILY_GOAL_MINUTES)
                         .dailyNotificationEnabled(INITIAL_DAILY_NOTIFICATION_ENABLED)
                         .dailyNotificationTime(INITIAL_DAILY_NOTIFICATION_TIME)
@@ -142,6 +144,9 @@ class UserSettingsServiceTest {
         assertEquals(UPDATED_DAILY_NOTIFICATION_ENABLED, response.dailyNotificationEnabled());
         assertEquals(UPDATED_DAILY_NOTIFICATION_TIME, response.dailyNotificationTime());
         verify(userSettingsRepository).save(settings);
+        // Visibility lives on the user: ranking, search and public profiles read it from there.
+        assertEquals(UPDATED_ACCOUNT_VISIBILITY, user.getAccountVisibility());
+        verify(userRepository).save(user);
     }
 
     @Test
@@ -172,6 +177,7 @@ class UserSettingsServiceTest {
         assertEquals(INITIAL_DAILY_NOTIFICATION_ENABLED, response.dailyNotificationEnabled());
         assertEquals(INITIAL_DAILY_NOTIFICATION_TIME, response.dailyNotificationTime());
         verify(userSettingsRepository).save(settings);
+        verify(userRepository, never()).save(user);
     }
 
     @Test
@@ -193,6 +199,7 @@ class UserSettingsServiceTest {
         assertEquals(INITIAL_DAILY_NOTIFICATION_ENABLED, response.dailyNotificationEnabled());
         assertEquals(INITIAL_DAILY_NOTIFICATION_TIME, response.dailyNotificationTime());
         verify(userSettingsRepository).save(settings);
+        verify(userRepository, never()).save(user);
     }
 
     @Test

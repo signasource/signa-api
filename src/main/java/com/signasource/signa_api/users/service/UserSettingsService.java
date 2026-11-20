@@ -7,6 +7,7 @@ import com.signasource.signa_api.users.dto.UpdateUserSettingsRequest;
 import com.signasource.signa_api.users.dto.UserSettingsResponse;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.entity.UserSettings;
+import com.signasource.signa_api.users.repository.UserRepository;
 import com.signasource.signa_api.users.repository.UserSettingsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,11 +17,12 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class UserSettingsService {
     private final UserSettingsRepository userSettingsRepository;
+    private final UserRepository userRepository;
     private final UserActivityService userActivityService;
 
     @Transactional(readOnly = true)
     public UserSettingsResponse getSettings(User user) {
-        return UserSettingsResponse.from(getSettingsEntity(user));
+        return UserSettingsResponse.from(getSettingsEntity(user), user);
     }
 
     @Transactional
@@ -30,7 +32,13 @@ public class UserSettingsService {
         applyChanges(settings, request);
         userSettingsRepository.save(settings);
 
-        return UserSettingsResponse.from(settings);
+        if (request.accountVisibility() != null
+                && request.accountVisibility() != user.getAccountVisibility()) {
+            user.setAccountVisibility(request.accountVisibility());
+            userRepository.save(user);
+        }
+
+        return UserSettingsResponse.from(settings, user);
     }
 
     @Transactional
@@ -83,9 +91,6 @@ public class UserSettingsService {
         }
         if (request.vibrationEnabled() != null) {
             settings.setVibrationEnabled(request.vibrationEnabled());
-        }
-        if (request.accountVisibility() != null) {
-            settings.setAccountVisibility(request.accountVisibility());
         }
         if (request.dailyGoalMinutes() != null) {
             settings.setDailyGoalMinutes(request.dailyGoalMinutes());
