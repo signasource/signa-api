@@ -27,6 +27,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +52,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 public class ContentPersister {
 
+    private static final Logger log = LoggerFactory.getLogger(ContentPersister.class);
     private static final String HASH_ALGORITHM = "SHA-256";
 
     private final SignLanguageRepository signLanguageRepository;
@@ -91,9 +94,25 @@ public class ContentPersister {
             return ImportResult.UNCHANGED;
         }
 
+        // A course edited from the admin panel belongs to the panel from then on. Its versions are
+        // numbered by the panel and its topics and lessons get panel codes, so reconciling the YAML
+        // against it would republish an archived version (two published versions break every read
+        // of the course) and purge the panel's topics together with the users' progress.
+        if (editedFromPanel(course)) {
+            log.warn(
+                    "Course {} was edited from the admin panel: its YAML changed but is not imported",
+                    courseCode);
+            return ImportResult.UNCHANGED;
+        }
+
         reconcileCourse(course, loaded, signLanguage, contentHash);
         courseRepository.save(course);
         return ImportResult.UPDATED;
+    }
+
+    private static boolean editedFromPanel(Course course) {
+        return course.getVersions().stream()
+                .anyMatch(v -> v.getUpdatedBy() != null || v.getBasedOnVersion() != null);
     }
 
     // ── Reconciliation ──────────────────────────────────────────────────────────────────────────

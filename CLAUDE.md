@@ -23,7 +23,8 @@ notificaciones push y un catálogo de señas.
   `docker compose down -v` para cambios estructurales — se escribe una migración. Ver §3 · Versionado de esquema.
 - **Paquete raíz:** `com.signasource.signa_api`
 - **Contenido:** los cursos son **YAML versionado en el repo** (`src/main/resources/content/`),
-  importado a la base por un pipeline idempotente. El YAML es la fuente de verdad, no la DB. El
+  importado a la base por un pipeline idempotente. El YAML es la fuente de verdad, no la DB (salvo
+  los cursos editados desde el panel, ver §3 · Idempotencia del contenido). El
   import corre al arrancar y también **a demanda desde el panel** (`POST /admin/content/import`),
   y cada corrida queda registrada en `ContentImportRun` (§2 · content).
 
@@ -169,6 +170,11 @@ Resumen de alta prioridad; el detalle y los ejemplos están en los bloques sigui
 **Idempotencia del contenido**
 - El importador calcula un `contentHash` SHA-256 y produce `CREATED / UPDATED / UNCHANGED`.
   Cualquier cambio en el pipeline debe preservar esta idempotencia (ver `content/service/*`).
+- **Un curso editado desde el panel pasa a ser del panel.** Si alguna de sus versiones tiene
+  `updated_by` o `based_on_version`, `ContentPersister` no lo reimporta aunque su YAML cambie
+  (devuelve `UNCHANGED` y lo avisa en el log). Reconciliarlo republicaría una versión archivada
+  (dos versiones publicadas rompen toda lectura del curso) y purgaría los temas del panel, que
+  tienen otros códigos, junto con el progreso. Hoy: `basic-course` y `cafeteria-course`.
 
 **Versionado de esquema (Flyway)**
 - El esquema lo versiona **Flyway**; las migraciones viven en `src/main/resources/db/migration/`
@@ -499,3 +505,14 @@ entrada en el mismo PR. Detectadas el 2026-10-24 durante un deploy a producción
 - Fallan en `develop` limpio antes de cualquier cambio. La lógica de `deriveStepSeconds` en
   `src/lib/datetime-range.ts` produce 60 para ambos casos, pero los tests esperan granularidades
   más finas. **Fix:** revisar si la implementación o los tests son los que están equivocados.
+
+### D15 · Alto — Los tests de integración no levantan en `develop` (detectado 2026-11-20)
+
+- **Síntoma:** todo test `@SpringBootTest` falla con `Failed to load ApplicationContext`; la causa es
+  `QueryCreationException` en `LearningMetricsRepository.enrollmentsByCourse` (la consulta JPQL no se
+  puede crear sobre H2). Además `LearningMetricsControllerTest` no compila contra
+  `LearningMetricsController.learning` (cambió su firma) y `LearningMetricsServiceTest
+  .contentToReviewIsEmptyWithoutEnoughAttempts` tira `ArrayIndexOutOfBoundsException`.
+- **Impacto:** `ci.yml` no puede pasar y ningún cambio con tests de integración se puede verificar.
+  Producción levanta igual (Postgres acepta la consulta).
+- **Falta:** arreglar la consulta (o el dialecto de H2) y actualizar los dos tests de métricas.
