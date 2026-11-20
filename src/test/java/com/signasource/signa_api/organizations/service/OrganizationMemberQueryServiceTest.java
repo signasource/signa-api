@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -34,15 +35,17 @@ import com.signasource.signa_api.organizations.repository.OrganizationMetricsRep
 import com.signasource.signa_api.organizations.repository.OrganizationRepository;
 import com.signasource.signa_api.organizations.repository.projection.TopicProgressCountView;
 import com.signasource.signa_api.organizations.repository.projection.UserAttemptStatsView;
-import com.signasource.signa_api.organizations.repository.projection.UserCompletedLessonsView;
 import com.signasource.signa_api.organizations.repository.projection.UserCountView;
 import com.signasource.signa_api.organizations.repository.projection.UserTopicView;
-import com.signasource.signa_api.organizations.repository.projection.VersionCountView;
 import com.signasource.signa_api.organizations.service.OrganizationContentScope.ContentScope;
+import com.signasource.signa_api.organizations.service.OrganizationContentScope.CourseScope;
 import com.signasource.signa_api.users.entity.User;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -97,12 +100,9 @@ class OrganizationMemberQueryServiceTest {
 
         course = Course.builder().id(UUID.randomUUID()).name("LSA para Salud").build();
         version = CourseVersion.builder().id(UUID.randomUUID()).course(course).build();
-        scope =
-                new ContentScope(
-                        List.of(version),
-                        Map.of(version.getId(), 10L),
-                        Map.of(UUID.randomUUID(), 10L),
-                        10);
+        lessonsByVersion.put(version.getId(), 10L);
+        lessonsByTopic.put(UUID.randomUUID(), 10L);
+        scope = scopeOf(version);
 
         anaMember =
                 OrganizationMember.builder()
@@ -151,11 +151,26 @@ class OrganizationMemberQueryServiceTest {
         return user;
     }
 
-    private UserCompletedLessonsView completedLessons(UUID userId, long lessons) {
-        UserCompletedLessonsView view = mock(UserCompletedLessonsView.class);
-        lenient().when(view.getUserId()).thenReturn(userId);
-        lenient().when(view.getCompletedLessons()).thenReturn(lessons);
-        return view;
+    private final Map<UUID, Long> lessonsByVersion = new HashMap<>();
+    private final Map<UUID, Long> lessonsByTopic = new HashMap<>();
+    private final Map<UUID, Map<UUID, Long>> completedLessons = new HashMap<>();
+
+    /** A scope over those versions, one per course; nobody enrolled, so all use them. */
+    private ContentScope scopeOf(CourseVersion... versions) {
+        List<CourseScope> courses = new ArrayList<>();
+        Map<UUID, CourseVersion> byId = new LinkedHashMap<>();
+        for (CourseVersion v : versions) {
+            courses.add(new CourseScope(v.getCourse(), v));
+            byId.put(v.getId(), v);
+        }
+        return new ContentScope(
+                courses, byId, lessonsByVersion, lessonsByTopic, new HashMap<>(), completedLessons);
+    }
+
+    private void complete(UUID userId, long lessons) {
+        completedLessons
+                .computeIfAbsent(userId, k -> new HashMap<>())
+                .put(version.getId(), lessons);
     }
 
     @Test
@@ -164,7 +179,7 @@ class OrganizationMemberQueryServiceTest {
         when(organizationRepository.existsById(organizationId)).thenReturn(true);
         when(memberRepository.search(eq(organizationId), eq(MemberRole.MEMBER), any(), eq("%ana%")))
                 .thenReturn(List.of(anaMember));
-        when(contentScope.resolve(organizationId, null)).thenReturn(scope);
+        when(contentScope.resolve(eq(organizationId), isNull(), any(), any())).thenReturn(scope);
         UserAttemptStatsView anaStats = attemptStats(ana.getId(), lastActivity, 0, 0);
         when(metricsRepository.findAttemptStatsByUser(
                         eq(organizationId),
@@ -173,10 +188,7 @@ class OrganizationMemberQueryServiceTest {
                         any(),
                         any()))
                 .thenReturn(List.of(anaStats));
-        UserCompletedLessonsView anaLessons = completedLessons(ana.getId(), 4);
-        when(metricsRepository.findCompletedLessonCountsByUser(
-                        eq(List.of(ana.getId())), eq(scope.versionIds()), any()))
-                .thenReturn(List.of(anaLessons));
+        complete(ana.getId(), 4);
         UserTopicProgress greetings = inProgress(ana, "Greetings");
         when(metricsRepository.findInProgressTopics(
                         eq(List.of(ana.getId())), eq(scope.versionIds()), any()))
@@ -218,18 +230,16 @@ class OrganizationMemberQueryServiceTest {
         List<UUID> ids = List.of(ana.getId(), bruno.getId(), carla.getId());
         when(organizationRepository.existsById(organizationId)).thenReturn(true);
         when(memberRepository.search(any(), any(), any(), any())).thenReturn(members);
-        when(contentScope.resolve(organizationId, course.getId())).thenReturn(scope);
+        when(contentScope.resolve(eq(organizationId), eq(course.getId()), any(), any()))
+                .thenReturn(scope);
         UserAttemptStatsView anaStats = attemptStats(ana.getId(), Instant.now(), 0, 0);
         UserAttemptStatsView carlaStats =
                 attemptStats(carla.getId(), Instant.now().minus(30, ChronoUnit.DAYS), 0, 0);
         when(metricsRepository.findAttemptStatsByUser(
                         eq(organizationId), eq(ids), eq(scope.courseIds()), any(), any()))
                 .thenReturn(List.of(anaStats, carlaStats));
-        UserCompletedLessonsView anaLessons = completedLessons(ana.getId(), 4);
-        UserCompletedLessonsView carlaLessons = completedLessons(carla.getId(), 10);
-        when(metricsRepository.findCompletedLessonCountsByUser(
-                        eq(ids), eq(scope.versionIds()), any()))
-                .thenReturn(List.of(anaLessons, carlaLessons));
+        complete(ana.getId(), 4);
+        complete(carla.getId(), 10);
         when(metricsRepository.findInProgressTopics(eq(ids), eq(scope.versionIds()), any()))
                 .thenReturn(List.of());
 
@@ -299,7 +309,7 @@ class OrganizationMemberQueryServiceTest {
         when(done.getTopicId()).thenReturn(first.getId());
         when(organizationRepository.existsById(organizationId)).thenReturn(true);
         when(memberRepository.search(any(), any(), any(), any())).thenReturn(List.of(anaMember));
-        when(contentScope.resolve(organizationId, null)).thenReturn(scope);
+        when(contentScope.resolve(eq(organizationId), isNull(), any(), any())).thenReturn(scope);
         when(metricsRepository.findInProgressTopics(
                         eq(List.of(ana.getId())), eq(scope.versionIds()), any()))
                 .thenReturn(List.of());
@@ -335,7 +345,7 @@ class OrganizationMemberQueryServiceTest {
         when(organizationRepository.existsById(organizationId)).thenReturn(true);
         when(memberRepository.search(any(), any(), any(), any()))
                 .thenReturn(List.of(brunoMember, anaMember));
-        when(contentScope.resolve(organizationId, null)).thenReturn(scope);
+        when(contentScope.resolve(eq(organizationId), isNull(), any(), any())).thenReturn(scope);
 
         Page<OrganizationMemberSummaryResponse> byName =
                 queryService.getMembers(
@@ -386,7 +396,7 @@ class OrganizationMemberQueryServiceTest {
     void shouldReturnAnEmptyPageWhenOffsetIsPastTheEnd() {
         when(organizationRepository.existsById(organizationId)).thenReturn(true);
         when(memberRepository.search(any(), any(), any(), any())).thenReturn(List.of(anaMember));
-        when(contentScope.resolve(organizationId, null)).thenReturn(scope);
+        when(contentScope.resolve(eq(organizationId), isNull(), any(), any())).thenReturn(scope);
 
         Page<OrganizationMemberSummaryResponse> page =
                 queryService.getMembers(
@@ -458,8 +468,8 @@ class OrganizationMemberQueryServiceTest {
     void shouldListMembersWithZeroProgressWhenNoCourseIsContracted() {
         when(organizationRepository.existsById(organizationId)).thenReturn(true);
         when(memberRepository.search(any(), any(), any(), any())).thenReturn(List.of(anaMember));
-        when(contentScope.resolve(organizationId, null))
-                .thenReturn(new ContentScope(List.of(), Map.of(), Map.of(), 0));
+        when(contentScope.resolve(eq(organizationId), isNull(), any(), any()))
+                .thenReturn(ContentScope.empty());
         when(metricsRepository.findAttemptStatsByUser(
                         eq(organizationId), any(), any(), any(), any()))
                 .thenReturn(List.of());
@@ -533,9 +543,7 @@ class OrganizationMemberQueryServiceTest {
     @Test
     void shouldBuildTheIndividualProgress() {
         Instant lastActivity = Instant.parse("2026-09-20T10:00:00Z");
-        VersionCountView completedInVersion = mock(VersionCountView.class);
-        when(completedInVersion.getVersionId()).thenReturn(version.getId());
-        when(completedInVersion.getTotal()).thenReturn(5L);
+        complete(ana.getId(), 5);
         TopicProgressCountView doneModules = mock(TopicProgressCountView.class);
         when(doneModules.getCompleted()).thenReturn(2L);
         UserCountView minutes = mock(UserCountView.class);
@@ -547,14 +555,11 @@ class OrganizationMemberQueryServiceTest {
         List<UUID> ids = List.of(ana.getId());
         when(memberRepository.findByOrganizationIdAndUserId(organizationId, ana.getId()))
                 .thenReturn(Optional.of(anaMember));
-        when(contentScope.resolve(organizationId)).thenReturn(scope);
+        when(contentScope.resolve(eq(organizationId), any(), any())).thenReturn(scope);
         UserAttemptStatsView anaStatsWithAttempts = attemptStats(ana.getId(), lastActivity, 8, 6);
         when(metricsRepository.findAttemptStatsByUser(
                         eq(organizationId), eq(ids), eq(scope.courseIds()), any(), any()))
                 .thenReturn(List.of(anaStatsWithAttempts));
-        when(metricsRepository.findCompletedLessonCountsByVersion(
-                        eq(ana.getId()), eq(scope.versionIds()), any()))
-                .thenReturn(List.of(completedInVersion));
         when(metricsRepository.findTopicProgressCounts(eq(ids), eq(scope.versionIds()), any()))
                 .thenReturn(List.of(doneModules));
         when(userLearnedSignRepository.countByUserIdAndCourseVersionIdAndLearnedAtBefore(
@@ -593,13 +598,51 @@ class OrganizationMemberQueryServiceTest {
         assertEquals(50, result.courses().get(0).progressPercentage());
     }
 
+    /** Finished v1, later enrolled in a newly published v2: one row, 100 %, not 3 of 6. */
+    @Test
+    void shouldShowOneRowPerCourseMeasuredAgainstTheMembersOwnVersion() {
+        CourseVersion published =
+                CourseVersion.builder().id(UUID.randomUUID()).course(course).build();
+        lessonsByVersion.put(version.getId(), 3L);
+        lessonsByVersion.put(published.getId(), 3L);
+        complete(ana.getId(), 3);
+        ContentScope twoVersions =
+                new ContentScope(
+                        List.of(new CourseScope(course, published)),
+                        Map.of(version.getId(), version, published.getId(), published),
+                        lessonsByVersion,
+                        lessonsByTopic,
+                        Map.of(ana.getId(), Map.of(course.getId(), version.getId())),
+                        completedLessons);
+        when(memberRepository.findByOrganizationIdAndUserId(organizationId, ana.getId()))
+                .thenReturn(Optional.of(anaMember));
+        when(contentScope.resolve(eq(organizationId), any(), any())).thenReturn(twoVersions);
+        when(userStatsRepository.findByUserId(ana.getId())).thenReturn(Optional.empty());
+
+        MemberProgressResponse result =
+                queryService.getMemberProgress(
+                        actor, organizationId, ana.getId(), MetricsPeriod.ALL_TIME);
+
+        assertEquals(100, result.progressPercentage());
+        assertEquals(3, result.completedLessons());
+        assertEquals(3, result.totalLessons());
+        assertEquals(1, result.courses().size());
+        assertEquals(course.getId(), result.courses().get(0).courseId());
+        assertEquals(3, result.courses().get(0).completedLessons());
+        assertEquals(3, result.courses().get(0).totalLessons());
+        assertEquals(100, result.courses().get(0).progressPercentage());
+        verify(userLearnedSignRepository)
+                .countByUserIdAndCourseVersionIdAndLearnedAtBefore(
+                        eq(ana.getId()), eq(version.getId()), any());
+    }
+
     @Test
     void shouldReturnZeroedProgressForAMemberWithNoActivityAndNoContractedCourses() {
         List<UUID> ids = List.of(ana.getId());
         when(memberRepository.findByOrganizationIdAndUserId(organizationId, ana.getId()))
                 .thenReturn(Optional.of(anaMember));
-        when(contentScope.resolve(organizationId))
-                .thenReturn(new ContentScope(List.of(), Map.of(), Map.of(), 0));
+        when(contentScope.resolve(eq(organizationId), any(), any()))
+                .thenReturn(ContentScope.empty());
         when(metricsRepository.findAttemptStatsByUser(
                         eq(organizationId), eq(ids), any(), any(), any()))
                 .thenReturn(List.of());
@@ -663,7 +706,7 @@ class OrganizationMemberQueryServiceTest {
         List<UUID> ids = List.of(ana.getId(), bruno.getId());
         when(organizationRepository.existsById(organizationId)).thenReturn(true);
         when(memberRepository.search(any(), any(), any(), any())).thenReturn(members);
-        when(contentScope.resolve(organizationId, null)).thenReturn(scope);
+        when(contentScope.resolve(eq(organizationId), isNull(), any(), any())).thenReturn(scope);
         UserAttemptStatsView anaStats =
                 attemptStats(ana.getId(), period.start().plus(1, ChronoUnit.DAYS), 0, 0);
         UserAttemptStatsView brunoStats =
@@ -671,9 +714,6 @@ class OrganizationMemberQueryServiceTest {
         when(metricsRepository.findAttemptStatsByUser(
                         organizationId, ids, scope.courseIds(), period.start(), period.end()))
                 .thenReturn(List.of(anaStats, brunoStats));
-        when(metricsRepository.findCompletedLessonCountsByUser(
-                        ids, scope.versionIds(), period.end()))
-                .thenReturn(List.of());
         when(metricsRepository.findInProgressTopics(ids, scope.versionIds(), period.end()))
                 .thenReturn(List.of());
 
@@ -702,7 +742,7 @@ class OrganizationMemberQueryServiceTest {
         List<UUID> ids = List.of(ana.getId());
         when(memberRepository.findByOrganizationIdAndUserId(organizationId, ana.getId()))
                 .thenReturn(Optional.of(anaMember));
-        when(contentScope.resolve(organizationId)).thenReturn(scope);
+        when(contentScope.resolve(eq(organizationId), any(), any())).thenReturn(scope);
         when(userStatsRepository.findByUserId(ana.getId())).thenReturn(Optional.empty());
 
         queryService.getMemberProgress(actor, organizationId, ana.getId(), period);
@@ -710,8 +750,7 @@ class OrganizationMemberQueryServiceTest {
         verify(metricsRepository)
                 .findAttemptStatsByUser(
                         organizationId, ids, scope.courseIds(), period.start(), period.end());
-        verify(metricsRepository)
-                .findCompletedLessonCountsByVersion(ana.getId(), scope.versionIds(), period.end());
+        verify(contentScope).resolve(organizationId, ids, period.end());
         verify(metricsRepository).findLearningMinutesByUser(ids, from, to);
         verify(metricsRepository).findActiveDaysByUser(ids, from, to);
         verify(userLearnedSignRepository)

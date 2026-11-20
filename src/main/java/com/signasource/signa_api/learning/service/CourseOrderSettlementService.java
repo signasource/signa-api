@@ -40,6 +40,7 @@ public class CourseOrderSettlementService {
     private final CourseOrderRepository orderRepository;
     private final UserCourseEnrollmentRepository enrollmentRepository;
     private final CourseVersionRepository courseVersionRepository;
+    private final CourseEnrollmentResolver enrollmentResolver;
 
     /** Applies what Mercado Pago says about the payment of an order. Returns the order, if any. */
     @Transactional
@@ -122,14 +123,13 @@ public class CourseOrderSettlementService {
         }
         Course course = order.getCourse();
         if (!course.isFree()) {
-            courseVersionRepository
-                    .findByCourseIdAndStatus(course.getId(), VersionStatus.PUBLISHED)
-                    .flatMap(
-                            version ->
-                                    enrollmentRepository.findByUserIdAndCourseVersionId(
-                                            order.getUser().getId(), version.getId()))
+            // In whatever version the purchase is being taken, not only the published one.
+            enrollmentRepository
+                    .findByUserIdAndCourseVersionCourseId(order.getUser().getId(), course.getId())
+                    .stream()
                     .filter(enrollment -> enrollment.getOrganization() == null)
-                    .ifPresent(
+                    .filter(enrollment -> enrollment.getStatus() != EnrollmentStatus.DROPPED)
+                    .forEach(
                             enrollment -> {
                                 enrollment.setStatus(EnrollmentStatus.DROPPED);
                                 enrollmentRepository.save(enrollment);
@@ -142,24 +142,15 @@ public class CourseOrderSettlementService {
     }
 
     private void grantPermanentAccess(User user, Course course) {
-        CourseVersion version =
-                courseVersionRepository
-                        .findByCourseIdAndStatus(course.getId(), VersionStatus.PUBLISHED)
-                        .orElseThrow(
-                                () ->
-                                        new IllegalStateException(
-                                                "Course "
-                                                        + course.getId()
-                                                        + " has no published version to grant"));
-
+        // Whoever already takes the course (in any version) keeps that enrollment and progress.
         UserCourseEnrollment enrollment =
-                enrollmentRepository
-                        .findByUserIdAndCourseVersionId(user.getId(), version.getId())
+                enrollmentResolver
+                        .forCourse(user.getId(), course.getId(), Instant.now())
                         .orElseGet(
                                 () ->
                                         UserCourseEnrollment.builder()
                                                 .user(user)
-                                                .courseVersion(version)
+                                                .courseVersion(publishedVersion(course))
                                                 .status(EnrollmentStatus.ENROLLED)
                                                 .build());
         if (enrollment.getStatus() == EnrollmentStatus.DROPPED) {
@@ -169,5 +160,16 @@ public class CourseOrderSettlementService {
         enrollment.setOrganization(null);
         enrollment.setAccessExpiresAt(null);
         enrollmentRepository.save(enrollment);
+    }
+
+    private CourseVersion publishedVersion(Course course) {
+        return courseVersionRepository
+                .findByCourseIdAndStatus(course.getId(), VersionStatus.PUBLISHED)
+                .orElseThrow(
+                        () ->
+                                new IllegalStateException(
+                                        "Course "
+                                                + course.getId()
+                                                + " has no published version to grant"));
     }
 }

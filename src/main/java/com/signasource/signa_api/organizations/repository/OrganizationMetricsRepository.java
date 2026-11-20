@@ -10,10 +10,10 @@ import com.signasource.signa_api.organizations.repository.projection.DailyMinute
 import com.signasource.signa_api.organizations.repository.projection.TopicAttemptStatsView;
 import com.signasource.signa_api.organizations.repository.projection.TopicProgressCountView;
 import com.signasource.signa_api.organizations.repository.projection.UserAttemptStatsView;
-import com.signasource.signa_api.organizations.repository.projection.UserCompletedLessonsView;
 import com.signasource.signa_api.organizations.repository.projection.UserCountView;
+import com.signasource.signa_api.organizations.repository.projection.UserTopicStateView;
 import com.signasource.signa_api.organizations.repository.projection.UserTopicView;
-import com.signasource.signa_api.organizations.repository.projection.VersionCountView;
+import com.signasource.signa_api.organizations.repository.projection.UserVersionCountView;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Collection;
@@ -104,29 +104,18 @@ public interface OrganizationMetricsRepository extends Repository<LessonBlockAtt
             @Param("since") Instant since,
             @Param("until") Instant until);
 
+    /** Lessons completed as of {@code until}, per user and course version. */
     @Query(
-            "SELECT p.user.id AS userId, COUNT(p.id) AS completedLessons "
+            "SELECT p.user.id AS userId, p.lesson.topic.courseVersion.id AS versionId, "
+                    + "COUNT(p.id) AS total "
                     + "FROM UserLessonProgress p "
                     + "WHERE p.user.id IN :userIds "
                     + "AND p.status = com.signasource.signa_api.learning.entity.ProgressStatus.COMPLETED "
                     + "AND (p.completedAt IS NULL OR p.completedAt < :until) "
                     + "AND p.lesson.topic.courseVersion.id IN :versionIds "
-                    + "GROUP BY p.user.id")
-    List<UserCompletedLessonsView> findCompletedLessonCountsByUser(
+                    + "GROUP BY p.user.id, p.lesson.topic.courseVersion.id")
+    List<UserVersionCountView> findCompletedLessonCountsByUserAndVersion(
             @Param("userIds") Collection<UUID> userIds,
-            @Param("versionIds") Collection<UUID> versionIds,
-            @Param("until") Instant until);
-
-    @Query(
-            "SELECT p.lesson.topic.courseVersion.id AS versionId, COUNT(p.id) AS total "
-                    + "FROM UserLessonProgress p "
-                    + "WHERE p.user.id = :userId "
-                    + "AND p.status = com.signasource.signa_api.learning.entity.ProgressStatus.COMPLETED "
-                    + "AND (p.completedAt IS NULL OR p.completedAt < :until) "
-                    + "AND p.lesson.topic.courseVersion.id IN :versionIds "
-                    + "GROUP BY p.lesson.topic.courseVersion.id")
-    List<VersionCountView> findCompletedLessonCountsByVersion(
-            @Param("userId") UUID userId,
             @Param("versionIds") Collection<UUID> versionIds,
             @Param("until") Instant until);
 
@@ -150,6 +139,24 @@ public interface OrganizationMetricsRepository extends Repository<LessonBlockAtt
                     + "AND (tp.startedAt IS NULL OR tp.startedAt < :until) "
                     + "GROUP BY tp.topic.id")
     List<TopicProgressCountView> findTopicProgressCounts(
+            @Param("userIds") Collection<UUID> userIds,
+            @Param("versionIds") Collection<UUID> versionIds,
+            @Param("until") Instant until);
+
+    /**
+     * Per user and topic as of {@code until}: completed (1) or on it (0). Same rules as {@link
+     * #findTopicProgressCounts}, unaggregated so the caller can keep each user's own version.
+     */
+    @Query(
+            "SELECT tp.user.id AS userId, tp.topic.id AS topicId, "
+                    + "CASE WHEN tp.status = com.signasource.signa_api.learning.entity.ProgressStatus.COMPLETED "
+                    + "AND (tp.completedAt IS NULL OR tp.completedAt < :until) "
+                    + "THEN 1L ELSE 0L END AS completed "
+                    + "FROM UserTopicProgress tp "
+                    + "WHERE tp.user.id IN :userIds AND tp.topic.courseVersion.id IN :versionIds "
+                    + "AND tp.status <> com.signasource.signa_api.learning.entity.ProgressStatus.LOCKED "
+                    + "AND (tp.startedAt IS NULL OR tp.startedAt < :until)")
+    List<UserTopicStateView> findTopicStates(
             @Param("userIds") Collection<UUID> userIds,
             @Param("versionIds") Collection<UUID> versionIds,
             @Param("until") Instant until);

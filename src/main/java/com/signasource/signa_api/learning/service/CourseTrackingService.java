@@ -74,18 +74,21 @@ public class CourseTrackingService {
     private final AchievementService achievementService;
     private final MetricsService metricsService;
     private final ChallengeService challengeService;
+    private final CourseEnrollmentResolver enrollmentResolver;
 
     @Transactional
     public UserCourseEnrollment enrollUserInCourse(User user, UUID courseVersionId) {
-        if (enrollmentRepository.existsByUserIdAndCourseVersionId(user.getId(), courseVersionId)) {
-            throw new ResourceAlreadyInUseException(
-                    "User is already enrolled in this course's version");
-        }
-
         CourseVersion courseVersion =
                 courseVersionRepository
                         .findById(courseVersionId)
                         .orElseThrow(() -> new NotFoundException("Course version not found"));
+        // One enrollment per course: whoever already takes it keeps their version and progress.
+        if (!enrollmentRepository
+                .findByUserIdAndCourseVersionCourseId(
+                        user.getId(), courseVersion.getCourse().getId())
+                .isEmpty()) {
+            throw new ResourceAlreadyInUseException("User is already enrolled in this course");
+        }
         // Paid courses are only reachable through an organization's invite code.
         if (!courseVersion.getCourse().isFree()) {
             throw new ForbiddenException("This course requires an invitation");
@@ -107,8 +110,8 @@ public class CourseTrackingService {
 
     /**
      * Idempotently enrolls the user in the published version of a free course, so the learner
-     * doesn't need to know the version id. A no-op if they already have an enrollment for it.
-     * Doesn't touch the current course: the caller already picked it.
+     * doesn't need to know the version id. A no-op if they already have an enrollment in any
+     * version of it. Doesn't touch the current course: the caller already picked it.
      */
     @Transactional
     public void joinFreeCourse(User user, UUID courseId) {
@@ -120,7 +123,10 @@ public class CourseTrackingService {
         if (!version.getCourse().isFree()) {
             throw new ForbiddenException("This course requires an invitation");
         }
-        if (enrollmentRepository.existsByUserIdAndCourseVersionId(user.getId(), version.getId())) {
+        // Someone already taking an older version stays on it: no second enrollment.
+        if (!enrollmentRepository
+                .findByUserIdAndCourseVersionCourseId(user.getId(), courseId)
+                .isEmpty()) {
             return;
         }
 
@@ -141,7 +147,10 @@ public class CourseTrackingService {
         UUID currentCourseId =
                 user.getCurrentCourse() == null ? null : user.getCurrentCourse().getId();
 
-        return activeEnrollments(user).stream()
+        return enrollmentResolver
+                .perCourse(user.getId(), activeEnrollments(user), Instant.now())
+                .values()
+                .stream()
                 .map(
                         enrollment ->
                                 EnrollmentSummaryResponse.from(
@@ -180,9 +189,20 @@ public class CourseTrackingService {
     public List<CourseProgressResponse> getUserCourseProgress(User user) {
         Instant now = Instant.now();
         List<UserCourseEnrollment> enrollments =
-                enrollmentRepository.findWithCourseByUserId(user.getId()).stream()
-                        .filter(e -> e.getStatus() != EnrollmentStatus.DROPPED)
-                        .toList();
+                List.copyOf(
+                        enrollmentResolver
+                                .perCourse(
+                                        user.getId(),
+                                        enrollmentRepository
+                                                .findWithCourseByUserId(user.getId())
+                                                .stream()
+                                                .filter(
+                                                        e ->
+                                                                e.getStatus()
+                                                                        != EnrollmentStatus.DROPPED)
+                                                .toList(),
+                                        now)
+                                .values());
         if (enrollments.isEmpty()) {
             return List.of();
         }
@@ -232,6 +252,7 @@ public class CourseTrackingService {
                             user.getId(), versionId);
             result.add(
                     new CourseProgressResponse(
+                            enrollment.getCourseVersion().getCourse().getId(),
                             enrollment.getCourseVersion().getCourse().getName(),
                             enrollment.getStatus(),
                             (int) counts[0],

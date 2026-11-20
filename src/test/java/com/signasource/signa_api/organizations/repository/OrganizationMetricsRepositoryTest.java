@@ -16,6 +16,7 @@ import com.signasource.signa_api.learning.entity.LessonBlockAttempt;
 import com.signasource.signa_api.learning.entity.ProgressStatus;
 import com.signasource.signa_api.learning.entity.SignLanguage;
 import com.signasource.signa_api.learning.entity.Topic;
+import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import com.signasource.signa_api.learning.entity.UserLessonProgress;
 import com.signasource.signa_api.learning.entity.UserTopicProgress;
 import com.signasource.signa_api.learning.entity.VersionStatus;
@@ -26,6 +27,7 @@ import com.signasource.signa_api.learning.repository.LessonBlockRepository;
 import com.signasource.signa_api.learning.repository.LessonRepository;
 import com.signasource.signa_api.learning.repository.SignLanguageRepository;
 import com.signasource.signa_api.learning.repository.TopicRepository;
+import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
 import com.signasource.signa_api.learning.repository.UserLessonProgressRepository;
 import com.signasource.signa_api.learning.repository.UserTopicProgressRepository;
 import com.signasource.signa_api.organizations.entity.MemberRole;
@@ -39,10 +41,10 @@ import com.signasource.signa_api.organizations.repository.projection.DailyMinute
 import com.signasource.signa_api.organizations.repository.projection.TopicAttemptStatsView;
 import com.signasource.signa_api.organizations.repository.projection.TopicProgressCountView;
 import com.signasource.signa_api.organizations.repository.projection.UserAttemptStatsView;
-import com.signasource.signa_api.organizations.repository.projection.UserCompletedLessonsView;
 import com.signasource.signa_api.organizations.repository.projection.UserCountView;
+import com.signasource.signa_api.organizations.repository.projection.UserTopicStateView;
 import com.signasource.signa_api.organizations.repository.projection.UserTopicView;
-import com.signasource.signa_api.organizations.repository.projection.VersionCountView;
+import com.signasource.signa_api.organizations.repository.projection.UserVersionCountView;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.entity.UserDailyActivity;
 import com.signasource.signa_api.users.repository.UserDailyActivityRepository;
@@ -52,6 +54,7 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -86,6 +89,7 @@ class OrganizationMetricsRepositoryTest {
     @Autowired private UserTopicProgressRepository topicProgressRepository;
     @Autowired private UserDailyActivityRepository dailyActivityRepository;
     @Autowired private UserStatsRepository userStatsRepository;
+    @Autowired private UserCourseEnrollmentRepository enrollmentRepository;
 
     /** Bounds that include everything the tests create. */
     private static final Instant BEGINNING = Instant.parse("2000-01-01T00:00:00Z");
@@ -301,12 +305,12 @@ class OrganizationMetricsRepositoryTest {
         List<UUID> users = List.of(ana.getId(), bruno.getId());
         List<UUID> versions = List.of(version.getId());
 
-        List<UserCompletedLessonsView> perUser =
-                metricsRepository.findCompletedLessonCountsByUser(
+        List<UserVersionCountView> perUser =
+                metricsRepository.findCompletedLessonCountsByUserAndVersion(
                         users, versions, Instant.now().plus(1, ChronoUnit.DAYS));
-        List<VersionCountView> perVersion =
-                metricsRepository.findCompletedLessonCountsByVersion(
-                        ana.getId(), versions, Instant.now().plus(1, ChronoUnit.DAYS));
+        List<UserTopicStateView> states =
+                metricsRepository.findTopicStates(
+                        users, versions, Instant.now().plus(1, ChronoUnit.DAYS));
         List<TopicProgressCountView> modules =
                 metricsRepository.findTopicProgressCounts(
                         users, versions, Instant.now().plus(1, ChronoUnit.DAYS));
@@ -316,9 +320,12 @@ class OrganizationMetricsRepositoryTest {
 
         assertEquals(1, perUser.size());
         assertEquals(ana.getId(), perUser.get(0).getUserId());
-        assertEquals(1, perUser.get(0).getCompletedLessons());
-        assertEquals(version.getId(), perVersion.get(0).getVersionId());
-        assertEquals(1, perVersion.get(0).getTotal());
+        assertEquals(version.getId(), perUser.get(0).getVersionId());
+        assertEquals(1, perUser.get(0).getTotal());
+        Map<UUID, UserTopicStateView> stateOf = byUser(states, UserTopicStateView::getUserId);
+        assertEquals(2, states.size());
+        assertEquals(1, stateOf.get(ana.getId()).getCompleted());
+        assertEquals(0, stateOf.get(bruno.getId()).getCompleted());
         assertEquals(1, modules.size());
         assertEquals(1, modules.get(0).getCompleted());
         assertEquals(1, modules.get(0).getInProgress());
@@ -559,6 +566,10 @@ class OrganizationMetricsRepositoryTest {
                 metricsRepository.findInProgressTopics(users, versions, asOf);
         List<UserTopicView> completedThen =
                 metricsRepository.findCompletedTopics(users, versions, asOf);
+        Map<UUID, UserTopicStateView> statesThen =
+                byUser(
+                        metricsRepository.findTopicStates(users, versions, asOf),
+                        UserTopicStateView::getUserId);
 
         assertEquals(1, then.size());
         assertEquals(0, then.get(0).getCompleted());
@@ -566,12 +577,98 @@ class OrganizationMetricsRepositoryTest {
         assertEquals(1, inProgressThen.size());
         assertEquals(ana.getId(), inProgressThen.get(0).getUser().getId());
         assertTrue(completedThen.isEmpty());
+        assertEquals(Set.of(ana.getId()), statesThen.keySet());
+        assertEquals(0, statesThen.get(ana.getId()).getCompleted());
         assertEquals(
                 1,
                 metricsRepository.countTopicsCompletedBetween(
                         users, versions, asOf, Instant.now()));
         assertEquals(
                 0, metricsRepository.countTopicsCompletedBetween(users, versions, BEGINNING, asOf));
+    }
+
+    @Test
+    void shouldCountCompletedLessonsPerUserAndVersion() {
+        CourseVersion second =
+                courseVersionRepository.save(
+                        CourseVersion.builder()
+                                .version("2.0.0")
+                                .status(VersionStatus.DRAFT)
+                                .course(course)
+                                .name("Metrics course")
+                                .isFree(true)
+                                .build());
+        Topic secondTopic =
+                topicRepository.save(
+                        Topic.builder()
+                                .code("t1-v2")
+                                .title("Greetings")
+                                .order(1)
+                                .courseVersion(second)
+                                .build());
+        Lesson secondLesson =
+                lessonRepository.save(
+                        Lesson.builder()
+                                .code("l1-v2")
+                                .name("Hello")
+                                .order(1)
+                                .topic(secondTopic)
+                                .build());
+        lessonProgressRepository.save(
+                UserLessonProgress.builder()
+                        .user(ana)
+                        .lesson(lesson)
+                        .status(ProgressStatus.COMPLETED)
+                        .build());
+        lessonProgressRepository.save(
+                UserLessonProgress.builder()
+                        .user(ana)
+                        .lesson(secondLesson)
+                        .status(ProgressStatus.IN_PROGRESS)
+                        .build());
+
+        List<UserVersionCountView> rows =
+                metricsRepository.findCompletedLessonCountsByUserAndVersion(
+                        List.of(ana.getId(), bruno.getId()),
+                        List.of(version.getId(), second.getId()),
+                        Instant.now().plus(1, ChronoUnit.DAYS));
+
+        assertEquals(1, rows.size());
+        assertEquals(ana.getId(), rows.get(0).getUserId());
+        assertEquals(version.getId(), rows.get(0).getVersionId());
+        assertEquals(1, rows.get(0).getTotal());
+    }
+
+    @Test
+    void shouldLoadEveryEnrollmentOfTheUsersInTheCourses() {
+        CourseVersion second =
+                courseVersionRepository.save(
+                        CourseVersion.builder()
+                                .version("2.0.0")
+                                .status(VersionStatus.DRAFT)
+                                .course(course)
+                                .name("Metrics course")
+                                .isFree(true)
+                                .build());
+        enrollmentRepository.save(
+                UserCourseEnrollment.builder().user(ana).courseVersion(version).build());
+        enrollmentRepository.save(
+                UserCourseEnrollment.builder().user(ana).courseVersion(second).build());
+        enrollmentRepository.save(
+                UserCourseEnrollment.builder().user(bruno).courseVersion(version).build());
+
+        List<UserCourseEnrollment> anas =
+                enrollmentRepository.findWithCourseByUserIdInAndCourseIdIn(
+                        List.of(ana.getId()), List.of(course.getId()));
+        List<UserCourseEnrollment> otherCourse =
+                enrollmentRepository.findWithCourseByUserIdInAndCourseIdIn(
+                        List.of(ana.getId(), bruno.getId()), List.of(UUID.randomUUID()));
+
+        assertEquals(
+                Set.of(version.getId(), second.getId()),
+                anas.stream().map(e -> e.getCourseVersion().getId()).collect(Collectors.toSet()));
+        assertEquals(course.getId(), anas.get(0).getCourseVersion().getCourse().getId());
+        assertTrue(otherCourse.isEmpty());
     }
 
     @Test
@@ -586,7 +683,7 @@ class OrganizationMetricsRepositoryTest {
 
         assertTrue(
                 metricsRepository
-                        .findCompletedLessonCountsByUser(
+                        .findCompletedLessonCountsByUserAndVersion(
                                 List.of(ana.getId()),
                                 List.of(version.getId()),
                                 Instant.now().minus(2, ChronoUnit.DAYS))
@@ -594,7 +691,7 @@ class OrganizationMetricsRepositoryTest {
         assertEquals(
                 1,
                 metricsRepository
-                        .findCompletedLessonCountsByUser(
+                        .findCompletedLessonCountsByUserAndVersion(
                                 List.of(ana.getId()), List.of(version.getId()), Instant.now())
                         .size());
     }

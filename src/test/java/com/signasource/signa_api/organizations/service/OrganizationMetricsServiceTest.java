@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -33,17 +34,20 @@ import com.signasource.signa_api.organizations.repository.projection.AttemptView
 import com.signasource.signa_api.organizations.repository.projection.DailyAttemptStatsView;
 import com.signasource.signa_api.organizations.repository.projection.DailyMinutesView;
 import com.signasource.signa_api.organizations.repository.projection.TopicAttemptStatsView;
-import com.signasource.signa_api.organizations.repository.projection.TopicProgressCountView;
 import com.signasource.signa_api.organizations.repository.projection.UserAttemptStatsView;
-import com.signasource.signa_api.organizations.repository.projection.UserCompletedLessonsView;
 import com.signasource.signa_api.organizations.repository.projection.UserCountView;
+import com.signasource.signa_api.organizations.repository.projection.UserTopicStateView;
 import com.signasource.signa_api.organizations.service.OrganizationContentScope.ContentScope;
+import com.signasource.signa_api.organizations.service.OrganizationContentScope.CourseScope;
 import com.signasource.signa_api.users.entity.User;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -75,6 +79,7 @@ class OrganizationMetricsServiceTest {
     private User ana;
     private User bruno;
     private UUID organizationId;
+    private Course course;
     private CourseVersion version;
     private ContentScope scope;
     private Topic topic;
@@ -87,7 +92,7 @@ class OrganizationMetricsServiceTest {
         ana = userWithId();
         bruno = userWithId();
 
-        Course course = Course.builder().id(UUID.randomUUID()).name("LSA para Salud").build();
+        course = Course.builder().id(UUID.randomUUID()).name("LSA para Salud").build();
         version = CourseVersion.builder().id(UUID.randomUUID()).course(course).build();
         topic =
                 Topic.builder()
@@ -96,12 +101,9 @@ class OrganizationMetricsServiceTest {
                         .order(1)
                         .courseVersion(version)
                         .build();
-        scope =
-                new ContentScope(
-                        List.of(version),
-                        Map.of(version.getId(), 10L),
-                        Map.of(topic.getId(), 10L),
-                        10);
+        lessonsByVersion.put(version.getId(), 10L);
+        lessonsByTopic.put(topic.getId(), 10L);
+        scope = scopeOf(version);
     }
 
     private static User userWithId() {
@@ -140,17 +142,33 @@ class OrganizationMetricsServiceTest {
         return view;
     }
 
-    private UserCompletedLessonsView completed(long lessons) {
-        UserCompletedLessonsView view = mock(UserCompletedLessonsView.class);
-        lenient().when(view.getCompletedLessons()).thenReturn(lessons);
-        return view;
+    private final Map<UUID, Long> lessonsByVersion = new HashMap<>();
+    private final Map<UUID, Long> lessonsByTopic = new HashMap<>();
+    private final Map<UUID, Map<UUID, Long>> completedLessons = new HashMap<>();
+
+    /** A scope over those versions, one per course; nobody enrolled, so all use them. */
+    private ContentScope scopeOf(CourseVersion... versions) {
+        List<CourseScope> courses = new ArrayList<>();
+        Map<UUID, CourseVersion> byId = new LinkedHashMap<>();
+        for (CourseVersion v : versions) {
+            courses.add(new CourseScope(v.getCourse(), v));
+            byId.put(v.getId(), v);
+        }
+        return new ContentScope(
+                courses, byId, lessonsByVersion, lessonsByTopic, new HashMap<>(), completedLessons);
     }
 
-    private TopicProgressCountView progressCount(UUID topicId, long completed, long inProgress) {
-        TopicProgressCountView view = mock(TopicProgressCountView.class);
+    private void complete(UUID userId, long lessons) {
+        completedLessons
+                .computeIfAbsent(userId, k -> new HashMap<>())
+                .put(version.getId(), lessons);
+    }
+
+    private UserTopicStateView topicState(User user, UUID topicId, boolean completed) {
+        UserTopicStateView view = mock(UserTopicStateView.class);
+        lenient().when(view.getUserId()).thenReturn(user.getId());
         lenient().when(view.getTopicId()).thenReturn(topicId);
-        lenient().when(view.getCompleted()).thenReturn(completed);
-        lenient().when(view.getInProgress()).thenReturn(inProgress);
+        lenient().when(view.getCompleted()).thenReturn(completed ? 1L : 0L);
         return view;
     }
 
@@ -188,7 +206,7 @@ class OrganizationMetricsServiceTest {
         when(recognition.getEvaluated()).thenReturn(4L);
         when(recognition.getCorrect()).thenReturn(1L);
 
-        when(contentScope.resolve(organizationId, null)).thenReturn(scope);
+        when(contentScope.resolve(eq(organizationId), isNull(), any(), any())).thenReturn(scope);
         UserAttemptStatsView recentStats =
                 attemptStats(Instant.now().minus(1, ChronoUnit.DAYS), 6, 5);
         UserAttemptStatsView staleStats =
@@ -207,11 +225,8 @@ class OrganizationMetricsServiceTest {
                         eq(ids), eq(organizationId), any(), any()))
                 .thenReturn(List.of(sixtyMinutes, thirtyMinutes));
         when(metricsRepository.countCameraExercises(eq(scope.versionIds()))).thenReturn(2L);
-        UserCompletedLessonsView allDone = completed(10);
-        UserCompletedLessonsView halfDone = completed(5);
-        when(metricsRepository.findCompletedLessonCountsByUser(
-                        eq(ids), eq(scope.versionIds()), any()))
-                .thenReturn(List.of(allDone, halfDone));
+        complete(ana.getId(), 10);
+        complete(bruno.getId(), 5);
         when(metricsRepository.findLessonCompletionsBetween(
                         eq(ids), eq(scope.versionIds()), any(), any()))
                 .thenReturn(List.of(Instant.now(), Instant.now(), Instant.now(), Instant.now()));
@@ -260,6 +275,39 @@ class OrganizationMetricsServiceTest {
         assertTrue(weeks.get(0).weekStart().isBefore(last.weekStart()));
     }
 
+    /** Ana finished the archived v1 (3 lessons); Bruno has 1 of the published v2's 5. */
+    @Test
+    void shouldAverageEachParticipantAgainstTheirOwnVersion() {
+        stubParticipants(ana, bruno);
+        CourseVersion published =
+                CourseVersion.builder().id(UUID.randomUUID()).course(course).build();
+        lessonsByVersion.put(version.getId(), 3L);
+        lessonsByVersion.put(published.getId(), 5L);
+        complete(ana.getId(), 3);
+        completedLessons.put(bruno.getId(), Map.of(published.getId(), 1L));
+        ContentScope twoVersions =
+                new ContentScope(
+                        List.of(new CourseScope(course, published)),
+                        Map.of(version.getId(), version, published.getId(), published),
+                        lessonsByVersion,
+                        lessonsByTopic,
+                        Map.of(ana.getId(), Map.of(course.getId(), version.getId())),
+                        completedLessons);
+        when(contentScope.resolve(eq(organizationId), isNull(), any(), any()))
+                .thenReturn(twoVersions);
+        AttemptTotalsView none = mock(AttemptTotalsView.class);
+        when(metricsRepository.findAttemptTotalsByBlockTypes(
+                        eq(organizationId), any(), any(), any(), any(), any()))
+                .thenReturn(none);
+
+        OrganizationOverviewResponse result =
+                metricsService.getOverview(actor, organizationId, null, MetricsPeriod.ALL_TIME);
+
+        assertEquals(60, result.progress().averageProgressPercentage());
+        assertEquals(1, result.progress().participantsCompletedAll());
+        assertEquals(4, result.progress().pendingLessons());
+    }
+
     @Test
     void shouldReportZeroProgressWhenNoCourseIsContracted() {
         stubParticipants(ana);
@@ -268,8 +316,8 @@ class OrganizationMetricsServiceTest {
         when(none.getEvaluated()).thenReturn(0L);
         when(none.getCorrect()).thenReturn(0L);
 
-        when(contentScope.resolve(organizationId, null))
-                .thenReturn(new ContentScope(List.of(), Map.of(), Map.of(), 0));
+        when(contentScope.resolve(eq(organizationId), isNull(), any(), any()))
+                .thenReturn(ContentScope.empty());
         when(metricsRepository.findAttemptStatsByUser(
                         eq(organizationId), eq(ids), any(), any(), any()))
                 .thenReturn(List.of());
@@ -316,10 +364,11 @@ class OrganizationMetricsServiceTest {
         when(attempts.getEvaluated()).thenReturn(20L);
         when(attempts.getCorrect()).thenReturn(15L);
 
-        when(contentScope.resolve(organizationId, null)).thenReturn(scope);
-        TopicProgressCountView topicProgress = progressCount(topic.getId(), 1, 1);
-        when(metricsRepository.findTopicProgressCounts(eq(ids), eq(scope.versionIds()), any()))
-                .thenReturn(List.of(topicProgress));
+        when(contentScope.resolve(eq(organizationId), isNull(), any(), any())).thenReturn(scope);
+        UserTopicStateView anaDone = topicState(ana, topic.getId(), true);
+        UserTopicStateView brunoOnIt = topicState(bruno, topic.getId(), false);
+        when(metricsRepository.findTopicStates(eq(ids), eq(scope.versionIds()), any()))
+                .thenReturn(List.of(anaDone, brunoOnIt));
         when(metricsRepository.findAttemptStatsByTopic(
                         eq(organizationId), eq(ids), eq(scope.courseIds()), any(), any()))
                 .thenReturn(List.of(attempts));
@@ -342,6 +391,65 @@ class OrganizationMetricsServiceTest {
         assertEquals(75, module.correctPercentage());
     }
 
+    /** Ana on the archived v1, Bruno on the published v2: one row per module, each on their own. */
+    @Test
+    void shouldMergeEveryVersionOfAModuleIntoOneRow() {
+        stubParticipants(ana, bruno);
+        List<UUID> ids = List.of(ana.getId(), bruno.getId());
+        CourseVersion published =
+                CourseVersion.builder().id(UUID.randomUUID()).course(course).build();
+        Topic publishedTopic =
+                Topic.builder()
+                        .id(UUID.randomUUID())
+                        .title("Saludos")
+                        .order(1)
+                        .courseVersion(published)
+                        .build();
+        lessonsByTopic.put(publishedTopic.getId(), 4L);
+        ContentScope twoVersions =
+                new ContentScope(
+                        List.of(new CourseScope(course, published)),
+                        Map.of(version.getId(), version, published.getId(), published),
+                        lessonsByVersion,
+                        lessonsByTopic,
+                        Map.of(ana.getId(), Map.of(course.getId(), version.getId())),
+                        completedLessons);
+        when(contentScope.resolve(eq(organizationId), isNull(), any(), any()))
+                .thenReturn(twoVersions);
+        when(topicRepository.findByCourseVersionIdInOrderByCourseVersionIdAscOrderAsc(
+                        twoVersions.versionIds()))
+                .thenReturn(List.of(topic, publishedTopic));
+        UserTopicStateView anaDoneOnV1 = topicState(ana, topic.getId(), true);
+        UserTopicStateView anaStrayOnV2 = topicState(ana, publishedTopic.getId(), false);
+        UserTopicStateView brunoOnV2 = topicState(bruno, publishedTopic.getId(), false);
+        when(metricsRepository.findTopicStates(eq(ids), eq(twoVersions.versionIds()), any()))
+                .thenReturn(List.of(anaDoneOnV1, anaStrayOnV2, brunoOnV2));
+        TopicAttemptStatsView v1Attempts = mock(TopicAttemptStatsView.class);
+        when(v1Attempts.getTopicId()).thenReturn(topic.getId());
+        when(v1Attempts.getEvaluated()).thenReturn(6L);
+        when(v1Attempts.getCorrect()).thenReturn(6L);
+        TopicAttemptStatsView v2Attempts = mock(TopicAttemptStatsView.class);
+        when(v2Attempts.getTopicId()).thenReturn(publishedTopic.getId());
+        when(v2Attempts.getEvaluated()).thenReturn(4L);
+        when(v2Attempts.getCorrect()).thenReturn(2L);
+        when(metricsRepository.findAttemptStatsByTopic(
+                        eq(organizationId), eq(ids), any(), any(), any()))
+                .thenReturn(List.of(v1Attempts, v2Attempts));
+
+        List<ModuleStatsResponse> result =
+                metricsService.getModuleStats(actor, organizationId, null, MetricsPeriod.ALL_TIME);
+
+        assertEquals(1, result.size());
+        ModuleStatsResponse module = result.get(0);
+        assertEquals("Saludos", module.title());
+        assertEquals(4, module.totalLessons());
+        assertEquals(1, module.participantsCompleted());
+        assertEquals(1, module.participantsInProgress());
+        assertEquals(50, module.completionPercentage());
+        assertEquals(10, module.exerciseAttempts());
+        assertEquals(80, module.correctPercentage());
+    }
+
     @Test
     void shouldListModulesInTheOrderTheCoursesWereContracted() {
         stubParticipants();
@@ -362,9 +470,9 @@ class OrganizationMetricsServiceTest {
                         .order(2)
                         .courseVersion(version)
                         .build();
-        ContentScope twoCourses =
-                new ContentScope(List.of(secondVersion, version), Map.of(), Map.of(), 0);
-        when(contentScope.resolve(organizationId, null)).thenReturn(twoCourses);
+        ContentScope twoCourses = scopeOf(secondVersion, version);
+        when(contentScope.resolve(eq(organizationId), isNull(), any(), any()))
+                .thenReturn(twoCourses);
         when(topicRepository.findByCourseVersionIdInOrderByCourseVersionIdAscOrderAsc(
                         twoCourses.versionIds()))
                 .thenReturn(List.of(laterTopic, topic, secondTopic));
@@ -380,7 +488,7 @@ class OrganizationMetricsServiceTest {
     @Test
     void shouldListModulesWithZeroesWhenThereAreNoParticipants() {
         stubParticipants();
-        when(contentScope.resolve(organizationId, null)).thenReturn(scope);
+        when(contentScope.resolve(eq(organizationId), isNull(), any(), any())).thenReturn(scope);
         when(topicRepository.findByCourseVersionIdInOrderByCourseVersionIdAscOrderAsc(
                         scope.versionIds()))
                 .thenReturn(List.of(topic));
@@ -398,8 +506,8 @@ class OrganizationMetricsServiceTest {
     @Test
     void shouldReturnNoModulesWhenNoCourseIsContracted() {
         stubParticipants(ana);
-        when(contentScope.resolve(organizationId, null))
-                .thenReturn(new ContentScope(List.of(), Map.of(), Map.of(), 0));
+        when(contentScope.resolve(eq(organizationId), isNull(), any(), any()))
+                .thenReturn(ContentScope.empty());
 
         assertTrue(
                 metricsService
@@ -444,7 +552,9 @@ class OrganizationMetricsServiceTest {
         // 23:30 in Argentina is already the next day in UTC: it must count on Monday.
         Instant mondayNight = monday.atTime(23, 30).atZone(argentina).toInstant();
         Instant tuesdayMorning = monday.plusDays(1).atTime(9, 0).atZone(argentina).toInstant();
-        when(contentScope.resolve(organizationId, version.getCourse().getId())).thenReturn(scope);
+        when(contentScope.resolve(
+                        eq(organizationId), eq(version.getCourse().getId()), any(), any()))
+                .thenReturn(scope);
         List<AttemptView> attempts =
                 List.of(
                         attempt(ana, mondayNight, true),
@@ -495,7 +605,7 @@ class OrganizationMetricsServiceTest {
     @Test
     void shouldReturnEmptyDaysWhenThereAreNoParticipants() {
         stubParticipants();
-        when(contentScope.resolve(organizationId, null)).thenReturn(scope);
+        when(contentScope.resolve(eq(organizationId), isNull(), any(), any())).thenReturn(scope);
         LocalDate day = LocalDate.of(2026, 10, 1);
 
         OrganizationActivityResponse result =
@@ -522,7 +632,7 @@ class OrganizationMetricsServiceTest {
     @Test
     void shouldChartTheWholeHistoryFromTheDayTheOrganizationWasCreated() {
         stubParticipants();
-        when(contentScope.resolve(organizationId, null)).thenReturn(scope);
+        when(contentScope.resolve(eq(organizationId), isNull(), any(), any())).thenReturn(scope);
 
         OrganizationActivityResponse result =
                 metricsService.getActivity(actor, organizationId, null, MetricsPeriod.ALL_TIME);
@@ -548,7 +658,7 @@ class OrganizationMetricsServiceTest {
                 OrganizationMember.builder().user(bruno).build(),
                 joinedLater);
         List<UUID> ids = List.of(ana.getId(), bruno.getId());
-        when(contentScope.resolve(organizationId, null)).thenReturn(scope);
+        when(contentScope.resolve(eq(organizationId), isNull(), any(), any())).thenReturn(scope);
         UserAttemptStatsView inPeriod = attemptStats(period.start().plus(2, ChronoUnit.DAYS), 6, 3);
         UserAttemptStatsView beforePeriod =
                 attemptStats(period.start().minus(1, ChronoUnit.DAYS), 0, 0);
@@ -557,14 +667,11 @@ class OrganizationMetricsServiceTest {
                 .thenReturn(List.of(inPeriod, beforePeriod));
         UserCountView fourDays = count(4);
         UserCountView fiftyMinutes = count(50);
-        UserCompletedLessonsView fourLessons = completed(4);
+        complete(ana.getId(), 4);
         when(metricsRepository.findActiveDaysByUser(ids, from, to)).thenReturn(List.of(fourDays));
         when(metricsRepository.findLearningMinutesByUserScopedToOrg(
                         eq(ids), eq(organizationId), eq(from), eq(to)))
                 .thenReturn(List.of(fiftyMinutes));
-        when(metricsRepository.findCompletedLessonCountsByUser(
-                        ids, scope.versionIds(), period.end()))
-                .thenReturn(List.of(fourLessons));
         AttemptTotalsView none = mock(AttemptTotalsView.class);
         when(metricsRepository.findAttemptTotalsByBlockTypes(
                         eq(organizationId),
@@ -597,14 +704,14 @@ class OrganizationMetricsServiceTest {
                 MetricsPeriod.of(LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30));
         stubParticipants(ana);
         List<UUID> ids = List.of(ana.getId());
-        when(contentScope.resolve(organizationId, null)).thenReturn(scope);
+        when(contentScope.resolve(eq(organizationId), isNull(), any(), any())).thenReturn(scope);
         when(topicRepository.findByCourseVersionIdInOrderByCourseVersionIdAscOrderAsc(
                         scope.versionIds()))
                 .thenReturn(List.of(topic));
 
         metricsService.getModuleStats(actor, organizationId, null, period);
 
-        verify(metricsRepository).findTopicProgressCounts(ids, scope.versionIds(), period.end());
+        verify(metricsRepository).findTopicStates(ids, scope.versionIds(), period.end());
         verify(metricsRepository)
                 .findAttemptStatsByTopic(
                         organizationId, ids, scope.courseIds(), period.start(), period.end());

@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -16,7 +18,10 @@ import com.signasource.signa_api.learning.entity.EnrollmentStatus;
 import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import com.signasource.signa_api.learning.entity.VersionStatus;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
+import com.signasource.signa_api.learning.repository.TopicRepository;
 import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
+import com.signasource.signa_api.learning.repository.UserLessonProgressRepository;
+import com.signasource.signa_api.learning.service.CourseEnrollmentResolver;
 import com.signasource.signa_api.organizations.entity.Organization;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.repository.UserRepository;
@@ -32,6 +37,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class OrganizationEnrollmentServiceTest {
@@ -49,6 +55,13 @@ class OrganizationEnrollmentServiceTest {
 
     @BeforeEach
     void setUp() {
+        ReflectionTestUtils.setField(
+                enrollmentService,
+                "enrollmentResolver",
+                new CourseEnrollmentResolver(
+                        enrollmentRepository,
+                        mock(UserLessonProgressRepository.class),
+                        mock(TopicRepository.class)));
         organization = Organization.builder().id(UUID.randomUUID()).name("Hospital").build();
         course = Course.builder().id(UUID.randomUUID()).name("LSA para Salud").build();
         version = CourseVersion.builder().id(UUID.randomUUID()).course(course).build();
@@ -57,16 +70,19 @@ class OrganizationEnrollmentServiceTest {
     }
 
     private void stubContractedCourse() {
-        when(courseVersionRepository.findByCourseIdAndStatus(
-                        course.getId(), VersionStatus.PUBLISHED))
+        lenient()
+                .when(
+                        courseVersionRepository.findByCourseIdAndStatus(
+                                course.getId(), VersionStatus.PUBLISHED))
                 .thenReturn(Optional.of(version));
     }
 
     @Test
     void shouldCreateTaggedEnrollmentsForEveryContractedCourse() {
         stubContractedCourse();
-        when(enrollmentRepository.findByUserIdAndCourseVersionId(user.getId(), version.getId()))
-                .thenReturn(Optional.empty());
+        when(enrollmentRepository.findByUserIdAndCourseVersionCourseId(
+                        user.getId(), course.getId()))
+                .thenReturn(List.of());
         Instant expiry = Instant.now().plusSeconds(3600);
 
         enrollmentService.grantCourse(user, organization, course, expiry);
@@ -91,8 +107,9 @@ class OrganizationEnrollmentServiceTest {
                         .courseVersion(version)
                         .status(EnrollmentStatus.COMPLETED)
                         .build();
-        when(enrollmentRepository.findByUserIdAndCourseVersionId(user.getId(), version.getId()))
-                .thenReturn(Optional.of(existing));
+        when(enrollmentRepository.findByUserIdAndCourseVersionCourseId(
+                        user.getId(), course.getId()))
+                .thenReturn(List.of(existing));
 
         enrollmentService.grantCourse(user, organization, course, null);
 
@@ -111,13 +128,40 @@ class OrganizationEnrollmentServiceTest {
                         .status(EnrollmentStatus.DROPPED)
                         .organization(organization)
                         .build();
-        when(enrollmentRepository.findByUserIdAndCourseVersionId(user.getId(), version.getId()))
-                .thenReturn(Optional.of(dropped));
+        when(enrollmentRepository.findByUserIdAndCourseVersionCourseId(
+                        user.getId(), course.getId()))
+                .thenReturn(List.of(dropped));
 
         enrollmentService.grantCourse(user, organization, course, null);
 
         assertEquals(EnrollmentStatus.ENROLLED, dropped.getStatus());
         assertNull(dropped.getAccessExpiresAt());
+    }
+
+    /** Taking v1 when v2 is published: a new seat extends v1, it doesn't open a v2 enrollment. */
+    @Test
+    void shouldKeepAnEnrollmentInAnOlderVersionWhenGrantingAgain() {
+        stubContractedCourse();
+        CourseVersion archived =
+                CourseVersion.builder().id(UUID.randomUUID()).course(course).build();
+        UserCourseEnrollment onV1 =
+                UserCourseEnrollment.builder()
+                        .user(user)
+                        .courseVersion(archived)
+                        .status(EnrollmentStatus.COMPLETED)
+                        .build();
+        when(enrollmentRepository.findByUserIdAndCourseVersionCourseId(
+                        user.getId(), course.getId()))
+                .thenReturn(List.of(onV1));
+        Instant expiry = Instant.now().plusSeconds(3600);
+
+        enrollmentService.grantCourse(user, organization, course, expiry);
+
+        verify(enrollmentRepository).save(onV1);
+        assertEquals(archived, onV1.getCourseVersion());
+        assertEquals(EnrollmentStatus.COMPLETED, onV1.getStatus());
+        assertEquals(organization, onV1.getOrganization());
+        assertEquals(expiry, onV1.getAccessExpiresAt());
     }
 
     @Test
@@ -205,8 +249,9 @@ class OrganizationEnrollmentServiceTest {
     void shouldNotPutAnExpiryOnAFreeCourse() {
         course.setFree(true);
         stubContractedCourse();
-        when(enrollmentRepository.findByUserIdAndCourseVersionId(user.getId(), version.getId()))
-                .thenReturn(Optional.empty());
+        when(enrollmentRepository.findByUserIdAndCourseVersionCourseId(
+                        user.getId(), course.getId()))
+                .thenReturn(List.of());
 
         enrollmentService.grantCourse(
                 user, organization, course, Instant.now().plus(30, ChronoUnit.DAYS));
