@@ -69,7 +69,7 @@ class GrowthMetricsControllerTest {
                             BigDecimal.ZERO,
                             0,
                             List.of()),
-                    new GrowthMetricsResponse.EndUsersSection(0, 0, null),
+                    new GrowthMetricsResponse.EndUsersSection(0, 0, null, 0, 0),
                     new GrowthMetricsResponse.SeatsSection(0, 0, 0, null),
                     List.of(),
                     new GrowthMetricsResponse.OrganizationsSection(
