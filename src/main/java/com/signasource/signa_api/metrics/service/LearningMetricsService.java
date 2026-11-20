@@ -67,15 +67,22 @@ public class LearningMetricsService {
 
     @Transactional(readOnly = true)
     public LearningMetricsResponse getLearningMetrics(MetricsRange range) {
-        return getLearningMetrics(range, List.of());
+        return getLearningMetrics(range, List.of(), List.of());
     }
 
     @Transactional(readOnly = true)
     public LearningMetricsResponse getLearningMetrics(
             MetricsRange range, Collection<UUID> courseIds) {
+        return getLearningMetrics(range, courseIds, List.of());
+    }
+
+    @Transactional(readOnly = true)
+    public LearningMetricsResponse getLearningMetrics(
+            MetricsRange range, Collection<UUID> courseIds, Collection<String> courseVersions) {
         Instant from = range.start();
         Instant until = range.end();
         boolean filtered = !courseIds.isEmpty();
+        boolean versionFiltered = !courseVersions.isEmpty();
         // Immediately preceding equal-length window for "vs. período anterior"; absent (null) for
         // the
         // whole history, which has no comparable prior span.
@@ -83,13 +90,17 @@ public class LearningMetricsService {
 
         List<Object[]> exerciseRows =
                 filtered
-                        ? repository.exerciseStatsByCourse(from, until, courseIds)
+                        ? (versionFiltered
+                                ? repository.exerciseStatsByCourse(from, until, courseIds, courseVersions)
+                                : repository.exerciseStatsByCourse(from, until, courseIds))
                         : repository.exerciseStats(from, until);
         List<Object[]> previousExerciseRows =
                 previousFrom == null
                         ? null
                         : (filtered
-                                ? repository.exerciseStatsByCourse(previousFrom, from, courseIds)
+                                ? (versionFiltered
+                                        ? repository.exerciseStatsByCourse(previousFrom, from, courseIds, courseVersions)
+                                        : repository.exerciseStatsByCourse(previousFrom, from, courseIds))
                                 : repository.exerciseStats(previousFrom, from));
 
         List<Object[]> pendingReports = repository.pendingReportsBySign();
@@ -97,20 +108,20 @@ public class LearningMetricsService {
         return new LearningMetricsResponse(
                 courses(until),
                 toCountItems(repository.enrollmentsByStatus(until)),
-                hardestLessons(from, until, filtered, courseIds),
+                hardestLessons(from, until, filtered, courseIds, versionFiltered, courseVersions),
                 repository.countLearnedSignsBetween(from, until),
                 toDailyCounts(repository.dailyLearnedSigns(from, until)),
                 reports(pendingReports),
                 toCountItems(repository.importsByStatus(from, until)),
-                lessonFlow(from, until, previousFrom, filtered, courseIds),
+                lessonFlow(from, until, previousFrom, filtered, courseIds, versionFiltered, courseVersions),
                 exerciseFlow(exerciseRows, previousExerciseRows),
                 onboardingFunnel(until),
-                lessonRanking(until, filtered, courseIds),
+                lessonRanking(until, filtered, courseIds, versionFiltered, courseVersions),
                 highestErrorExercises(exerciseRows),
                 mostRetriedExercises(exerciseRows),
-                dailyAccuracy(from, until, filtered, courseIds),
+                dailyAccuracy(from, until, filtered, courseIds, versionFiltered, courseVersions),
                 hardestSigns(exerciseRows),
-                lessonsToReview(from, until, filtered, courseIds, pendingReports));
+                lessonsToReview(from, until, filtered, courseIds, versionFiltered, courseVersions, pendingReports));
     }
 
     /**
@@ -124,11 +135,16 @@ public class LearningMetricsService {
             Instant until,
             boolean filtered,
             Collection<UUID> courseIds,
+            boolean versionFiltered,
+            Collection<String> courseVersions,
             List<Object[]> pendingReports) {
         List<Object[]> accuracyRows =
                 filtered
-                        ? repository.lessonAccuracyByCourse(
-                                from, until, REVIEW_MIN_ATTEMPTS, courseIds)
+                        ? (versionFiltered
+                                ? repository.lessonAccuracyByCourse(
+                                        from, until, REVIEW_MIN_ATTEMPTS, courseIds, courseVersions)
+                                : repository.lessonAccuracyByCourse(
+                                        from, until, REVIEW_MIN_ATTEMPTS, courseIds))
                         : repository.lessonAccuracy(from, until, REVIEW_MIN_ATTEMPTS);
         Map<String, long[]> accuracy = new HashMap<>();
         for (Object[] row : accuracyRows) {
@@ -140,7 +156,9 @@ public class LearningMetricsService {
 
         List<Object[]> progressRows =
                 filtered
-                        ? repository.lessonReviewStatsByCourse(until, courseIds)
+                        ? (versionFiltered
+                                ? repository.lessonReviewStatsByCourse(until, courseIds, courseVersions)
+                                : repository.lessonReviewStatsByCourse(until, courseIds))
                         : repository.lessonReviewStats(until);
         List<Object[]> candidates = new ArrayList<>();
         for (Object[] row : progressRows) {
@@ -249,17 +267,19 @@ public class LearningMetricsService {
             Instant until,
             Instant previousFrom,
             boolean filtered,
-            Collection<UUID> courseIds) {
-        long started = countLessonsStarted(from, until, filtered, courseIds);
-        long completed = countLessonsCompleted(from, until, filtered, courseIds);
+            Collection<UUID> courseIds,
+            boolean versionFiltered,
+            Collection<String> courseVersions) {
+        long started = countLessonsStarted(from, until, filtered, courseIds, versionFiltered, courseVersions);
+        long completed = countLessonsCompleted(from, until, filtered, courseIds, versionFiltered, courseVersions);
         Long previousStarted =
                 previousFrom == null
                         ? null
-                        : countLessonsStarted(previousFrom, from, filtered, courseIds);
+                        : countLessonsStarted(previousFrom, from, filtered, courseIds, versionFiltered, courseVersions);
         Long previousCompleted =
                 previousFrom == null
                         ? null
-                        : countLessonsCompleted(previousFrom, from, filtered, courseIds);
+                        : countLessonsCompleted(previousFrom, from, filtered, courseIds, versionFiltered, courseVersions);
         return new LessonFlow(
                 started,
                 completed,
@@ -269,16 +289,30 @@ public class LearningMetricsService {
     }
 
     private long countLessonsStarted(
-            Instant from, Instant until, boolean filtered, Collection<UUID> courseIds) {
+            Instant from,
+            Instant until,
+            boolean filtered,
+            Collection<UUID> courseIds,
+            boolean versionFiltered,
+            Collection<String> courseVersions) {
         return filtered
-                ? repository.countLessonsStartedByCourse(from, until, courseIds)
+                ? (versionFiltered
+                        ? repository.countLessonsStartedByCourse(from, until, courseIds, courseVersions)
+                        : repository.countLessonsStartedByCourse(from, until, courseIds))
                 : repository.countLessonsStartedBetween(from, until);
     }
 
     private long countLessonsCompleted(
-            Instant from, Instant until, boolean filtered, Collection<UUID> courseIds) {
+            Instant from,
+            Instant until,
+            boolean filtered,
+            Collection<UUID> courseIds,
+            boolean versionFiltered,
+            Collection<String> courseVersions) {
         return filtered
-                ? repository.countLessonsCompletedByCourse(from, until, courseIds)
+                ? (versionFiltered
+                        ? repository.countLessonsCompletedByCourse(from, until, courseIds, courseVersions)
+                        : repository.countLessonsCompletedByCourse(from, until, courseIds))
                 : repository.countLessonsCompletedBetween(from, until);
     }
 
@@ -342,10 +376,16 @@ public class LearningMetricsService {
     }
 
     private List<LessonDropoff> lessonRanking(
-            Instant until, boolean filtered, Collection<UUID> courseIds) {
+            Instant until,
+            boolean filtered,
+            Collection<UUID> courseIds,
+            boolean versionFiltered,
+            Collection<String> courseVersions) {
         List<Object[]> rows =
                 filtered
-                        ? repository.lessonDropoffStatsByCourse(until, courseIds)
+                        ? (versionFiltered
+                                ? repository.lessonDropoffStatsByCourse(until, courseIds, courseVersions)
+                                : repository.lessonDropoffStatsByCourse(until, courseIds))
                         : repository.lessonDropoffStats(until);
         List<LessonDropoff> ranking = new ArrayList<>();
         for (Object[] row : rows) {
@@ -470,10 +510,17 @@ public class LearningMetricsService {
     }
 
     private List<DailyAccuracy> dailyAccuracy(
-            Instant from, Instant until, boolean filtered, Collection<UUID> courseIds) {
+            Instant from,
+            Instant until,
+            boolean filtered,
+            Collection<UUID> courseIds,
+            boolean versionFiltered,
+            Collection<String> courseVersions) {
         List<Object[]> rows =
                 filtered
-                        ? repository.dailyAccuracyByCourse(from, until, courseIds)
+                        ? (versionFiltered
+                                ? repository.dailyAccuracyByCourse(from, until, courseIds, courseVersions)
+                                : repository.dailyAccuracyByCourse(from, until, courseIds))
                         : repository.dailyAccuracy(from, until);
         List<DailyAccuracy> series = new ArrayList<>();
         for (Object[] row : rows) {
@@ -491,25 +538,30 @@ public class LearningMetricsService {
     private List<CourseStat> courses(Instant until) {
         Map<String, long[]> byCourse = new LinkedHashMap<>(); // [enrolled, completed, total]
         Map<String, String> names = new LinkedHashMap<>();
+        Map<String, String> versions = new LinkedHashMap<>();
         for (Object[] row : repository.enrollmentsByCourse(until)) {
             String courseId = String.valueOf(row[0]);
-            names.putIfAbsent(courseId, String.valueOf(row[1]));
-            long count = toLong(row[3]);
-            long[] slot = byCourse.computeIfAbsent(courseId, k -> new long[3]);
-            if (row[2] == EnrollmentStatus.ENROLLED) {
+            String courseVersion = String.valueOf(row[2]);
+            String key = courseId + "|" + courseVersion;
+            names.putIfAbsent(key, String.valueOf(row[1]));
+            versions.putIfAbsent(key, courseVersion);
+            long count = toLong(row[4]);
+            long[] slot = byCourse.computeIfAbsent(key, k -> new long[3]);
+            if (row[3] == EnrollmentStatus.ENROLLED) {
                 slot[0] += count;
-            } else if (row[2] == EnrollmentStatus.COMPLETED) {
+            } else if (row[3] == EnrollmentStatus.COMPLETED) {
                 slot[1] += count;
             }
             slot[2] += count;
         }
         List<CourseStat> stats = new ArrayList<>(byCourse.size());
         byCourse.forEach(
-                (courseId, slot) ->
+                (key, slot) ->
                         stats.add(
                                 new CourseStat(
-                                        courseId,
-                                        names.get(courseId),
+                                        key.split("\\|")[0],
+                                        names.get(key),
+                                        versions.get(key),
                                         slot[0],
                                         slot[1],
                                         slot[2],
@@ -519,11 +571,19 @@ public class LearningMetricsService {
     }
 
     private List<LessonAccuracy> hardestLessons(
-            Instant from, Instant until, boolean filtered, Collection<UUID> courseIds) {
+            Instant from,
+            Instant until,
+            boolean filtered,
+            Collection<UUID> courseIds,
+            boolean versionFiltered,
+            Collection<String> courseVersions) {
         List<Object[]> rows =
                 filtered
-                        ? repository.lessonAccuracyByCourse(
-                                from, until, HARDEST_MIN_EVALUATED, courseIds)
+                        ? (versionFiltered
+                                ? repository.lessonAccuracyByCourse(
+                                        from, until, HARDEST_MIN_EVALUATED, courseIds, courseVersions)
+                                : repository.lessonAccuracyByCourse(
+                                        from, until, HARDEST_MIN_EVALUATED, courseIds))
                         : repository.lessonAccuracy(from, until, HARDEST_MIN_EVALUATED);
         List<LessonAccuracy> lessons = new ArrayList<>();
         for (Object[] row : rows) {
