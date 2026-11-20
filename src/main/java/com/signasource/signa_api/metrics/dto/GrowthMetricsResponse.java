@@ -112,7 +112,11 @@ public record GrowthMetricsResponse(
             Long previousPaidCount,
             BigDecimal previousRefundedAmount,
             List<DailyAmount> daily,
-            List<DailyAmount> dailyRefunded) {}
+            List<DailyAmount> dailyRefunded,
+            /** Revenue of purchases not refunded, attributed to the period they were paid in. */
+            BigDecimal netAmount,
+            long netCount,
+            List<DailyAmount> dailyNet) {}
 
     /**
      * Real-money gem-pack economy (end users, no organization): paid orders and gems granted, the
@@ -127,7 +131,11 @@ public record GrowthMetricsResponse(
             long refundedCount,
             BigDecimal previousPaidAmount,
             BigDecimal previousRefundedAmount,
-            List<DailyAmount> daily) {}
+            List<DailyAmount> daily,
+            /** Orders not refunded, attributed to the period they were paid in. */
+            BigDecimal netAmount,
+            long netPurchases,
+            List<DailyAmount> dailyNet) {}
 
     /**
      * Individual paid-course purchases (end users, no organization): how many courses were bought
@@ -140,7 +148,11 @@ public record GrowthMetricsResponse(
             long refundedCount,
             BigDecimal previousPaidAmount,
             BigDecimal previousRefundedAmount,
-            List<DailyAmount> daily) {}
+            List<DailyAmount> daily,
+            /** Orders not refunded, attributed to the period they were paid in. */
+            BigDecimal netAmount,
+            long netPurchases,
+            List<DailyAmount> dailyNet) {}
 
     /**
      * End users (no organization) who paid for anything (gem packs or individual paid courses) in
