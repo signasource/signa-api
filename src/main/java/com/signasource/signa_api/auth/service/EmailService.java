@@ -29,6 +29,7 @@ public class EmailService {
     private static final String ADMIN_INVITE_PATH = "/accept-invite";
     private static final String SEAT_INVITATION_PATH = "/invitacion";
     private static final String PURCHASE_PATH = "/dashboard/purchases/";
+    private static final String NEW_PURCHASE_PATH = "/dashboard/purchases/new";
     private static final DateTimeFormatter DEADLINE_FORMAT =
             DateTimeFormatter.ofPattern("d 'de' MMMM", Locale.forLanguageTag("es-AR"))
                     .withZone(ZoneId.of("America/Argentina/Buenos_Aires"));
@@ -120,6 +121,14 @@ public class EmailService {
                 buildOrganizationAdminInviteHtml(
                         organizationName,
                         String.format("%s%s?code=%s", panelUrl, ADMIN_INVITE_PATH, code)));
+    }
+
+    @Async
+    public void sendOrganizationApprovedEmail(String to, String organizationName) {
+        sendEmail(
+                to,
+                "Validamos tu organización en SIGNA",
+                buildOrganizationApprovedHtml(organizationName, panelUrl + NEW_PURCHASE_PATH));
     }
 
     @Async
@@ -331,6 +340,25 @@ public class EmailService {
 				</div>
 				"""
                 .formatted(items);
+    }
+
+    private String buildOrganizationApprovedHtml(String organizationName, String link) {
+        return """
+				<div style="font-family: Arial;">
+				    <h2>¡Hola!</h2>
+				    <p>Validamos <b>%s</b> en SIGNA. Ya podés comprar cupos para que tu equipo aprenda Lengua de Señas Argentina.</p>
+				    <p>Entrá al panel, elegí el curso y la cantidad de cupos:</p>
+				    <a href="%s" style="
+				        background-color:#4CAF50;
+				        color:white;
+				        padding:10px 20px;
+				        text-decoration:none;
+				        border-radius:5px;">
+				        Comprar cupos
+				    </a>
+				</div>
+				"""
+                .formatted(HtmlUtils.htmlEscape(organizationName), HtmlUtils.htmlEscape(link));
     }
 
     private String buildOrganizationAdminInviteHtml(String organizationName, String link) {
