@@ -120,9 +120,14 @@ public class UserService {
     /** Resolves each match against the caller. Users who blocked the caller are left out. */
     @Transactional(readOnly = true)
     public List<UserSearchResultResponse> searchUsers(User requester, String query, int limit) {
+        // "@handle" is how usernames are shown in the app, so it is accepted as a query too.
+        String normalized = query.trim().replaceFirst("^@", "").trim();
+        if (normalized.isEmpty()) {
+            return List.of();
+        }
         List<User> matches =
                 userRepository.searchByUsernameOrName(
-                        query.trim(), requester.getId(), PageRequest.of(0, limit));
+                        normalized, requester.getId(), PageRequest.of(0, limit));
 
         if (matches.isEmpty()) {
             return List.of();
@@ -137,14 +142,19 @@ public class UserService {
 
         return matches.stream()
                 .map(
-                        u ->
-                                new UserSearchResultResponse(
-                                        u.getId(),
-                                        u.getUsername(),
-                                        u.getName(),
-                                        relations.getOrDefault(u.getId(), RelationStatus.NONE),
-                                        countMutualFriends(u.getId(), myFriendIds),
-                                        AvatarLinks.of(u)))
+                        u -> {
+                            RelationStatus relation =
+                                    relations.getOrDefault(u.getId(), RelationStatus.NONE);
+                            return new UserSearchResultResponse(
+                                    u.getId(),
+                                    u.getUsername(),
+                                    u.getName(),
+                                    relation,
+                                    countMutualFriends(u.getId(), myFriendIds),
+                                    AvatarLinks.of(u),
+                                    u.getAccountVisibility() == AccountVisibility.PUBLIC
+                                            || relation == RelationStatus.FRIEND);
+                        })
                 .filter(r -> r.relation() != RelationStatus.BLOCKED_BY)
                 .toList();
     }

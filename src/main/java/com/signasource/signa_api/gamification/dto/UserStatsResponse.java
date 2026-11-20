@@ -7,7 +7,7 @@ import java.time.Instant;
 public record UserStatsResponse(
         long totalXp,
         int weeklyXp,
-        int weeklyRank,
+        Integer weeklyRank,
         int currentStreak,
         int longestStreak,
         int gems,
@@ -21,7 +21,8 @@ public record UserStatsResponse(
         Instant xpMultiplierExpiresAt,
         Instant unlimitedLivesExpiresAt) {
 
-    public static UserStatsResponse from(UserStats stats, int weeklyRank) {
+    /** {@code weeklyRank} is null for private accounts, which are not in the global ranking. */
+    public static UserStatsResponse from(UserStats stats, Integer weeklyRank) {
         return new UserStatsResponse(
                 stats.getTotalXp(),
                 stats.getWeeklyXp(),

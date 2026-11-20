@@ -234,6 +234,42 @@ class UserServiceTest {
         assertEquals(RelationStatus.BLOCKED, results.get(3).relation());
     }
 
+    /** A private stranger can get a request but not a profile visit; a private friend can. */
+    @Test
+    void searchUsers_MarksPrivateProfilesVisibleOnlyToFriends() {
+        User me = user("me", "Me");
+        User privateStranger = user("privstranger", "Private Stranger");
+        privateStranger.setAccountVisibility(AccountVisibility.PRIVATE);
+        User privateFriend = user("privfriend", "Private Friend");
+        privateFriend.setAccountVisibility(AccountVisibility.PRIVATE);
+        User publicStranger = user("pubstranger", "Public Stranger");
+
+        when(userRepository.searchByUsernameOrName(any(), eq(me.getId()), any(Pageable.class)))
+                .thenReturn(List.of(privateStranger, privateFriend, publicStranger));
+        when(friendshipRepository.findAllByUser(me))
+                .thenReturn(List.of(friendship(me, privateFriend, FriendshipStatus.ACCEPTED)));
+        when(friendshipRepository.countMutualFriends(any(), anyCollection())).thenReturn(0L);
+
+        List<UserSearchResultResponse> results = userService.searchUsers(me, "priv", 20);
+
+        assertFalse(results.get(0).profileVisible());
+        assertTrue(results.get(1).profileVisible());
+        assertTrue(results.get(2).profileVisible());
+    }
+
+    /** Usernames are shown as "@handle", so a query with the "@" must still match. */
+    @Test
+    void searchUsers_StripsALeadingAtSign() {
+        User me = user("me", "Me");
+        when(friendshipRepository.findAllByUser(me)).thenReturn(List.of());
+        when(userRepository.searchByUsernameOrName(
+                        eq("camisosa"), eq(me.getId()), any(Pageable.class)))
+                .thenReturn(List.of(user("camisosa", "Camila")));
+
+        assertEquals(1, userService.searchUsers(me, " @camisosa ", 20).size());
+        assertTrue(userService.searchUsers(me, "@ ", 20).isEmpty());
+    }
+
     /** Someone who blocked the caller must not surface in their search results. */
     @Test
     void searchUsers_HidesUsersWhoBlockedTheCaller() {

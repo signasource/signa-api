@@ -8,6 +8,7 @@ import com.signasource.signa_api.gamification.entity.UserDailyXp;
 import com.signasource.signa_api.gamification.entity.UserStats;
 import com.signasource.signa_api.gamification.repository.UserDailyXpRepository;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
+import com.signasource.signa_api.users.entity.AccountVisibility;
 import com.signasource.signa_api.users.entity.User;
 import java.time.DayOfWeek;
 import java.time.Instant;
@@ -45,9 +46,15 @@ public class UserStatsService {
             stats.setUpdatedAt(Instant.now());
             userStatsRepository.save(stats);
         }
-        long ahead =
-                userStatsRepository.countUsersAheadByWeeklyXp(stats.getWeeklyXp(), user.getId());
-        return UserStatsResponse.from(stats, (int) ahead + 1);
+        return UserStatsResponse.from(stats, globalRankOf(user, stats.getWeeklyXp()));
+    }
+
+    /** Position in the global weekly ranking; null for private accounts, which are not in it. */
+    public Integer globalRankOf(User user, int weeklyXp) {
+        if (user.getAccountVisibility() != AccountVisibility.PUBLIC) {
+            return null;
+        }
+        return (int) userStatsRepository.countUsersAheadByWeeklyXp(weeklyXp, user.getId()) + 1;
     }
 
     /** Pending streak notifications: today's new streak day and/or a shield used overnight. */

@@ -367,7 +367,8 @@ class UserControllerTest {
                         "Camila Sosa",
                         RelationStatus.NONE,
                         3L,
-                        null);
+                        null,
+                        true);
         when(userService.searchUsers(user, "cami", 20)).thenReturn(List.of(result));
 
         ResponseEntity<List<UserSearchResultResponse>> response =

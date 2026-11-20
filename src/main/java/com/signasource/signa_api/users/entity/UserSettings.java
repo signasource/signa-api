@@ -59,11 +59,6 @@ public class UserSettings {
     @Builder.Default
     private boolean vibrationEnabled = true;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    @Builder.Default
-    private AccountVisibility accountVisibility = AccountVisibility.PUBLIC;
-
     @Column(nullable = false)
     @Builder.Default
     private int dailyGoalMinutes = 15;

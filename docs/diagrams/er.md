@@ -35,7 +35,7 @@ erDiagram
         enum role
         boolean enabled
         boolean verified
-        enum accountVisibility
+        enum accountVisibility "PUBLIC/PRIVATE; única fuente (V36); ranking global, búsqueda y perfil público filtran por esta"
         set providers "AuthProvider; default LOCAL"
         instant createdAt "alta de la cuenta; métricas de crecimiento"
         uuid current_course_id FK "curso que el usuario eligió como actual; opcional"
@@ -48,7 +48,6 @@ erDiagram
         enum theme
         enum fontSize
         boolean vibrationEnabled
-        enum accountVisibility
         int dailyGoalMinutes
         boolean dailyNotificationEnabled
         time dailyNotificationTime

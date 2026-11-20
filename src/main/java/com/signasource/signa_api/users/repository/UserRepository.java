@@ -41,10 +41,20 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     boolean existsByUsername(String username);
 
-    /** Case-insensitive contains match. Exact username hits sort first. Only USER-role accounts. */
+    /**
+     * Case-insensitive contains match. Exact username hits sort first. Only USER-role accounts.
+     * Private accounts only match on their exact username (so a request can still be sent) or when
+     * they are already an accepted friend of {@code excludeId} (the searcher).
+     */
     @Query(
             "SELECT u FROM User u WHERE u.id <> :excludeId AND u.enabled = true "
                     + "AND u.role = com.signasource.signa_api.users.entity.Role.USER "
+                    + "AND (u.accountVisibility = com.signasource.signa_api.users.entity.AccountVisibility.PUBLIC "
+                    + "OR LOWER(u.username) = LOWER(:query) "
+                    + "OR EXISTS (SELECT f FROM Friendship f "
+                    + "WHERE f.status = com.signasource.signa_api.users.entity.FriendshipStatus.ACCEPTED "
+                    + "AND ((f.requester = u AND f.addressee.id = :excludeId) "
+                    + "OR (f.addressee = u AND f.requester.id = :excludeId)))) "
                     + "AND (LOWER(u.username) LIKE LOWER(CONCAT('%', :query, '%')) "
                     + "OR LOWER(u.name) LIKE LOWER(CONCAT('%', :query, '%'))) "
                     + "ORDER BY CASE WHEN LOWER(u.username) = LOWER(:query) THEN 0 ELSE 1 END, u.username ASC")
