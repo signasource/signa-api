@@ -47,7 +47,9 @@ public interface PurchaseSeatRepository extends JpaRepository<PurchaseSeat, UUID
     @Query(
             "SELECT s FROM PurchaseSeat s JOIN FETCH s.purchase p "
                     + "WHERE p.organization.id = :organizationId AND p.course.id = :courseId "
-                    + "AND s.email IN :emails AND s.status IN :statuses")
+                    + "AND s.email IN :emails AND s.status IN :statuses "
+                    + "AND p.status IN (com.signasource.signa_api.organizations.entity.PurchaseStatus.PENDING_PAYMENT, "
+                    + "com.signasource.signa_api.organizations.entity.PurchaseStatus.PAID)")
     List<PurchaseSeat> findCourseSeatsByEmails(
             @Param("organizationId") UUID organizationId,
             @Param("courseId") UUID courseId,
