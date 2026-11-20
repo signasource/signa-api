@@ -6,6 +6,7 @@ import com.signasource.signa_api.auth.dto.GoogleAuthRequest;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.service.AuthService;
 import com.signasource.signa_api.gamification.dto.DailyXpResponse;
+import com.signasource.signa_api.gamification.dto.ProfileMetricsResponse;
 import com.signasource.signa_api.gamification.dto.StreakDayResponse;
 import com.signasource.signa_api.gamification.dto.UserStatsResponse;
 import com.signasource.signa_api.gamification.service.UserStatsService;
@@ -24,6 +25,7 @@ import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.service.AvatarImage;
 import com.signasource.signa_api.users.service.PublicProfileService;
 import com.signasource.signa_api.users.service.UserActivityService;
+import com.signasource.signa_api.users.service.UserMetricsService;
 import com.signasource.signa_api.users.service.UserService;
 import com.signasource.signa_api.users.service.UserSettingsService;
 import jakarta.validation.Valid;
@@ -31,8 +33,10 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -61,6 +65,7 @@ public class UserController {
     private final UserService userService;
     private final UserStatsService userStatsService;
     private final UserActivityService userActivityService;
+    private final UserMetricsService userMetricsService;
 
     @PutMapping("/password")
     public ResponseEntity<AuthResponse> changePassword(
@@ -229,5 +234,13 @@ public class UserController {
     public ResponseEntity<List<DailyXpResponse>> getWeeklyXpBreakdown(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(userStatsService.getWeeklyXpBreakdown(userDetails.getUser()));
+    }
+
+    @GetMapping("/me/metrics")
+    public ResponseEntity<ProfileMetricsResponse> getMetrics(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return ResponseEntity.ok(userMetricsService.getMetrics(userDetails.getUser(), from, to));
     }
 }
