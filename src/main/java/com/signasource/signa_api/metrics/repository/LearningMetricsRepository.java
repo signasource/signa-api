@@ -23,9 +23,9 @@ public interface LearningMetricsRepository extends Repository<UserCourseEnrollme
      * status, long count]}.
      */
     @Query(
-            "SELECT e.courseVersion.course.id, e.courseVersion.course.name, e.courseVersion.versionNumber, e.status, COUNT(e) "
+            "SELECT e.courseVersion.course.id, e.courseVersion.course.name, e.courseVersion.version, e.status, COUNT(e) "
                     + "FROM UserCourseEnrollment e WHERE e.startedAt < :until "
-                    + "GROUP BY e.courseVersion.course.id, e.courseVersion.course.name, e.courseVersion.versionNumber, e.status")
+                    + "GROUP BY e.courseVersion.course.id, e.courseVersion.course.name, e.courseVersion.version, e.status")
     List<Object[]> enrollmentsByCourse(@Param("until") Instant until);
 
     /** Rows of {@code [EnrollmentStatus status, long count]} (the completion funnel). */
@@ -210,7 +210,7 @@ public interface LearningMetricsRepository extends Repository<UserCourseEnrollme
                     + "FROM LessonBlockAttempt a "
                     + "WHERE a.isCorrect IS NOT NULL AND a.attemptedAt >= :from AND a.attemptedAt < :until "
                     + "AND a.lessonBlock.lesson.topic.courseVersion.course.id IN :courseIds "
-                    + "AND a.lessonBlock.lesson.topic.courseVersion.versionNumber IN :courseVersions "
+                    + "AND a.lessonBlock.lesson.topic.courseVersion.version IN :courseVersions "
                     + "GROUP BY a.lessonBlock.id, a.lessonBlock.lesson.name, a.lessonBlock.type")
     List<Object[]> exerciseStatsByCourse(
             @Param("from") Instant from,
@@ -238,7 +238,7 @@ public interface LearningMetricsRepository extends Repository<UserCourseEnrollme
                     + "FROM LessonBlockAttempt a "
                     + "WHERE a.isCorrect IS NOT NULL AND a.attemptedAt >= :from AND a.attemptedAt < :until "
                     + "AND a.lessonBlock.lesson.topic.courseVersion.course.id IN :courseIds "
-                    + "AND a.lessonBlock.lesson.topic.courseVersion.versionNumber IN :courseVersions "
+                    + "AND a.lessonBlock.lesson.topic.courseVersion.version IN :courseVersions "
                     + "GROUP BY a.lessonBlock.lesson.id, a.lessonBlock.lesson.name "
                     + "HAVING COUNT(a) >= :minEvaluated")
     List<Object[]> lessonAccuracyByCourse(
@@ -261,7 +261,7 @@ public interface LearningMetricsRepository extends Repository<UserCourseEnrollme
             "SELECT COUNT(p) FROM UserLessonProgress p "
                     + "WHERE p.startedAt >= :from AND p.startedAt < :until "
                     + "AND p.lesson.topic.courseVersion.course.id IN :courseIds "
-                    + "AND p.lesson.topic.courseVersion.versionNumber IN :courseVersions")
+                    + "AND p.lesson.topic.courseVersion.version IN :courseVersions")
     long countLessonsStartedByCourse(
             @Param("from") Instant from,
             @Param("until") Instant until,
@@ -281,7 +281,7 @@ public interface LearningMetricsRepository extends Repository<UserCourseEnrollme
             "SELECT COUNT(p) FROM UserLessonProgress p "
                     + "WHERE p.completedAt >= :from AND p.completedAt < :until "
                     + "AND p.lesson.topic.courseVersion.course.id IN :courseIds "
-                    + "AND p.lesson.topic.courseVersion.versionNumber IN :courseVersions")
+                    + "AND p.lesson.topic.courseVersion.version IN :courseVersions")
     long countLessonsCompletedByCourse(
             @Param("from") Instant from,
             @Param("until") Instant until,
@@ -304,7 +304,7 @@ public interface LearningMetricsRepository extends Repository<UserCourseEnrollme
                     + "FROM UserLessonProgress p "
                     + "WHERE p.startedAt IS NOT NULL AND p.startedAt < :until "
                     + "AND p.lesson.topic.courseVersion.course.id IN :courseIds "
-                    + "AND p.lesson.topic.courseVersion.versionNumber IN :courseVersions "
+                    + "AND p.lesson.topic.courseVersion.version IN :courseVersions "
                     + "GROUP BY p.lesson.id, p.lesson.name")
     List<Object[]> lessonDropoffStatsByCourse(
             @Param("until") Instant until,
@@ -329,7 +329,7 @@ public interface LearningMetricsRepository extends Repository<UserCourseEnrollme
                     + "FROM LessonBlockAttempt a "
                     + "WHERE a.isCorrect IS NOT NULL AND a.attemptedAt >= :from AND a.attemptedAt < :until "
                     + "AND a.lessonBlock.lesson.topic.courseVersion.course.id IN :courseIds "
-                    + "AND a.lessonBlock.lesson.topic.courseVersion.versionNumber IN :courseVersions "
+                    + "AND a.lessonBlock.lesson.topic.courseVersion.version IN :courseVersions "
                     + "GROUP BY CAST(a.attemptedAt AS LocalDate)")
     List<Object[]> dailyAccuracyByCourse(
             @Param("from") Instant from,
@@ -364,7 +364,7 @@ public interface LearningMetricsRepository extends Repository<UserCourseEnrollme
                     + "SUM(CASE WHEN p.status = com.signasource.signa_api.learning.entity.ProgressStatus.COMPLETED THEN 1L ELSE 0L END) "
                     + "FROM UserLessonProgress p JOIN p.lesson.topic.courseVersion.course c "
                     + "WHERE p.startedAt IS NOT NULL AND p.startedAt < :until AND c.id IN :courseIds "
-                    + "AND p.lesson.topic.courseVersion.versionNumber IN :courseVersions "
+                    + "AND p.lesson.topic.courseVersion.version IN :courseVersions "
                     + "GROUP BY p.lesson.id, p.lesson.name, c.id, c.name")
     List<Object[]> lessonReviewStatsByCourse(
             @Param("until") Instant until,

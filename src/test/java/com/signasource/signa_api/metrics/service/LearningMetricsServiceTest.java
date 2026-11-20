@@ -40,9 +40,15 @@ class LearningMetricsServiceTest {
         when(repository.enrollmentsByCourse(any()))
                 .thenReturn(
                         List.<Object[]>of(
-                                new Object[] {courseId, "Curso A", EnrollmentStatus.ENROLLED, 10L},
-                                new Object[] {courseId, "Curso A", EnrollmentStatus.COMPLETED, 4L},
-                                new Object[] {courseId, "Curso A", EnrollmentStatus.DROPPED, 2L}));
+                                new Object[] {
+                                    courseId, "Curso A", "1.0", EnrollmentStatus.ENROLLED, 10L
+                                },
+                                new Object[] {
+                                    courseId, "Curso A", "1.0", EnrollmentStatus.COMPLETED, 4L
+                                },
+                                new Object[] {
+                                    courseId, "Curso A", "1.0", EnrollmentStatus.DROPPED, 2L
+                                }));
         when(repository.enrollmentsByStatus(any()))
                 .thenReturn(
                         List.<Object[]>of(

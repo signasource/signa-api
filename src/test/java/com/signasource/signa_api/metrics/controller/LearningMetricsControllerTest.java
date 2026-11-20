@@ -49,21 +49,23 @@ class LearningMetricsControllerTest {
     @Test
     void returnsTheSnapshotForTheRequestedWindow() {
         ArgumentCaptor<MetricsRange> range = ArgumentCaptor.forClass(MetricsRange.class);
-        when(service.getLearningMetrics(range.capture(), any())).thenReturn(SAMPLE);
+        when(service.getLearningMetrics(range.capture(), any(), any())).thenReturn(SAMPLE);
 
         ResponseEntity<LearningMetricsResponse> response =
-                controller.learning("2026-11-01T00:00:00Z", "2026-11-08T00:00:00Z", null);
+                controller.learning("2026-11-01T00:00:00Z", "2026-11-08T00:00:00Z", null, null);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertSame(SAMPLE, response.getBody());
-        verify(service).getLearningMetrics(range.getValue(), List.of());
+        verify(service).getLearningMetrics(range.getValue(), List.of(), List.of());
     }
 
     @Test
     void treatsMissingParamsAsTheWholeHistory() {
-        when(service.getLearningMetrics(MetricsRange.ALL_TIME, List.<UUID>of())).thenReturn(SAMPLE);
+        when(service.getLearningMetrics(MetricsRange.ALL_TIME, List.<UUID>of(), List.<String>of()))
+                .thenReturn(SAMPLE);
 
-        ResponseEntity<LearningMetricsResponse> response = controller.learning(null, null, null);
+        ResponseEntity<LearningMetricsResponse> response =
+                controller.learning(null, null, null, null);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
     }
