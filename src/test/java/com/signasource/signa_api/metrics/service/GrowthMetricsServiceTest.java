@@ -118,9 +118,12 @@ class GrowthMetricsServiceTest {
         assertEquals(500L, r.users().total());
         assertEquals(40L, r.users().newInRange());
         assertEquals(1, r.users().daily().size());
-        // The epoch-day bucket index maps back to that day's UTC-midnight instant.
+        // The day bucket index is the Argentine epoch day: it maps back to that day's Argentine
+        // midnight (03:00 UTC), not to UTC midnight (which is 21:00 of the day before there).
         assertEquals(
-                LocalDate.of(2026, 11, 2).atStartOfDay(java.time.ZoneOffset.UTC).toInstant(),
+                LocalDate.of(2026, 11, 2)
+                        .atStartOfDay(com.signasource.signa_api.common.ArgentinaTime.ZONE)
+                        .toInstant(),
                 r.users().daily().get(0).t());
         assertEquals(800L, r.waitlist().total());
         assertEquals(50L, r.waitlist().newInRange());

@@ -1,6 +1,7 @@
 package com.signasource.signa_api.metrics.repository;
 
 import com.signasource.signa_api.gamification.entity.UserDailyXp;
+import com.signasource.signa_api.metrics.service.MetricsRange;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -23,7 +24,7 @@ public interface GamificationMetricsRepository extends Repository<UserDailyXp, U
                     + "WHERE x.xpDate >= :fromDate AND x.xpDate <= :toDate")
     long sumXpBetween(@Param("fromDate") LocalDate fromDate, @Param("toDate") LocalDate toDate);
 
-    /** Rows of {@code [LocalDate day, long xp]}. */
+    /** Rows of {@code [long argentinaEpochDay, long xp]}. */
     @Query(
             "SELECT x.xpDate, COALESCE(SUM(x.xpEarned), 0) FROM UserDailyXp x "
                     + "WHERE x.xpDate >= :fromDate AND x.xpDate <= :toDate GROUP BY x.xpDate")
@@ -76,11 +77,15 @@ public interface GamificationMetricsRepository extends Repository<UserDailyXp, U
                     + "WHERE a.earnedAt >= :from AND a.earnedAt < :until")
     long countUnlockedBetween(@Param("from") Instant from, @Param("until") Instant until);
 
-    /** Rows of {@code [LocalDate day, long count]} of achievements unlocked. */
+    /** Rows of {@code [long argentinaEpochDay, long count]} of achievements unlocked. */
     @Query(
-            "SELECT CAST(a.earnedAt AS LocalDate), COUNT(a) FROM UserAchievement a "
+            "SELECT FLOOR((extract(epoch from a.earnedAt) - "
+                    + MetricsRange.BUCKET_ORIGIN_SECONDS
+                    + ") / "
+                    + MetricsRange.DAY_SECONDS
+                    + "), COUNT(a) FROM UserAchievement a "
                     + "WHERE a.earnedAt >= :from AND a.earnedAt < :until "
-                    + "GROUP BY CAST(a.earnedAt AS LocalDate)")
+                    + "GROUP BY 1")
     List<Object[]> dailyUnlocked(@Param("from") Instant from, @Param("until") Instant until);
 
     /** Rows of {@code [String title, long count]} ordered by most unlocked first (all-time). */
@@ -170,10 +175,14 @@ public interface GamificationMetricsRepository extends Repository<UserDailyXp, U
                     + "GROUP BY p.shopItem.title ORDER BY COUNT(p) DESC")
     List<Object[]> topShopItems(@Param("from") Instant from, @Param("until") Instant until);
 
-    /** Rows of {@code [LocalDate day, long gemsSpent]} spent in the shop. */
+    /** Rows of {@code [long argentinaEpochDay, long gemsSpent]} spent in the shop. */
     @Query(
-            "SELECT CAST(p.purchasedAt AS LocalDate), COALESCE(SUM(p.gemsSpent), 0) FROM Purchase p "
+            "SELECT FLOOR((extract(epoch from p.purchasedAt) - "
+                    + MetricsRange.BUCKET_ORIGIN_SECONDS
+                    + ") / "
+                    + MetricsRange.DAY_SECONDS
+                    + "), COALESCE(SUM(p.gemsSpent), 0) FROM Purchase p "
                     + "WHERE p.purchasedAt >= :from AND p.purchasedAt < :until "
-                    + "GROUP BY CAST(p.purchasedAt AS LocalDate)")
+                    + "GROUP BY 1")
     List<Object[]> dailyGemsSpent(@Param("from") Instant from, @Param("until") Instant until);
 }

@@ -1,6 +1,7 @@
 package com.signasource.signa_api.metrics.repository;
 
 import com.signasource.signa_api.learning.entity.LessonBlockAttempt;
+import com.signasource.signa_api.metrics.service.MetricsRange;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
@@ -83,24 +84,29 @@ public interface GlobalMetricsRepository extends Repository<LessonBlockAttempt, 
                     + "AND r.startedAt >= :from AND r.startedAt < :until")
     long countFailedImportsBetween(@Param("from") Instant from, @Param("until") Instant until);
 
-    /**
-     * Daily buckets of {@code [LocalDate day, long evaluated, long correct]} (Argentina day via
-     * caller's data).
-     */
+    /** Daily buckets of {@code [long argentinaEpochDay, long evaluated, long correct]}. */
     @Query(
-            "SELECT CAST(a.attemptedAt AS LocalDate), COUNT(a), "
+            "SELECT FLOOR((extract(epoch from a.attemptedAt) - "
+                    + MetricsRange.BUCKET_ORIGIN_SECONDS
+                    + ") / "
+                    + MetricsRange.DAY_SECONDS
+                    + "), COUNT(a), "
                     + "SUM(CASE WHEN a.isCorrect = true THEN 1L ELSE 0L END) "
                     + "FROM LessonBlockAttempt a "
                     + "WHERE a.isCorrect IS NOT NULL AND a.attemptedAt >= :from AND a.attemptedAt < :until "
-                    + "GROUP BY CAST(a.attemptedAt AS LocalDate)")
+                    + "GROUP BY 1")
     List<Object[]> dailyAttempts(@Param("from") Instant from, @Param("until") Instant until);
 
-    /** Daily buckets of {@code [LocalDate day, long count]} of lessons completed. */
+    /** Daily buckets of {@code [long argentinaEpochDay, long count]} of lessons completed. */
     @Query(
-            "SELECT CAST(p.completedAt AS LocalDate), COUNT(p) FROM UserLessonProgress p "
+            "SELECT FLOOR((extract(epoch from p.completedAt) - "
+                    + MetricsRange.BUCKET_ORIGIN_SECONDS
+                    + ") / "
+                    + MetricsRange.DAY_SECONDS
+                    + "), COUNT(p) FROM UserLessonProgress p "
                     + "WHERE p.status = com.signasource.signa_api.learning.entity.ProgressStatus.COMPLETED "
                     + "AND p.completedAt >= :from AND p.completedAt < :until "
-                    + "GROUP BY CAST(p.completedAt AS LocalDate)")
+                    + "GROUP BY 1")
     List<Object[]> dailyLessonsCompleted(
             @Param("from") Instant from, @Param("until") Instant until);
 
@@ -158,31 +164,39 @@ public interface GlobalMetricsRepository extends Repository<LessonBlockAttempt, 
             @Param("courseIds") Collection<UUID> courseIds);
 
     /**
-     * Daily buckets of {@code [LocalDate day, long evaluated, long correct]} filtered by courses
-     * (Argentina day via caller's data).
+     * Daily buckets of {@code [long argentinaEpochDay, long evaluated, long correct]} filtered by
+     * courses.
      */
     @Query(
-            "SELECT CAST(a.attemptedAt AS LocalDate), COUNT(a), "
+            "SELECT FLOOR((extract(epoch from a.attemptedAt) - "
+                    + MetricsRange.BUCKET_ORIGIN_SECONDS
+                    + ") / "
+                    + MetricsRange.DAY_SECONDS
+                    + "), COUNT(a), "
                     + "SUM(CASE WHEN a.isCorrect = true THEN 1L ELSE 0L END) "
                     + "FROM LessonBlockAttempt a "
                     + "WHERE a.isCorrect IS NOT NULL AND a.attemptedAt >= :from AND a.attemptedAt < :until "
                     + "AND a.lessonBlock.lesson.topic.courseVersion.course.id IN :courseIds "
-                    + "GROUP BY CAST(a.attemptedAt AS LocalDate)")
+                    + "GROUP BY 1")
     List<Object[]> dailyAttemptsByCourse(
             @Param("from") Instant from,
             @Param("until") Instant until,
             @Param("courseIds") Collection<UUID> courseIds);
 
     /**
-     * Daily buckets of {@code [LocalDate day, long count]} of lessons completed filtered by
-     * courses.
+     * Daily buckets of {@code [long argentinaEpochDay, long count]} of lessons completed filtered
+     * by courses.
      */
     @Query(
-            "SELECT CAST(p.completedAt AS LocalDate), COUNT(p) FROM UserLessonProgress p "
+            "SELECT FLOOR((extract(epoch from p.completedAt) - "
+                    + MetricsRange.BUCKET_ORIGIN_SECONDS
+                    + ") / "
+                    + MetricsRange.DAY_SECONDS
+                    + "), COUNT(p) FROM UserLessonProgress p "
                     + "WHERE p.status = com.signasource.signa_api.learning.entity.ProgressStatus.COMPLETED "
                     + "AND p.completedAt >= :from AND p.completedAt < :until "
                     + "AND p.lesson.topic.courseVersion.course.id IN :courseIds "
-                    + "GROUP BY CAST(p.completedAt AS LocalDate)")
+                    + "GROUP BY 1")
     List<Object[]> dailyLessonsCompletedByCourse(
             @Param("from") Instant from,
             @Param("until") Instant until,

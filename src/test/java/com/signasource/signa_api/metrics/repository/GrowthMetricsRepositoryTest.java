@@ -30,6 +30,7 @@ import com.signasource.signa_api.learning.repository.LessonRepository;
 import com.signasource.signa_api.learning.repository.SignLanguageRepository;
 import com.signasource.signa_api.learning.repository.TopicRepository;
 import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
+import com.signasource.signa_api.metrics.service.MetricsRange;
 import com.signasource.signa_api.organizations.entity.CoursePurchase;
 import com.signasource.signa_api.organizations.entity.MemberRole;
 import com.signasource.signa_api.organizations.entity.MemberStatus;
@@ -60,7 +61,9 @@ import com.signasource.signa_api.waitlist.entity.WaitlistEntry;
 import com.signasource.signa_api.waitlist.repository.WaitlistRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -139,6 +142,31 @@ class GrowthMetricsRepositoryTest {
         assertEquals(1, repository.dailyNewUsers(FROM, until, BUCKET).size());
         assertEquals(1, repository.countActiveUsersBetween(FROM, until));
         assertEquals(1, repository.dailyActiveUsers(FROM, until, BUCKET).size());
+    }
+
+    @Test
+    void dayBucketsAreArgentineDays() {
+        User user = saveUser();
+        // 2026-11-19 at 20:00 and at 23:30 in Argentina (UTC−3): the same local day, but the second
+        // is already 2026-11-20 in UTC. Both must land in the bucket of 2026-11-19 (Argentina).
+        activityRepository.save(
+                UserActivity.builder()
+                        .user(user)
+                        .occurredAt(Instant.parse("2026-11-19T23:00:00Z"))
+                        .build());
+        activityRepository.save(
+                UserActivity.builder()
+                        .user(user)
+                        .occurredAt(Instant.parse("2026-11-20T02:30:00Z"))
+                        .build());
+
+        List<Object[]> rows = repository.dailyActiveUsers(FROM, until, BUCKET);
+
+        assertEquals(1, rows.size());
+        assertEquals(LocalDate.of(2026, 11, 19), MetricsRange.localDay(rows.get(0)[0]));
+        assertEquals(
+                Instant.parse("2026-11-19T03:00:00Z"),
+                MetricsRange.bucketStart(rows.get(0)[0], BUCKET));
     }
 
     @Test

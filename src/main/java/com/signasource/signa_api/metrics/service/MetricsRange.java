@@ -3,6 +3,7 @@ package com.signasource.signa_api.metrics.service;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 
@@ -16,6 +17,36 @@ import java.time.temporal.ChronoUnit;
  * status) are measured as of {@link #end()}.
  */
 public record MetricsRange(Instant from, Instant to) {
+
+    /**
+     * Where the dashboard's time buckets start, in seconds past a UTC bucket boundary: Argentina is
+     * UTC−3 all year (no daylight saving since 2009), so its midnight is 03:00 UTC. The series
+     * queries bucket by {@code FLOOR((extract(epoch from t) - BUCKET_ORIGIN_SECONDS) / bucket)}, so
+     * a day bucket is an Argentine calendar day — not the UTC day, which would put everything after
+     * 21:00 on the next day. Hour and minute buckets are unaffected (3 h is a whole number of
+     * both).
+     */
+    public static final long BUCKET_ORIGIN_SECONDS = 3 * 3600L;
+
+    public static final long DAY_SECONDS = 86400L;
+
+    /** Start instant of the bucket a series query returned as {@code index}. */
+    public static Instant bucketStart(Object index, long bucketSeconds) {
+        return Instant.ofEpochSecond(
+                ((Number) index).longValue() * bucketSeconds + BUCKET_ORIGIN_SECONDS);
+    }
+
+    /**
+     * The Argentine calendar day a day-bucket query ({@code bucketSeconds = DAY_SECONDS}) returned
+     * as {@code index}: the bucket index is the local epoch day. A {@link LocalDate} (a column that
+     * already stores the Argentine day, like {@code UserDailyXp.xpDate}) passes through.
+     */
+    public static LocalDate localDay(Object index) {
+        if (index instanceof LocalDate day) {
+            return day;
+        }
+        return LocalDate.ofEpochDay(((Number) index).longValue());
+    }
 
     /** Longest window a request accepts, matching the organization dashboard's cap. */
     public static final long MAX_DAYS = 366;
@@ -77,8 +108,8 @@ public record MetricsRange(Instant from, Instant to) {
     /**
      * Resolution (in seconds) of the dashboard time-series for this window, so a short window reads
      * minute-by-minute and a long one day-by-day: minute (span ≤ 6 h), hour (≤ 3 d), else day. The
-     * repositories bucket by {@code floor(epoch / bucketSeconds)}; the open (all-time) range, whose
-     * span is the whole history, falls through to daily.
+     * repositories bucket from {@link #BUCKET_ORIGIN_SECONDS} (Argentine midnight); the open
+     * (all-time) range, whose span is the whole history, falls through to daily.
      */
     public long bucketSeconds() {
         long span = Duration.between(start(), end()).getSeconds();

@@ -1,5 +1,6 @@
 package com.signasource.signa_api.metrics.repository;
 
+import com.signasource.signa_api.metrics.service.MetricsRange;
 import com.signasource.signa_api.users.entity.User;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -32,7 +33,9 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
      * Rows of {@code [long bucketIndex, long count]} of new accounts (index × bucket = epoch s).
      */
     @Query(
-            "SELECT FLOOR(extract(epoch from u.createdAt) / :bucket), COUNT(u) FROM User u "
+            "SELECT FLOOR((extract(epoch from u.createdAt) - "
+                    + MetricsRange.BUCKET_ORIGIN_SECONDS
+                    + ") / :bucket), COUNT(u) FROM User u "
                     + "WHERE u.createdAt >= :from AND u.createdAt < :until "
                     + "AND (u.role IS NULL OR u.role <> com.signasource.signa_api.users.entity.Role.ADMIN) "
                     + "GROUP BY 1")
@@ -49,7 +52,9 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
 
     /** Rows of {@code [long bucketIndex, long distinctActiveUsers]}. */
     @Query(
-            "SELECT FLOOR(extract(epoch from a.occurredAt) / :bucket), COUNT(DISTINCT a.user.id) "
+            "SELECT FLOOR((extract(epoch from a.occurredAt) - "
+                    + MetricsRange.BUCKET_ORIGIN_SECONDS
+                    + ") / :bucket), COUNT(DISTINCT a.user.id) "
                     + "FROM UserActivity a "
                     + "WHERE a.occurredAt >= :from AND a.occurredAt < :until "
                     + "GROUP BY 1")
@@ -101,14 +106,18 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
     long countActivatedNewUsersBetween(@Param("from") Instant from, @Param("until") Instant until);
 
     /**
-     * Cohort retention raw rows: {@code [UUID userId, LocalDate registrationDay, LocalDate
+     * Cohort retention raw rows: {@code [UUID userId, long registrationArgentinaEpochDay, LocalDate
      * activityDay]} for every user registered inside the window, left-joined to all their active
      * days (activity day is {@code null} for users who never came back). The service buckets these
      * into weekly cohorts and measures the D1/D7/D30 horizons in memory — portable date arithmetic
      * that neither H2 nor Postgres JPQL express cleanly.
      */
     @Query(
-            "SELECT u.id, CAST(u.createdAt AS LocalDate), a.activityDate "
+            "SELECT u.id, FLOOR((extract(epoch from u.createdAt) - "
+                    + MetricsRange.BUCKET_ORIGIN_SECONDS
+                    + ") / "
+                    + MetricsRange.DAY_SECONDS
+                    + "), a.activityDate "
                     + "FROM User u LEFT JOIN UserDailyActivity a ON a.user = u "
                     + "WHERE u.createdAt >= :from AND u.createdAt < :until")
     List<Object[]> cohortActivityRows(@Param("from") Instant from, @Param("until") Instant until);
@@ -124,7 +133,9 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
 
     /** Rows of {@code [long bucketIndex, long count]} of waitlist sign-ups. */
     @Query(
-            "SELECT FLOOR(extract(epoch from w.createdAt) / :bucket), COUNT(w) FROM WaitlistEntry w "
+            "SELECT FLOOR((extract(epoch from w.createdAt) - "
+                    + MetricsRange.BUCKET_ORIGIN_SECONDS
+                    + ") / :bucket), COUNT(w) FROM WaitlistEntry w "
                     + "WHERE w.createdAt >= :from AND w.createdAt < :until "
                     + "GROUP BY 1")
     List<Object[]> dailyWaitlist(
@@ -145,7 +156,9 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
 
     /** Rows of {@code [long bucketIndex, BigDecimal amount]} of confirmed revenue. */
     @Query(
-            "SELECT FLOOR(extract(epoch from p.paidAt) / :bucket), COALESCE(SUM(p.totalAmount), 0) "
+            "SELECT FLOOR((extract(epoch from p.paidAt) - "
+                    + MetricsRange.BUCKET_ORIGIN_SECONDS
+                    + ") / :bucket), COALESCE(SUM(p.totalAmount), 0) "
                     + "FROM CoursePurchase p "
                     + "WHERE p.paidAt IS NOT NULL AND p.paidAt >= :from AND p.paidAt < :until "
                     + "GROUP BY 1")
@@ -176,7 +189,9 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
 
     /** Rows of {@code [long bucketIndex, long count]} of paid real-money gem orders. */
     @Query(
-            "SELECT FLOOR(extract(epoch from g.paidAt) / :bucket), COUNT(g) FROM GemOrder g "
+            "SELECT FLOOR((extract(epoch from g.paidAt) - "
+                    + MetricsRange.BUCKET_ORIGIN_SECONDS
+                    + ") / :bucket), COUNT(g) FROM GemOrder g "
                     + "WHERE g.paidAt >= :from AND g.paidAt < :until "
                     + "AND g.status = com.signasource.signa_api.gamification.entity.GemOrderStatus.PAID "
                     + "GROUP BY 1")
@@ -198,7 +213,9 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
 
     /** Rows of {@code [long bucketIndex, BigDecimal amount]} of confirmed gem revenue. */
     @Query(
-            "SELECT FLOOR(extract(epoch from g.paidAt) / :bucket), COALESCE(SUM(g.amount), 0) "
+            "SELECT FLOOR((extract(epoch from g.paidAt) - "
+                    + MetricsRange.BUCKET_ORIGIN_SECONDS
+                    + ") / :bucket), COALESCE(SUM(g.amount), 0) "
                     + "FROM GemOrder g "
                     + "WHERE g.paidAt >= :from AND g.paidAt < :until "
                     + "AND g.status IN (com.signasource.signa_api.gamification.entity.GemOrderStatus.PAID, "
@@ -240,7 +257,9 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
 
     /** Rows of {@code [long bucketIndex, BigDecimal amount]} of confirmed paid-course revenue. */
     @Query(
-            "SELECT FLOOR(extract(epoch from c.paidAt) / :bucket), COALESCE(SUM(c.amount), 0) "
+            "SELECT FLOOR((extract(epoch from c.paidAt) - "
+                    + MetricsRange.BUCKET_ORIGIN_SECONDS
+                    + ") / :bucket), COALESCE(SUM(c.amount), 0) "
                     + "FROM CourseOrder c "
                     + "WHERE c.paidAt >= :from AND c.paidAt < :until "
                     + "AND c.status IN (com.signasource.signa_api.learning.entity.CourseOrderStatus.PAID, "
@@ -410,7 +429,9 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
 
     /** Rows of {@code [long bucketIndex, long count]} of confirmed purchases. */
     @Query(
-            "SELECT FLOOR(extract(epoch from p.paidAt) / :bucket), COUNT(p) FROM CoursePurchase p "
+            "SELECT FLOOR((extract(epoch from p.paidAt) - "
+                    + MetricsRange.BUCKET_ORIGIN_SECONDS
+                    + ") / :bucket), COUNT(p) FROM CoursePurchase p "
                     + "WHERE p.paidAt IS NOT NULL AND p.paidAt >= :from AND p.paidAt < :until "
                     + "AND p.status <> com.signasource.signa_api.organizations.entity.PurchaseStatus.REFUNDED "
                     + "GROUP BY 1")
@@ -427,7 +448,9 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
 
     /** Rows of {@code [long bucketIndex, BigDecimal amount]} of confirmed org refunds. */
     @Query(
-            "SELECT FLOOR(extract(epoch from r.refundedAt) / :bucket), COALESCE(SUM(r.amount), 0) "
+            "SELECT FLOOR((extract(epoch from r.refundedAt) - "
+                    + MetricsRange.BUCKET_ORIGIN_SECONDS
+                    + ") / :bucket), COALESCE(SUM(r.amount), 0) "
                     + "FROM PurchaseRefund r "
                     + "WHERE r.status = com.signasource.signa_api.organizations.entity.RefundStatus.REFUNDED "
                     + "AND r.refundedAt >= :from AND r.refundedAt < :until "
@@ -439,7 +462,9 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
 
     /** Rows of {@code [long bucketIndex, BigDecimal amount]} of confirmed gem-pack refunds. */
     @Query(
-            "SELECT FLOOR(extract(epoch from g.refundedAt) / :bucket), COALESCE(SUM(g.amount), 0) "
+            "SELECT FLOOR((extract(epoch from g.refundedAt) - "
+                    + MetricsRange.BUCKET_ORIGIN_SECONDS
+                    + ") / :bucket), COALESCE(SUM(g.amount), 0) "
                     + "FROM GemOrder g "
                     + "WHERE g.status = com.signasource.signa_api.gamification.entity.GemOrderStatus.REFUNDED "
                     + "AND g.refundedAt >= :from AND g.refundedAt < :until "
@@ -451,7 +476,9 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
 
     /** Rows of {@code [long bucketIndex, BigDecimal amount]} of confirmed paid-course refunds. */
     @Query(
-            "SELECT FLOOR(extract(epoch from c.refundedAt) / :bucket), COALESCE(SUM(c.amount), 0) "
+            "SELECT FLOOR((extract(epoch from c.refundedAt) - "
+                    + MetricsRange.BUCKET_ORIGIN_SECONDS
+                    + ") / :bucket), COALESCE(SUM(c.amount), 0) "
                     + "FROM CourseOrder c "
                     + "WHERE c.status = com.signasource.signa_api.learning.entity.CourseOrderStatus.REFUNDED "
                     + "AND c.refundedAt >= :from AND c.refundedAt < :until "
@@ -490,7 +517,9 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
      * purchases.
      */
     @Query(
-            "SELECT FLOOR(extract(epoch from p.paidAt) / :bucket), COALESCE(SUM(p.totalAmount), 0) "
+            "SELECT FLOOR((extract(epoch from p.paidAt) - "
+                    + MetricsRange.BUCKET_ORIGIN_SECONDS
+                    + ") / :bucket), COALESCE(SUM(p.totalAmount), 0) "
                     + "FROM CoursePurchase p "
                     + "WHERE p.paidAt IS NOT NULL AND p.paidAt >= :from AND p.paidAt < :until "
                     + "AND p.status <> com.signasource.signa_api.organizations.entity.PurchaseStatus.REFUNDED "
@@ -513,7 +542,9 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
     BigDecimal sumGemNetRevenueBetween(@Param("from") Instant from, @Param("until") Instant until);
 
     @Query(
-            "SELECT FLOOR(extract(epoch from g.paidAt) / :bucket), COALESCE(SUM(g.amount), 0) "
+            "SELECT FLOOR((extract(epoch from g.paidAt) - "
+                    + MetricsRange.BUCKET_ORIGIN_SECONDS
+                    + ") / :bucket), COALESCE(SUM(g.amount), 0) "
                     + "FROM GemOrder g "
                     + "WHERE g.paidAt >= :from AND g.paidAt < :until "
                     + "AND g.status = com.signasource.signa_api.gamification.entity.GemOrderStatus.PAID "
@@ -537,7 +568,9 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
     long countCourseNetPurchasesBetween(@Param("from") Instant from, @Param("until") Instant until);
 
     @Query(
-            "SELECT FLOOR(extract(epoch from c.paidAt) / :bucket), COALESCE(SUM(c.amount), 0) "
+            "SELECT FLOOR((extract(epoch from c.paidAt) - "
+                    + MetricsRange.BUCKET_ORIGIN_SECONDS
+                    + ") / :bucket), COALESCE(SUM(c.amount), 0) "
                     + "FROM CourseOrder c "
                     + "WHERE c.paidAt >= :from AND c.paidAt < :until "
                     + "AND c.status = com.signasource.signa_api.learning.entity.CourseOrderStatus.PAID "

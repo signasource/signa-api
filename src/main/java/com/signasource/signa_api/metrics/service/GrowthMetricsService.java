@@ -1,5 +1,6 @@
 package com.signasource.signa_api.metrics.service;
 
+import com.signasource.signa_api.common.ArgentinaTime;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.CohortRetention;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse.ConversionSection;
@@ -148,7 +149,7 @@ public class GrowthMetricsService {
         Map<UUID, Set<LocalDate>> activity = new HashMap<>();
         for (Object[] row : repository.cohortActivityRows(from, until)) {
             UUID userId = (UUID) row[0];
-            registration.putIfAbsent(userId, (LocalDate) row[1]);
+            registration.putIfAbsent(userId, MetricsRange.localDay(row[1]));
             if (row[2] != null) {
                 activity.computeIfAbsent(userId, k -> new HashSet<>()).add((LocalDate) row[2]);
             }
@@ -160,7 +161,7 @@ public class GrowthMetricsService {
             byWeek.computeIfAbsent(weekStart, k -> new ArrayList<>()).add(entry.getKey());
         }
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = ArgentinaTime.today();
         List<CohortRetention> cohorts = new ArrayList<>(byWeek.size());
         for (Map.Entry<LocalDate, List<UUID>> entry : byWeek.entrySet()) {
             LocalDate weekStart = entry.getKey();
@@ -552,8 +553,9 @@ public class GrowthMetricsService {
             if (end < fromSec || start >= untilSec) {
                 continue;
             }
-            long first = Math.max(start, fromSec) / bucket;
-            long last = (Math.min(end, untilSec - 1)) / bucket;
+            long origin = MetricsRange.BUCKET_ORIGIN_SECONDS;
+            long first = Math.floorDiv(Math.max(start, fromSec) - origin, bucket);
+            long last = Math.floorDiv(Math.min(end, untilSec - 1) - origin, bucket);
             for (long b = first; b <= last; b++) {
                 online.computeIfAbsent(b, k -> new HashSet<>()).add(row[0]);
             }
@@ -564,9 +566,9 @@ public class GrowthMetricsService {
         return series;
     }
 
-    /** The UTC start instant of a bucket from its index ({@code index × bucketSeconds}). */
+    /** Start instant of a bucket from its index (buckets start at Argentine midnight). */
     private static Instant bucketStart(Object index, long bucket) {
-        return Instant.ofEpochSecond(((Number) index).longValue() * bucket);
+        return MetricsRange.bucketStart(index, bucket);
     }
 
     private static long toLong(Object value) {

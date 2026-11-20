@@ -52,12 +52,16 @@ public class GlobalMetricsService {
                         : repository.countCorrectAttemptsBetween(from, until);
 
         List<CountItem> reportsByStatus = toCountItems(repository.countSignReportsByStatus());
+        // Unresolved = PENDING + REVIEWED: the same "open" count the admin sidebar badge shows
+        // (AdminService.getStats). A reviewed report still awaits a resolution.
         long pending =
                 reportsByStatus.stream()
-                        .filter(c -> ReportStatus.PENDING.name().equals(c.key()))
+                        .filter(
+                                c ->
+                                        ReportStatus.PENDING.name().equals(c.key())
+                                                || ReportStatus.REVIEWED.name().equals(c.key()))
                         .mapToLong(CountItem::count)
-                        .findFirst()
-                        .orElse(0L);
+                        .sum();
 
         return new BusinessMetricsResponse(
                 new CoursesSection(
@@ -114,7 +118,7 @@ public class GlobalMetricsService {
                         ? repository.dailyAttemptsByCourse(from, until, courseIds)
                         : repository.dailyAttempts(from, until);
         for (Object[] row : attempts) {
-            long[] slot = byDay.computeIfAbsent((LocalDate) row[0], k -> new long[3]);
+            long[] slot = byDay.computeIfAbsent(MetricsRange.localDay(row[0]), k -> new long[3]);
             slot[0] = toLong(row[1]);
             slot[1] = toLong(row[2]);
         }
@@ -123,7 +127,7 @@ public class GlobalMetricsService {
                         ? repository.dailyLessonsCompletedByCourse(from, until, courseIds)
                         : repository.dailyLessonsCompleted(from, until);
         for (Object[] row : lessons) {
-            long[] slot = byDay.computeIfAbsent((LocalDate) row[0], k -> new long[3]);
+            long[] slot = byDay.computeIfAbsent(MetricsRange.localDay(row[0]), k -> new long[3]);
             slot[2] = toLong(row[1]);
         }
         List<DailyActivityPoint> series = new ArrayList<>(byDay.size());
