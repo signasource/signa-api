@@ -145,6 +145,41 @@ class PurchaseSeatRepositoryTest {
     }
 
     @Test
+    void shouldFindOnlyPendingInvitationsOfPaidPurchasesOfTheOrganization() {
+        CoursePurchase paid = purchase(now.minus(2, ChronoUnit.DAYS));
+        CoursePurchase unpaid = purchase(null);
+        PurchaseSeat pending = seat(paid, "pending@x.com", SeatStatus.INVITED);
+        seat(paid, "accepted@x.com", SeatStatus.ACTIVE);
+        seat(unpaid, "unpaid@x.com", SeatStatus.PENDING_PAYMENT);
+        Organization other =
+                organizationRepository.save(
+                        Organization.builder().name("Other Org " + UUID.randomUUID()).build());
+        CoursePurchase foreign =
+                purchaseRepository.save(
+                        CoursePurchase.builder()
+                                .organization(other)
+                                .course(course)
+                                .seats(1)
+                                .durationDays(30)
+                                .signCount(10)
+                                .listPricePerSeat(BigDecimal.TEN)
+                                .pricePerSeat(BigDecimal.TEN)
+                                .totalAmount(BigDecimal.TEN)
+                                .currency("ARS")
+                                .status(PurchaseStatus.PAID)
+                                .paidAt(now)
+                                .build());
+        seat(foreign, "foreign@x.com", SeatStatus.INVITED);
+
+        List<PurchaseSeat> result =
+                seatRepository.findByPurchaseOrganizationIdAndPurchaseStatusAndStatus(
+                        organization.getId(), PurchaseStatus.PAID, SeatStatus.INVITED);
+
+        assertEquals(List.of(pending.getId()), result.stream().map(PurchaseSeat::getId).toList());
+        assertEquals(course.getId(), result.get(0).getPurchase().getCourse().getId());
+    }
+
+    @Test
     void shouldFindSeatsOfTheCourseByEmail() {
         CoursePurchase purchase = purchase(null);
         seat(purchase, "ana@x.com", SeatStatus.PENDING_PAYMENT);

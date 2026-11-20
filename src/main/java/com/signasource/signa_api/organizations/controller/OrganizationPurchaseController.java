@@ -3,6 +3,7 @@ package com.signasource.signa_api.organizations.controller;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.organizations.dto.CheckoutResponse;
 import com.signasource.signa_api.organizations.dto.CreatePurchaseRequest;
+import com.signasource.signa_api.organizations.dto.OrganizationInvitationResponse;
 import com.signasource.signa_api.organizations.dto.PaymentSyncResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseCatalogResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseDetailResponse;
@@ -52,6 +53,16 @@ public class OrganizationPurchaseController {
             @PathVariable UUID organizationId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(purchaseService.list(userDetails.getUser(), organizationId));
+    }
+
+    /** Invitations not yet accepted (pending or expired), optionally of one course. */
+    @GetMapping("/{organizationId}/invitations")
+    public ResponseEntity<List<OrganizationInvitationResponse>> listInvitations(
+            @PathVariable UUID organizationId,
+            @RequestParam(required = false) UUID courseId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(
+                purchaseService.listInvitations(userDetails.getUser(), organizationId, courseId));
     }
 
     @PostMapping("/{organizationId}/purchases")

@@ -1,6 +1,7 @@
 package com.signasource.signa_api.organizations.repository;
 
 import com.signasource.signa_api.organizations.entity.PurchaseSeat;
+import com.signasource.signa_api.organizations.entity.PurchaseStatus;
 import com.signasource.signa_api.organizations.entity.SeatStatus;
 import jakarta.persistence.LockModeType;
 import java.time.Instant;
@@ -22,6 +23,15 @@ public interface PurchaseSeatRepository extends JpaRepository<PurchaseSeat, UUID
 
     @EntityGraph(attributePaths = {"purchase"})
     List<PurchaseSeat> findByPurchaseOrganizationId(UUID organizationId);
+
+    /**
+     * Seats with a stored status of the organization's purchases in a given status, with what the
+     * invitations list shows. Whether an {@code INVITED} seat expired is derived, so callers
+     * filter.
+     */
+    @EntityGraph(attributePaths = {"purchase", "purchase.course", "user"})
+    List<PurchaseSeat> findByPurchaseOrganizationIdAndPurchaseStatusAndStatus(
+            UUID organizationId, PurchaseStatus purchaseStatus, SeatStatus status);
 
     @EntityGraph(attributePaths = {"purchase", "purchase.organization", "purchase.course"})
     Optional<PurchaseSeat> findByIdAndPurchaseId(UUID id, UUID purchaseId);
