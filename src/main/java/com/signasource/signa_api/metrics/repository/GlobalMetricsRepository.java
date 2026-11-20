@@ -109,7 +109,7 @@ public interface GlobalMetricsRepository extends Repository<LessonBlockAttempt, 
     @Query(
             "SELECT COUNT(a) FROM LessonBlockAttempt a "
                     + "WHERE a.isCorrect IS NOT NULL AND a.attemptedAt >= :from AND a.attemptedAt < :until "
-                    + "AND a.lessonBlock.lesson.topic.module.courseVersion.id IN :courseIds")
+                    + "AND a.lessonBlock.lesson.topic.courseVersion.id IN :courseIds")
     long countEvaluatedAttemptsByCourse(
             @Param("from") Instant from,
             @Param("until") Instant until,
@@ -118,7 +118,7 @@ public interface GlobalMetricsRepository extends Repository<LessonBlockAttempt, 
     @Query(
             "SELECT COUNT(a) FROM LessonBlockAttempt a "
                     + "WHERE a.isCorrect = true AND a.attemptedAt >= :from AND a.attemptedAt < :until "
-                    + "AND a.lessonBlock.lesson.topic.module.courseVersion.id IN :courseIds")
+                    + "AND a.lessonBlock.lesson.topic.courseVersion.id IN :courseIds")
     long countCorrectAttemptsByCourse(
             @Param("from") Instant from,
             @Param("until") Instant until,
@@ -128,7 +128,7 @@ public interface GlobalMetricsRepository extends Repository<LessonBlockAttempt, 
             "SELECT COUNT(p) FROM UserLessonProgress p "
                     + "WHERE p.status = com.signasource.signa_api.learning.entity.ProgressStatus.COMPLETED "
                     + "AND p.completedAt >= :from AND p.completedAt < :until "
-                    + "AND p.lesson.topic.module.courseVersion.id IN :courseIds")
+                    + "AND p.lesson.topic.courseVersion.id IN :courseIds")
     long countLessonsCompletedByCourse(
             @Param("from") Instant from,
             @Param("until") Instant until,
@@ -138,7 +138,7 @@ public interface GlobalMetricsRepository extends Repository<LessonBlockAttempt, 
             "SELECT COUNT(tp) FROM UserTopicProgress tp "
                     + "WHERE tp.status = com.signasource.signa_api.learning.entity.ProgressStatus.COMPLETED "
                     + "AND tp.completedAt >= :from AND tp.completedAt < :until "
-                    + "AND tp.topic.module.courseVersion.id IN :courseIds")
+                    + "AND tp.topic.courseVersion.id IN :courseIds")
     long countTopicsCompletedByCourse(
             @Param("from") Instant from,
             @Param("until") Instant until,
@@ -150,7 +150,7 @@ public interface GlobalMetricsRepository extends Repository<LessonBlockAttempt, 
                     + "SUM(CASE WHEN a.isCorrect = true THEN 1L ELSE 0L END) "
                     + "FROM LessonBlockAttempt a "
                     + "WHERE a.isCorrect IS NOT NULL AND a.attemptedAt >= :from AND a.attemptedAt < :until "
-                    + "AND a.lessonBlock.lesson.topic.module.courseVersion.id IN :courseIds "
+                    + "AND a.lessonBlock.lesson.topic.courseVersion.id IN :courseIds "
                     + "GROUP BY a.lessonBlock.type")
     List<Object[]> accuracyByBlockTypeByCourse(
             @Param("from") Instant from,
@@ -166,7 +166,7 @@ public interface GlobalMetricsRepository extends Repository<LessonBlockAttempt, 
                     + "SUM(CASE WHEN a.isCorrect = true THEN 1L ELSE 0L END) "
                     + "FROM LessonBlockAttempt a "
                     + "WHERE a.isCorrect IS NOT NULL AND a.attemptedAt >= :from AND a.attemptedAt < :until "
-                    + "AND a.lessonBlock.lesson.topic.module.courseVersion.id IN :courseIds "
+                    + "AND a.lessonBlock.lesson.topic.courseVersion.id IN :courseIds "
                     + "GROUP BY CAST(a.attemptedAt AS LocalDate)")
     List<Object[]> dailyAttemptsByCourse(
             @Param("from") Instant from,
@@ -181,7 +181,7 @@ public interface GlobalMetricsRepository extends Repository<LessonBlockAttempt, 
             "SELECT CAST(p.completedAt AS LocalDate), COUNT(p) FROM UserLessonProgress p "
                     + "WHERE p.status = com.signasource.signa_api.learning.entity.ProgressStatus.COMPLETED "
                     + "AND p.completedAt >= :from AND p.completedAt < :until "
-                    + "AND p.lesson.topic.module.courseVersion.id IN :courseIds "
+                    + "AND p.lesson.topic.courseVersion.id IN :courseIds "
                     + "GROUP BY CAST(p.completedAt AS LocalDate)")
     List<Object[]> dailyLessonsCompletedByCourse(
             @Param("from") Instant from,
