@@ -37,12 +37,15 @@ public class RankingService {
 
     @Transactional(readOnly = true)
     public WeeklyRankingResponse getGlobalRanking(User currentUser) {
+        // Fetch top 100 public users (filtered by accountVisibility=PUBLIC at repository level)
         List<UserStats> top =
                 userStatsRepository.findTopByWeeklyXpDesc(PageRequest.of(0, GLOBAL_LIMIT));
+        // Count only public users (filtered by accountVisibility=PUBLIC at repository level)
         int total = (int) userStatsRepository.countUsersWithUserRole();
 
         UserStats myStats = userStatsRepository.findByUser(currentUser).orElse(null);
         int myXp = myStats != null ? myStats.getWeeklyXp() : 0;
+        // Count only public users ahead (filtered by accountVisibility=PUBLIC at repository level)
         long ahead = userStatsRepository.countUsersAheadByWeeklyXp(myXp, currentUser.getId());
         int myRank = (int) ahead + 1;
 

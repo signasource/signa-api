@@ -50,8 +50,10 @@ public interface UserStatsRepository extends JpaRepository<UserStats, UUID> {
             value =
                     """
             WITH ranked AS (
-                SELECT id, ROW_NUMBER() OVER (ORDER BY weekly_xp DESC, id) AS rn
-                FROM user_stats
+                SELECT us.id, ROW_NUMBER() OVER (ORDER BY us.weekly_xp DESC, us.id) AS rn
+                FROM user_stats us
+                JOIN users u ON us.user_id = u.id
+                WHERE u.role = 'USER' AND u.account_visibility = 'PUBLIC'
             )
             UPDATE user_stats SET previous_weekly_rank = ranked.rn
             FROM ranked WHERE user_stats.id = ranked.id
