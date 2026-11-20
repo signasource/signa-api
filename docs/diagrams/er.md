@@ -544,7 +544,7 @@ erDiagram
 ## Organizaciones
 
 Una organización compra **cupos** por curso (`COURSE_PURCHASE`): cuántos, por cuántos días de acceso
-(15 a 60) y a qué precio (precio de lista por cupo = (base + precio por seña × señas del curso) ×
+(5 a 60) y a qué precio (precio de lista por cupo = (base + precio por seña × señas del curso) ×
 (días / 30)^0,85, menos un descuento por volumen; ver `PurchasePricing`). Se paga con Mercado Pago
 Checkout Pro. Un pago aprobado que no puede pagar la compra (cancelada, ya pagada por otro pago o
 de otro monto) se devuelve completo y queda en `PURCHASE_REFUND`. Cada compra es independiente: tiene su propio pago, su ventana de invitación (10
@@ -606,7 +606,7 @@ erDiagram
         uuid course_id FK
         uuid created_by_id FK
         int seats
-        int durationDays "15 a 60"
+        int durationDays "5 a 60"
         int signCount "señas al cotizar"
         decimal listPricePerSeat "antes del descuento"
         int discountPercent "por volumen"

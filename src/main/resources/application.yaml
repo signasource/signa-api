@@ -128,7 +128,7 @@ organizations:
     round-to: 10
     volume-discounts: ${ORG_VOLUME_DISCOUNTS:10:10,25:15,50:20,100:25}
   purchases:
-    min-days: 15
+    min-days: 5
     max-days: 60
     invitation-days: 10
     auto-reminder-after-days: 5
