@@ -102,23 +102,31 @@ public interface LearningMetricsRepository extends Repository<UserCourseEnrollme
 
     // ── Onboarding funnel (distinct users reaching each step, as of until)
     // ────────────────────────
-    @Query("SELECT COUNT(u) FROM User u WHERE u.enabled = true AND u.createdAt < :until")
+    // Same universe as the growth "usuarios" metrics: every account except SIGNA staff
+    // (Role.ADMIN),
+    // verified or not, so "Usuarios registrados" matches the user total shown elsewhere.
+    @Query(
+            "SELECT COUNT(u) FROM User u WHERE u.createdAt < :until "
+                    + "AND (u.role IS NULL OR u.role <> com.signasource.signa_api.users.entity.Role.ADMIN)")
     long countUsersBefore(@Param("until") Instant until);
 
     @Query(
             "SELECT COUNT(DISTINCT p.user.id) FROM UserLessonProgress p "
-                    + "WHERE p.startedAt IS NOT NULL AND p.startedAt < :until")
+                    + "WHERE p.startedAt IS NOT NULL AND p.startedAt < :until "
+                    + "AND (p.user.role IS NULL OR p.user.role <> com.signasource.signa_api.users.entity.Role.ADMIN)")
     long countUsersStartedLessonBefore(@Param("until") Instant until);
 
     @Query(
             "SELECT COUNT(DISTINCT a.user.id) FROM LessonBlockAttempt a "
-                    + "WHERE a.attemptedAt < :until")
+                    + "WHERE a.attemptedAt < :until "
+                    + "AND (a.user.role IS NULL OR a.user.role <> com.signasource.signa_api.users.entity.Role.ADMIN)")
     long countUsersAttemptedBefore(@Param("until") Instant until);
 
     @Query(
             "SELECT COUNT(DISTINCT p.user.id) FROM UserLessonProgress p "
                     + "WHERE p.status = com.signasource.signa_api.learning.entity.ProgressStatus.COMPLETED "
-                    + "AND p.completedAt < :until")
+                    + "AND p.completedAt < :until "
+                    + "AND (p.user.role IS NULL OR p.user.role <> com.signasource.signa_api.users.entity.Role.ADMIN)")
     long countUsersCompletedLessonBefore(@Param("until") Instant until);
 
     /** User ids with 2+ completed lessons as of {@code until}; the service counts the rows. */
@@ -126,6 +134,7 @@ public interface LearningMetricsRepository extends Repository<UserCourseEnrollme
             "SELECT p.user.id FROM UserLessonProgress p "
                     + "WHERE p.status = com.signasource.signa_api.learning.entity.ProgressStatus.COMPLETED "
                     + "AND p.completedAt < :until "
+                    + "AND (p.user.role IS NULL OR p.user.role <> com.signasource.signa_api.users.entity.Role.ADMIN) "
                     + "GROUP BY p.user.id HAVING COUNT(p) >= 2")
     List<UUID> usersWithTwoPlusCompletedLessons(@Param("until") Instant until);
 
