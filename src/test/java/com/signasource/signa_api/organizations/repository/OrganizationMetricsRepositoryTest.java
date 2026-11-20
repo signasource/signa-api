@@ -243,12 +243,13 @@ class OrganizationMetricsRepositoryTest {
                         List.of(BlockType.PERFORM_SIGN),
                         BEGINNING,
                         Instant.now().plus(1, ChronoUnit.DAYS));
+        // A block type nobody attempted (the seed has no SPELL_NAME block) adds up to zero.
         AttemptTotalsView none =
                 metricsRepository.findAttemptTotalsByBlockTypes(
                         organization.getId(),
-                        List.of(ana.getId()),
+                        List.of(ana.getId(), bruno.getId()),
                         List.of(course.getId()),
-                        List.of(BlockType.PERFORM_SIGN),
+                        List.of(BlockType.SPELL_NAME),
                         BEGINNING,
                         Instant.now().plus(1, ChronoUnit.DAYS));
 
