@@ -599,4 +599,60 @@ class PurchasePaymentServiceTest {
 
         assertThrows(NotFoundException.class, () -> service.reverseManual(unknown));
     }
+
+    @Test
+    void shouldRecordAnAdminRefundAsPendingEvenAfterTheWithdrawalPeriod() {
+        paidWithMercadoPago(Instant.now().minus(Duration.ofDays(1)));
+        when(refundRepository.findByPaymentId("987")).thenReturn(Optional.empty());
+
+        String paymentId = service.startAdminRefund(purchase.getId());
+
+        assertEquals("987", paymentId);
+        ArgumentCaptor<PurchaseRefund> refund = ArgumentCaptor.forClass(PurchaseRefund.class);
+        verify(refundRepository).save(refund.capture());
+        assertEquals(RefundReason.EXTERNAL_REFUND, refund.getValue().getReason());
+        assertEquals(RefundStatus.PENDING, refund.getValue().getStatus());
+        assertEquals(BigDecimal.TEN, refund.getValue().getAmount());
+    }
+
+    @Test
+    void shouldResumeAPendingAdminRefund() {
+        paidWithMercadoPago(Instant.now());
+        PurchaseRefund pending =
+                PurchaseRefund.builder()
+                        .reason(RefundReason.EXTERNAL_REFUND)
+                        .status(RefundStatus.PENDING)
+                        .build();
+        when(refundRepository.findByPaymentId("987")).thenReturn(Optional.of(pending));
+
+        assertEquals("987", service.startAdminRefund(purchase.getId()));
+        verify(refundRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldReturnNoPaymentForAnAdminRefundOfAManuallyConfirmedPurchase() {
+        purchase.setStatus(PurchaseStatus.PAID);
+        purchase.setPaymentReference("MANUAL");
+        when(purchaseRepository.findForUpdateById(purchase.getId()))
+                .thenReturn(Optional.of(purchase));
+
+        assertNull(service.startAdminRefund(purchase.getId()));
+        verify(refundRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldRejectAnAdminRefundOfANonPaidPurchase() {
+        when(purchaseRepository.findForUpdateById(purchase.getId()))
+                .thenReturn(Optional.of(purchase));
+
+        assertThrows(InvalidInputException.class, () -> service.startAdminRefund(purchase.getId()));
+    }
+
+    @Test
+    void shouldThrowNotFoundWhenAdminRefundPurchaseDoesNotExist() {
+        UUID unknown = UUID.randomUUID();
+        when(purchaseRepository.findForUpdateById(unknown)).thenReturn(Optional.empty());
+
+        assertThrows(NotFoundException.class, () -> service.startAdminRefund(unknown));
+    }
 }

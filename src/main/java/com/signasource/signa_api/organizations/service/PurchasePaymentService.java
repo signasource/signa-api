@@ -172,6 +172,44 @@ public class PurchasePaymentService {
     }
 
     /**
+     * Starts an admin-initiated refund of a paid purchase: records a pending refund of its whole
+     * Mercado Pago payment so a failed call can be retried. Returns the payment to refund, or null
+     * when the purchase was not paid with Mercado Pago (then it can only be reversed manually).
+     * Unlike a withdrawal it ignores the withdrawal period and accepted seats.
+     */
+    @Transactional
+    public String startAdminRefund(UUID purchaseId) {
+        CoursePurchase purchase =
+                purchaseRepository
+                        .findForUpdateById(purchaseId)
+                        .orElseThrow(() -> new NotFoundException("Purchase not found"));
+        String paymentId = mercadoPagoPaymentId(purchase);
+        if (paymentId != null
+                && refundRepository
+                        .findByPaymentId(paymentId)
+                        .filter(r -> r.getStatus() == RefundStatus.PENDING)
+                        .filter(r -> r.getReason().revokesPurchase())
+                        .isPresent()) {
+            return paymentId;
+        }
+        if (purchase.getStatus() != PurchaseStatus.PAID) {
+            throw new InvalidInputException("Only a paid purchase can be refunded manually");
+        }
+        if (paymentId == null) {
+            return null;
+        }
+        refundRepository.save(
+                PurchaseRefund.builder()
+                        .purchase(purchase)
+                        .paymentId(paymentId)
+                        .amount(purchase.getTotalAmount())
+                        .currency(purchase.getCurrency())
+                        .reason(RefundReason.EXTERNAL_REFUND)
+                        .build());
+        return paymentId;
+    }
+
+    /**
      * Marks a pending refund as done once Mercado Pago confirmed it. When the refunded payment had
      * paid its purchase (a withdrawal), the purchase is revoked in the same transaction.
      */
