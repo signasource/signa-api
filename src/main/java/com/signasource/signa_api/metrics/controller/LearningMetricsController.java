@@ -27,9 +27,12 @@ public class LearningMetricsController {
     public ResponseEntity<LearningMetricsResponse> learning(
             @RequestParam(required = false) String from,
             @RequestParam(required = false) String to,
-            @RequestParam(required = false) List<UUID> courseIds) {
+            @RequestParam(required = false) List<UUID> courseIds,
+            @RequestParam(required = false) List<String> courseVersions) {
         return ResponseEntity.ok(
                 learningMetricsService.getLearningMetrics(
-                        MetricsRange.fromIso(from, to), courseIds != null ? courseIds : List.of()));
+                        MetricsRange.fromIso(from, to),
+                        courseIds != null ? courseIds : List.of(),
+                        courseVersions != null ? courseVersions : List.of()));
     }
 }

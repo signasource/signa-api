@@ -52,6 +52,7 @@ public record LearningMetricsResponse(
     public record CourseStat(
             String courseId,
             String courseName,
+            String courseVersion,
             long enrolled,
             long completed,
             long total,
