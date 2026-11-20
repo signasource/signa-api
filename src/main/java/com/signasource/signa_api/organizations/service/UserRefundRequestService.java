@@ -80,7 +80,7 @@ public class UserRefundRequestService {
      */
     public UserRefundRequestResponse createForGemOrder(
             UUID orderId, User user, CreateRefundRequestRequest req) {
-        record Saved(RefundRequest request, String productId, BigDecimal amount, String currency) {}
+        record Saved(UUID requestId, String productId, BigDecimal amount, String currency) {}
         Saved saved =
                 transactionTemplate.execute(
                         status -> {
@@ -97,7 +97,7 @@ public class UserRefundRequestService {
                             RefundRequest r = buildRequest(TYPE_GEMS, orderId, user, req, "app");
                             refundRequestRepository.save(r);
                             return new Saved(
-                                    r,
+                                    r.getId(),
                                     order.getGemPack().getProductId(),
                                     order.getAmount(),
                                     order.getCurrency());
@@ -106,9 +106,13 @@ public class UserRefundRequestService {
         RefundRequest resolved =
                 transactionTemplate.execute(
                         status -> {
-                            saved.request().setStatus(RefundRequestStatus.RESOLVED);
-                            saved.request().setResolvedAt(Instant.now());
-                            return refundRequestRepository.save(saved.request());
+                            RefundRequest r =
+                                    refundRequestRepository
+                                            .findById(saved.requestId())
+                                            .orElseThrow();
+                            r.setStatus(RefundRequestStatus.RESOLVED);
+                            r.setResolvedAt(Instant.now());
+                            return refundRequestRepository.save(r);
                         });
         return UserRefundRequestResponse.from(
                 resolved, saved.productId(), saved.amount(), saved.currency());
@@ -121,8 +125,7 @@ public class UserRefundRequestService {
      */
     public UserRefundRequestResponse createForCourseOrder(
             UUID orderId, User user, CreateRefundRequestRequest req) {
-        record Saved(
-                RefundRequest request, String productName, BigDecimal amount, String currency) {}
+        record Saved(UUID requestId, String productName, BigDecimal amount, String currency) {}
         Saved saved =
                 transactionTemplate.execute(
                         status -> {
@@ -139,7 +142,7 @@ public class UserRefundRequestService {
                             RefundRequest r = buildRequest(TYPE_COURSE, orderId, user, req, "app");
                             refundRequestRepository.save(r);
                             return new Saved(
-                                    r,
+                                    r.getId(),
                                     order.getCourse().getName(),
                                     order.getAmount(),
                                     order.getCurrency());
@@ -148,9 +151,13 @@ public class UserRefundRequestService {
         RefundRequest resolved =
                 transactionTemplate.execute(
                         status -> {
-                            saved.request().setStatus(RefundRequestStatus.RESOLVED);
-                            saved.request().setResolvedAt(Instant.now());
-                            return refundRequestRepository.save(saved.request());
+                            RefundRequest r =
+                                    refundRequestRepository
+                                            .findById(saved.requestId())
+                                            .orElseThrow();
+                            r.setStatus(RefundRequestStatus.RESOLVED);
+                            r.setResolvedAt(Instant.now());
+                            return refundRequestRepository.save(r);
                         });
         return UserRefundRequestResponse.from(
                 resolved, saved.productName(), saved.amount(), saved.currency());

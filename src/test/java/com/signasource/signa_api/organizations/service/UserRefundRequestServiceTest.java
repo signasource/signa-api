@@ -227,6 +227,7 @@ class UserRefundRequestServiceTest {
     @Test
     void createForGemOrder_savesAndReturnsResponseWhenEligible() {
         UUID orderId = UUID.randomUUID();
+        UUID requestId = UUID.randomUUID();
         GemOrder order = paidGemOrder(orderId, 100);
         when(gemOrderRepository.findByIdAndUserId(orderId, userId)).thenReturn(Optional.of(order));
         UserStats stats = new UserStats();
@@ -235,7 +236,25 @@ class UserRefundRequestServiceTest {
         when(refundRequestRepository.findByPurchaseTypeAndPurchaseId(
                         UserRefundRequestService.TYPE_GEMS, orderId))
                 .thenReturn(List.of());
-        when(refundRequestRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(refundRequestRepository.save(any()))
+                .thenAnswer(
+                        inv -> {
+                            RefundRequest r = inv.getArgument(0);
+                            if (r.getId() == null) r.setId(requestId);
+                            return r;
+                        });
+        when(refundRequestRepository.findById(requestId))
+                .thenReturn(
+                        Optional.of(
+                                RefundRequest.builder()
+                                        .id(requestId)
+                                        .purchaseType(UserRefundRequestService.TYPE_GEMS)
+                                        .purchaseId(orderId)
+                                        .reason(RefundRequestReason.MISTAKE)
+                                        .channel("app")
+                                        .message("motivo")
+                                        .status(RefundRequestStatus.PENDING)
+                                        .build()));
 
         UserRefundRequestResponse result =
                 service.createForGemOrder(
@@ -253,6 +272,7 @@ class UserRefundRequestServiceTest {
     @Test
     void createForCourseOrder_savesAndReturnsResponseWhenEligible() {
         UUID orderId = UUID.randomUUID();
+        UUID requestId = UUID.randomUUID();
         CourseOrder order = paidCourseOrder(orderId);
         when(courseOrderRepository.findByIdAndUserId(orderId, userId))
                 .thenReturn(Optional.of(order));
@@ -262,7 +282,25 @@ class UserRefundRequestServiceTest {
         when(refundRequestRepository.findByPurchaseTypeAndPurchaseId(
                         UserRefundRequestService.TYPE_COURSE, orderId))
                 .thenReturn(List.of());
-        when(refundRequestRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(refundRequestRepository.save(any()))
+                .thenAnswer(
+                        inv -> {
+                            RefundRequest r = inv.getArgument(0);
+                            if (r.getId() == null) r.setId(requestId);
+                            return r;
+                        });
+        when(refundRequestRepository.findById(requestId))
+                .thenReturn(
+                        Optional.of(
+                                RefundRequest.builder()
+                                        .id(requestId)
+                                        .purchaseType(UserRefundRequestService.TYPE_COURSE)
+                                        .purchaseId(orderId)
+                                        .reason(RefundRequestReason.MISTAKE)
+                                        .channel("app")
+                                        .message("motivo")
+                                        .status(RefundRequestStatus.PENDING)
+                                        .build()));
 
         UserRefundRequestResponse result =
                 service.createForCourseOrder(
