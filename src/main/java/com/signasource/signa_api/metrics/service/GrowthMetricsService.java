@@ -224,10 +224,13 @@ public class GrowthMetricsService {
         BigDecimal paid = nonNull(repository.sumPaidAmountBetween(from, until));
         long paidCount = repository.countPaidBetween(from, until);
         BigDecimal refunded = nonNull(repository.sumRefundedBetween(from, until));
+        // Ticket and net figures leave out purchases that were refunded.
+        BigDecimal netAmount = nonNull(repository.sumNetPaidAmountBetween(from, until));
+        long netCount = repository.countNetPaidBetween(from, until);
         BigDecimal averageTicket =
-                paidCount == 0
+                netCount == 0
                         ? BigDecimal.ZERO
-                        : paid.divide(BigDecimal.valueOf(paidCount), 2, RoundingMode.HALF_UP);
+                        : netAmount.divide(BigDecimal.valueOf(netCount), 2, RoundingMode.HALF_UP);
         double refundRate =
                 paid.signum() == 0
                         ? 0.0
@@ -255,7 +258,10 @@ public class GrowthMetricsService {
                 previousPaidCount,
                 previousRefunded,
                 toDailyAmounts(repository.dailyRevenue(from, until, bucket), bucket),
-                combinedDailyRefunds(from, until, bucket));
+                combinedDailyRefunds(from, until, bucket),
+                netAmount,
+                netCount,
+                toDailyAmounts(repository.dailyNetRevenue(from, until, bucket), bucket));
     }
 
     /**
@@ -278,7 +284,10 @@ public class GrowthMetricsService {
                 repository.countGemRefundsBetween(from, until),
                 previousPaid,
                 previousRefunded,
-                toDailyAmounts(repository.dailyGemRevenue(from, until, bucket), bucket));
+                toDailyAmounts(repository.dailyGemRevenue(from, until, bucket), bucket),
+                nonNull(repository.sumGemNetRevenueBetween(from, until)),
+                repository.countGemNetPurchasesBetween(from, until),
+                toDailyAmounts(repository.dailyGemNetRevenue(from, until, bucket), bucket));
     }
 
     /** Individual paid-course purchases (end users, no org): money in, count and refunds. */
@@ -299,7 +308,10 @@ public class GrowthMetricsService {
                 repository.countCourseRefundsBetween(from, until),
                 previousPaid,
                 previousRefunded,
-                toDailyAmounts(repository.dailyCourseRevenue(from, until, bucket), bucket));
+                toDailyAmounts(repository.dailyCourseRevenue(from, until, bucket), bucket),
+                nonNull(repository.sumCourseNetRevenueBetween(from, until)),
+                repository.countCourseNetPurchasesBetween(from, until),
+                toDailyAmounts(repository.dailyCourseNetRevenue(from, until, bucket), bucket));
     }
 
     /**
@@ -450,7 +462,7 @@ public class GrowthMetricsService {
                 repository.oldestPendingOrgCreatedAt(until),
                 avgUsersPerOrg,
                 avgRevenuePerOrg,
-                repository.countPaidBetween(from, until),
+                repository.countNetPaidBetween(from, until),
                 toDailyCounts(repository.dailyPurchases(from, until, bucket), bucket),
                 utilization,
                 conversion);

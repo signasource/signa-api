@@ -210,6 +210,28 @@ class GrowthMetricsRepositoryTest {
     }
 
     @Test
+    void netRevenueLeavesOutRefundedPurchases() {
+        savePaidPurchase(new BigDecimal("5000.00"));
+        CoursePurchase refunded = savePaidPurchase(new BigDecimal("12000.00"));
+        refunded.setStatus(PurchaseStatus.REFUNDED);
+        refunded.setRefundedAt(Instant.now());
+        purchaseRepository.save(refunded);
+
+        // Gross keeps both; net keeps only the purchase that was not given back.
+        assertEquals(
+                0,
+                new BigDecimal("17000.00").compareTo(repository.sumPaidAmountBetween(FROM, until)));
+        assertEquals(
+                0,
+                new BigDecimal("5000.00")
+                        .compareTo(repository.sumNetPaidAmountBetween(FROM, until)));
+        assertEquals(1, repository.countNetPaidBetween(FROM, until));
+        assertEquals(1, repository.dailyNetRevenue(FROM, until, BUCKET).size());
+        assertEquals(1, repository.dailyPurchases(FROM, until, BUCKET).size());
+        assertEquals(1, repository.revenueByOrgBetween(FROM, until).size());
+    }
+
+    @Test
     void countsSeatUtilization() {
         CoursePurchase purchase = savePaidPurchase(new BigDecimal("6000.00"));
         seatRepository.save(seat(purchase, SeatStatus.ACTIVE));
@@ -286,13 +308,13 @@ class GrowthMetricsRepositoryTest {
     }
 
     /**
-     * A refunded GemOrder or CourseOrder must still appear in paidAmount (and in buyer counts) so
-     * that net income stays non-negative and the refund rate has the right denominator. Without
-     * this, status = REFUNDED would remove the original payment from gross while the refund is
-     * still counted, producing a negative net income and a 0% refund rate.
+     * A refunded GemOrder or CourseOrder must still appear in the gross paidAmount so that net
+     * income stays non-negative and the refund rate has the right denominator. Without this, status
+     * = REFUNDED would remove the original payment from gross while the refund is still counted,
+     * producing a negative net income and a 0% refund rate.
      */
     @Test
-    void refundedEndUserOrdersAreStillCountedInRevenue() {
+    void refundedEndUserOrdersStayInGrossButLeaveNet() {
         User buyer = saveUser();
         GemPack pack =
                 gemPackRepository.save(
@@ -334,9 +356,16 @@ class GrowthMetricsRepositoryTest {
         assertEquals(1, repository.dailyGemRevenue(FROM, until, BUCKET).size());
         assertEquals(1, repository.dailyCourseRevenue(FROM, until, BUCKET).size());
 
-        // The buyer must still appear in buyer counts.
-        assertEquals(1, repository.gemBuyerOrderCounts(FROM, until).size());
-        assertEquals(1, repository.courseBuyerOrderCounts(FROM, until).size());
+        // Net figures leave the refunded orders out, and a refunded-only buyer is not a payer.
+        assertEquals(0, BigDecimal.ZERO.compareTo(repository.sumGemNetRevenueBetween(FROM, until)));
+        assertEquals(
+                0, BigDecimal.ZERO.compareTo(repository.sumCourseNetRevenueBetween(FROM, until)));
+        assertEquals(0, repository.countGemNetPurchasesBetween(FROM, until));
+        assertEquals(0, repository.countCourseNetPurchasesBetween(FROM, until));
+        assertEquals(0, repository.dailyGemNetRevenue(FROM, until, BUCKET).size());
+        assertEquals(0, repository.dailyCourseNetRevenue(FROM, until, BUCKET).size());
+        assertEquals(0, repository.gemBuyerOrderCounts(FROM, until).size());
+        assertEquals(0, repository.courseBuyerOrderCounts(FROM, until).size());
     }
 
     @Test
