@@ -7,20 +7,24 @@ import com.signasource.signa_api.learning.dto.RoadmapLessonResponse;
 import com.signasource.signa_api.learning.dto.RoadmapTopicResponse;
 import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.entity.CourseVersion;
+import com.signasource.signa_api.learning.entity.EnrollmentStatus;
 import com.signasource.signa_api.learning.entity.Lesson;
 import com.signasource.signa_api.learning.entity.LessonBlock;
 import com.signasource.signa_api.learning.entity.ProgressStatus;
 import com.signasource.signa_api.learning.entity.Topic;
+import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import com.signasource.signa_api.learning.entity.VersionStatus;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.learning.repository.LessonBlockRepository;
 import com.signasource.signa_api.learning.repository.TopicRepository;
+import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
 import com.signasource.signa_api.learning.repository.UserLessonProgressRepository;
 import com.signasource.signa_api.learning.repository.projection.LessonBlockAggregateView;
 import com.signasource.signa_api.learning.repository.projection.LessonProgressStatusView;
 import com.signasource.signa_api.learning.util.BlockSignExtractor;
 import com.signasource.signa_api.users.entity.User;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -35,6 +39,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class CourseRoadmapService {
 
     private final CourseVersionRepository courseVersionRepository;
+    private final UserCourseEnrollmentRepository enrollmentRepository;
     private final TopicRepository topicRepository;
     private final LessonBlockRepository lessonBlockRepository;
     private final UserLessonProgressRepository lessonProgressRepository;
@@ -42,14 +47,26 @@ public class CourseRoadmapService {
 
     @Transactional(readOnly = true)
     public CourseRoadmapResponse getCourseRoadmap(User user, UUID courseId) {
+        // Use the user's enrolled version so progress is always matched correctly, even after a
+        // new course version is published. Fall back to the published version for non-enrolled
+        // users.
         CourseVersion version =
-                courseVersionRepository
-                        .findByCourseIdAndStatus(courseId, VersionStatus.PUBLISHED)
-                        .orElseThrow(
+                enrollmentRepository
+                        .findByUserIdAndCourseVersionCourseId(user.getId(), courseId)
+                        .stream()
+                        .filter(e -> e.getStatus() != EnrollmentStatus.DROPPED)
+                        .max(Comparator.comparing(UserCourseEnrollment::getStartedAt))
+                        .map(UserCourseEnrollment::getCourseVersion)
+                        .orElseGet(
                                 () ->
-                                        new NotFoundException(
-                                                "Active published version not found for course ID: "
-                                                        + courseId));
+                                        courseVersionRepository
+                                                .findByCourseIdAndStatus(
+                                                        courseId, VersionStatus.PUBLISHED)
+                                                .orElseThrow(
+                                                        () ->
+                                                                new NotFoundException(
+                                                                        "Active published version not found for course ID: "
+                                                                                + courseId)));
 
         List<Topic> topics = topicRepository.findRoadmapTopics(version.getId());
 

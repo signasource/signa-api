@@ -11,9 +11,11 @@ import static org.mockito.Mockito.when;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.learning.entity.Course;
 import com.signasource.signa_api.learning.entity.CourseVersion;
+import com.signasource.signa_api.learning.entity.EnrollmentStatus;
 import com.signasource.signa_api.learning.entity.VersionStatus;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.learning.repository.TopicRepository;
+import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
 import com.signasource.signa_api.learning.repository.projection.TopicLessonTotalView;
 import com.signasource.signa_api.organizations.entity.OrganizationCourse;
 import com.signasource.signa_api.organizations.repository.OrganizationCourseRepository;
@@ -31,6 +33,7 @@ class OrganizationContentScopeTest {
 
     @Mock private OrganizationCourseRepository organizationCourseRepository;
     @Mock private CourseVersionRepository courseVersionRepository;
+    @Mock private UserCourseEnrollmentRepository enrollmentRepository;
     @Mock private TopicRepository topicRepository;
 
     @InjectMocks private OrganizationContentScope contentScope;
@@ -66,6 +69,9 @@ class OrganizationContentScopeTest {
         when(organizationCourseRepository.findByOrganizationIdOrderByContractedAtAsc(
                         organizationId))
                 .thenReturn(List.of(OrganizationCourse.builder().course(course).build()));
+        when(enrollmentRepository.findDistinctVersionIdsByOrganizationAndCourseIds(
+                        organizationId, List.of(course.getId()), EnrollmentStatus.DROPPED))
+                .thenReturn(List.of());
         when(courseVersionRepository.findByCourseIdInAndStatus(
                         List.of(course.getId()), VersionStatus.PUBLISHED))
                 .thenReturn(List.of());
@@ -84,6 +90,9 @@ class OrganizationContentScopeTest {
         when(organizationCourseRepository.findByOrganizationIdOrderByContractedAtAsc(
                         organizationId))
                 .thenReturn(List.of(OrganizationCourse.builder().course(course).build()));
+        when(enrollmentRepository.findDistinctVersionIdsByOrganizationAndCourseIds(
+                        organizationId, List.of(course.getId()), EnrollmentStatus.DROPPED))
+                .thenReturn(List.of());
         when(courseVersionRepository.findByCourseIdInAndStatus(
                         List.of(course.getId()), VersionStatus.PUBLISHED))
                 .thenReturn(List.of(version));
@@ -114,6 +123,9 @@ class OrganizationContentScopeTest {
                         List.of(
                                 OrganizationCourse.builder().course(other).build(),
                                 OrganizationCourse.builder().course(wanted).build()));
+        when(enrollmentRepository.findDistinctVersionIdsByOrganizationAndCourseIds(
+                        organizationId, List.of(wanted.getId()), EnrollmentStatus.DROPPED))
+                .thenReturn(List.of());
         when(courseVersionRepository.findByCourseIdInAndStatus(
                         List.of(wanted.getId()), VersionStatus.PUBLISHED))
                 .thenReturn(List.of(version));
@@ -125,6 +137,32 @@ class OrganizationContentScopeTest {
 
         assertEquals(List.of(wanted.getId()), scope.courseIds());
         assertEquals(3, scope.totalLessons());
+    }
+
+    @Test
+    void shouldUseEnrolledVersionInsteadOfPublishedWhenMembersAreEnrolled() {
+        Course course = Course.builder().id(UUID.randomUUID()).build();
+        UUID enrolledVersionId = UUID.randomUUID();
+        CourseVersion enrolledVersion =
+                CourseVersion.builder().id(enrolledVersionId).course(course).build();
+        UUID topicId = UUID.randomUUID();
+        TopicLessonTotalView lessonTotal = total(enrolledVersionId, topicId, 8);
+        when(organizationCourseRepository.findByOrganizationIdOrderByContractedAtAsc(
+                        organizationId))
+                .thenReturn(List.of(OrganizationCourse.builder().course(course).build()));
+        when(enrollmentRepository.findDistinctVersionIdsByOrganizationAndCourseIds(
+                        organizationId, List.of(course.getId()), EnrollmentStatus.DROPPED))
+                .thenReturn(List.of(enrolledVersionId));
+        when(courseVersionRepository.findWithCourseByIds(List.of(enrolledVersionId)))
+                .thenReturn(List.of(enrolledVersion));
+        when(topicRepository.findTopicLessonTotals(List.of(enrolledVersionId)))
+                .thenReturn(List.of(lessonTotal));
+
+        ContentScope scope = contentScope.resolve(organizationId);
+
+        assertFalse(scope.isEmpty());
+        assertEquals(List.of(enrolledVersionId), scope.versionIds());
+        assertEquals(8, scope.totalLessons());
     }
 
     @Test

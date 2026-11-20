@@ -3,7 +3,10 @@ package com.signasource.signa_api.learning.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -15,19 +18,23 @@ import com.signasource.signa_api.learning.dto.RoadmapTopicResponse;
 import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.entity.Course;
 import com.signasource.signa_api.learning.entity.CourseVersion;
+import com.signasource.signa_api.learning.entity.EnrollmentStatus;
 import com.signasource.signa_api.learning.entity.Lesson;
 import com.signasource.signa_api.learning.entity.LessonBlock;
 import com.signasource.signa_api.learning.entity.ProgressStatus;
 import com.signasource.signa_api.learning.entity.Topic;
+import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import com.signasource.signa_api.learning.entity.VersionStatus;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.learning.repository.LessonBlockRepository;
 import com.signasource.signa_api.learning.repository.TopicRepository;
+import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
 import com.signasource.signa_api.learning.repository.UserLessonProgressRepository;
 import com.signasource.signa_api.learning.repository.projection.LessonBlockAggregateView;
 import com.signasource.signa_api.learning.repository.projection.LessonProgressStatusView;
 import com.signasource.signa_api.learning.util.BlockSignExtractor;
 import com.signasource.signa_api.users.entity.User;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -42,6 +49,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class CourseRoadmapServiceTest {
 
     @Mock private CourseVersionRepository courseVersionRepository;
+    @Mock private UserCourseEnrollmentRepository enrollmentRepository;
     @Mock private TopicRepository topicRepository;
     @Mock private LessonBlockRepository lessonBlockRepository;
     @Mock private UserLessonProgressRepository lessonProgressRepository;
@@ -76,6 +84,9 @@ class CourseRoadmapServiceTest {
 
     @Test
     void shouldThrowNotFoundWhenNoPublishedVersion() {
+        when(user.getId()).thenReturn(userId);
+        when(enrollmentRepository.findByUserIdAndCourseVersionCourseId(userId, courseId))
+                .thenReturn(List.of());
         when(courseVersionRepository.findByCourseIdAndStatus(courseId, VersionStatus.PUBLISHED))
                 .thenReturn(Optional.empty());
 
@@ -214,7 +225,40 @@ class CourseRoadmapServiceTest {
         assertEquals(LessonRoadmapState.AVAILABLE, lessons.get(1).state());
     }
 
+    @Test
+    void shouldUseEnrolledVersionInsteadOfPublishedAfterCourseCompletion() {
+        UUID enrolledVersionId = UUID.randomUUID();
+        CourseVersion enrolledVersion =
+                CourseVersion.builder()
+                        .id(enrolledVersionId)
+                        .version("v1.0")
+                        .status(VersionStatus.ARCHIVED)
+                        .course(course)
+                        .build();
+        UserCourseEnrollment enrollment =
+                UserCourseEnrollment.builder()
+                        .id(UUID.randomUUID())
+                        .courseVersion(enrolledVersion)
+                        .status(EnrollmentStatus.COMPLETED)
+                        .startedAt(Instant.now())
+                        .build();
+
+        when(user.getId()).thenReturn(userId);
+        when(enrollmentRepository.findByUserIdAndCourseVersionCourseId(userId, courseId))
+                .thenReturn(List.of(enrollment));
+        when(topicRepository.findRoadmapTopics(enrolledVersionId)).thenReturn(List.of());
+        when(lessonBlockRepository.aggregateByCourseVersionId(enrolledVersionId))
+                .thenReturn(List.of());
+
+        CourseRoadmapResponse response = courseRoadmapService.getCourseRoadmap(user, courseId);
+
+        assertEquals("v1.0", response.activeVersion());
+        verify(courseVersionRepository, never()).findByCourseIdAndStatus(any(), any());
+    }
+
     private void stubVersionAndTopics(List<Topic> topics) {
+        when(enrollmentRepository.findByUserIdAndCourseVersionCourseId(userId, courseId))
+                .thenReturn(List.of());
         when(courseVersionRepository.findByCourseIdAndStatus(courseId, VersionStatus.PUBLISHED))
                 .thenReturn(Optional.of(version));
         when(topicRepository.findRoadmapTopics(versionId)).thenReturn(topics);

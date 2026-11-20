@@ -2,25 +2,30 @@ package com.signasource.signa_api.organizations.service;
 
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.learning.entity.CourseVersion;
+import com.signasource.signa_api.learning.entity.EnrollmentStatus;
 import com.signasource.signa_api.learning.entity.Topic;
 import com.signasource.signa_api.learning.entity.VersionStatus;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.learning.repository.TopicRepository;
+import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
 import com.signasource.signa_api.learning.repository.projection.TopicLessonTotalView;
 import com.signasource.signa_api.organizations.entity.OrganizationCourse;
 import com.signasource.signa_api.organizations.repository.OrganizationCourseRepository;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
- * Resolves what an organization's progress is measured against: the published version of every
- * course it contracted (or of the one course the panel is filtered by) and how many lessons each
- * one has.
+ * Resolves what an organization's progress is measured against: the versions members are enrolled
+ * in for each contracted course, falling back to the current published version for courses with no
+ * enrollments yet. Includes how many lessons each version has.
  */
 @Component
 @RequiredArgsConstructor
@@ -30,6 +35,7 @@ public class OrganizationContentScope {
 
     private final OrganizationCourseRepository organizationCourseRepository;
     private final CourseVersionRepository courseVersionRepository;
+    private final UserCourseEnrollmentRepository enrollmentRepository;
     private final TopicRepository topicRepository;
 
     public ContentScope resolve(UUID organizationId) {
@@ -59,14 +65,7 @@ public class OrganizationContentScope {
         }
 
         List<UUID> contractOrder = courseIds;
-        List<CourseVersion> versions =
-                courseVersionRepository
-                        .findByCourseIdInAndStatus(courseIds, VersionStatus.PUBLISHED)
-                        .stream()
-                        .sorted(
-                                Comparator.comparingInt(
-                                        v -> contractOrder.indexOf(v.getCourse().getId())))
-                        .toList();
+        List<CourseVersion> versions = resolveVersions(organizationId, courseIds, contractOrder);
         if (versions.isEmpty()) {
             return ContentScope.empty();
         }
@@ -82,6 +81,48 @@ public class OrganizationContentScope {
             total += topic.getTotalLessons();
         }
         return new ContentScope(versions, lessonsByVersion, lessonsByTopic, total);
+    }
+
+    /**
+     * Prefers the versions org members are actively enrolled in over the current published version.
+     * When no enrollments exist for a course (not yet started), the published version is used as a
+     * fallback so the scope is never empty for a course the org contracted.
+     */
+    private List<CourseVersion> resolveVersions(
+            UUID organizationId, List<UUID> courseIds, List<UUID> contractOrder) {
+        List<UUID> enrolledIds =
+                enrollmentRepository.findDistinctVersionIdsByOrganizationAndCourseIds(
+                        organizationId, courseIds, EnrollmentStatus.DROPPED);
+
+        if (enrolledIds.isEmpty()) {
+            return courseVersionRepository
+                    .findByCourseIdInAndStatus(courseIds, VersionStatus.PUBLISHED)
+                    .stream()
+                    .sorted(
+                            Comparator.comparingInt(
+                                    v -> contractOrder.indexOf(v.getCourse().getId())))
+                    .toList();
+        }
+
+        List<CourseVersion> enrolledVersions =
+                courseVersionRepository.findWithCourseByIds(enrolledIds);
+        Set<UUID> coveredCourseIds =
+                enrolledVersions.stream()
+                        .map(v -> v.getCourse().getId())
+                        .collect(Collectors.toSet());
+
+        List<UUID> unenrolledCourseIds =
+                courseIds.stream().filter(id -> !coveredCourseIds.contains(id)).toList();
+
+        List<CourseVersion> all = new ArrayList<>(enrolledVersions);
+        if (!unenrolledCourseIds.isEmpty()) {
+            all.addAll(
+                    courseVersionRepository.findByCourseIdInAndStatus(
+                            unenrolledCourseIds, VersionStatus.PUBLISHED));
+        }
+        return all.stream()
+                .sorted(Comparator.comparingInt(v -> contractOrder.indexOf(v.getCourse().getId())))
+                .toList();
     }
 
     /** {@code versions} follow the order in which the courses were contracted. */

@@ -31,4 +31,7 @@ public interface CourseVersionRepository extends JpaRepository<CourseVersion, UU
 
     @Query("SELECT v FROM CourseVersion v JOIN FETCH v.course WHERE v.course.id = :courseId")
     List<CourseVersion> findByCourseId(@Param("courseId") UUID courseId);
+
+    @Query("SELECT v FROM CourseVersion v JOIN FETCH v.course WHERE v.id IN :ids")
+    List<CourseVersion> findWithCourseByIds(@Param("ids") Collection<UUID> ids);
 }
