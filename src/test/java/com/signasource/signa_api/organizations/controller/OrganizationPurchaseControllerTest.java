@@ -69,7 +69,7 @@ class OrganizationPurchaseControllerTest {
         UUID courseId = UUID.randomUUID();
         PurchaseQuoteResponse quote =
                 new PurchaseQuoteResponse(
-                        courseId, "LSA", 1, 2, 30, null, 0, null, null, null, null, "ARS");
+                        courseId, "LSA", 1, 2, 30, null, 0, null, null, null, null, "ARS", null);
         when(purchaseService.quote(courseId, 2, 30)).thenReturn(quote);
 
         assertSame(quote, controller.quote(courseId, 2, 30).getBody());

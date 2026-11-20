@@ -15,10 +15,10 @@ import com.signasource.signa_api.organizations.dto.CreateRefundRequestRequest;
 import com.signasource.signa_api.organizations.dto.RefundEligibilityResponse;
 import com.signasource.signa_api.organizations.dto.UserRefundRequestResponse;
 import com.signasource.signa_api.organizations.entity.CoursePurchase;
+import com.signasource.signa_api.organizations.entity.PurchaseSeat;
 import com.signasource.signa_api.organizations.entity.PurchaseStatus;
 import com.signasource.signa_api.organizations.entity.RefundRequest;
 import com.signasource.signa_api.organizations.entity.RefundRequestStatus;
-import com.signasource.signa_api.organizations.entity.SeatStatus;
 import com.signasource.signa_api.organizations.repository.CoursePurchaseRepository;
 import com.signasource.signa_api.organizations.repository.RefundRequestRepository;
 import com.signasource.signa_api.users.entity.User;
@@ -190,10 +190,9 @@ public class UserRefundRequestService {
         if (purchase.getStatus() != PurchaseStatus.PAID) {
             return RefundEligibilityResponse.no("La compra no está pagada");
         }
-        boolean anyActive =
-                purchase.getSeatList().stream().anyMatch(s -> s.getStatus() == SeatStatus.ACTIVE);
-        if (anyActive) {
-            return RefundEligibilityResponse.no("Hay participantes que ya aceptaron los cupos");
+        if (purchase.getSeatList().stream().anyMatch(PurchaseSeat::hasAccepted)) {
+            return RefundEligibilityResponse.no(
+                    "No se puede reembolsar: al menos un invitado ya aceptó su invitación");
         }
         return RefundEligibilityResponse.ok();
     }

@@ -152,6 +152,12 @@ public class PurchasePaymentService {
         if (!now.isBefore(purchase.getRefundableUntil())) {
             throw new InvalidInputException("The withdrawal period for this purchase has ended");
         }
+        // Locking the seats makes a concurrent acceptance wait for this decision (or vice versa).
+        if (seatRepository.findForUpdateByPurchaseId(purchaseId).stream()
+                .anyMatch(PurchaseSeat::hasAccepted)) {
+            throw new InvalidInputException(
+                    "This purchase cannot be refunded: an invitee already accepted their seat");
+        }
         refundRepository.save(
                 PurchaseRefund.builder()
                         .purchase(purchase)

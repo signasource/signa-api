@@ -105,7 +105,8 @@ public class CoursePurchaseService {
                 quote.subtotal(),
                 quote.discountAmount(),
                 quote.totalAmount(),
-                pricing.getCurrency());
+                pricing.getCurrency(),
+                PurchaseResponse.REFUND_RULE);
     }
 
     @Transactional

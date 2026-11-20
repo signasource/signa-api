@@ -86,6 +86,11 @@ public class PurchaseSeat {
         return status;
     }
 
+    /** True once the invitee accepted, even if the access was later revoked or has expired. */
+    public boolean hasAccepted() {
+        return activatedAt != null;
+    }
+
     public boolean isLive(Instant now) {
         SeatStatus current = statusAt(now);
         return current == SeatStatus.PENDING_PAYMENT

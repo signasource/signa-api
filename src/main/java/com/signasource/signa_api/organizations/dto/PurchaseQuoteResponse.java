@@ -19,4 +19,5 @@ public record PurchaseQuoteResponse(
         BigDecimal subtotal,
         BigDecimal discountAmount,
         BigDecimal totalAmount,
-        String currency) {}
+        String currency,
+        String refundRule) {}

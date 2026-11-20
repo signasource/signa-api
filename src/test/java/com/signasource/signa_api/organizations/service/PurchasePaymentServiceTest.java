@@ -26,6 +26,7 @@ import com.signasource.signa_api.organizations.entity.PurchaseSeat;
 import com.signasource.signa_api.organizations.entity.PurchaseStatus;
 import com.signasource.signa_api.organizations.entity.RefundReason;
 import com.signasource.signa_api.organizations.entity.RefundStatus;
+import com.signasource.signa_api.organizations.entity.SeatStatus;
 import com.signasource.signa_api.organizations.repository.CoursePurchaseRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationCourseRepository;
 import com.signasource.signa_api.organizations.repository.PurchaseRefundRepository;
@@ -383,6 +384,27 @@ class PurchasePaymentServiceTest {
         Instant now = Instant.now();
         paidWithMercadoPago(now);
         when(refundRepository.findByPaymentId("987")).thenReturn(Optional.empty());
+
+        assertThrows(
+                InvalidInputException.class,
+                () ->
+                        service.startWithdrawal(
+                                organization.getId(), purchase.getId(), actor(), null, now));
+        verify(refundRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldRejectAWithdrawalOnceAnInviteeAcceptedEvenIfTheirAccessWasRevoked() {
+        Instant now = Instant.now();
+        paidWithMercadoPago(now.plus(Duration.ofDays(3)));
+        when(refundRepository.findByPaymentId("987")).thenReturn(Optional.empty());
+        PurchaseSeat accepted =
+                PurchaseSeat.builder()
+                        .status(SeatStatus.REVOKED)
+                        .activatedAt(now.minus(Duration.ofDays(1)))
+                        .build();
+        when(seatRepository.findForUpdateByPurchaseId(purchase.getId()))
+                .thenReturn(List.of(accepted));
 
         assertThrows(
                 InvalidInputException.class,
