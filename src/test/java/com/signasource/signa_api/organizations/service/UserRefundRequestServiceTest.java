@@ -10,6 +10,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.signasource.signa_api.admin.service.AdminRefundService;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.gamification.entity.GemOrder;
@@ -49,6 +50,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -60,6 +63,8 @@ class UserRefundRequestServiceTest {
     @Mock private CoursePurchaseRepository coursePurchaseRepository;
     @Mock private UserStatsRepository userStatsRepository;
     @Mock private UserLessonProgressRepository lessonProgressRepository;
+    @Mock private AdminRefundService adminRefundService;
+    @Mock private TransactionTemplate transactionTemplate;
 
     @InjectMocks private UserRefundRequestService service;
 
@@ -70,6 +75,11 @@ class UserRefundRequestServiceTest {
     void setUp() {
         userId = UUID.randomUUID();
         user = User.builder().id(userId).build();
+        when(transactionTemplate.execute(any()))
+                .thenAnswer(
+                        invocation ->
+                                ((TransactionCallback<?>) invocation.getArgument(0))
+                                        .doInTransaction(null));
     }
 
     // ── checkEligibilityGems ──────────────────────────────────────────────────
@@ -233,8 +243,9 @@ class UserRefundRequestServiceTest {
                         user,
                         new CreateRefundRequestRequest(RefundRequestReason.MISTAKE, "motivo"));
 
-        verify(refundRequestRepository).save(any(RefundRequest.class));
+        verify(adminRefundService).refund(UserRefundRequestService.TYPE_GEMS, orderId, false);
         assertEquals(UserRefundRequestService.TYPE_GEMS, result.purchaseType());
+        assertEquals(RefundRequestStatus.RESOLVED.name(), result.status());
     }
 
     // ── createForCourseOrder ──────────────────────────────────────────────────
@@ -259,8 +270,9 @@ class UserRefundRequestServiceTest {
                         user,
                         new CreateRefundRequestRequest(RefundRequestReason.MISTAKE, "motivo"));
 
-        verify(refundRequestRepository).save(any(RefundRequest.class));
+        verify(adminRefundService).refund(UserRefundRequestService.TYPE_COURSE, orderId, false);
         assertEquals(UserRefundRequestService.TYPE_COURSE, result.purchaseType());
+        assertEquals(RefundRequestStatus.RESOLVED.name(), result.status());
     }
 
     // ── createForSeats ────────────────────────────────────────────────────────

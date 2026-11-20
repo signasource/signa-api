@@ -1,5 +1,6 @@
 package com.signasource.signa_api.organizations.service;
 
+import com.signasource.signa_api.admin.service.AdminRefundService;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.gamification.entity.GemOrder;
@@ -22,6 +23,8 @@ import com.signasource.signa_api.organizations.entity.RefundRequestStatus;
 import com.signasource.signa_api.organizations.repository.CoursePurchaseRepository;
 import com.signasource.signa_api.organizations.repository.RefundRequestRepository;
 import com.signasource.signa_api.users.entity.User;
+import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +32,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 @RequiredArgsConstructor
@@ -44,6 +48,8 @@ public class UserRefundRequestService {
     private final CoursePurchaseRepository coursePurchaseRepository;
     private final UserStatsRepository userStatsRepository;
     private final UserLessonProgressRepository lessonProgressRepository;
+    private final AdminRefundService adminRefundService;
+    private final TransactionTemplate transactionTemplate;
 
     // ── Eligibility checks ────────────────────────────────────────────────────
 
@@ -67,38 +73,87 @@ public class UserRefundRequestService {
 
     // ── Create requests ───────────────────────────────────────────────────────
 
-    @Transactional
+    /**
+     * Saves the request and immediately processes the Mercado Pago refund, the same way an admin
+     * resolving the request would. The MP call runs outside any database transaction; if it fails
+     * the request stays PENDING so an admin can retry manually.
+     */
     public UserRefundRequestResponse createForGemOrder(
             UUID orderId, User user, CreateRefundRequestRequest req) {
-        GemOrder order =
-                gemOrderRepository
-                        .findByIdAndUserId(orderId, user.getId())
-                        .orElseThrow(() -> new NotFoundException("Gem order not found"));
-        RefundEligibilityResponse elig = gemsEligibility(order, user);
-        if (!elig.eligible()) throw new InvalidInputException(elig.reason());
-        checkNoPendingRequest(TYPE_GEMS, orderId);
-
-        RefundRequest r = buildRequest(TYPE_GEMS, orderId, user, req, "app");
-        refundRequestRepository.save(r);
+        record Saved(RefundRequest request, String productId, BigDecimal amount, String currency) {}
+        Saved saved =
+                transactionTemplate.execute(
+                        status -> {
+                            GemOrder order =
+                                    gemOrderRepository
+                                            .findByIdAndUserId(orderId, user.getId())
+                                            .orElseThrow(
+                                                    () ->
+                                                            new NotFoundException(
+                                                                    "Gem order not found"));
+                            RefundEligibilityResponse elig = gemsEligibility(order, user);
+                            if (!elig.eligible()) throw new InvalidInputException(elig.reason());
+                            checkNoPendingRequest(TYPE_GEMS, orderId);
+                            RefundRequest r = buildRequest(TYPE_GEMS, orderId, user, req, "app");
+                            refundRequestRepository.save(r);
+                            return new Saved(
+                                    r,
+                                    order.getGemPack().getProductId(),
+                                    order.getAmount(),
+                                    order.getCurrency());
+                        });
+        adminRefundService.refund(TYPE_GEMS, orderId, false);
+        RefundRequest resolved =
+                transactionTemplate.execute(
+                        status -> {
+                            saved.request().setStatus(RefundRequestStatus.RESOLVED);
+                            saved.request().setResolvedAt(Instant.now());
+                            return refundRequestRepository.save(saved.request());
+                        });
         return UserRefundRequestResponse.from(
-                r, order.getGemPack().getProductId(), order.getAmount(), order.getCurrency());
+                resolved, saved.productId(), saved.amount(), saved.currency());
     }
 
-    @Transactional
+    /**
+     * Saves the request and immediately processes the Mercado Pago refund, the same way an admin
+     * resolving the request would. The MP call runs outside any database transaction; if it fails
+     * the request stays PENDING so an admin can retry manually.
+     */
     public UserRefundRequestResponse createForCourseOrder(
             UUID orderId, User user, CreateRefundRequestRequest req) {
-        CourseOrder order =
-                courseOrderRepository
-                        .findByIdAndUserId(orderId, user.getId())
-                        .orElseThrow(() -> new NotFoundException("Course order not found"));
-        RefundEligibilityResponse elig = courseEligibility(order, user);
-        if (!elig.eligible()) throw new InvalidInputException(elig.reason());
-        checkNoPendingRequest(TYPE_COURSE, orderId);
-
-        RefundRequest r = buildRequest(TYPE_COURSE, orderId, user, req, "app");
-        refundRequestRepository.save(r);
+        record Saved(
+                RefundRequest request, String productName, BigDecimal amount, String currency) {}
+        Saved saved =
+                transactionTemplate.execute(
+                        status -> {
+                            CourseOrder order =
+                                    courseOrderRepository
+                                            .findByIdAndUserId(orderId, user.getId())
+                                            .orElseThrow(
+                                                    () ->
+                                                            new NotFoundException(
+                                                                    "Course order not found"));
+                            RefundEligibilityResponse elig = courseEligibility(order, user);
+                            if (!elig.eligible()) throw new InvalidInputException(elig.reason());
+                            checkNoPendingRequest(TYPE_COURSE, orderId);
+                            RefundRequest r = buildRequest(TYPE_COURSE, orderId, user, req, "app");
+                            refundRequestRepository.save(r);
+                            return new Saved(
+                                    r,
+                                    order.getCourse().getName(),
+                                    order.getAmount(),
+                                    order.getCurrency());
+                        });
+        adminRefundService.refund(TYPE_COURSE, orderId, false);
+        RefundRequest resolved =
+                transactionTemplate.execute(
+                        status -> {
+                            saved.request().setStatus(RefundRequestStatus.RESOLVED);
+                            saved.request().setResolvedAt(Instant.now());
+                            return refundRequestRepository.save(saved.request());
+                        });
         return UserRefundRequestResponse.from(
-                r, order.getCourse().getName(), order.getAmount(), order.getCurrency());
+                resolved, saved.productName(), saved.amount(), saved.currency());
     }
 
     @Transactional
