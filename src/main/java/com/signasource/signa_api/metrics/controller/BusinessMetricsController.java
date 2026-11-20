@@ -3,6 +3,8 @@ package com.signasource.signa_api.metrics.controller;
 import com.signasource.signa_api.metrics.dto.BusinessMetricsResponse;
 import com.signasource.signa_api.metrics.service.GlobalMetricsService;
 import com.signasource.signa_api.metrics.service.MetricsRange;
+import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,8 +25,10 @@ public class BusinessMetricsController {
     @GetMapping
     public ResponseEntity<BusinessMetricsResponse> business(
             @RequestParam(required = false) String from,
-            @RequestParam(required = false) String to) {
+            @RequestParam(required = false) String to,
+            @RequestParam(required = false) List<UUID> courseIds) {
         return ResponseEntity.ok(
-                globalMetricsService.getBusinessMetrics(MetricsRange.fromIso(from, to)));
+                globalMetricsService.getBusinessMetrics(
+                        MetricsRange.fromIso(from, to), courseIds != null ? courseIds : List.of()));
     }
 }

@@ -2,6 +2,7 @@ package com.signasource.signa_api.metrics.repository;
 
 import com.signasource.signa_api.learning.entity.LessonBlockAttempt;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.Query;
@@ -102,4 +103,85 @@ public interface GlobalMetricsRepository extends Repository<LessonBlockAttempt, 
                     + "GROUP BY CAST(p.completedAt AS LocalDate)")
     List<Object[]> dailyLessonsCompleted(
             @Param("from") Instant from, @Param("until") Instant until);
+
+    // Course-filtered variants
+
+    @Query(
+            "SELECT COUNT(a) FROM LessonBlockAttempt a "
+                    + "WHERE a.isCorrect IS NOT NULL AND a.attemptedAt >= :from AND a.attemptedAt < :until "
+                    + "AND a.lessonBlock.lesson.topic.module.courseVersion.id IN :courseIds")
+    long countEvaluatedAttemptsByCourse(
+            @Param("from") Instant from,
+            @Param("until") Instant until,
+            @Param("courseIds") Collection<UUID> courseIds);
+
+    @Query(
+            "SELECT COUNT(a) FROM LessonBlockAttempt a "
+                    + "WHERE a.isCorrect = true AND a.attemptedAt >= :from AND a.attemptedAt < :until "
+                    + "AND a.lessonBlock.lesson.topic.module.courseVersion.id IN :courseIds")
+    long countCorrectAttemptsByCourse(
+            @Param("from") Instant from,
+            @Param("until") Instant until,
+            @Param("courseIds") Collection<UUID> courseIds);
+
+    @Query(
+            "SELECT COUNT(p) FROM UserLessonProgress p "
+                    + "WHERE p.status = com.signasource.signa_api.learning.entity.ProgressStatus.COMPLETED "
+                    + "AND p.completedAt >= :from AND p.completedAt < :until "
+                    + "AND p.lesson.topic.module.courseVersion.id IN :courseIds")
+    long countLessonsCompletedByCourse(
+            @Param("from") Instant from,
+            @Param("until") Instant until,
+            @Param("courseIds") Collection<UUID> courseIds);
+
+    @Query(
+            "SELECT COUNT(tp) FROM UserTopicProgress tp "
+                    + "WHERE tp.status = com.signasource.signa_api.learning.entity.ProgressStatus.COMPLETED "
+                    + "AND tp.completedAt >= :from AND tp.completedAt < :until "
+                    + "AND tp.topic.module.courseVersion.id IN :courseIds")
+    long countTopicsCompletedByCourse(
+            @Param("from") Instant from,
+            @Param("until") Instant until,
+            @Param("courseIds") Collection<UUID> courseIds);
+
+    /** Rows of {@code [BlockType type, long evaluated, long correct]} filtered by courses. */
+    @Query(
+            "SELECT a.lessonBlock.type, COUNT(a), "
+                    + "SUM(CASE WHEN a.isCorrect = true THEN 1L ELSE 0L END) "
+                    + "FROM LessonBlockAttempt a "
+                    + "WHERE a.isCorrect IS NOT NULL AND a.attemptedAt >= :from AND a.attemptedAt < :until "
+                    + "AND a.lessonBlock.lesson.topic.module.courseVersion.id IN :courseIds "
+                    + "GROUP BY a.lessonBlock.type")
+    List<Object[]> accuracyByBlockTypeByCourse(
+            @Param("from") Instant from,
+            @Param("until") Instant until,
+            @Param("courseIds") Collection<UUID> courseIds);
+
+    /**
+     * Daily buckets of {@code [LocalDate day, long evaluated, long correct]} filtered by courses
+     * (Argentina day via caller's data).
+     */
+    @Query(
+            "SELECT CAST(a.attemptedAt AS LocalDate), COUNT(a), "
+                    + "SUM(CASE WHEN a.isCorrect = true THEN 1L ELSE 0L END) "
+                    + "FROM LessonBlockAttempt a "
+                    + "WHERE a.isCorrect IS NOT NULL AND a.attemptedAt >= :from AND a.attemptedAt < :until "
+                    + "AND a.lessonBlock.lesson.topic.module.courseVersion.id IN :courseIds "
+                    + "GROUP BY CAST(a.attemptedAt AS LocalDate)")
+    List<Object[]> dailyAttemptsByCourse(
+            @Param("from") Instant from,
+            @Param("until") Instant until,
+            @Param("courseIds") Collection<UUID> courseIds);
+
+    /** Daily buckets of {@code [LocalDate day, long count]} of lessons completed filtered by courses. */
+    @Query(
+            "SELECT CAST(p.completedAt AS LocalDate), COUNT(p) FROM UserLessonProgress p "
+                    + "WHERE p.status = com.signasource.signa_api.learning.entity.ProgressStatus.COMPLETED "
+                    + "AND p.completedAt >= :from AND p.completedAt < :until "
+                    + "AND p.lesson.topic.module.courseVersion.id IN :courseIds "
+                    + "GROUP BY CAST(p.completedAt AS LocalDate)")
+    List<Object[]> dailyLessonsCompletedByCourse(
+            @Param("from") Instant from,
+            @Param("until") Instant until,
+            @Param("courseIds") Collection<UUID> courseIds);
 }

@@ -26,6 +26,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -53,6 +54,11 @@ public class GrowthMetricsService {
 
     @Transactional(readOnly = true)
     public GrowthMetricsResponse getGrowthMetrics(MetricsRange range) {
+        return getGrowthMetrics(range, List.of());
+    }
+
+    @Transactional(readOnly = true)
+    public GrowthMetricsResponse getGrowthMetrics(MetricsRange range, Collection<UUID> courseIds) {
         Instant from = range.start();
         Instant until = range.end();
         // Series resolution for this window (minute/hour/day); the daily queries bucket by it.

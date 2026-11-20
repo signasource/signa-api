@@ -3,6 +3,8 @@ package com.signasource.signa_api.metrics.controller;
 import com.signasource.signa_api.metrics.dto.GrowthMetricsResponse;
 import com.signasource.signa_api.metrics.service.GrowthMetricsService;
 import com.signasource.signa_api.metrics.service.MetricsRange;
+import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,8 +26,10 @@ public class GrowthMetricsController {
     @GetMapping
     public ResponseEntity<GrowthMetricsResponse> growth(
             @RequestParam(required = false) String from,
-            @RequestParam(required = false) String to) {
+            @RequestParam(required = false) String to,
+            @RequestParam(required = false) List<UUID> courseIds) {
         return ResponseEntity.ok(
-                growthMetricsService.getGrowthMetrics(MetricsRange.fromIso(from, to)));
+                growthMetricsService.getGrowthMetrics(
+                        MetricsRange.fromIso(from, to), courseIds != null ? courseIds : List.of()));
     }
 }
