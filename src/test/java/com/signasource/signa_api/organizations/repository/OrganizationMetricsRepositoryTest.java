@@ -622,4 +622,43 @@ class OrganizationMetricsRepositoryTest {
         assertEquals(7, minutes.get(0).getTotal());
         assertEquals(1, activeDays.get(0).getTotal());
     }
+
+    @Test
+    void shouldScopeLearningMinutesToOrgMembership() {
+        // joinedAt is set to now() by @PrePersist
+        memberRepository.save(
+                OrganizationMember.builder()
+                        .organization(organization)
+                        .user(ana)
+                        .role(MemberRole.MEMBER)
+                        .status(MemberStatus.ACTIVE)
+                        .build());
+        // today's activity should count (activityDate >= CAST(joinedAt AS LocalDate) = today)
+        LocalDate today = LocalDate.now(java.time.ZoneOffset.UTC);
+        dailyActivityRepository.save(
+                UserDailyActivity.builder().user(ana).activityDate(today).minutes(30).build());
+        // bruno has no membership for this org: his activity should not appear
+        dailyActivityRepository.save(
+                UserDailyActivity.builder().user(bruno).activityDate(today).minutes(50).build());
+        List<UUID> users = List.of(ana.getId(), bruno.getId());
+
+        List<UserCountView> result =
+                metricsRepository.findLearningMinutesByUserScopedToOrg(
+                        users, organization.getId(), FIRST_DAY, today);
+
+        assertEquals(1, result.size());
+        assertEquals(30, result.get(0).getTotal());
+    }
+
+    @Test
+    void shouldCountCameraExercises() {
+        long count = metricsRepository.countCameraExercises(List.of(version.getId()));
+        assertEquals(1, count);
+    }
+
+    @Test
+    void shouldReturnZeroCameraExercisesForUnrelatedVersion() {
+        long count = metricsRepository.countCameraExercises(List.of(UUID.randomUUID()));
+        assertEquals(0, count);
+    }
 }

@@ -246,6 +246,32 @@ public interface OrganizationMetricsRepository extends Repository<LessonBlockAtt
             @Param("from") LocalDate from,
             @Param("to") LocalDate to);
 
+    /**
+     * Like {@link #findLearningMinutesByUser} but scoped to the organization: only counts activity
+     * on dates on or after each user's membership start ({@code joinedAt}) in that organization.
+     * Null {@code joinedAt} is treated as no lower bound.
+     */
+    @Query(
+            "SELECT d.user.id AS userId, SUM(d.minutes) AS total FROM UserDailyActivity d, "
+                    + "OrganizationMember m WHERE d.user = m.user "
+                    + "AND d.user.id IN :userIds AND m.organization.id = :organizationId "
+                    + "AND m.status = com.signasource.signa_api.organizations.entity.MemberStatus.ACTIVE "
+                    + "AND d.activityDate BETWEEN :from AND :to "
+                    + "AND (m.joinedAt IS NULL OR d.activityDate >= CAST(m.joinedAt AS LocalDate)) "
+                    + "GROUP BY d.user.id")
+    List<UserCountView> findLearningMinutesByUserScopedToOrg(
+            @Param("userIds") Collection<UUID> userIds,
+            @Param("organizationId") UUID organizationId,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to);
+
+    /** Returns the number of PERFORM_SIGN blocks in any of the given course versions. */
+    @Query(
+            "SELECT COUNT(b) FROM LessonBlock b "
+                    + "WHERE b.lesson.topic.courseVersion.id IN :versionIds "
+                    + "AND b.type = com.signasource.signa_api.learning.entity.BlockType.PERFORM_SIGN")
+    long countCameraExercises(@Param("versionIds") Collection<UUID> versionIds);
+
     @Query("SELECT s.currentStreak FROM UserStats s WHERE s.user.id IN :userIds")
     List<Integer> findCurrentStreaks(@Param("userIds") Collection<UUID> userIds);
 }

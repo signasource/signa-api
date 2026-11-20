@@ -203,8 +203,10 @@ class OrganizationMetricsServiceTest {
                 .thenReturn(List.of(tenDays, fiveDays));
         UserCountView sixtyMinutes = count(60);
         UserCountView thirtyMinutes = count(30);
-        when(metricsRepository.findLearningMinutesByUser(eq(ids), any(), any()))
+        when(metricsRepository.findLearningMinutesByUserScopedToOrg(
+                        eq(ids), eq(organizationId), any(), any()))
                 .thenReturn(List.of(sixtyMinutes, thirtyMinutes));
+        when(metricsRepository.countCameraExercises(eq(scope.versionIds()))).thenReturn(2L);
         UserCompletedLessonsView allDone = completed(10);
         UserCompletedLessonsView halfDone = completed(5);
         when(metricsRepository.findCompletedLessonCountsByUser(
@@ -241,11 +243,13 @@ class OrganizationMetricsServiceTest {
         assertEquals(1, result.progress().participantsCompletedAll());
         assertEquals(90, result.progress().totalLearningMinutes());
         assertEquals(45.0, result.progress().averageLearningMinutes());
+        assertEquals(3, result.progress().averagePendingLessons());
 
         assertEquals(10, result.performance().exerciseAttempts());
         assertEquals(80, result.performance().correctPercentage());
         assertEquals(4, result.performance().signRecognitionAttempts());
         assertEquals(25, result.performance().signRecognitionCorrectPercentage());
+        assertTrue(result.performance().hasCameraExercises());
 
         List<WeeklyPerformanceResponse> weeks = result.performance().weeklyEvolution();
         assertEquals(8, weeks.size());
@@ -271,7 +275,8 @@ class OrganizationMetricsServiceTest {
                 .thenReturn(List.of());
         when(metricsRepository.findCurrentStreaks(ids)).thenReturn(List.of());
         when(metricsRepository.findActiveDaysByUser(eq(ids), any(), any())).thenReturn(List.of());
-        when(metricsRepository.findLearningMinutesByUser(eq(ids), any(), any()))
+        when(metricsRepository.findLearningMinutesByUserScopedToOrg(
+                        eq(ids), eq(organizationId), any(), any()))
                 .thenReturn(List.of());
         when(metricsRepository.findAttemptTotalsByBlockTypes(
                         eq(organizationId), eq(ids), any(), any(), any(), any()))
@@ -554,7 +559,8 @@ class OrganizationMetricsServiceTest {
         UserCountView fiftyMinutes = count(50);
         UserCompletedLessonsView fourLessons = completed(4);
         when(metricsRepository.findActiveDaysByUser(ids, from, to)).thenReturn(List.of(fourDays));
-        when(metricsRepository.findLearningMinutesByUser(ids, from, to))
+        when(metricsRepository.findLearningMinutesByUserScopedToOrg(
+                        eq(ids), eq(organizationId), eq(from), eq(to)))
                 .thenReturn(List.of(fiftyMinutes));
         when(metricsRepository.findCompletedLessonCountsByUser(
                         ids, scope.versionIds(), period.end()))
