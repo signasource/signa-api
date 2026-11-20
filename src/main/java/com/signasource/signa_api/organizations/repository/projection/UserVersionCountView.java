@@ -2,7 +2,9 @@ package com.signasource.signa_api.organizations.repository.projection;
 
 import java.util.UUID;
 
-public interface VersionCountView {
+public interface UserVersionCountView {
+
+    UUID getUserId();
 
     UUID getVersionId();
 

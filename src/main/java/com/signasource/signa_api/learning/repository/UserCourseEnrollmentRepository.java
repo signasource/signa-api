@@ -39,13 +39,14 @@ public interface UserCourseEnrollmentRepository extends JpaRepository<UserCourse
 
     long countByCourseVersionIdAndStatusNot(UUID courseVersionId, EnrollmentStatus status);
 
+    /**
+     * Every enrollment of those users in any version of those courses, version and course loaded.
+     */
     @Query(
-            "SELECT DISTINCT e.courseVersion.id FROM UserCourseEnrollment e "
-                    + "WHERE e.organization.id = :organizationId "
-                    + "AND e.courseVersion.course.id IN :courseIds "
-                    + "AND e.status <> :excluded")
-    List<UUID> findDistinctVersionIdsByOrganizationAndCourseIds(
-            @Param("organizationId") UUID organizationId,
-            @Param("courseIds") Collection<UUID> courseIds,
-            @Param("excluded") EnrollmentStatus excluded);
+            "SELECT e FROM UserCourseEnrollment e "
+                    + "JOIN FETCH e.courseVersion v JOIN FETCH v.course c "
+                    + "WHERE e.user.id IN :userIds AND c.id IN :courseIds")
+    List<UserCourseEnrollment> findWithCourseByUserIdInAndCourseIdIn(
+            @Param("userIds") Collection<UUID> userIds,
+            @Param("courseIds") Collection<UUID> courseIds);
 }

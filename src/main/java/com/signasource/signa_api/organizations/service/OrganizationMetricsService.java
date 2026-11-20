@@ -3,6 +3,7 @@ package com.signasource.signa_api.organizations.service;
 import com.signasource.signa_api.common.ArgentinaTime;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.learning.entity.BlockType;
+import com.signasource.signa_api.learning.entity.Course;
 import com.signasource.signa_api.learning.entity.Topic;
 import com.signasource.signa_api.learning.repository.TopicRepository;
 import com.signasource.signa_api.organizations.dto.ModuleStatsResponse;
@@ -25,17 +26,18 @@ import com.signasource.signa_api.organizations.repository.projection.AttemptView
 import com.signasource.signa_api.organizations.repository.projection.DailyAttemptStatsView;
 import com.signasource.signa_api.organizations.repository.projection.DailyMinutesView;
 import com.signasource.signa_api.organizations.repository.projection.TopicAttemptStatsView;
-import com.signasource.signa_api.organizations.repository.projection.TopicProgressCountView;
 import com.signasource.signa_api.organizations.repository.projection.UserAttemptStatsView;
-import com.signasource.signa_api.organizations.repository.projection.UserCompletedLessonsView;
 import com.signasource.signa_api.organizations.repository.projection.UserCountView;
+import com.signasource.signa_api.organizations.repository.projection.UserTopicStateView;
 import com.signasource.signa_api.organizations.service.OrganizationContentScope.ContentScope;
+import com.signasource.signa_api.organizations.service.OrganizationContentScope.CourseScope;
 import com.signasource.signa_api.users.entity.User;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -43,7 +45,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -73,11 +74,11 @@ public class OrganizationMetricsService {
             User actor, UUID organizationId, UUID courseId, MetricsPeriod period) {
         accessService.requireManage(actor, organizationId);
         requireOrganization(organizationId);
-        ContentScope scope = contentScope.resolve(organizationId, courseId);
 
         Instant start = period.start();
         Instant end = period.end();
         List<UUID> userIds = participantIds(organizationId, end);
+        ContentScope scope = contentScope.resolve(organizationId, courseId, userIds, end);
         if (userIds.isEmpty()) {
             return new OrganizationOverviewResponse(
                     new Participation(0, 0, 0, 0, period.activeWindowDays(), 0, 0, 0),
@@ -125,13 +126,19 @@ public class OrganizationMetricsService {
                         streaks.stream().filter(s -> s > 0).count(),
                         streaks.stream().mapToInt(Integer::intValue).max().orElse(0));
 
-        List<Long> completedPerUser =
-                metricsRepository
-                        .findCompletedLessonCountsByUser(userIds, scope.versionIds(), end)
-                        .stream()
-                        .map(UserCompletedLessonsView::getCompletedLessons)
-                        .toList();
-        long completedByEnd = completedPerUser.stream().mapToLong(Long::longValue).sum();
+        // Each participant against their own version of each course (see OrganizationContentScope).
+        long percentageSum = 0;
+        long finishedEverything = 0;
+        long pendingLessons = 0;
+        for (UUID userId : userIds) {
+            long total = scope.totalLessons(userId);
+            long done = scope.completedLessons(userId);
+            percentageSum += MetricMath.percentage(done, total);
+            if (total > 0 && done >= total) {
+                finishedEverything++;
+            }
+            pendingLessons += Math.max(0, total - done);
+        }
         long completedInPeriod =
                 metricsRepository
                         .findLessonCompletionsBetween(userIds, scope.versionIds(), start, end)
@@ -139,18 +146,6 @@ public class OrganizationMetricsService {
         long modulesCompleted =
                 metricsRepository.countTopicsCompletedBetween(
                         userIds, scope.versionIds(), start, end);
-        long percentageSum =
-                completedPerUser.stream()
-                        .mapToLong(done -> MetricMath.percentage(done, scope.totalLessons()))
-                        .sum();
-        long finishedEverything =
-                scope.totalLessons() == 0
-                        ? 0
-                        : completedPerUser.stream()
-                                .filter(done -> done >= scope.totalLessons())
-                                .count();
-
-        long pendingLessons = Math.max(0, participants * scope.totalLessons() - completedByEnd);
         Progress progress =
                 new Progress(
                         (int) Math.round(percentageSum / (double) participants),
@@ -195,6 +190,11 @@ public class OrganizationMetricsService {
     /**
      * Per module: who had completed it and who was on it as of the end of the period, and the
      * accuracy of the attempts made during the period.
+     *
+     * <p>Rows are the modules of each course's reference version. Participants on another version
+     * of the course count in the row with the same position (versions are forked module by module),
+     * and each participant only counts on their own version; a module that exists only in an older
+     * version gets its own row.
      */
     @Transactional(readOnly = true)
     public List<ModuleStatsResponse> getModuleStats(
@@ -202,34 +202,13 @@ public class OrganizationMetricsService {
         accessService.requireManage(actor, organizationId);
         requireOrganization(organizationId);
 
-        ContentScope scope = contentScope.resolve(organizationId, courseId);
         Instant end = period.end();
         List<UUID> userIds = participantIds(organizationId, end);
+        ContentScope scope = contentScope.resolve(organizationId, courseId, userIds, end);
         if (scope.isEmpty()) {
             return List.of();
         }
 
-        Map<UUID, Long> completedByTopic = new HashMap<>();
-        Map<UUID, Long> inProgressByTopic = new HashMap<>();
-        Map<UUID, TopicAttemptStatsView> attemptsByTopic = new HashMap<>();
-        if (!userIds.isEmpty()) {
-            for (TopicProgressCountView count :
-                    metricsRepository.findTopicProgressCounts(userIds, scope.versionIds(), end)) {
-                completedByTopic.put(count.getTopicId(), count.getCompleted());
-                inProgressByTopic.put(count.getTopicId(), count.getInProgress());
-            }
-            attemptsByTopic =
-                    metricsRepository
-                            .findAttemptStatsByTopic(
-                                    organizationId, userIds, scope.courseIds(), period.start(), end)
-                            .stream()
-                            .collect(
-                                    Collectors.toMap(
-                                            TopicAttemptStatsView::getTopicId,
-                                            Function.identity()));
-        }
-
-        List<ModuleStatsResponse> result = new ArrayList<>();
         List<Topic> topics =
                 topicRepository
                         .findByCourseVersionIdInOrderByCourseVersionIdAscOrderAsc(
@@ -237,26 +216,106 @@ public class OrganizationMetricsService {
                         .stream()
                         .sorted(scope.topicOrder())
                         .toList();
-        for (Topic topic : topics) {
-            long completed = completedByTopic.getOrDefault(topic.getId(), 0L);
-            TopicAttemptStatsView attempts = attemptsByTopic.get(topic.getId());
-            long evaluated = attempts == null ? 0 : attempts.getEvaluated();
-            result.add(
-                    new ModuleStatsResponse(
-                            topic.getCourseVersion().getCourse().getId(),
-                            topic.getCourseVersion().getCourse().getName(),
-                            topic.getId(),
-                            topic.getTitle(),
-                            topic.getOrder(),
-                            scope.lessonsByTopic().getOrDefault(topic.getId(), 0L),
-                            completed,
-                            inProgressByTopic.getOrDefault(topic.getId(), 0L),
-                            MetricMath.percentage(completed, userIds.size()),
-                            evaluated,
-                            MetricMath.percentage(
-                                    attempts == null ? 0 : attempts.getCorrect(), evaluated)));
+        Map<UUID, UUID> versionOfTopic =
+                topics.stream().collect(Collectors.toMap(Topic::getId, this::versionOf));
+        Map<UUID, ModuleRow> rowOfTopic = new HashMap<>();
+        List<ModuleRow> rows = new ArrayList<>();
+        for (CourseScope course : scope.courses()) {
+            UUID referenceId = course.reference().getId();
+            Map<Integer, ModuleRow> byPosition = new TreeMap<>();
+            List<Topic> ofCourse =
+                    topics.stream()
+                            .filter(t -> isOf(course, scope.courseOf(versionOf(t))))
+                            .sorted(
+                                    Comparator.comparing(
+                                                    (Topic t) -> !versionOf(t).equals(referenceId))
+                                            .thenComparingInt(Topic::getOrder))
+                            .toList();
+            for (Topic topic : ofCourse) {
+                ModuleRow row =
+                        byPosition.computeIfAbsent(
+                                topic.getOrder(),
+                                order ->
+                                        new ModuleRow(
+                                                course.course().getId(),
+                                                course.course().getName(),
+                                                topic,
+                                                scope.lessonsByTopic()
+                                                        .getOrDefault(topic.getId(), 0L)));
+                rowOfTopic.put(topic.getId(), row);
+            }
+            rows.addAll(byPosition.values());
         }
-        return result;
+
+        if (!userIds.isEmpty()) {
+            for (UserTopicStateView state :
+                    metricsRepository.findTopicStates(userIds, scope.versionIds(), end)) {
+                ModuleRow row = rowOfTopic.get(state.getTopicId());
+                if (row == null
+                        || !scope.isAssigned(
+                                state.getUserId(), versionOfTopic.get(state.getTopicId()))) {
+                    continue;
+                }
+                if (state.getCompleted() > 0) {
+                    row.completed++;
+                } else {
+                    row.inProgress++;
+                }
+            }
+            for (TopicAttemptStatsView attempts :
+                    metricsRepository.findAttemptStatsByTopic(
+                            organizationId, userIds, scope.courseIds(), period.start(), end)) {
+                ModuleRow row = rowOfTopic.get(attempts.getTopicId());
+                if (row != null) {
+                    row.evaluated += attempts.getEvaluated();
+                    row.correct += attempts.getCorrect();
+                }
+            }
+        }
+
+        return rows.stream().map(row -> row.toResponse(userIds.size())).toList();
+    }
+
+    private static boolean isOf(CourseScope course, Course other) {
+        return other != null && course.course().getId().equals(other.getId());
+    }
+
+    private UUID versionOf(Topic topic) {
+        return topic.getCourseVersion().getId();
+    }
+
+    /** One module of the panel, accumulating every version's equivalent topic. */
+    private static final class ModuleRow {
+        private final UUID courseId;
+        private final String courseName;
+        private final Topic topic;
+        private final long lessons;
+        private long completed;
+        private long inProgress;
+        private long evaluated;
+        private long correct;
+
+        ModuleRow(UUID courseId, String courseName, Topic topic, long lessons) {
+            this.courseId = courseId;
+            this.courseName = courseName;
+            this.topic = topic;
+            this.lessons = lessons;
+        }
+
+        ModuleStatsResponse toResponse(long participants) {
+            return new ModuleStatsResponse(
+                    courseId,
+                    courseName,
+                    topic.getId(),
+                    topic.getTitle(),
+                    topic.getOrder(),
+                    lessons,
+                    completed,
+                    inProgress,
+                    MetricMath.percentage(completed, participants),
+                    evaluated,
+                    MetricMath.percentage(correct, evaluated));
+        }
     }
 
     /**
@@ -277,10 +336,10 @@ public class OrganizationMetricsService {
                 period.isOpen()
                         ? min(ArgentinaTime.dayOf(organization.getCreatedAt()), to)
                         : period.from();
-        ContentScope scope = contentScope.resolve(organizationId, courseId);
         Instant start = from.atStartOfDay(ArgentinaTime.ZONE).toInstant();
         Instant end = to.plusDays(1).atStartOfDay(ArgentinaTime.ZONE).toInstant();
         List<UUID> userIds = participantIds(organizationId, end);
+        ContentScope scope = contentScope.resolve(organizationId, courseId, userIds, end);
 
         Map<LocalDate, DayTally> days = new TreeMap<>();
         for (LocalDate day = from; !day.isAfter(to); day = day.plusDays(1)) {

@@ -5,6 +5,7 @@ import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.gamification.entity.UserStats;
 import com.signasource.signa_api.gamification.repository.UserLearnedSignRepository;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
+import com.signasource.signa_api.learning.entity.Course;
 import com.signasource.signa_api.learning.entity.CourseVersion;
 import com.signasource.signa_api.learning.entity.Topic;
 import com.signasource.signa_api.learning.entity.UserTopicProgress;
@@ -21,10 +22,8 @@ import com.signasource.signa_api.organizations.repository.OrganizationMetricsRep
 import com.signasource.signa_api.organizations.repository.OrganizationRepository;
 import com.signasource.signa_api.organizations.repository.projection.TopicProgressCountView;
 import com.signasource.signa_api.organizations.repository.projection.UserAttemptStatsView;
-import com.signasource.signa_api.organizations.repository.projection.UserCompletedLessonsView;
 import com.signasource.signa_api.organizations.repository.projection.UserCountView;
 import com.signasource.signa_api.organizations.repository.projection.UserTopicView;
-import com.signasource.signa_api.organizations.repository.projection.VersionCountView;
 import com.signasource.signa_api.organizations.service.OrganizationContentScope.ContentScope;
 import com.signasource.signa_api.users.dto.AvatarLinks;
 import com.signasource.signa_api.users.entity.User;
@@ -96,7 +95,6 @@ public class OrganizationMemberQueryService {
         accessService.requireManage(actor, organizationId);
         requireOrganization(organizationId);
         Comparator<OrganizationMemberSummaryResponse> order = comparator(pageable.getSort());
-        ContentScope scope = contentScope.resolve(organizationId, courseId);
 
         List<MemberStatus> statuses =
                 status == null
@@ -108,6 +106,12 @@ public class OrganizationMemberQueryService {
                         .stream()
                         .filter(m -> joinedBefore(m, period.end()))
                         .toList();
+        ContentScope scope =
+                contentScope.resolve(
+                        organizationId,
+                        courseId,
+                        members.stream().map(m -> m.getUser().getId()).toList(),
+                        period.end());
 
         List<OrganizationMemberSummaryResponse> rows =
                 summaries(organizationId, members, scope, period).stream()
@@ -133,8 +137,8 @@ public class OrganizationMemberQueryService {
                         .orElseThrow(() -> new NotFoundException("Member not found"));
         User user = member.getUser();
         List<UUID> userIds = List.of(userId);
-        ContentScope scope = contentScope.resolve(organizationId);
         Instant end = period.end();
+        ContentScope scope = contentScope.resolve(organizationId, userIds, end);
 
         UserAttemptStatsView attempts =
                 metricsRepository
@@ -153,24 +157,15 @@ public class OrganizationMemberQueryService {
         long signsLearned = 0;
         CurrentModule currentModule = null;
         if (!scope.isEmpty()) {
-            Map<UUID, Long> completedByVersion =
-                    metricsRepository
-                            .findCompletedLessonCountsByVersion(userId, scope.versionIds(), end)
-                            .stream()
-                            .collect(
-                                    Collectors.toMap(
-                                            VersionCountView::getVersionId,
-                                            VersionCountView::getTotal));
-            courses = courseProgress(scope, completedByVersion);
-            completedLessons =
-                    completedByVersion.values().stream().mapToLong(Long::longValue).sum();
+            courses = courseProgress(scope, userId);
+            completedLessons = scope.completedLessons(userId);
             modulesCompleted =
                     metricsRepository
-                            .findTopicProgressCounts(userIds, scope.versionIds(), end)
+                            .findTopicProgressCounts(userIds, scope.versionIdsOf(userId), end)
                             .stream()
                             .mapToLong(TopicProgressCountView::getCompleted)
                             .sum();
-            for (CourseVersion version : scope.versions()) {
+            for (CourseVersion version : scope.versionsOf(userId)) {
                 signsLearned +=
                         userLearnedSignRepository.countByUserIdAndCourseVersionIdAndLearnedAtBefore(
                                 userId, version.getId(), end);
@@ -192,7 +187,8 @@ public class OrganizationMemberQueryService {
                         .sum();
         int streak =
                 userStatsRepository.findByUserId(userId).map(UserStats::getCurrentStreak).orElse(0);
-        int progress = MetricMath.percentage(completedLessons, scope.totalLessons());
+        long totalLessons = scope.totalLessons(userId);
+        int progress = MetricMath.percentage(completedLessons, totalLessons);
 
         return new MemberProgressResponse(
                 userId,
@@ -205,7 +201,7 @@ public class OrganizationMemberQueryService {
                 lastActivity,
                 progress,
                 completedLessons,
-                scope.totalLessons(),
+                totalLessons,
                 modulesCompleted,
                 currentModule == null ? null : currentModule.module(),
                 evaluated,
@@ -259,7 +255,6 @@ public class OrganizationMemberQueryService {
                         metricsRepository.findAttemptStatsByUser(
                                 organizationId, userIds, scope.courseIds(), period.start(), end),
                         UserAttemptStatsView::getUserId);
-        Map<UUID, Long> completed = completedLessons(userIds, scope, end);
         Map<UUID, CurrentModule> currentModules = currentModules(userIds, scope, end);
 
         return members.stream()
@@ -270,8 +265,8 @@ public class OrganizationMemberQueryService {
                             Instant lastActivity = stats == null ? null : stats.getLastActivityAt();
                             int progress =
                                     MetricMath.percentage(
-                                            completed.getOrDefault(userId, 0L),
-                                            scope.totalLessons());
+                                            scope.completedLessons(userId),
+                                            scope.totalLessons(userId));
                             CurrentModule current = currentModules.get(userId);
                             return new OrganizationMemberSummaryResponse(
                                     userId,
@@ -305,13 +300,14 @@ public class OrganizationMemberQueryService {
         return comparator.thenComparing(SORTS.get("name"));
     }
 
-    private List<MemberCourseProgressResponse> courseProgress(
-            ContentScope scope, Map<UUID, Long> completedByVersion) {
-        return scope.versions().stream()
+    /** One row per contracted course, measured against the version this participant takes. */
+    private static List<MemberCourseProgressResponse> courseProgress(
+            ContentScope scope, UUID userId) {
+        return scope.versionsOf(userId).stream()
                 .map(
                         version -> {
-                            long total = scope.lessonsByVersion().getOrDefault(version.getId(), 0L);
-                            long done = completedByVersion.getOrDefault(version.getId(), 0L);
+                            long total = scope.lessonsIn(version.getId());
+                            long done = scope.completedIn(userId, version.getId());
                             return new MemberCourseProgressResponse(
                                     version.getCourse().getId(),
                                     version.getCourse().getName(),
@@ -320,19 +316,6 @@ public class OrganizationMemberQueryService {
                                     MetricMath.percentage(done, total));
                         })
                 .toList();
-    }
-
-    private Map<UUID, Long> completedLessons(List<UUID> userIds, ContentScope scope, Instant end) {
-        if (scope.isEmpty()) {
-            return Map.of();
-        }
-        return metricsRepository
-                .findCompletedLessonCountsByUser(userIds, scope.versionIds(), end)
-                .stream()
-                .collect(
-                        Collectors.toMap(
-                                UserCompletedLessonsView::getUserId,
-                                UserCompletedLessonsView::getCompletedLessons));
     }
 
     /**
@@ -346,31 +329,17 @@ public class OrganizationMemberQueryService {
         if (scope.isEmpty()) {
             return result;
         }
-        Map<UUID, String> courseNames =
-                scope.versions().stream()
-                        .collect(
-                                Collectors.toMap(
-                                        CourseVersion::getId, v -> v.getCourse().getName()));
         for (UserTopicProgress progress :
                 metricsRepository.findInProgressTopics(userIds, scope.versionIds(), end)) {
-            result.putIfAbsent(
-                    progress.getUser().getId(), module(progress.getTopic(), courseNames));
+            UUID userId = progress.getUser().getId();
+            Topic topic = progress.getTopic();
+            if (scope.isAssigned(userId, topic.getCourseVersion().getId())) {
+                result.putIfAbsent(userId, module(topic, scope));
+            }
         }
 
         List<UUID> betweenModules = userIds.stream().filter(id -> !result.containsKey(id)).toList();
         if (betweenModules.isEmpty()) {
-            return result;
-        }
-        Map<UUID, Set<UUID>> completedTopics =
-                metricsRepository
-                        .findCompletedTopics(betweenModules, scope.versionIds(), end)
-                        .stream()
-                        .collect(
-                                Collectors.groupingBy(
-                                        UserTopicView::getUserId,
-                                        Collectors.mapping(
-                                                UserTopicView::getTopicId, Collectors.toSet())));
-        if (completedTopics.isEmpty()) {
             return result;
         }
         List<Topic> topics =
@@ -380,18 +349,37 @@ public class OrganizationMemberQueryService {
                         .stream()
                         .sorted(scope.topicOrder())
                         .toList();
+        Map<UUID, UUID> versionOfTopic =
+                topics.stream()
+                        .collect(Collectors.toMap(Topic::getId, t -> t.getCourseVersion().getId()));
+        Map<UUID, Set<UUID>> completedTopics =
+                metricsRepository
+                        .findCompletedTopics(betweenModules, scope.versionIds(), end)
+                        .stream()
+                        .filter(
+                                t -> {
+                                    UUID version = versionOfTopic.get(t.getTopicId());
+                                    return version != null
+                                            && scope.isAssigned(t.getUserId(), version);
+                                })
+                        .collect(
+                                Collectors.groupingBy(
+                                        UserTopicView::getUserId,
+                                        Collectors.mapping(
+                                                UserTopicView::getTopicId, Collectors.toSet())));
         completedTopics.forEach(
                 (userId, done) ->
                         topics.stream()
+                                .filter(t -> scope.isAssigned(userId, t.getCourseVersion().getId()))
                                 .filter(t -> !done.contains(t.getId()))
                                 .findFirst()
-                                .ifPresent(next -> result.put(userId, module(next, courseNames))));
+                                .ifPresent(next -> result.put(userId, module(next, scope))));
         return result;
     }
 
-    private static CurrentModule module(Topic topic, Map<UUID, String> courseNames) {
-        return new CurrentModule(
-                topic.getTitle(), courseNames.get(topic.getCourseVersion().getId()));
+    private static CurrentModule module(Topic topic, ContentScope scope) {
+        Course course = scope.courseOf(topic.getCourseVersion().getId());
+        return new CurrentModule(topic.getTitle(), course == null ? null : course.getName());
     }
 
     private record CurrentModule(String module, String course) {}
