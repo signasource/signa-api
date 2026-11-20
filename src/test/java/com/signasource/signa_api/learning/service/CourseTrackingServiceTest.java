@@ -71,6 +71,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class CourseTrackingServiceTest {
@@ -98,6 +99,11 @@ class CourseTrackingServiceTest {
 
     @BeforeEach
     void setUp() {
+        ReflectionTestUtils.setField(
+                courseTrackingService,
+                "enrollmentResolver",
+                new CourseEnrollmentResolver(
+                        enrollmentRepository, lessonProgressRepository, topicRepository));
         userId = UUID.randomUUID();
         courseVersionId = UUID.randomUUID();
         mockUser = new User();
@@ -114,8 +120,6 @@ class CourseTrackingServiceTest {
     void enrollUserInCourse_Success() {
         CourseVersion mockVersion = new CourseVersion();
         mockVersion.setCourse(Course.builder().id(UUID.randomUUID()).isFree(true).build());
-        when(enrollmentRepository.existsByUserIdAndCourseVersionId(userId, courseVersionId))
-                .thenReturn(false);
         when(courseVersionRepository.findById(courseVersionId))
                 .thenReturn(Optional.of(mockVersion));
 
@@ -136,8 +140,6 @@ class CourseTrackingServiceTest {
     void shouldRejectSelfEnrollmentInAPaidCourse() {
         CourseVersion paidVersion = new CourseVersion();
         paidVersion.setCourse(Course.builder().id(UUID.randomUUID()).isFree(false).build());
-        when(enrollmentRepository.existsByUserIdAndCourseVersionId(userId, courseVersionId))
-                .thenReturn(false);
         when(courseVersionRepository.findById(courseVersionId))
                 .thenReturn(Optional.of(paidVersion));
 
@@ -149,8 +151,19 @@ class CourseTrackingServiceTest {
 
     @Test
     void enrollUserInCourse_ThrowsException_WhenAlreadyEnrolled() {
-        when(enrollmentRepository.existsByUserIdAndCourseVersionId(userId, courseVersionId))
-                .thenReturn(true);
+        Course course = Course.builder().id(UUID.randomUUID()).isFree(true).build();
+        CourseVersion requested =
+                CourseVersion.builder().id(courseVersionId).course(course).build();
+        CourseVersion older = CourseVersion.builder().id(UUID.randomUUID()).course(course).build();
+        when(courseVersionRepository.findById(courseVersionId)).thenReturn(Optional.of(requested));
+        // Enrolled in another version of the same course: still one enrollment per course.
+        when(enrollmentRepository.findByUserIdAndCourseVersionCourseId(userId, course.getId()))
+                .thenReturn(
+                        List.of(
+                                UserCourseEnrollment.builder()
+                                        .courseVersion(older)
+                                        .status(EnrollmentStatus.ENROLLED)
+                                        .build()));
 
         assertThrows(
                 ResourceAlreadyInUseException.class,
@@ -160,8 +173,6 @@ class CourseTrackingServiceTest {
 
     @Test
     void enrollUserInCourse_ThrowsNotFound_WhenCourseVersionMissing() {
-        when(enrollmentRepository.existsByUserIdAndCourseVersionId(userId, courseVersionId))
-                .thenReturn(false);
         when(courseVersionRepository.findById(courseVersionId)).thenReturn(Optional.empty());
 
         assertThrows(
@@ -973,12 +984,12 @@ class CourseTrackingServiceTest {
         CourseVersion courseVersion =
                 CourseVersion.builder()
                         .id(versionWithTopics)
-                        .course(Course.builder().name("Basic LSA").build())
+                        .course(Course.builder().id(UUID.randomUUID()).name("Basic LSA").build())
                         .build();
         CourseVersion emptyCourseVersion =
                 CourseVersion.builder()
                         .id(versionWithoutTopics)
-                        .course(Course.builder().name("Empty course").build())
+                        .course(Course.builder().id(UUID.randomUUID()).name("Empty course").build())
                         .build();
         List<UserCourseEnrollment> enrollments =
                 List.of(
@@ -1046,17 +1057,62 @@ class CourseTrackingServiceTest {
         assertNull(courseWithoutTopics.currentTopic());
     }
 
+    /** Finished v1, then got an empty enrollment in the newly published v2: one course, done. */
+    @Test
+    void getUserCourseProgress_ShowsOneRowPerCourseInTheVersionTheLearnerTakes() {
+        Course cafe = Course.builder().id(UUID.randomUUID()).name("En la cafetería").build();
+        CourseVersion v1 = CourseVersion.builder().id(UUID.randomUUID()).course(cafe).build();
+        CourseVersion v2 = CourseVersion.builder().id(UUID.randomUUID()).course(cafe).build();
+        UUID v1Topic = UUID.randomUUID();
+        UUID v2Topic = UUID.randomUUID();
+        when(enrollmentRepository.findWithCourseByUserId(userId))
+                .thenReturn(
+                        List.of(
+                                UserCourseEnrollment.builder()
+                                        .courseVersion(v1)
+                                        .status(EnrollmentStatus.COMPLETED)
+                                        .startedAt(Instant.now().minusSeconds(86_400))
+                                        .build(),
+                                UserCourseEnrollment.builder()
+                                        .courseVersion(v2)
+                                        .status(EnrollmentStatus.ENROLLED)
+                                        .startedAt(Instant.now().minusSeconds(60))
+                                        .build()));
+        TopicLessonTotalView v1Total = topicTotalView(v1.getId(), v1Topic, 3L);
+        TopicLessonTotalView v2Total = topicTotalView(v2.getId(), v2Topic, 3L);
+        when(topicRepository.findTopicLessonTotals(anyCollection()))
+                .thenReturn(List.of(v1Total, v2Total));
+        TopicCompletedCountView v1Done = completedView(v1Topic, 3L);
+        when(lessonProgressRepository.findCompletedLessonCountsByTopic(eq(userId), anyCollection()))
+                .thenReturn(List.of(v1Done));
+        when(topicProgressRepository.findInProgressTopics(eq(userId), anyCollection()))
+                .thenReturn(List.of());
+
+        List<CourseProgressResponse> result = courseTrackingService.getUserCourseProgress(mockUser);
+
+        assertEquals(1, result.size());
+        assertEquals(cafe.getId(), result.get(0).courseId());
+        assertEquals(EnrollmentStatus.COMPLETED, result.get(0).status());
+        assertEquals(3, result.get(0).completedLessons());
+        assertEquals(3, result.get(0).totalLessons());
+        assertEquals(100, result.get(0).progressPercentage());
+    }
+
     @Test
     void getUserCourseProgress_KeepsExpiredCoursesFlaggedAndHidesDroppedOnes() {
         CourseVersion expiredVersion =
                 CourseVersion.builder()
                         .id(UUID.randomUUID())
-                        .course(Course.builder().name("LSA Salud").build())
+                        .course(Course.builder().id(UUID.randomUUID()).name("LSA Salud").build())
                         .build();
         CourseVersion droppedVersion =
                 CourseVersion.builder()
                         .id(UUID.randomUUID())
-                        .course(Course.builder().name("LSA Educación").build())
+                        .course(
+                                Course.builder()
+                                        .id(UUID.randomUUID())
+                                        .name("LSA Educación")
+                                        .build())
                         .build();
         Instant expiredAt = Instant.now().minusSeconds(60);
         when(enrollmentRepository.findWithCourseByUserId(userId))

@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -25,13 +26,16 @@ import com.signasource.signa_api.learning.entity.VersionStatus;
 import com.signasource.signa_api.learning.repository.CourseOrderRepository;
 import com.signasource.signa_api.learning.repository.CourseRepository;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
+import com.signasource.signa_api.learning.repository.TopicRepository;
 import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
+import com.signasource.signa_api.learning.repository.UserLessonProgressRepository;
 import com.signasource.signa_api.organizations.service.MercadoPagoClient;
 import com.signasource.signa_api.organizations.service.MercadoPagoClient.CheckoutOrder;
 import com.signasource.signa_api.organizations.service.MercadoPagoClient.OrderRequest;
 import com.signasource.signa_api.organizations.service.MercadoPagoClient.Payment;
 import com.signasource.signa_api.users.entity.User;
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -79,7 +83,13 @@ class CourseOrderServiceTest {
 
         CourseOrderSettlementService settlement =
                 new CourseOrderSettlementService(
-                        orderRepository, enrollmentRepository, courseVersionRepository);
+                        orderRepository,
+                        enrollmentRepository,
+                        courseVersionRepository,
+                        new CourseEnrollmentResolver(
+                                enrollmentRepository,
+                                mock(UserLessonProgressRepository.class),
+                                mock(TopicRepository.class)));
         service =
                 new CourseOrderService(
                         courseRepository,
@@ -108,8 +118,9 @@ class CourseOrderServiceTest {
         when(courseVersionRepository.findByCourseIdAndStatus(
                         course.getId(), VersionStatus.PUBLISHED))
                 .thenReturn(Optional.of(version));
-        when(enrollmentRepository.findByUserIdAndCourseVersionId(user.getId(), version.getId()))
-                .thenReturn(Optional.empty());
+        when(enrollmentRepository.findByUserIdAndCourseVersionCourseId(
+                        user.getId(), course.getId()))
+                .thenReturn(List.of());
         when(mercadoPago.createOrder(any()))
                 .thenReturn(new CheckoutOrder(MP_ORDER, "https://mp.test/checkout"));
 
@@ -151,8 +162,9 @@ class CourseOrderServiceTest {
         when(courseVersionRepository.findByCourseIdAndStatus(
                         course.getId(), VersionStatus.PUBLISHED))
                 .thenReturn(Optional.of(version));
-        when(enrollmentRepository.findByUserIdAndCourseVersionId(user.getId(), version.getId()))
-                .thenReturn(Optional.of(enrollment(EnrollmentStatus.ENROLLED)));
+        when(enrollmentRepository.findByUserIdAndCourseVersionCourseId(
+                        user.getId(), course.getId()))
+                .thenReturn(List.of(enrollment(EnrollmentStatus.ENROLLED)));
 
         assertThrows(
                 InvalidInputException.class, () -> service.startCheckout(user, course.getId()));
@@ -241,11 +253,14 @@ class CourseOrderServiceTest {
         order.setStatus(CourseOrderStatus.PAID);
         UserCourseEnrollment granted = enrollment(EnrollmentStatus.ENROLLED);
         when(orderRepository.findForUpdate(order.getId())).thenReturn(Optional.of(order));
-        when(courseVersionRepository.findByCourseIdAndStatus(
-                        course.getId(), VersionStatus.PUBLISHED))
+        lenient()
+                .when(
+                        courseVersionRepository.findByCourseIdAndStatus(
+                                course.getId(), VersionStatus.PUBLISHED))
                 .thenReturn(Optional.of(version));
-        when(enrollmentRepository.findByUserIdAndCourseVersionId(user.getId(), version.getId()))
-                .thenReturn(Optional.of(granted));
+        when(enrollmentRepository.findByUserIdAndCourseVersionCourseId(
+                        user.getId(), course.getId()))
+                .thenReturn(List.of(granted));
 
         service.applyPayment(
                 new Payment(
@@ -314,9 +329,9 @@ class CourseOrderServiceTest {
                 .thenReturn(Optional.of(version));
         lenient()
                 .when(
-                        enrollmentRepository.findByUserIdAndCourseVersionId(
-                                user.getId(), version.getId()))
-                .thenReturn(Optional.empty());
+                        enrollmentRepository.findByUserIdAndCourseVersionCourseId(
+                                user.getId(), course.getId()))
+                .thenReturn(List.of());
     }
 
     private Payment approved(CourseOrder order, String amount) {

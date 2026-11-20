@@ -143,11 +143,13 @@ public class CourseOrderService {
                 && externalReference.startsWith(CourseOrder.REFERENCE_PREFIX);
     }
 
+    /** Access to any version of the course counts: whoever takes an older one already owns it. */
     private boolean hasAccess(User user, CourseVersion version) {
+        Instant now = Instant.now();
         return enrollmentRepository
-                .findByUserIdAndCourseVersionId(user.getId(), version.getId())
-                .filter(enrollment -> enrollment.grantsAccess(Instant.now()))
-                .isPresent();
+                .findByUserIdAndCourseVersionCourseId(user.getId(), version.getCourse().getId())
+                .stream()
+                .anyMatch(enrollment -> enrollment.grantsAccess(now));
     }
 
     private static Optional<UUID> parseOrderId(String externalReference) {
