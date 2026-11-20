@@ -157,11 +157,19 @@ public record GrowthMetricsResponse(
     /**
      * End users (no organization) who paid for anything (gem packs or individual paid courses) in
      * the window: how many distinct people paid, and what share of them bought two or more times
-     * (gem and course orders combined). Drives "conversión a pago", "usuarios que compraron",
-     * "ingreso por usuario pagador" and "recompra" in the Negocio tab's "Usuarios finales" panel.
+     * (gem and course orders combined). Drives "usuarios que compraron", "ingreso por usuario
+     * pagador" and "recompra" in the Negocio tab's "Usuarios finales" panel.
+     *
+     * <p>"Conversión a pago" ({@code payingAccounts ÷ accounts}) only looks at end-user accounts:
+     * {@code accounts} are the learners as of the window's close who are not admins, org admins or
+     * ACTIVE org members, and {@code payingAccounts} are the {@code payingUsers} among them.
      */
     public record EndUsersSection(
-            long payingUsers, double repeatBuyerPercent, Long previousPayingUsers) {}
+            long payingUsers,
+            double repeatBuyerPercent,
+            Long previousPayingUsers,
+            long accounts,
+            long payingAccounts) {}
 
     /**
      * Seat utilization as of the window's close, with the utilization as of the window's start for

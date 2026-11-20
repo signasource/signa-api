@@ -292,6 +292,31 @@ public interface GrowthMetricsRepository extends Repository<User, UUID> {
     List<Object[]> courseBuyerOrderCounts(
             @Param("from") Instant from, @Param("until") Instant until);
 
+    /**
+     * End-user accounts as of {@code until}: plain learners (role {@code USER}), leaving out
+     * platform admins, org admins and anyone who is an ACTIVE member of an organization by then.
+     * The base of "conversión a pago".
+     */
+    @Query(
+            "SELECT COUNT(u) FROM User u WHERE u.createdAt < :until "
+                    + "AND (u.role IS NULL OR u.role = com.signasource.signa_api.users.entity.Role.USER) "
+                    + "AND NOT EXISTS (SELECT 1 FROM OrganizationMember m WHERE m.user = u "
+                    + "AND m.status = com.signasource.signa_api.organizations.entity.MemberStatus.ACTIVE "
+                    + "AND m.joinedAt < :until)")
+    long countEndUsersBefore(@Param("until") Instant until);
+
+    /**
+     * Ids of the accounts that are not end users as of {@code until} (admins, org admins and ACTIVE
+     * org members) — the complement of {@link #countEndUsersBefore} — to keep them out of the
+     * paying side of "conversión a pago".
+     */
+    @Query(
+            "SELECT u.id FROM User u WHERE u.role <> com.signasource.signa_api.users.entity.Role.USER "
+                    + "OR EXISTS (SELECT 1 FROM OrganizationMember m WHERE m.user = u "
+                    + "AND m.status = com.signasource.signa_api.organizations.entity.MemberStatus.ACTIVE "
+                    + "AND m.joinedAt < :until)")
+    List<UUID> nonEndUserIds(@Param("until") Instant until);
+
     // ── Seats (B2B license utilization) ──────────────────────────────────────────────────────────
     @Query(
             "SELECT COUNT(s) FROM PurchaseSeat s "
