@@ -98,6 +98,8 @@ class GlobalMetricsRepositoryTest {
                                 .version("1.0.0")
                                 .status(VersionStatus.PUBLISHED)
                                 .course(course)
+                                .name("Global course")
+                                .isFree(true)
                                 .build());
         topic =
                 topicRepository.save(

@@ -57,15 +57,15 @@ public record AdminCourseVersionDetailResponse(
                 v.getStatus().name(),
                 v.getPublishedAt(),
                 v.getBasedOnVersion(),
-                v.getCourse().getName(),
-                v.getCourse().getDescription(),
-                v.getCourse().isFree(),
-                v.getCourse().getPrice(),
+                v.getName(),
+                v.getDescription(),
+                v.isFree(),
+                v.getPrice(),
                 v.getUpdatedAt(),
                 v.getUpdatedBy(),
                 v.getColor(),
-                v.getCourse().isHasCameraRecognition(),
-                v.getCourse().getMediaFormat(),
+                v.isHasCameraRecognition(),
+                v.getMediaFormat(),
                 topics);
     }
 

@@ -117,6 +117,8 @@ public class AdminCourseVersionService {
                         .version("1")
                         .status(VersionStatus.DRAFT)
                         .course(course)
+                        .name(request.name())
+                        .isFree(true)
                         .updatedAt(Instant.now())
                         .updatedBy(adminEmail)
                         .build();
@@ -140,6 +142,12 @@ public class AdminCourseVersionService {
                         .status(VersionStatus.DRAFT)
                         .course(source.getCourse())
                         .basedOnVersion(source.getVersion())
+                        .name(source.getName())
+                        .description(source.getDescription())
+                        .isFree(source.isFree())
+                        .price(source.getPrice())
+                        .hasCameraRecognition(source.isHasCameraRecognition())
+                        .mediaFormat(source.getMediaFormat())
                         .updatedAt(Instant.now())
                         .updatedBy(adminEmail)
                         .build();
@@ -199,14 +207,12 @@ public class AdminCourseVersionService {
             throw new InvalidInputException("Only draft versions can be edited");
         }
 
-        Course course = version.getCourse();
-        course.setName(req.name());
-        course.setDescription(req.description());
-        course.setFree(req.isFree());
-        course.setPrice(req.price());
-        course.setHasCameraRecognition(req.hasCameraRecognition());
-        course.setMediaFormat(req.mediaFormat());
-        courseRepository.save(course);
+        version.setName(req.name());
+        version.setDescription(req.description());
+        version.setFree(req.isFree());
+        version.setPrice(req.price());
+        version.setHasCameraRecognition(req.hasCameraRecognition());
+        version.setMediaFormat(req.mediaFormat());
 
         version.getTopics().clear();
 
@@ -284,6 +290,16 @@ public class AdminCourseVersionService {
                             v.setStatus(VersionStatus.ARCHIVED);
                             courseVersionRepository.save(v);
                         });
+
+        // Sync the shared Course record so the mobile app sees the updated metadata.
+        Course course = version.getCourse();
+        course.setName(version.getName());
+        course.setDescription(version.getDescription());
+        course.setFree(version.isFree());
+        course.setPrice(version.getPrice());
+        course.setHasCameraRecognition(version.isHasCameraRecognition());
+        course.setMediaFormat(version.getMediaFormat());
+        courseRepository.save(course);
 
         version.setStatus(VersionStatus.PUBLISHED);
         version.setPublishedAt(Instant.now());

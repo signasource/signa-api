@@ -120,6 +120,8 @@ class GamificationFlowIntegrationTest {
                                 .version("1")
                                 .status(VersionStatus.PUBLISHED)
                                 .course(course)
+                                .name("Course")
+                                .isFree(true)
                                 .build());
         topic =
                 topicRepository.save(

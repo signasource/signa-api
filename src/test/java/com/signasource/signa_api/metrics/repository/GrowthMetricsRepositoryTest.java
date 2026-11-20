@@ -294,6 +294,7 @@ class GrowthMetricsRepositoryTest {
                                 .version("1.0.0")
                                 .status(VersionStatus.PUBLISHED)
                                 .course(course)
+                                .name("Growth course")
                                 .build());
         enrollmentRepository.save(
                 UserCourseEnrollment.builder()
@@ -348,6 +349,8 @@ class GrowthMetricsRepositoryTest {
                                 .version("1.0.0")
                                 .status(VersionStatus.PUBLISHED)
                                 .course(freeCourse)
+                                .name("Free")
+                                .isFree(true)
                                 .build());
         enrollmentRepository.save(
                 UserCourseEnrollment.builder()
@@ -420,6 +423,7 @@ class GrowthMetricsRepositoryTest {
                                 .version("1.0.0")
                                 .status(VersionStatus.PUBLISHED)
                                 .course(course)
+                                .name("Growth course")
                                 .build());
         Topic topic =
                 topicRepository.save(

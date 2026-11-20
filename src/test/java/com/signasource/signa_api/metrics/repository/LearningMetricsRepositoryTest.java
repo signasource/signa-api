@@ -108,6 +108,8 @@ class LearningMetricsRepositoryTest {
                                 .version("1.0.0")
                                 .status(VersionStatus.PUBLISHED)
                                 .course(course)
+                                .name("Curso aprendizaje")
+                                .isFree(true)
                                 .build());
         Topic topic =
                 topicRepository.save(

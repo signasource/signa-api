@@ -87,6 +87,8 @@ class AdminCourseVersionServiceTest {
                         .version("1")
                         .status(VersionStatus.DRAFT)
                         .course(course)
+                        .name("Test Course")
+                        .isFree(true)
                         .topics(new ArrayList<>())
                         .build();
     }
@@ -168,7 +170,6 @@ class AdminCourseVersionServiceTest {
     void shouldSaveVersion() {
         when(courseVersionRepository.findWithFullTreeById(draftVersion.getId()))
                 .thenReturn(Optional.of(draftVersion));
-        when(courseRepository.save(any())).thenAnswer(i -> i.getArgument(0));
         when(courseVersionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
 
         SaveCourseVersionRequest request =
@@ -179,6 +180,38 @@ class AdminCourseVersionServiceTest {
 
         assertEquals("Updated Name", result.name());
         assertNotNull(result.updatedAt());
+    }
+
+    @Test
+    void shouldNotUpdateCourseNameWhenSavingDraft() {
+        when(courseVersionRepository.findWithFullTreeById(draftVersion.getId()))
+                .thenReturn(Optional.of(draftVersion));
+        when(courseVersionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        SaveCourseVersionRequest request =
+                new SaveCourseVersionRequest(
+                        "New Name", null, true, null, null, false, null, List.of());
+        service.saveVersion(draftVersion.getId(), request, "admin@signa.com");
+
+        // Course.name must stay unchanged; only the version gets the new name.
+        assertEquals("Test Course", course.getName());
+        verify(courseRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldSyncCourseNameOnPublish() {
+        draftVersion.setName("Published Name");
+        when(courseVersionRepository.findWithFullTreeById(draftVersion.getId()))
+                .thenReturn(Optional.of(draftVersion));
+        when(courseVersionRepository.findByCourseId(course.getId()))
+                .thenReturn(List.of(draftVersion));
+        when(courseRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(courseVersionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        service.publishVersion(draftVersion.getId());
+
+        assertEquals("Published Name", course.getName());
+        verify(courseRepository).save(course);
     }
 
     @Test
@@ -207,6 +240,7 @@ class AdminCourseVersionServiceTest {
                 .thenReturn(Optional.of(draftVersion));
         when(courseVersionRepository.findByCourseId(course.getId()))
                 .thenReturn(List.of(draftVersion));
+        when(courseRepository.save(any())).thenAnswer(i -> i.getArgument(0));
         when(courseVersionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
 
         AdminCourseVersionDetailResponse result = service.publishVersion(draftVersion.getId());
@@ -261,6 +295,7 @@ class AdminCourseVersionServiceTest {
                 .thenReturn(Optional.of(draftVersion));
         when(courseVersionRepository.findByCourseId(course.getId()))
                 .thenReturn(List.of(draftVersion));
+        when(courseRepository.save(any())).thenAnswer(i -> i.getArgument(0));
         when(courseVersionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
 
         service.publishVersion(draftVersion.getId());
@@ -287,6 +322,7 @@ class AdminCourseVersionServiceTest {
                 .thenReturn(Optional.of(draftVersion));
         when(courseVersionRepository.findByCourseId(course.getId()))
                 .thenReturn(List.of(draftVersion, published));
+        when(courseRepository.save(any())).thenAnswer(i -> i.getArgument(0));
         when(courseVersionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
 
         service.publishVersion(draftVersion.getId());
@@ -314,7 +350,6 @@ class AdminCourseVersionServiceTest {
     void shouldSaveVersionWithTopicsAndBlocks() {
         when(courseVersionRepository.findWithFullTreeById(draftVersion.getId()))
                 .thenReturn(Optional.of(draftVersion));
-        when(courseRepository.save(any())).thenAnswer(i -> i.getArgument(0));
         when(courseVersionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
 
         SaveCourseVersionRequest.BlockData block =

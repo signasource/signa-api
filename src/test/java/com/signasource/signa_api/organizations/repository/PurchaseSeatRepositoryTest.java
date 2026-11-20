@@ -88,6 +88,8 @@ class PurchaseSeatRepositoryTest {
                                 .version("1.0.0")
                                 .status(VersionStatus.PUBLISHED)
                                 .course(course)
+                                .name("Seats course")
+                                .isFree(true)
                                 .build());
     }
 

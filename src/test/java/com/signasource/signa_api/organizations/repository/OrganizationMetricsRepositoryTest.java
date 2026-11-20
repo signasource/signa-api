@@ -131,6 +131,8 @@ class OrganizationMetricsRepositoryTest {
                                 .version("1.0.0")
                                 .status(VersionStatus.PUBLISHED)
                                 .course(course)
+                                .name("Metrics course")
+                                .isFree(true)
                                 .build());
         topic =
                 topicRepository.save(

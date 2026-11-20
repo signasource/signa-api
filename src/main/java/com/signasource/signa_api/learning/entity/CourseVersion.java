@@ -14,6 +14,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,6 +40,24 @@ public class CourseVersion {
 
     @Column(nullable = false, length = 50)
     private String version;
+
+    @Column(nullable = false, length = 150)
+    private String name;
+
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
+    @Column(nullable = false)
+    private boolean isFree;
+
+    @Column(precision = 12, scale = 2)
+    private BigDecimal price;
+
+    @Column(nullable = false)
+    private boolean hasCameraRecognition;
+
+    @Column(length = 10)
+    private String mediaFormat;
 
     @Column private Instant publishedAt;
 

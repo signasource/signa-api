@@ -56,8 +56,8 @@ public record AdminCourseVersionListItemResponse(
                 v.getStatus().name(),
                 v.getPublishedAt(),
                 v.getBasedOnVersion(),
-                v.getCourse().isFree(),
-                v.getCourse().getPrice(),
+                v.isFree(),
+                v.getPrice(),
                 units,
                 lessons,
                 blocks,
@@ -67,8 +67,8 @@ public record AdminCourseVersionListItemResponse(
                 name,
                 editor != null ? editor.getAvatar() : null,
                 v.getColor(),
-                v.getCourse().isHasCameraRecognition(),
-                v.getCourse().getMediaFormat(),
+                v.isHasCameraRecognition(),
+                v.getMediaFormat(),
                 enrollmentCount);
     }
 }
