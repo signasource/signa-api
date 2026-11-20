@@ -359,6 +359,24 @@ class GrowthMetricsServiceTest {
     }
 
     @Test
+    void paymentConversionOnlyCountsEndUsers() {
+        UUID endUser = UUID.randomUUID();
+        UUID orgMember = UUID.randomUUID(); // bought gems but belongs to an organization
+        when(repository.gemBuyerOrderCounts(any(), any()))
+                .thenReturn(
+                        List.<Object[]>of(
+                                new Object[] {endUser, 1L}, new Object[] {orgMember, 1L}));
+        when(repository.nonEndUserIds(any())).thenReturn(List.of(orgMember));
+        when(repository.countEndUsersBefore(any())).thenReturn(40L);
+
+        var endUsers = service.getGrowthMetrics(range).endUsers();
+
+        assertEquals(2L, endUsers.payingUsers()); // every payer, for the panel's counts
+        assertEquals(40L, endUsers.accounts());
+        assertEquals(1L, endUsers.payingAccounts()); // the org member is left out
+    }
+
+    @Test
     void handlesNoPayersWithoutDivisionByZero() {
         var endUsers = service.getGrowthMetrics(range).endUsers();
 

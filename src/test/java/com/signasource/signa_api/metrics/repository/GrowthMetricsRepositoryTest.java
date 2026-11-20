@@ -47,6 +47,7 @@ import com.signasource.signa_api.organizations.repository.OrganizationMemberRepo
 import com.signasource.signa_api.organizations.repository.OrganizationRepository;
 import com.signasource.signa_api.organizations.repository.PurchaseRefundRepository;
 import com.signasource.signa_api.organizations.repository.PurchaseSeatRepository;
+import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.entity.UserActivity;
 import com.signasource.signa_api.users.entity.UserDailyActivity;
@@ -307,6 +308,31 @@ class GrowthMetricsRepositoryTest {
         assertEquals(1L, ((Number) courseCounts.get(0)[1]).longValue());
     }
 
+    @Test
+    void separatesEndUsersFromOrganizationalAccounts() {
+        User endUser = saveUser();
+        User member = saveUser();
+        User orgAdmin = saveUser();
+        orgAdmin.setRole(Role.ORG_ADMIN);
+        userRepository.save(orgAdmin);
+        User admin = saveUser();
+        admin.setRole(Role.ADMIN);
+        userRepository.save(admin);
+        User formerMember = saveUser(); // left the org → an end user again
+        Organization org = savePaidPurchase(new BigDecimal("1000.00")).getOrganization();
+        organizationMemberRepository.save(member(org, member, MemberStatus.ACTIVE));
+        organizationMemberRepository.save(member(org, formerMember, MemberStatus.REMOVED));
+
+        assertEquals(2, repository.countEndUsersBefore(until)); // endUser + formerMember
+        var nonEndUsers = repository.nonEndUserIds(until);
+        assertEquals(3, nonEndUsers.size());
+        assertEquals(
+                true,
+                nonEndUsers.containsAll(
+                        java.util.List.of(member.getId(), orgAdmin.getId(), admin.getId())));
+        assertEquals(false, nonEndUsers.contains(endUser.getId()));
+    }
+
     /**
      * A refunded GemOrder or CourseOrder must still appear in the gross paidAmount so that net
      * income stays non-negative and the refund rate has the right denominator. Without this, status
@@ -489,6 +515,15 @@ class GrowthMetricsRepositoryTest {
                         .status(PurchaseStatus.PAID)
                         .paidAt(Instant.now())
                         .build());
+    }
+
+    private OrganizationMember member(Organization org, User user, MemberStatus status) {
+        return OrganizationMember.builder()
+                .organization(org)
+                .user(user)
+                .role(MemberRole.MEMBER)
+                .status(status)
+                .build();
     }
 
     private PurchaseSeat seat(CoursePurchase purchase, SeatStatus status) {

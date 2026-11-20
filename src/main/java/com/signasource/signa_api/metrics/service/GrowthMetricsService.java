@@ -345,8 +345,18 @@ public class GrowthMetricsService {
             previousPayingUsers = (long) prevOrders.size();
         }
 
+        // "Conversión a pago" only counts end users: organizational accounts (and admins) leave
+        // both the base and the payers.
+        Set<UUID> nonEndUsers = new HashSet<>(repository.nonEndUserIds(until));
+        long payingAccounts =
+                ordersByUser.keySet().stream().filter(id -> !nonEndUsers.contains(id)).count();
+
         return new EndUsersSection(
-                payingUsers, percent(repeatBuyers, payingUsers), previousPayingUsers);
+                payingUsers,
+                percent(repeatBuyers, payingUsers),
+                previousPayingUsers,
+                repository.countEndUsersBefore(until),
+                payingAccounts);
     }
 
     private SeatsSection seats(Instant from, Instant until, Instant previousFrom) {
