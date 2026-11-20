@@ -36,7 +36,8 @@ public class GlobalMetricsService {
     }
 
     @Transactional(readOnly = true)
-    public BusinessMetricsResponse getBusinessMetrics(MetricsRange range, Collection<UUID> courseIds) {
+    public BusinessMetricsResponse getBusinessMetrics(
+            MetricsRange range, Collection<UUID> courseIds) {
         Instant from = range.start();
         Instant until = range.end();
         boolean filtered = !courseIds.isEmpty();

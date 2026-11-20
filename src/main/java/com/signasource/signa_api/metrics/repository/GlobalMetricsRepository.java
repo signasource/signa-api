@@ -173,7 +173,10 @@ public interface GlobalMetricsRepository extends Repository<LessonBlockAttempt, 
             @Param("until") Instant until,
             @Param("courseIds") Collection<UUID> courseIds);
 
-    /** Daily buckets of {@code [LocalDate day, long count]} of lessons completed filtered by courses. */
+    /**
+     * Daily buckets of {@code [LocalDate day, long count]} of lessons completed filtered by
+     * courses.
+     */
     @Query(
             "SELECT CAST(p.completedAt AS LocalDate), COUNT(p) FROM UserLessonProgress p "
                     + "WHERE p.status = com.signasource.signa_api.learning.entity.ProgressStatus.COMPLETED "
