@@ -75,7 +75,7 @@ class CoursePurchaseServiceTest {
 
     @BeforeEach
     void setUp() {
-        PurchasePolicy policy = new PurchasePolicy(15, 60, 10, 5, 24, 3, 10);
+        PurchasePolicy policy = new PurchasePolicy(5, 60, 10, 5, 24, 3, 10);
         service =
                 new CoursePurchaseService(
                         purchaseRepository,
@@ -169,7 +169,7 @@ class CoursePurchaseServiceTest {
         assertEquals(5, catalog.courses().get(0).modules().size());
         assertEquals(2, catalog.volumeDiscounts().size());
         assertEquals(10, catalog.volumeDiscounts().get(0).minSeats());
-        assertEquals(15, catalog.minDays());
+        assertEquals(5, catalog.minDays());
         assertEquals(60, catalog.maxDays());
     }
 
@@ -188,7 +188,7 @@ class CoursePurchaseServiceTest {
     @Test
     void shouldDiscountTheQuoteByVolume() {
         stubCourse();
-        PurchasePolicy roomy = new PurchasePolicy(15, 60, 10, 5, 24, 500, 10);
+        PurchasePolicy roomy = new PurchasePolicy(5, 60, 10, 5, 24, 500, 10);
         service =
                 new CoursePurchaseService(
                         purchaseRepository,
@@ -224,7 +224,7 @@ class CoursePurchaseServiceTest {
     @Test
     void shouldRejectADurationOutsideTheRange() {
         assertThrows(InvalidInputException.class, () -> service.quote(course.getId(), 1, 61));
-        assertThrows(InvalidInputException.class, () -> service.quote(course.getId(), 1, 14));
+        assertThrows(InvalidInputException.class, () -> service.quote(course.getId(), 1, 4));
     }
 
     @Test

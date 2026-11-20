@@ -18,7 +18,7 @@ public class PurchasePolicy {
     private final int withdrawalDays;
 
     public PurchasePolicy(
-            @Value("${organizations.purchases.min-days:15}") int minDays,
+            @Value("${organizations.purchases.min-days:5}") int minDays,
             @Value("${organizations.purchases.max-days:60}") int maxDays,
             @Value("${organizations.purchases.invitation-days:10}") int invitationDays,
             @Value("${organizations.purchases.auto-reminder-after-days:5}")

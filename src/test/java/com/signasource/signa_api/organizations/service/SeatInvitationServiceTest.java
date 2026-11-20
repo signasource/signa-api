@@ -68,7 +68,7 @@ class SeatInvitationServiceTest {
 
     @BeforeEach
     void setUp() {
-        PurchasePolicy policy = new PurchasePolicy(15, 60, 10, 5, 24, 500, 10);
+        PurchasePolicy policy = new PurchasePolicy(5, 60, 10, 5, 24, 500, 10);
         service =
                 new SeatInvitationService(
                         seatRepository,
