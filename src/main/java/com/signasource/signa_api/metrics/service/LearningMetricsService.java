@@ -22,7 +22,6 @@ import com.signasource.signa_api.metrics.dto.LearningMetricsResponse.SignDifficu
 import com.signasource.signa_api.metrics.repository.LearningMetricsRepository;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -566,7 +565,10 @@ public class LearningMetricsService {
             long correct = toLong(row[2]);
             series.add(
                     new DailyAccuracy(
-                            (LocalDate) row[0], evaluated, correct, percent(correct, evaluated)));
+                            MetricsRange.localDay(row[0]),
+                            evaluated,
+                            correct,
+                            percent(correct, evaluated)));
         }
         series.sort(Comparator.comparing(DailyAccuracy::day));
         return series;
@@ -684,7 +686,7 @@ public class LearningMetricsService {
     private static List<DailyCount> toDailyCounts(List<Object[]> rows) {
         List<DailyCount> series = new ArrayList<>(rows.size());
         for (Object[] row : rows) {
-            series.add(new DailyCount((LocalDate) row[0], toLong(row[1])));
+            series.add(new DailyCount(MetricsRange.localDay(row[0]), toLong(row[1])));
         }
         series.sort(Comparator.comparing(DailyCount::day));
         return series;

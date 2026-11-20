@@ -1,6 +1,7 @@
 package com.signasource.signa_api.metrics.repository;
 
 import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
+import com.signasource.signa_api.metrics.service.MetricsRange;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
@@ -92,15 +93,19 @@ public interface LearningMetricsRepository extends Repository<UserCourseEnrollme
     List<Object[]> lessonDropoffStats(@Param("until") Instant until);
 
     /**
-     * Rows of {@code [LocalDate day, long evaluated, long correct]} for the correct-answer
+     * Rows of {@code [long argentinaEpochDay, long evaluated, long correct]} for the correct-answer
      * evolution.
      */
     @Query(
-            "SELECT CAST(a.attemptedAt AS LocalDate), COUNT(a), "
+            "SELECT FLOOR((extract(epoch from a.attemptedAt) - "
+                    + MetricsRange.BUCKET_ORIGIN_SECONDS
+                    + ") / "
+                    + MetricsRange.DAY_SECONDS
+                    + "), COUNT(a), "
                     + "SUM(CASE WHEN a.isCorrect = true THEN 1L ELSE 0L END) "
                     + "FROM LessonBlockAttempt a "
                     + "WHERE a.isCorrect IS NOT NULL AND a.attemptedAt >= :from AND a.attemptedAt < :until "
-                    + "GROUP BY CAST(a.attemptedAt AS LocalDate)")
+                    + "GROUP BY 1")
     List<Object[]> dailyAccuracy(@Param("from") Instant from, @Param("until") Instant until);
 
     // ── Onboarding funnel (distinct users reaching each step, as of until)
@@ -146,11 +151,15 @@ public interface LearningMetricsRepository extends Repository<UserCourseEnrollme
                     + "WHERE ls.learnedAt >= :from AND ls.learnedAt < :until")
     long countLearnedSignsBetween(@Param("from") Instant from, @Param("until") Instant until);
 
-    /** Rows of {@code [LocalDate day, long count]} of newly learned signs. */
+    /** Rows of {@code [long argentinaEpochDay, long count]} of newly learned signs. */
     @Query(
-            "SELECT CAST(ls.learnedAt AS LocalDate), COUNT(ls) FROM UserLearnedSign ls "
+            "SELECT FLOOR((extract(epoch from ls.learnedAt) - "
+                    + MetricsRange.BUCKET_ORIGIN_SECONDS
+                    + ") / "
+                    + MetricsRange.DAY_SECONDS
+                    + "), COUNT(ls) FROM UserLearnedSign ls "
                     + "WHERE ls.learnedAt >= :from AND ls.learnedAt < :until "
-                    + "GROUP BY CAST(ls.learnedAt AS LocalDate)")
+                    + "GROUP BY 1")
     List<Object[]> dailyLearnedSigns(@Param("from") Instant from, @Param("until") Instant until);
 
     /** Rows of {@code [LocalDateTime createdAt, LocalDateTime resolvedAt]} for resolved reports. */
@@ -312,25 +321,33 @@ public interface LearningMetricsRepository extends Repository<UserCourseEnrollme
             @Param("courseVersions") Collection<String> courseVersions);
 
     @Query(
-            "SELECT CAST(a.attemptedAt AS LocalDate), COUNT(a), "
+            "SELECT FLOOR((extract(epoch from a.attemptedAt) - "
+                    + MetricsRange.BUCKET_ORIGIN_SECONDS
+                    + ") / "
+                    + MetricsRange.DAY_SECONDS
+                    + "), COUNT(a), "
                     + "SUM(CASE WHEN a.isCorrect = true THEN 1L ELSE 0L END) "
                     + "FROM LessonBlockAttempt a "
                     + "WHERE a.isCorrect IS NOT NULL AND a.attemptedAt >= :from AND a.attemptedAt < :until "
                     + "AND a.lessonBlock.lesson.topic.courseVersion.course.id IN :courseIds "
-                    + "GROUP BY CAST(a.attemptedAt AS LocalDate)")
+                    + "GROUP BY 1")
     List<Object[]> dailyAccuracyByCourse(
             @Param("from") Instant from,
             @Param("until") Instant until,
             @Param("courseIds") Collection<UUID> courseIds);
 
     @Query(
-            "SELECT CAST(a.attemptedAt AS LocalDate), COUNT(a), "
+            "SELECT FLOOR((extract(epoch from a.attemptedAt) - "
+                    + MetricsRange.BUCKET_ORIGIN_SECONDS
+                    + ") / "
+                    + MetricsRange.DAY_SECONDS
+                    + "), COUNT(a), "
                     + "SUM(CASE WHEN a.isCorrect = true THEN 1L ELSE 0L END) "
                     + "FROM LessonBlockAttempt a "
                     + "WHERE a.isCorrect IS NOT NULL AND a.attemptedAt >= :from AND a.attemptedAt < :until "
                     + "AND a.lessonBlock.lesson.topic.courseVersion.course.id IN :courseIds "
                     + "AND a.lessonBlock.lesson.topic.courseVersion.version IN :courseVersions "
-                    + "GROUP BY CAST(a.attemptedAt AS LocalDate)")
+                    + "GROUP BY 1")
     List<Object[]> dailyAccuracyByCourse(
             @Param("from") Instant from,
             @Param("until") Instant until,
@@ -375,10 +392,14 @@ public interface LearningMetricsRepository extends Repository<UserCourseEnrollme
     @Query("SELECT b.lesson.id, b.config FROM LessonBlock b WHERE b.lesson.id IN :lessonIds")
     List<Object[]> blockConfigsOfLessons(@Param("lessonIds") Collection<UUID> lessonIds);
 
-    /** Rows of {@code [String meaning, long count]} of unresolved reports, most reported first. */
+    /**
+     * Rows of {@code [String meaning, long count]} of unresolved reports (PENDING or REVIEWED, as
+     * the admin sidebar counts them), most reported first.
+     */
     @Query(
             "SELECT r.sign.meaning, COUNT(r) FROM SignReport r "
-                    + "WHERE r.status = com.signasource.signa_api.learning.entity.ReportStatus.PENDING "
+                    + "WHERE r.status IN (com.signasource.signa_api.learning.entity.ReportStatus.PENDING, "
+                    + "com.signasource.signa_api.learning.entity.ReportStatus.REVIEWED) "
                     + "GROUP BY r.sign.meaning ORDER BY COUNT(r) DESC")
     List<Object[]> pendingReportsBySign();
 }

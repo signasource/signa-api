@@ -36,9 +36,10 @@ public class GamificationMetricsService {
     public GamificationMetricsResponse getGamificationMetrics(MetricsRange range) {
         Instant from = range.start();
         Instant until = range.end();
-        LocalDate fromDate = from.atZone(ArgentinaTime.ZONE).toLocalDate();
-        // `until` is exclusive: a window ending at midnight must not pull in the next day's XP.
-        LocalDate toDate = until.minusNanos(1).atZone(ArgentinaTime.ZONE).toLocalDate();
+        // XP is only stored per Argentine day: count the days the window covers (see xpDays).
+        LocalDate[] days = xpDays(from, until);
+        LocalDate fromDate = days[0];
+        LocalDate toDate = days[1];
 
         return new GamificationMetricsResponse(
                 xp(fromDate, toDate, from, until, range),
@@ -63,9 +64,8 @@ public class GamificationMetricsService {
         if (!range.isOpen()) {
             Duration d = Duration.between(from, until);
             Instant prevFrom = from.minus(d);
-            LocalDate prevFromDate = prevFrom.atZone(ArgentinaTime.ZONE).toLocalDate();
-            // Previous window ends the day before the current one starts (no shared day).
-            long prevTotal = repository.sumXpBetween(prevFromDate, fromDate.minusDays(1));
+            LocalDate[] prevDays = xpDays(prevFrom, from);
+            long prevTotal = repository.sumXpBetween(prevDays[0], prevDays[1]);
             long prevActiveUsers = repository.countActiveUsersBetween(prevFrom, from);
             previousPerActiveUser =
                     prevActiveUsers == 0 ? null : Math.round((double) prevTotal / prevActiveUsers);
@@ -77,6 +77,28 @@ public class GamificationMetricsService {
                 activeUsers,
                 toDailyCounts(repository.dailyXp(fromDate, toDate)),
                 previousPerActiveUser);
+    }
+
+    /**
+     * The Argentine days {@code [first, last]} whose XP belongs to the window {@code [from,
+     * until)}. XP is stored per day, so a window that starts mid-day cannot count that day without
+     * also counting the hours before it: a day counts when its midnight falls inside the window,
+     * and the last day is the one {@code until} falls in. A 7-day window is then 7 days (not 8) and
+     * a 24-hour window is one day (not two, which doubled "XP por usuario activo" against the users
+     * active in those 24 hours). A window shorter than a day with no midnight inside counts its
+     * last day alone.
+     */
+    static LocalDate[] xpDays(Instant from, Instant until) {
+        // `until` is exclusive: a window ending at midnight must not pull in the next day's XP.
+        LocalDate last = until.minusNanos(1).atZone(ArgentinaTime.ZONE).toLocalDate();
+        LocalDate startDay = from.atZone(ArgentinaTime.ZONE).toLocalDate();
+        boolean startsAtMidnight =
+                startDay.atStartOfDay(ArgentinaTime.ZONE).toInstant().equals(from);
+        LocalDate first = startsAtMidnight ? startDay : startDay.plusDays(1);
+        if (first.isAfter(last)) {
+            first = last;
+        }
+        return new LocalDate[] {first, last};
     }
 
     private StreaksSection streaks(Instant from, Instant until) {
@@ -191,7 +213,7 @@ public class GamificationMetricsService {
     private static List<DailyCount> toDailyCounts(List<Object[]> rows) {
         List<DailyCount> series = new ArrayList<>(rows.size());
         for (Object[] row : rows) {
-            series.add(new DailyCount((LocalDate) row[0], toLong(row[1])));
+            series.add(new DailyCount(MetricsRange.localDay(row[0]), toLong(row[1])));
         }
         series.sort(Comparator.comparing(DailyCount::day));
         return series;
