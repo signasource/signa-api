@@ -2,9 +2,17 @@ package com.signasource.signa_api.content.dto.yaml;
 
 import com.signasource.signa_api.learning.entity.Course;
 import com.signasource.signa_api.learning.entity.SignLanguage;
+import java.math.BigDecimal;
 
 public record CourseMetadataDto(
-        String code, String name, String description, boolean free, String cover) {
+        String code,
+        String name,
+        String description,
+        boolean free,
+        BigDecimal price,
+        String cover,
+        boolean cameraRecognition,
+        String mediaFormat) {
 
     public Course toEntity(SignLanguage signLanguage) {
         return Course.builder()
@@ -12,8 +20,11 @@ public record CourseMetadataDto(
                 .name(name)
                 .description(description)
                 .isFree(free)
+                .price(free ? null : price)
                 .coverUrl(cover)
                 .signLanguage(signLanguage)
+                .hasCameraRecognition(cameraRecognition)
+                .mediaFormat(mediaFormat)
                 .build();
     }
 }

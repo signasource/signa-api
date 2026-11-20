@@ -58,7 +58,21 @@ public class SecurityConfig {
                                         .permitAll()
                                         .requestMatchers("/users/username-availability")
                                         .permitAll()
+                                        // Photos are public (like the name next to them) so <img>
+                                        // tags can load them without an Authorization header.
+                                        .requestMatchers(HttpMethod.GET, "/users/*/avatar")
+                                        .permitAll()
                                         .requestMatchers(HttpMethod.POST, "/waitlist")
+                                        .permitAll()
+                                        .requestMatchers(HttpMethod.POST, "/telemetry/events")
+                                        .permitAll()
+                                        .requestMatchers(
+                                                HttpMethod.POST, "/payments/mercado-pago/webhook")
+                                        .permitAll()
+                                        .requestMatchers(
+                                                HttpMethod.GET, "/payments/mercado-pago/return")
+                                        .permitAll()
+                                        .requestMatchers(HttpMethod.GET, "/codigo")
                                         .permitAll()
                                         .requestMatchers("/admin/**")
                                         .hasRole("ADMIN")
@@ -72,8 +86,15 @@ public class SecurityConfig {
                                         .authenticated()
                                         .requestMatchers(HttpMethod.POST, "/organizations/register")
                                         .permitAll()
-                                        .requestMatchers(HttpMethod.GET, "/organizations/pricing")
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/organizations/catalog",
+                                                "/organizations/catalog/quote")
                                         .permitAll()
+                                        .requestMatchers(HttpMethod.GET, "/invitations/*")
+                                        .permitAll()
+                                        .requestMatchers(HttpMethod.POST, "/invitations/*/accept")
+                                        .authenticated()
                                         .requestMatchers("/organizations")
                                         .hasRole("ADMIN")
                                         .requestMatchers(HttpMethod.PATCH, "/organizations/*")
@@ -87,12 +108,6 @@ public class SecurityConfig {
                                                 HttpMethod.POST,
                                                 "/organizations/*/admin-invitations")
                                         .hasRole("ADMIN")
-                                        .requestMatchers(
-                                                HttpMethod.POST, "/organizations/*/courses")
-                                        .hasRole("ADMIN")
-                                        .requestMatchers(
-                                                HttpMethod.DELETE, "/organizations/*/courses/*")
-                                        .hasRole("ADMIN")
                                         .requestMatchers("/organizations/**")
                                         .hasAnyRole("ADMIN", "ORG_ADMIN")
                                         .requestMatchers(
@@ -101,6 +116,9 @@ public class SecurityConfig {
                                                 "/actuator/prometheus")
                                         .permitAll()
                                         .requestMatchers(HttpMethod.GET, "/signs/*/animation")
+                                        .permitAll()
+                                        // Locally stored sign animations (no R2 credentials).
+                                        .requestMatchers(HttpMethod.GET, "/media/**")
                                         .permitAll()
                                         .anyRequest()
                                         .authenticated())

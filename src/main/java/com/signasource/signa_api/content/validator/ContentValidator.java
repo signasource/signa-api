@@ -42,6 +42,14 @@ public class ContentValidator {
         }
     }
 
+    /** Validates blocks that do not come from YAML (e.g. edited in the admin panel). */
+    public List<ValidationError> validateBlocks(
+            List<LessonBlockDto> blocks, String topicLabel, String lessonLabel) {
+        List<ValidationError> errors = new ArrayList<>();
+        validateBlocks(blocks, topicLabel, lessonLabel, errors);
+        return errors;
+    }
+
     private void validateCourse(LoadedCourse loaded, List<ValidationError> errors) {
         CourseMetadataDto meta = loaded.course().course();
         CourseVersionDto version = loaded.course().version();

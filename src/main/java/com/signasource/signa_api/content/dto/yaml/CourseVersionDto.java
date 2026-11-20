@@ -14,6 +14,12 @@ public record CourseVersionDto(String version, VersionStatus status) {
                 .status(status)
                 .publishedAt(publishedAt)
                 .course(course)
+                .name(course.getName())
+                .description(course.getDescription())
+                .isFree(course.isFree())
+                .price(course.getPrice())
+                .hasCameraRecognition(course.isHasCameraRecognition())
+                .mediaFormat(course.getMediaFormat())
                 .build();
     }
 }

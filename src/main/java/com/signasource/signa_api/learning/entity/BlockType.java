@@ -7,7 +7,6 @@ public enum BlockType {
     SELECT_SIGN,
     CONTEXT_RESPONSE,
     MATCH,
-    VISUAL_RECOGNITION,
     INVISIBLE_SIGNS,
     PERFORM_SIGN,
     SPELL_NAME

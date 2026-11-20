@@ -1,0 +1,375 @@
+package com.signasource.signa_api.admin.service;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.signasource.signa_api.admin.dto.AdminCourseVersionDetailResponse;
+import com.signasource.signa_api.admin.dto.AdminCourseVersionListItemResponse;
+import com.signasource.signa_api.admin.dto.CreateCourseRequest;
+import com.signasource.signa_api.admin.dto.SaveCourseVersionRequest;
+import com.signasource.signa_api.content.dto.validation.ValidationError;
+import com.signasource.signa_api.content.dto.yaml.LessonBlockDto;
+import com.signasource.signa_api.content.validator.ContentValidator;
+import com.signasource.signa_api.exceptions.InvalidInputException;
+import com.signasource.signa_api.exceptions.NotFoundException;
+import com.signasource.signa_api.learning.entity.BlockType;
+import com.signasource.signa_api.learning.entity.Course;
+import com.signasource.signa_api.learning.entity.CourseVersion;
+import com.signasource.signa_api.learning.entity.Lesson;
+import com.signasource.signa_api.learning.entity.LessonBlock;
+import com.signasource.signa_api.learning.entity.SignLanguage;
+import com.signasource.signa_api.learning.entity.Topic;
+import com.signasource.signa_api.learning.entity.VersionStatus;
+import com.signasource.signa_api.learning.repository.CourseRepository;
+import com.signasource.signa_api.learning.repository.CourseVersionRepository;
+import com.signasource.signa_api.learning.repository.SignLanguageRepository;
+import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
+import com.signasource.signa_api.users.repository.UserRepository;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+@ExtendWith(MockitoExtension.class)
+class AdminCourseVersionServiceTest {
+
+    @Mock private CourseRepository courseRepository;
+    @Mock private CourseVersionRepository courseVersionRepository;
+    @Mock private SignLanguageRepository signLanguageRepository;
+    @Mock private UserRepository userRepository;
+    @Mock private UserCourseEnrollmentRepository enrollmentRepository;
+    @Mock private ContentValidator contentValidator;
+    @InjectMocks private AdminCourseVersionService service;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private SignLanguage lsa;
+    private Course course;
+    private CourseVersion draftVersion;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        // inject real ObjectMapper via reflection since @InjectMocks won't use it
+        var field = AdminCourseVersionService.class.getDeclaredField("objectMapper");
+        field.setAccessible(true);
+        field.set(service, objectMapper);
+
+        lsa = SignLanguage.builder().id(UUID.randomUUID()).code("LSA").name("LSA").build();
+
+        course =
+                Course.builder()
+                        .id(UUID.randomUUID())
+                        .code("test-course")
+                        .name("Test Course")
+                        .isFree(true)
+                        .signLanguage(lsa)
+                        .build();
+
+        draftVersion =
+                CourseVersion.builder()
+                        .id(UUID.randomUUID())
+                        .version("1")
+                        .status(VersionStatus.DRAFT)
+                        .course(course)
+                        .name("Test Course")
+                        .isFree(true)
+                        .topics(new ArrayList<>())
+                        .build();
+    }
+
+    @Test
+    void shouldListVersions() {
+        when(courseVersionRepository.findAllByOrderByStatusAscUpdatedAtDesc())
+                .thenReturn(List.of(draftVersion));
+        when(userRepository.findByEmailIn(any(Collection.class))).thenReturn(List.of());
+
+        List<AdminCourseVersionListItemResponse> result = service.listVersions();
+
+        assertEquals(1, result.size());
+        assertEquals("Test Course", result.get(0).courseName());
+    }
+
+    @Test
+    void shouldGetVersion() {
+        when(courseVersionRepository.findWithFullTreeById(draftVersion.getId()))
+                .thenReturn(Optional.of(draftVersion));
+
+        AdminCourseVersionDetailResponse result = service.getVersion(draftVersion.getId());
+
+        assertEquals("Test Course", result.name());
+        assertEquals("DRAFT", result.status());
+    }
+
+    @Test
+    void shouldThrowNotFoundWhenVersionMissing() {
+        UUID id = UUID.randomUUID();
+        when(courseVersionRepository.findWithFullTreeById(id)).thenReturn(Optional.empty());
+
+        assertThrows(NotFoundException.class, () -> service.getVersion(id));
+    }
+
+    @Test
+    void shouldCreateCourse() {
+        when(signLanguageRepository.findByCode("LSA")).thenReturn(Optional.of(lsa));
+        when(courseRepository.save(any(Course.class))).thenAnswer(i -> i.getArgument(0));
+        when(courseVersionRepository.save(any(CourseVersion.class)))
+                .thenAnswer(i -> i.getArgument(0));
+
+        AdminCourseVersionDetailResponse result =
+                service.createCourse(new CreateCourseRequest("My Course"), "admin@signa.com");
+
+        assertEquals("My Course", result.name());
+        assertEquals("DRAFT", result.status());
+        assertEquals("admin@signa.com", result.updatedBy());
+        verify(courseRepository).save(any(Course.class));
+        verify(courseVersionRepository).save(any(CourseVersion.class));
+    }
+
+    @Test
+    void shouldThrowWhenLsaMissing() {
+        when(signLanguageRepository.findByCode("LSA")).thenReturn(Optional.empty());
+
+        assertThrows(
+                NotFoundException.class,
+                () -> service.createCourse(new CreateCourseRequest("X"), "admin@signa.com"));
+    }
+
+    @Test
+    void shouldForkVersion() {
+        when(courseVersionRepository.findWithFullTreeById(draftVersion.getId()))
+                .thenReturn(Optional.of(draftVersion));
+        when(courseVersionRepository.findByCourseId(course.getId()))
+                .thenReturn(List.of(draftVersion));
+        when(courseVersionRepository.save(any(CourseVersion.class)))
+                .thenAnswer(i -> i.getArgument(0));
+
+        AdminCourseVersionDetailResponse result =
+                service.forkVersion(draftVersion.getId(), "admin@signa.com");
+
+        assertEquals("2", result.version());
+        assertEquals("1", result.basedOnVersion());
+    }
+
+    @Test
+    void shouldSaveVersion() {
+        when(courseVersionRepository.findWithFullTreeById(draftVersion.getId()))
+                .thenReturn(Optional.of(draftVersion));
+        when(courseVersionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        SaveCourseVersionRequest request =
+                new SaveCourseVersionRequest(
+                        "Updated Name", "desc", true, null, null, false, null, List.of());
+        AdminCourseVersionDetailResponse result =
+                service.saveVersion(draftVersion.getId(), request, "admin@signa.com");
+
+        assertEquals("Updated Name", result.name());
+        assertNotNull(result.updatedAt());
+    }
+
+    @Test
+    void shouldNotUpdateCourseNameWhenSavingDraft() {
+        when(courseVersionRepository.findWithFullTreeById(draftVersion.getId()))
+                .thenReturn(Optional.of(draftVersion));
+        when(courseVersionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        SaveCourseVersionRequest request =
+                new SaveCourseVersionRequest(
+                        "New Name", null, true, null, null, false, null, List.of());
+        service.saveVersion(draftVersion.getId(), request, "admin@signa.com");
+
+        // Course.name must stay unchanged; only the version gets the new name.
+        assertEquals("Test Course", course.getName());
+        verify(courseRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldSyncCourseNameOnPublish() {
+        draftVersion.setName("Published Name");
+        when(courseVersionRepository.findWithFullTreeById(draftVersion.getId()))
+                .thenReturn(Optional.of(draftVersion));
+        when(courseVersionRepository.findByCourseId(course.getId()))
+                .thenReturn(List.of(draftVersion));
+        when(courseRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(courseVersionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        service.publishVersion(draftVersion.getId());
+
+        assertEquals("Published Name", course.getName());
+        verify(courseRepository).save(course);
+    }
+
+    @Test
+    void shouldThrowWhenSavingNonDraft() {
+        CourseVersion published =
+                CourseVersion.builder()
+                        .id(UUID.randomUUID())
+                        .version("1")
+                        .status(VersionStatus.PUBLISHED)
+                        .course(course)
+                        .topics(new ArrayList<>())
+                        .build();
+        when(courseVersionRepository.findWithFullTreeById(published.getId()))
+                .thenReturn(Optional.of(published));
+
+        SaveCourseVersionRequest request =
+                new SaveCourseVersionRequest("X", null, true, null, null, false, null, List.of());
+        assertThrows(
+                InvalidInputException.class,
+                () -> service.saveVersion(published.getId(), request, "admin@signa.com"));
+    }
+
+    @Test
+    void shouldPublishVersion() {
+        when(courseVersionRepository.findWithFullTreeById(draftVersion.getId()))
+                .thenReturn(Optional.of(draftVersion));
+        when(courseVersionRepository.findByCourseId(course.getId()))
+                .thenReturn(List.of(draftVersion));
+        when(courseRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(courseVersionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        AdminCourseVersionDetailResponse result = service.publishVersion(draftVersion.getId());
+
+        assertEquals("PUBLISHED", result.status());
+        assertNotNull(result.publishedAt());
+    }
+
+    private void addLessonWithBlocks(LessonBlock... blocks) {
+        Topic topic = Topic.builder().order(0).lessons(new ArrayList<>()).build();
+        Lesson lesson = Lesson.builder().order(0).lessonBlocks(new ArrayList<>()).build();
+        lesson.getLessonBlocks().addAll(List.of(blocks));
+        topic.getLessons().add(lesson);
+        draftVersion.getTopics().add(topic);
+    }
+
+    @Test
+    void shouldNotPublishWhenBlocksAreInvalid() {
+        addLessonWithBlocks(
+                LessonBlock.builder()
+                        .type(BlockType.PERFORM_SIGN)
+                        .order(0)
+                        .config("{\"signs\":[]}")
+                        .build());
+        when(courseVersionRepository.findWithFullTreeById(draftVersion.getId()))
+                .thenReturn(Optional.of(draftVersion));
+        when(contentValidator.validateBlocks(any(), eq("1"), eq("1")))
+                .thenReturn(
+                        List.of(new ValidationError("Topic 1 > Lesson 1 > Block #1", "bad signs")));
+
+        InvalidInputException ex =
+                assertThrows(
+                        InvalidInputException.class,
+                        () -> service.publishVersion(draftVersion.getId()));
+
+        assertTrue(ex.getMessage().contains("bad signs"));
+        assertEquals(VersionStatus.DRAFT, draftVersion.getStatus());
+        verify(courseVersionRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldValidateBlocksWithParsedConfigOnPublish() {
+        addLessonWithBlocks(
+                LessonBlock.builder()
+                        .type(BlockType.PERFORM_SIGN)
+                        .order(0)
+                        .config("{\"signs\":[\"cafe\"]}")
+                        .build(),
+                LessonBlock.builder().type(BlockType.SPELL_NAME).order(1).build(),
+                LessonBlock.builder().type(BlockType.INFO).order(2).config("{broken").build());
+        when(courseVersionRepository.findWithFullTreeById(draftVersion.getId()))
+                .thenReturn(Optional.of(draftVersion));
+        when(courseVersionRepository.findByCourseId(course.getId()))
+                .thenReturn(List.of(draftVersion));
+        when(courseRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(courseVersionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        service.publishVersion(draftVersion.getId());
+
+        ArgumentCaptor<List<LessonBlockDto>> captor = ArgumentCaptor.forClass(List.class);
+        verify(contentValidator).validateBlocks(captor.capture(), eq("1"), eq("1"));
+        List<LessonBlockDto> blocks = captor.getValue();
+        assertEquals("cafe", blocks.get(0).config().get("signs").get(0).asText());
+        assertTrue(blocks.get(1).config().isEmpty());
+        assertEquals(null, blocks.get(2).config());
+    }
+
+    @Test
+    void shouldArchiveExistingPublishedOnPublish() {
+        CourseVersion published =
+                CourseVersion.builder()
+                        .id(UUID.randomUUID())
+                        .version("0.1.0")
+                        .status(VersionStatus.PUBLISHED)
+                        .course(course)
+                        .topics(new ArrayList<>())
+                        .build();
+        when(courseVersionRepository.findWithFullTreeById(draftVersion.getId()))
+                .thenReturn(Optional.of(draftVersion));
+        when(courseVersionRepository.findByCourseId(course.getId()))
+                .thenReturn(List.of(draftVersion, published));
+        when(courseRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(courseVersionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        service.publishVersion(draftVersion.getId());
+
+        assertEquals(VersionStatus.ARCHIVED, published.getStatus());
+    }
+
+    @Test
+    void shouldThrowWhenPublishingNonDraft() {
+        CourseVersion published =
+                CourseVersion.builder()
+                        .id(UUID.randomUUID())
+                        .version("1")
+                        .status(VersionStatus.PUBLISHED)
+                        .course(course)
+                        .topics(new ArrayList<>())
+                        .build();
+        when(courseVersionRepository.findWithFullTreeById(published.getId()))
+                .thenReturn(Optional.of(published));
+
+        assertThrows(InvalidInputException.class, () -> service.publishVersion(published.getId()));
+    }
+
+    @Test
+    void shouldSaveVersionWithTopicsAndBlocks() {
+        when(courseVersionRepository.findWithFullTreeById(draftVersion.getId()))
+                .thenReturn(Optional.of(draftVersion));
+        when(courseVersionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        SaveCourseVersionRequest.BlockData block =
+                new SaveCourseVersionRequest.BlockData(
+                        null, "INFO", null, java.util.Map.of("title", "Hello", "text", "World"));
+        SaveCourseVersionRequest.LessonData lesson =
+                new SaveCourseVersionRequest.LessonData(null, "Lesson 1", null, List.of(block));
+        SaveCourseVersionRequest.TopicData topic =
+                new SaveCourseVersionRequest.TopicData(
+                        null, "Unit 1", "Subtitle", null, List.of(lesson));
+        SaveCourseVersionRequest request =
+                new SaveCourseVersionRequest(
+                        "Course", "desc", true, null, null, false, null, List.of(topic));
+
+        AdminCourseVersionDetailResponse result =
+                service.saveVersion(draftVersion.getId(), request, "admin@signa.com");
+
+        assertEquals(1, result.topics().size());
+        assertEquals(1, result.topics().get(0).lessons().size());
+        assertEquals(1, result.topics().get(0).lessons().get(0).blocks().size());
+        assertEquals("INFO", result.topics().get(0).lessons().get(0).blocks().get(0).type());
+    }
+}

@@ -17,10 +17,25 @@
         <Bug pattern="SE_NO_SERIALVERSIONID"/>
     </Match>
 
-    <!-- \n in HTML text blocks is intentional; %n does not apply to HTML content -->
+    <!-- \n in HTML strings is intentional; %n does not apply to HTML content -->
     <Match>
-        <Class name="com.signasource.signa_api.auth.service.EmailService"/>
         <Bug pattern="VA_FORMAT_STRING_USES_NEWLINE"/>
+        <Or>
+            <Class name="com.signasource.signa_api.auth.service.EmailService"/>
+            <Class name="com.signasource.signa_api.gamification.controller.MercadoPagoReturnController"/>
+        </Or>
+    </Match>
+
+    <!-- @Spy ObjectMapper is read by Mockito via reflection to inject into @InjectMocks -->
+    <Match>
+        <Class name="com.signasource.signa_api.metrics.service.MlMetricsServiceTest"/>
+        <Bug pattern="URF_UNREAD_FIELD"/>
+    </Match>
+
+    <!-- isAvailable is deliberately tri-state: null means "could not tell" -->
+    <Match>
+        <Class name="com.signasource.signa_api.learning.service.SignMediaStorage"/>
+        <Bug pattern="NP_BOOLEAN_RETURN_NULL"/>
     </Match>
 
 </FindBugsFilter>

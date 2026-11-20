@@ -1,0 +1,155 @@
+topic:
+  code: unidad-3
+  title: "Unidad 3"
+  subtitle: "¿Quién me atiende? Profesionales de la salud"
+  description: "Identificá a los profesionales y a los médicos especialistas."
+
+lessons:
+  - code: leccion-1
+    name: "Profesionales de la salud"
+    description: "Las personas que te atienden en el sistema de salud."
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: médico
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: enfermero
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: psicólogo
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: fonoaudiólogo
+
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: médico
+          options:
+            - médico
+            - enfermero
+            - psicólogo
+            - fonoaudiólogo
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: enfermero
+          options:
+            - médico
+            - enfermero
+            - psicólogo
+            - fonoaudiólogo
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: psicólogo
+          options:
+            - fonoaudiólogo
+            - psicólogo
+            - médico
+            - enfermero
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: fonoaudiólogo
+          options:
+            - enfermero
+            - médico
+            - fonoaudiólogo
+            - psicólogo
+      - type: CONTEXT_RESPONSE
+        xp: 15
+        config:
+          question: "¿Quién te acompaña en la salud emocional y mental?"
+          answer: psicólogo
+          options:
+            - médico
+            - enfermero
+            - psicólogo
+            - fonoaudiólogo
+      - type: MATCH
+        xp: 20
+        config:
+          concepts:
+            - médico
+            - enfermero
+            - psicólogo
+            - fonoaudiólogo
+
+  - code: leccion-2
+    name: "Médicos especialistas"
+    description: "Los médicos especializados en cada parte del cuerpo."
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: cirujano
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: ginecólogo
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: odontólogo
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: oftalmólogo
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: traumatólogo
+
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: odontólogo
+          options:
+            - odontólogo
+            - oftalmólogo
+            - cirujano
+            - ginecólogo
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: oftalmólogo
+          options:
+            - oftalmólogo
+            - odontólogo
+            - traumatólogo
+            - cirujano
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: cirujano
+          options:
+            - ginecólogo
+            - cirujano
+            - traumatólogo
+            - odontólogo
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: traumatólogo
+          options:
+            - cirujano
+            - ginecólogo
+            - traumatólogo
+            - oftalmólogo
+      - type: CONTEXT_RESPONSE
+        xp: 15
+        config:
+          question: "¿A qué especialista vas por un problema en los dientes?"
+          answer: odontólogo
+          options:
+            - oftalmólogo
+            - traumatólogo
+            - odontólogo
+            - ginecólogo
+      - type: MATCH
+        xp: 20
+        config:
+          concepts:
+            - cirujano
+            - ginecólogo
+            - odontólogo
+            - oftalmólogo
+            - traumatólogo
+

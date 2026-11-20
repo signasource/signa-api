@@ -23,6 +23,7 @@ public class OrganizationMemberService {
     private final UserRepository userRepository;
     private final OrganizationAccessService accessService;
     private final OrganizationEnrollmentService enrollmentService;
+    private final SeatInvitationService invitationService;
 
     /**
      * Takes a participant out of the organization: they lose access to the contracted courses but
@@ -88,5 +89,6 @@ public class OrganizationMemberService {
         memberRepository.save(member);
 
         enrollmentService.revokeAllFromUser(member.getUser(), member.getOrganization().getId());
+        invitationService.revokeActiveSeats(member.getUser(), member.getOrganization().getId());
     }
 }

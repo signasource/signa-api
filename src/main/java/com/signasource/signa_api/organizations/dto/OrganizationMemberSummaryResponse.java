@@ -15,4 +15,5 @@ public record OrganizationMemberSummaryResponse(
         int progressPercentage,
         String currentModule,
         String currentCourse,
-        MemberActivityStatus activityStatus) {}
+        MemberActivityStatus activityStatus,
+        String avatarUrl) {}

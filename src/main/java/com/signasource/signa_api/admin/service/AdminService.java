@@ -2,56 +2,80 @@ package com.signasource.signa_api.admin.service;
 
 import com.signasource.signa_api.admin.dto.AdminCourseResponse;
 import com.signasource.signa_api.admin.dto.AdminOrganizationResponse;
-import com.signasource.signa_api.admin.dto.AdminSignReportGroupResponse;
-import com.signasource.signa_api.admin.dto.AdminSignResponse;
+import com.signasource.signa_api.admin.dto.AdminSignReportResponse;
 import com.signasource.signa_api.admin.dto.AdminStatsResponse;
+import com.signasource.signa_api.admin.dto.AdminUserDetailResponse;
+import com.signasource.signa_api.admin.dto.AdminUserDetailResponse.OrgAdminDetail;
+import com.signasource.signa_api.admin.dto.AdminUserDetailResponse.OrgPurchaseSummary;
+import com.signasource.signa_api.admin.dto.AdminUserDetailResponse.UserEnrollmentInfo;
 import com.signasource.signa_api.admin.dto.AdminUserResponse;
 import com.signasource.signa_api.admin.dto.AdminWaitlistEntryResponse;
 import com.signasource.signa_api.admin.dto.CreateAdminRequest;
+import com.signasource.signa_api.admin.dto.UpdateAdminRequest;
 import com.signasource.signa_api.admin.dto.UpdateOrganizationStatusRequest;
-import com.signasource.signa_api.admin.dto.UpdateSignReportGroupRequest;
+import com.signasource.signa_api.admin.dto.UpdateSignReportRequest;
 import com.signasource.signa_api.admin.dto.UpdateUserRequest;
+import com.signasource.signa_api.auth.entity.TokenType;
+import com.signasource.signa_api.auth.repository.TokenRepository;
+import com.signasource.signa_api.auth.service.EmailService;
+import com.signasource.signa_api.common.AfterCommit;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.gamification.entity.UserStats;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
-import com.signasource.signa_api.learning.entity.Course;
+import com.signasource.signa_api.learning.entity.EnrollmentStatus;
 import com.signasource.signa_api.learning.entity.ReportReason;
 import com.signasource.signa_api.learning.entity.ReportStatus;
 import com.signasource.signa_api.learning.entity.Sign;
 import com.signasource.signa_api.learning.entity.SignReport;
+import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import com.signasource.signa_api.learning.repository.CourseRepository;
+import com.signasource.signa_api.learning.repository.LessonBlockAttemptRepository;
 import com.signasource.signa_api.learning.repository.SignReportRepository;
 import com.signasource.signa_api.learning.repository.SignRepository;
+import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
+import com.signasource.signa_api.notification.entity.NotificationCode;
+import com.signasource.signa_api.notification.service.NotificationService;
+import com.signasource.signa_api.organizations.entity.CoursePurchase;
 import com.signasource.signa_api.organizations.entity.MemberRole;
 import com.signasource.signa_api.organizations.entity.MemberStatus;
 import com.signasource.signa_api.organizations.entity.Organization;
-import com.signasource.signa_api.organizations.entity.OrganizationCourse;
 import com.signasource.signa_api.organizations.entity.OrganizationMember;
 import com.signasource.signa_api.organizations.entity.OrganizationStatus;
+import com.signasource.signa_api.organizations.repository.CoursePurchaseRepository;
+import com.signasource.signa_api.organizations.repository.InviteCodeRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationCourseRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationMemberRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationRepository;
-import com.signasource.signa_api.organizations.service.OrganizationEnrollmentService;
 import com.signasource.signa_api.users.entity.AuthProvider;
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.entity.UserSettings;
 import com.signasource.signa_api.users.repository.UserRepository;
 import com.signasource.signa_api.users.repository.UserSettingsRepository;
+import com.signasource.signa_api.users.service.UserService;
 import com.signasource.signa_api.waitlist.repository.WaitlistRepository;
+import jakarta.persistence.criteria.Fetch;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Comparator;
+import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -62,8 +86,6 @@ public class AdminService {
 
     private final OrganizationRepository organizationRepository;
     private final OrganizationMemberRepository memberRepository;
-    private final OrganizationCourseRepository organizationCourseRepository;
-    private final OrganizationEnrollmentService enrollmentService;
     private final SignReportRepository signReportRepository;
     private final UserRepository userRepository;
     private final UserSettingsRepository userSettingsRepository;
@@ -71,7 +93,16 @@ public class AdminService {
     private final CourseRepository courseRepository;
     private final SignRepository signRepository;
     private final UserStatsRepository userStatsRepository;
+    private final TokenRepository tokenRepository;
+    private final UserService userService;
+    private final CoursePurchaseRepository coursePurchaseRepository;
+    private final InviteCodeRepository inviteCodeRepository;
+    private final OrganizationCourseRepository organizationCourseRepository;
     private final PasswordEncoder passwordEncoder;
+    private final NotificationService notificationService;
+    private final EmailService emailService;
+    private final UserCourseEnrollmentRepository enrollmentRepository;
+    private final LessonBlockAttemptRepository attemptRepository;
 
     // ── Stats ────────────────────────────────────────────────────────────────
 
@@ -159,33 +190,28 @@ public class AdminService {
         Organization org = findOrg(id);
         OrganizationStatus newStatus = request.status();
 
+        OrganizationStatus current = org.getStatus();
+
         if (newStatus == OrganizationStatus.ACTIVE
-                && org.getStatus() == OrganizationStatus.PENDING) {
+                && (current == OrganizationStatus.PENDING
+                        || current == OrganizationStatus.SUSPENDED)) {
             org.setStatus(OrganizationStatus.ACTIVE);
+            org.setSuspensionReason(null);
             organizationRepository.save(org);
-            if (request.courseIds() != null) {
-                for (UUID courseId : request.courseIds()) {
-                    if (!organizationCourseRepository.existsByOrganizationIdAndCourseId(
-                            id, courseId)) {
-                        Course course =
-                                courseRepository
-                                        .findById(courseId)
-                                        .orElseThrow(
-                                                () ->
-                                                        new NotFoundException(
-                                                                "Course not found: " + courseId));
-                        organizationCourseRepository.save(
-                                OrganizationCourse.builder()
-                                        .organization(org)
-                                        .course(course)
-                                        .build());
-                        enrollmentService.grantCourseToActiveMembers(org, course);
-                    }
-                }
+            if (current == OrganizationStatus.PENDING) {
+                notifyApproved(org);
             }
-        } else if (newStatus == OrganizationStatus.REJECTED
-                || newStatus == OrganizationStatus.SUSPENDED) {
-            org.setStatus(newStatus);
+        } else if (newStatus == OrganizationStatus.SUSPENDED) {
+            String reason = request.reason() == null ? "" : request.reason().trim();
+            if (reason.isEmpty()) {
+                throw new InvalidInputException("A reason is required to suspend an organization");
+            }
+            org.setStatus(OrganizationStatus.SUSPENDED);
+            org.setSuspensionReason(reason);
+            organizationRepository.save(org);
+        } else if (newStatus == OrganizationStatus.REJECTED) {
+            org.setStatus(OrganizationStatus.REJECTED);
+            org.setSuspensionReason(null);
             organizationRepository.save(org);
         } else {
             throw new InvalidInputException(
@@ -195,101 +221,133 @@ public class AdminService {
         return getOrganization(id);
     }
 
+    /** Tells the email the organization registered with that it can now buy seats. */
+    private void notifyApproved(Organization org) {
+        String to = org.getContactEmail();
+        if (to == null || to.isBlank()) {
+            return;
+        }
+        String name = org.getName();
+        AfterCommit.run(() -> emailService.sendOrganizationApprovedEmail(to, name));
+    }
+
+    /**
+     * Removes a rejected or suspended organization for good so its emails can register again. The
+     * panel-admin accounts are erased (as in a self-service account deletion), participants stay as
+     * regular users without the organization's courses. Organizations with purchases are refused:
+     * those are financial records that must keep their organization.
+     */
+    @Transactional
+    public void deleteOrganization(UUID id) {
+        Organization org = findOrg(id);
+        if (org.getStatus() != OrganizationStatus.REJECTED
+                && org.getStatus() != OrganizationStatus.SUSPENDED) {
+            throw new InvalidInputException(
+                    "Only rejected or suspended organizations can be removed");
+        }
+        if (coursePurchaseRepository.existsByOrganizationId(id)) {
+            throw new ResourceAlreadyInUseException(
+                    "The organization has purchases on record and cannot be removed");
+        }
+
+        List<User> admins =
+                memberRepository.findByOrganizationIdAndRole(id, MemberRole.ADMIN).stream()
+                        .map(OrganizationMember::getUser)
+                        .toList();
+
+        organizationRepository.detachFromLearning(id);
+        memberRepository.deleteByOrganizationId(id);
+        inviteCodeRepository.deleteByOrganizationId(id);
+        organizationCourseRepository.deleteByOrganizationId(id);
+        admins.forEach(userService::deleteAccount);
+        organizationRepository.delete(org);
+    }
+
     // ── Sign Reports ─────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
-    public List<AdminSignReportGroupResponse> getSignReportGroups(ReportStatus statusFilter) {
-        List<ReportStatus> statuses =
-                statusFilter != null
-                        ? List.of(statusFilter)
-                        : List.of(
-                                ReportStatus.PENDING,
-                                ReportStatus.REVIEWED,
-                                ReportStatus.RESOLVED,
-                                ReportStatus.REJECTED);
+    public List<AdminSignReportResponse> getSignReports(
+            ReportStatus status,
+            ReportReason reason,
+            String signQuery,
+            LocalDate from,
+            LocalDate to) {
+        LocalDateTime fromDateTime = from != null ? from.atStartOfDay() : null;
+        LocalDateTime toDateTime = to != null ? to.atTime(LocalTime.MAX) : null;
+        String query = (signQuery != null && !signQuery.isBlank()) ? signQuery.trim() : null;
 
-        List<SignReport> reports = signReportRepository.findByStatusIn(statuses);
-
-        Map<UUID, List<SignReport>> bySign =
-                reports.stream().collect(Collectors.groupingBy(r -> r.getSign().getId()));
-
-        return bySign.entrySet().stream()
-                .map(e -> buildGroup(e.getValue()))
-                .sorted(Comparator.comparingInt(g -> -g.reportCount()))
+        return signReportRepository
+                .findAll(signReportSpec(status, reason, query, fromDateTime, toDateTime))
+                .stream()
+                .map(AdminSignReportResponse::from)
                 .toList();
     }
 
-    private AdminSignReportGroupResponse buildGroup(List<SignReport> reports) {
-        Sign sign = reports.get(0).getSign();
-        ReportReason topReason =
-                reports.stream()
-                        .collect(
-                                Collectors.groupingBy(SignReport::getReason, Collectors.counting()))
-                        .entrySet()
-                        .stream()
-                        .max(Map.Entry.comparingByValue())
-                        .map(Map.Entry::getKey)
-                        .orElse(ReportReason.OTHER);
+    /**
+     * Builds the admin report query as a Specification so only the filters actually provided add a
+     * predicate. A JPQL {@code :param IS NULL OR ...} query binds typed nulls that PostgreSQL
+     * cannot infer (e.g. a null string parameter is read as {@code bytea}, breaking {@code
+     * lower(...)}).
+     */
+    private Specification<SignReport> signReportSpec(
+            ReportStatus status,
+            ReportReason reason,
+            String signQuery,
+            LocalDateTime from,
+            LocalDateTime to) {
+        return (root, query, cb) -> {
+            Fetch<SignReport, Sign> signFetch = root.fetch("sign", JoinType.INNER);
+            signFetch.fetch("signLanguage", JoinType.INNER);
+            root.fetch("user", JoinType.INNER);
+            root.fetch("resolvedBy", JoinType.LEFT);
+            query.orderBy(cb.desc(root.get("createdAt")));
 
-        ReportStatus groupStatus = deriveGroupStatus(reports);
-        LocalDateTime lastAt =
-                reports.stream()
-                        .map(SignReport::getCreatedAt)
-                        .max(Comparator.naturalOrder())
-                        .orElse(null);
-
-        List<AdminSignReportGroupResponse.ReportItem> items =
-                reports.stream()
-                        .sorted(Comparator.comparing(SignReport::getCreatedAt).reversed())
-                        .map(
-                                r ->
-                                        new AdminSignReportGroupResponse.ReportItem(
-                                                r.getId(),
-                                                r.getUser().getUsername(),
-                                                r.getReason(),
-                                                r.getDescription(),
-                                                r.getStatus(),
-                                                r.getCreatedAt()))
-                        .toList();
-
-        return new AdminSignReportGroupResponse(
-                sign.getId(),
-                sign.getMeaning(),
-                sign.getSignLanguage().getName(),
-                sign.getHandedness().name(),
-                reports.size(),
-                topReason,
-                groupStatus,
-                lastAt,
-                items);
-    }
-
-    private ReportStatus deriveGroupStatus(List<SignReport> reports) {
-        Set<ReportStatus> statuses =
-                reports.stream().map(SignReport::getStatus).collect(Collectors.toSet());
-        if (statuses.contains(ReportStatus.PENDING)) return ReportStatus.PENDING;
-        if (statuses.contains(ReportStatus.REVIEWED)) return ReportStatus.REVIEWED;
-        if (statuses.contains(ReportStatus.RESOLVED)) return ReportStatus.RESOLVED;
-        return ReportStatus.REJECTED;
+            List<Predicate> predicates = new ArrayList<>();
+            if (status != null) predicates.add(cb.equal(root.get("status"), status));
+            if (reason != null) predicates.add(cb.equal(root.get("reason"), reason));
+            if (signQuery != null) {
+                Join<SignReport, Sign> sign = root.join("sign", JoinType.INNER);
+                predicates.add(
+                        cb.like(
+                                cb.lower(sign.get("meaning")),
+                                "%" + signQuery.toLowerCase(Locale.ROOT) + "%"));
+            }
+            if (from != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.<LocalDateTime>get("createdAt"), from));
+            }
+            if (to != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.<LocalDateTime>get("createdAt"), to));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
     }
 
     @Transactional
-    public AdminSignReportGroupResponse updateSignReportGroup(
-            UUID signId, UpdateSignReportGroupRequest request, User actor) {
-        List<SignReport> reports = signReportRepository.findBySignId(signId);
-        if (reports.isEmpty()) throw new NotFoundException("No reports found for sign " + signId);
+    public AdminSignReportResponse updateSignReport(
+            UUID reportId, UpdateSignReportRequest request, User actor) {
+        SignReport report =
+                signReportRepository
+                        .findById(reportId)
+                        .orElseThrow(() -> new NotFoundException("Report not found: " + reportId));
 
-        for (SignReport report : reports) {
-            report.setStatus(request.status());
-            if (request.adminNote() != null) report.setAdminNote(request.adminNote());
-            if (request.status() == ReportStatus.RESOLVED
-                    || request.status() == ReportStatus.REJECTED) {
-                report.setResolvedBy(actor);
-                report.setResolvedAt(LocalDateTime.now());
-            }
+        boolean wasResolved = report.getStatus() == ReportStatus.RESOLVED;
+        report.setStatus(request.status());
+        if (request.adminNote() != null) report.setAdminNote(request.adminNote());
+        if (request.status() == ReportStatus.RESOLVED
+                || request.status() == ReportStatus.REJECTED) {
+            report.setResolvedBy(actor);
+            report.setResolvedAt(LocalDateTime.now());
         }
-        signReportRepository.saveAll(reports);
-        return buildGroup(reports);
+        signReportRepository.save(report);
+
+        if (!wasResolved && request.status() == ReportStatus.RESOLVED) {
+            notificationService.notifyUser(
+                    report.getUser().getId(),
+                    NotificationCode.SIGN_REPORT_RESOLVED,
+                    Map.of("sign", report.getSign().getMeaning()));
+        }
+
+        return AdminSignReportResponse.from(report);
     }
 
     // ── Users ────────────────────────────────────────────────────────────────
@@ -324,13 +382,184 @@ public class AdminService {
         return AdminUserResponse.from(user, orgName, stats);
     }
 
-    @Transactional
-    public AdminUserResponse updateUser(UUID userId, UpdateUserRequest request) {
+    @Transactional(readOnly = true)
+    public AdminUserDetailResponse getUserDetail(UUID userId) {
         User user = findUser(userId);
+        Optional<OrganizationMember> membership = memberRepository.findByUserId(userId);
+        String orgName =
+                membership
+                        .filter(m -> m.getStatus() == MemberStatus.ACTIVE)
+                        .map(m -> m.getOrganization().getName())
+                        .orElse(null);
+        UserStats stats = userStatsRepository.findByUserId(userId).orElse(null);
+        int streak = stats != null ? stats.getCurrentStreak() : 0;
+        LocalDate lastStreakDate = stats != null ? stats.getLastStreakDate() : null;
+        LocalDate lastSeenDate = stats != null ? stats.getLastSeenDate() : null;
+        String provider =
+                (user.getProviders() != null && user.getProviders().contains(AuthProvider.GOOGLE))
+                        ? "GOOGLE"
+                        : "EMAIL";
+
+        if (user.getRole() == Role.ADMIN) {
+            return new AdminUserDetailResponse(
+                    user.getId(),
+                    user.getEmail(),
+                    user.getUsername(),
+                    user.getName(),
+                    user.getLastName(),
+                    user.getRole(),
+                    user.isEnabled(),
+                    user.isVerified(),
+                    null,
+                    provider,
+                    0,
+                    null,
+                    null,
+                    user.getAvatar(),
+                    null,
+                    null,
+                    null,
+                    null);
+        }
+
+        if (user.getRole() == Role.ORG_ADMIN) {
+            OrgAdminDetail orgDetail = null;
+            if (membership.isPresent() && membership.get().getStatus() == MemberStatus.ACTIVE) {
+                var org = membership.get().getOrganization();
+                int memberCount =
+                        (int)
+                                memberRepository.countByOrganizationIdAndRoleAndStatus(
+                                        org.getId(), MemberRole.MEMBER, MemberStatus.ACTIVE);
+                List<CoursePurchase> purchases =
+                        coursePurchaseRepository.findByOrganizationIdOrderByCreatedAtDesc(
+                                org.getId());
+                List<OrgPurchaseSummary> purchaseSummaries =
+                        purchases.stream()
+                                .map(
+                                        p ->
+                                                new OrgPurchaseSummary(
+                                                        p.getCourse().getName(),
+                                                        p.getSeats(),
+                                                        p.getStatus().name(),
+                                                        p.getCreatedAt(),
+                                                        p.getPaidAt()))
+                                .toList();
+                orgDetail =
+                        new OrgAdminDetail(
+                                org.getId(),
+                                org.getStatus().name(),
+                                memberCount,
+                                purchaseSummaries);
+            }
+            return new AdminUserDetailResponse(
+                    user.getId(),
+                    user.getEmail(),
+                    user.getUsername(),
+                    user.getName(),
+                    user.getLastName(),
+                    user.getRole(),
+                    user.isEnabled(),
+                    user.isVerified(),
+                    orgName,
+                    provider,
+                    streak,
+                    lastStreakDate,
+                    lastSeenDate,
+                    user.getAvatar(),
+                    null,
+                    null,
+                    null,
+                    orgDetail);
+        }
+
+        // USER role
+        List<UserCourseEnrollment> enrollments =
+                enrollmentRepository.findWithCourseByUserId(userId);
+        Instant now = Instant.now();
+        List<UserEnrollmentInfo> enrollmentInfos =
+                enrollments.stream()
+                        .filter(e -> e.getStatus() != EnrollmentStatus.DROPPED)
+                        .map(
+                                e ->
+                                        new UserEnrollmentInfo(
+                                                e.getCourseVersion().getId(),
+                                                e.getCourseVersion().getCourse().getName(),
+                                                e.getCourseVersion().getVersion(),
+                                                e.getCourseVersion().getStatus().name(),
+                                                e.getStatus().name(),
+                                                e.grantsAccess(now),
+                                                e.getStartedAt(),
+                                                e.getCompletedAt()))
+                        .toList();
+
+        long totalAttempts = attemptRepository.countByUserIdAndIsCorrectIsNotNull(userId);
+        Integer accuracyPercent = null;
+        if (totalAttempts > 0) {
+            long correctAttempts = attemptRepository.countByUserIdAndIsCorrectTrue(userId);
+            accuracyPercent = (int) Math.round(correctAttempts * 100.0 / totalAttempts);
+        }
+
+        boolean isEmployee =
+                membership
+                        .map(
+                                m ->
+                                        m.getRole() == MemberRole.MEMBER
+                                                && m.getStatus() == MemberStatus.ACTIVE)
+                        .orElse(false);
+
+        return new AdminUserDetailResponse(
+                user.getId(),
+                user.getEmail(),
+                user.getUsername(),
+                user.getName(),
+                user.getLastName(),
+                user.getRole(),
+                user.isEnabled(),
+                user.isVerified(),
+                orgName,
+                provider,
+                streak,
+                lastStreakDate,
+                lastSeenDate,
+                user.getAvatar(),
+                accuracyPercent,
+                isEmployee,
+                enrollmentInfos,
+                null);
+    }
+
+    @Transactional
+    public AdminUserResponse updateUser(User actor, UUID userId, UpdateUserRequest request) {
+        User user = findExistingUser(userId);
+        boolean losesAccess =
+                Boolean.FALSE.equals(request.enabled())
+                        || (request.role() != null && request.role() != Role.ADMIN);
+        if (actor.getId().equals(userId) && losesAccess) {
+            throw new InvalidInputException("You cannot disable or demote your own account");
+        }
         if (request.role() != null) user.setRole(request.role());
         if (request.enabled() != null) user.setEnabled(request.enabled());
         userRepository.save(user);
+        if (Boolean.FALSE.equals(request.enabled())) {
+            tokenRepository.deleteByUserAndType(user, TokenType.REFRESH);
+        }
         return getUser(userId);
+    }
+
+    @Transactional
+    public void deleteUser(User actor, UUID userId) {
+        if (actor.getId().equals(userId)) {
+            throw new InvalidInputException("You cannot delete your own account");
+        }
+        userService.deleteAccount(findExistingUser(userId));
+    }
+
+    private User findExistingUser(UUID userId) {
+        User user = findUser(userId);
+        if (user.getEmail().endsWith(UserService.DELETED_EMAIL_DOMAIN)) {
+            throw new NotFoundException("User not found");
+        }
+        return user;
     }
 
     // ── Admins ───────────────────────────────────────────────────────────────
@@ -350,8 +579,9 @@ public class AdminService {
 
     @Transactional
     public AdminUserResponse createAdmin(CreateAdminRequest request) {
-        if (userRepository.existsByEmail(request.email())) {
-            throw new ResourceAlreadyInUseException("Email already in use");
+        Optional<User> existing = userRepository.findFirstByEmailIgnoreCase(request.email().trim());
+        if (existing.isPresent()) {
+            return promoteToAdmin(existing.get(), request.password(), request.avatar());
         }
         String base = request.name().toLowerCase().replaceAll("[^a-z0-9]", "");
         if (base.length() > 20) base = base.substring(0, 20);
@@ -373,10 +603,65 @@ public class AdminService {
                         .enabled(true)
                         .verified(true)
                         .providers(Set.of(AuthProvider.LOCAL))
+                        .avatar(blankToNull(request.avatar()))
                         .build();
         userRepository.save(admin);
         userSettingsRepository.save(UserSettings.builder().user(admin).build());
         return AdminUserResponse.from(admin, null, null);
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isEmpty() ? null : value;
+    }
+
+    @Transactional
+    public AdminUserResponse updateAdmin(UUID adminId, UpdateAdminRequest request) {
+        User admin = findExistingUser(adminId);
+        if (admin.getRole() != Role.ADMIN) {
+            throw new NotFoundException("Admin not found");
+        }
+        if (request.name() != null) admin.setName(request.name().trim());
+        if (request.lastName() != null) admin.setLastName(request.lastName().trim());
+        if (request.email() != null) {
+            String email = request.email().trim();
+            if (!email.equalsIgnoreCase(admin.getEmail())) {
+                if (userRepository
+                        .findFirstByEmailIgnoreCase(email)
+                        .filter(other -> !other.getId().equals(adminId))
+                        .isPresent()) {
+                    throw new ResourceAlreadyInUseException("Email already in use");
+                }
+                admin.setEmail(email);
+            }
+        }
+        boolean passwordChanged = request.password() != null;
+        if (passwordChanged) {
+            admin.setPasswordHash(passwordEncoder.encode(request.password()));
+            admin.getProviders().add(AuthProvider.LOCAL);
+        }
+        if (request.avatar() != null) {
+            admin.setAvatar(request.avatar().isEmpty() ? null : request.avatar());
+        }
+        userRepository.save(admin);
+        if (passwordChanged) {
+            // A new password signs the admin out everywhere else.
+            tokenRepository.deleteByUserAndType(admin, TokenType.REFRESH);
+        }
+        return getUser(adminId);
+    }
+
+    private AdminUserResponse promoteToAdmin(User user, String password, String avatar) {
+        user.setRole(Role.ADMIN);
+        user.setEnabled(true);
+        user.setVerified(true);
+        if (user.getPasswordHash() == null) {
+            user.setPasswordHash(passwordEncoder.encode(password));
+            user.getProviders().add(AuthProvider.LOCAL);
+        }
+        // A photo given while promoting is applied; otherwise the account keeps the one it has.
+        if (blankToNull(avatar) != null) user.setAvatar(avatar);
+        userRepository.save(user);
+        return getUser(user.getId());
     }
 
     // ── Waitlist ─────────────────────────────────────────────────────────────
@@ -397,28 +682,6 @@ public class AdminService {
                 .toList();
     }
 
-    @Transactional(readOnly = true)
-    public Page<AdminSignResponse> getSigns(String query, Pageable pageable) {
-        List<ReportStatus> openStatuses = List.of(ReportStatus.PENDING, ReportStatus.REVIEWED);
-        org.springframework.data.domain.Page<Sign> page;
-        if (query != null && !query.isBlank()) {
-            page = signRepository.findByMeaningContainingIgnoreCase(query, pageable);
-        } else {
-            page = signRepository.findAll(pageable);
-        }
-        List<AdminSignResponse> content =
-                page.getContent().stream()
-                        .map(
-                                s -> {
-                                    long openReports =
-                                            signReportRepository.countBySignIdAndStatusIn(
-                                                    s.getId(), openStatuses);
-                                    return AdminSignResponse.from(s, openReports, 0);
-                                })
-                        .toList();
-        return new PageImpl<>(content, pageable, page.getTotalElements());
-    }
-
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private Organization findOrg(UUID id) {
@@ -430,7 +693,6 @@ public class AdminService {
     private User findUser(UUID id) {
         return userRepository
                 .findById(id)
-                .filter(User::isEnabled)
                 .orElseThrow(() -> new NotFoundException("User not found"));
     }
 }

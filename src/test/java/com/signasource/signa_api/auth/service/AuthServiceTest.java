@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -24,6 +25,7 @@ import com.signasource.signa_api.auth.dto.RefreshTokenRequest;
 import com.signasource.signa_api.auth.dto.RegisterRequest;
 import com.signasource.signa_api.auth.dto.ResendVerificationEmailRequest;
 import com.signasource.signa_api.auth.dto.ResetPasswordRequest;
+import com.signasource.signa_api.auth.dto.VerifyEmailRequest;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.entity.Token;
 import com.signasource.signa_api.auth.entity.TokenType;
@@ -80,6 +82,7 @@ class AuthServiceTest {
     private static final String NEW_PASSWORD = "new-password";
     private static final String ENCODED_PASSWORD = "hashed_password";
     private static final String VALID_TOKEN_STRING = "valid.google.token";
+    private static final String GOOGLE_SUB = "google-sub-123";
     private static final String RESET_CODE = "123456";
 
     @Mock private UserRepository userRepository;
@@ -119,10 +122,30 @@ class AuthServiceTest {
     }
 
     @Test
-    void shouldRegisterUserSuccessfully() {
-        RegisterRequest request = new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME, LAST_NAME);
+    void shouldRegisterUserWithTheDailyGoalFromOnboarding() {
+        RegisterRequest request =
+                new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME, LAST_NAME, 20);
         when(userRepository.existsByEmail(EMAIL)).thenReturn(false);
         when(userRepository.existsByUsername(USERNAME)).thenReturn(false);
+        when(passwordEncoder.encode(any(String.class))).thenReturn("hashed");
+        when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
+        when(tokenRepository.save(any(Token.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        authService.register(request);
+
+        ArgumentCaptor<UserSettings> settingsCaptor = ArgumentCaptor.forClass(UserSettings.class);
+        verify(userSettingsRepository).save(settingsCaptor.capture());
+        assertEquals(20, settingsCaptor.getValue().getDailyGoalMinutes());
+    }
+
+    @Test
+    void shouldRegisterUserSuccessfully() {
+        RegisterRequest request =
+                new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME, LAST_NAME, null);
+        when(userRepository.existsByEmail(EMAIL)).thenReturn(false);
+        when(userRepository.existsByUsername(USERNAME)).thenReturn(false);
+        when(passwordEncoder.encode(any(String.class))).thenReturn("hashed-code");
         when(passwordEncoder.encode(PASSWORD)).thenReturn("hashed_password");
         when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
         when(tokenRepository.save(any(Token.class)))
@@ -135,17 +158,30 @@ class AuthServiceTest {
         verify(userRepository).existsByEmail(EMAIL);
         verify(passwordEncoder).encode(PASSWORD);
         verify(userRepository).save(any(User.class));
-        verify(userSettingsRepository).save(any(UserSettings.class));
+        ArgumentCaptor<UserSettings> settingsCaptor = ArgumentCaptor.forClass(UserSettings.class);
+        verify(userSettingsRepository).save(settingsCaptor.capture());
+        assertEquals(15, settingsCaptor.getValue().getDailyGoalMinutes());
         ArgumentCaptor<UserStats> statsCaptor = ArgumentCaptor.forClass(UserStats.class);
         verify(userStatsRepository).save(statsCaptor.capture());
         assertEquals(100, statsCaptor.getValue().getGems());
         verify(jwtService).generateToken(any(CustomUserDetails.class));
-        verify(emailService).sendVerificationEmail(eq(EMAIL), any(String.class));
+        ArgumentCaptor<String> codeCaptor = ArgumentCaptor.forClass(String.class);
+        verify(emailService).sendVerificationEmail(eq(EMAIL), codeCaptor.capture());
+        assertTrue(codeCaptor.getValue().matches("\\d{6}"));
+        ArgumentCaptor<Token> tokenCaptor = ArgumentCaptor.forClass(Token.class);
+        verify(tokenRepository, atLeastOnce()).save(tokenCaptor.capture());
+        Token verification =
+                tokenCaptor.getAllValues().stream()
+                        .filter(t -> t.getType() == TokenType.EMAIL_VERIFICATION)
+                        .findFirst()
+                        .orElseThrow();
+        assertEquals("hashed-code", verification.getToken());
     }
 
     @Test
     void shouldThrowWhenEmailAlreadyExists() {
-        RegisterRequest request = new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME, LAST_NAME);
+        RegisterRequest request =
+                new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME, LAST_NAME, null);
         when(userRepository.existsByEmail(EMAIL)).thenReturn(true);
 
         assertThrows(ResourceAlreadyInUseException.class, () -> authService.register(request));
@@ -157,7 +193,8 @@ class AuthServiceTest {
 
     @Test
     void shouldThrowWhenUsernameAlreadyExists() {
-        RegisterRequest request = new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME, LAST_NAME);
+        RegisterRequest request =
+                new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME, LAST_NAME, null);
         when(userRepository.existsByEmail(EMAIL)).thenReturn(false);
         when(userRepository.existsByUsername(USERNAME)).thenReturn(true);
 
@@ -190,7 +227,8 @@ class AuthServiceTest {
 
     @Test
     void shouldCaptureEncodedPasswordOnRegister() {
-        RegisterRequest request = new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME, LAST_NAME);
+        RegisterRequest request =
+                new RegisterRequest(EMAIL, USERNAME, PASSWORD, NAME, LAST_NAME, null);
         when(userRepository.existsByEmail(EMAIL)).thenReturn(false);
         when(userRepository.existsByUsername(USERNAME)).thenReturn(false);
         when(passwordEncoder.encode(PASSWORD)).thenReturn("hashed_password");
@@ -227,6 +265,21 @@ class AuthServiceTest {
         verify(tokenRepository).delete(oldToken);
         verify(jwtService).generateToken(any(CustomUserDetails.class));
         verify(tokenRepository).save(any());
+    }
+
+    @Test
+    void shouldRefuseRefreshForDisabledUser() {
+        Token token = createRefreshToken(OLD_REFRESH_TOKEN, Instant.now().plusSeconds(3600));
+        token.getUser().setEnabled(false);
+        when(tokenRepository.findByTokenAndType(OLD_REFRESH_TOKEN, TokenType.REFRESH))
+                .thenReturn(Optional.of(token));
+
+        assertThrows(
+                InvalidTokenException.class,
+                () -> authService.refreshToken(new RefreshTokenRequest(OLD_REFRESH_TOKEN)));
+
+        verify(tokenRepository).delete(token);
+        verify(jwtService, never()).generateToken(any(CustomUserDetails.class));
     }
 
     @Test
@@ -479,7 +532,7 @@ class AuthServiceTest {
     @Test
     void shouldDiscardCodeAfterMaxFailedAttempts() {
         Token resetToken = resetToken(Instant.now().plusSeconds(900));
-        resetToken.setAttempts(AuthService.MAX_RESET_CODE_ATTEMPTS - 1);
+        resetToken.setAttempts(AuthService.MAX_CODE_ATTEMPTS - 1);
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(testUser));
         when(tokenRepository.findByUserAndType(testUser, TokenType.PASSWORD_RESET))
                 .thenReturn(Optional.of(resetToken));
@@ -543,6 +596,91 @@ class AuthServiceTest {
         verify(userRepository, never()).save(any());
     }
 
+    @Test
+    void shouldVerifyEmailWithValidCode() {
+        testUser.setVerified(false);
+        Token token = verificationToken(Instant.now().plusSeconds(900));
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(testUser));
+        when(tokenRepository.findByUserAndType(testUser, TokenType.EMAIL_VERIFICATION))
+                .thenReturn(Optional.of(token));
+        when(passwordEncoder.matches(RESET_CODE, "hashed-code")).thenReturn(true);
+
+        authService.verifyEmailCode(new VerifyEmailRequest(EMAIL, RESET_CODE));
+
+        assertTrue(testUser.isVerified());
+        verify(userRepository).save(testUser);
+        verify(tokenRepository).delete(token);
+    }
+
+    @Test
+    void shouldCountFailedAttemptOnWrongVerificationCode() {
+        testUser.setVerified(false);
+        Token token = verificationToken(Instant.now().plusSeconds(900));
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(testUser));
+        when(tokenRepository.findByUserAndType(testUser, TokenType.EMAIL_VERIFICATION))
+                .thenReturn(Optional.of(token));
+        when(passwordEncoder.matches(RESET_CODE, "hashed-code")).thenReturn(false);
+
+        assertThrows(
+                InvalidResetCodeException.class,
+                () -> authService.verifyEmailCode(new VerifyEmailRequest(EMAIL, RESET_CODE)));
+
+        assertEquals(1, token.getAttempts());
+        assertFalse(testUser.isVerified());
+        verify(tokenRepository).save(token);
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldDiscardVerificationCodeAfterTooManyAttempts() {
+        Token token = verificationToken(Instant.now().plusSeconds(900));
+        token.setAttempts(AuthService.MAX_CODE_ATTEMPTS - 1);
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(testUser));
+        when(tokenRepository.findByUserAndType(testUser, TokenType.EMAIL_VERIFICATION))
+                .thenReturn(Optional.of(token));
+        when(passwordEncoder.matches(RESET_CODE, "hashed-code")).thenReturn(false);
+
+        assertThrows(
+                InvalidResetCodeException.class,
+                () -> authService.verifyEmailCode(new VerifyEmailRequest(EMAIL, RESET_CODE)));
+
+        verify(tokenRepository).delete(token);
+    }
+
+    @Test
+    void shouldRejectExpiredVerificationCode() {
+        Token token = verificationToken(Instant.now().minusSeconds(1));
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(testUser));
+        when(tokenRepository.findByUserAndType(testUser, TokenType.EMAIL_VERIFICATION))
+                .thenReturn(Optional.of(token));
+
+        assertThrows(
+                InvalidResetCodeException.class,
+                () -> authService.verifyEmailCode(new VerifyEmailRequest(EMAIL, RESET_CODE)));
+
+        verify(tokenRepository).delete(token);
+        verify(passwordEncoder, never()).matches(any(), any());
+    }
+
+    @Test
+    void shouldRejectVerificationForUnknownEmail() {
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
+
+        assertThrows(
+                InvalidResetCodeException.class,
+                () -> authService.verifyEmailCode(new VerifyEmailRequest(EMAIL, RESET_CODE)));
+        verifyNoInteractions(tokenRepository);
+    }
+
+    private Token verificationToken(Instant expiryDate) {
+        return Token.builder()
+                .token("hashed-code")
+                .user(testUser)
+                .type(TokenType.EMAIL_VERIFICATION)
+                .expiryDate(expiryDate)
+                .build();
+    }
+
     private Token resetToken(Instant expiryDate) {
         return Token.builder()
                 .token("hashed-code")
@@ -556,6 +694,7 @@ class AuthServiceTest {
     void shouldResendVerificationEmail() {
         ResendVerificationEmailRequest request = new ResendVerificationEmailRequest(EMAIL);
         testUser.setVerified(false);
+        when(passwordEncoder.encode(any(String.class))).thenReturn("hashed-code");
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(testUser));
         when(tokenRepository.save(any(Token.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -586,6 +725,8 @@ class AuthServiceTest {
     void shouldAuthenticateWithGoogleAndRegisterNewUser() throws Exception {
         GoogleIdToken.Payload payload = new GoogleIdToken.Payload();
         payload.setEmail(EMAIL);
+        payload.setEmailVerified(true);
+        payload.setSubject(GOOGLE_SUB);
         payload.set("name", NAME);
 
         when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);
@@ -598,7 +739,7 @@ class AuthServiceTest {
         when(tokenRepository.save(any(Token.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        AuthResponse response = authService.authenticateWithGoogle(VALID_TOKEN_STRING);
+        AuthResponse response = authService.authenticateWithGoogle(VALID_TOKEN_STRING, null);
 
         assertNotNull(response);
         assertEquals(ACCESS_TOKEN, response.accessToken());
@@ -623,13 +764,13 @@ class AuthServiceTest {
 
     @Test
     void shouldAuthenticateWithGoogleForExistingUser() throws Exception {
-        GoogleIdToken.Payload payload = new GoogleIdToken.Payload();
-        payload.setEmail(EMAIL);
+        GoogleIdToken.Payload payload = googlePayload();
 
         User existingUser =
                 User.builder()
                         .id(UUID.randomUUID())
                         .email(EMAIL)
+                        .role(Role.USER)
                         .providers(new HashSet<>(Set.of(AuthProvider.LOCAL)))
                         .enabled(true)
                         .verified(false)
@@ -645,7 +786,7 @@ class AuthServiceTest {
         when(tokenRepository.save(any(Token.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        AuthResponse response = authService.authenticateWithGoogle(VALID_TOKEN_STRING);
+        AuthResponse response = authService.authenticateWithGoogle(VALID_TOKEN_STRING, null);
 
         assertNotNull(response);
         assertEquals(ACCESS_TOKEN, response.accessToken());
@@ -662,14 +803,15 @@ class AuthServiceTest {
 
     @Test
     void shouldAuthenticateWithGoogleAndNotUpdateUserIfAlreadyConfigured() throws Exception {
-        GoogleIdToken.Payload payload = new GoogleIdToken.Payload();
-        payload.setEmail(EMAIL);
+        GoogleIdToken.Payload payload = googlePayload();
 
         User existingUser =
                 User.builder()
                         .id(UUID.randomUUID())
                         .email(EMAIL)
+                        .role(Role.USER)
                         .providers(new HashSet<>(Set.of(AuthProvider.GOOGLE)))
+                        .googleSub(GOOGLE_SUB)
                         .enabled(true)
                         .verified(true)
                         .build();
@@ -681,13 +823,222 @@ class AuthServiceTest {
         when(tokenRepository.save(any(Token.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        AuthResponse response = authService.authenticateWithGoogle(VALID_TOKEN_STRING);
+        AuthResponse response = authService.authenticateWithGoogle(VALID_TOKEN_STRING, null);
 
         assertNotNull(response);
         assertEquals(ACCESS_TOKEN, response.accessToken());
 
         verify(userRepository, never()).save(any(User.class));
         verify(tokenRepository).save(any(Token.class));
+    }
+
+    @Test
+    void shouldAuthenticateWithGoogleAndApplyTheOnboardingGoalToANewUser() throws Exception {
+        GoogleIdToken.Payload payload = googlePayload();
+        payload.set("name", NAME);
+        when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);
+        when(mockedGoogleToken.getPayload()).thenReturn(payload);
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
+        when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
+        when(userRepository.save(any(User.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(tokenRepository.save(any(Token.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        authService.authenticateWithGoogle(VALID_TOKEN_STRING, 20);
+
+        ArgumentCaptor<UserSettings> settingsCaptor = ArgumentCaptor.forClass(UserSettings.class);
+        verify(userSettingsRepository).save(settingsCaptor.capture());
+        assertEquals(20, settingsCaptor.getValue().getDailyGoalMinutes());
+    }
+
+    @Test
+    void shouldNotTouchTheGoalOfAnExistingUserSigningInWithGoogle() throws Exception {
+        User existingUser =
+                User.builder()
+                        .id(UUID.randomUUID())
+                        .email(EMAIL)
+                        .role(Role.USER)
+                        .providers(new HashSet<>(Set.of(AuthProvider.GOOGLE)))
+                        .googleSub(GOOGLE_SUB)
+                        .enabled(true)
+                        .verified(true)
+                        .build();
+        when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);
+        when(mockedGoogleToken.getPayload()).thenReturn(googlePayload());
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(existingUser));
+        when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
+        when(tokenRepository.save(any(Token.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        authService.authenticateWithGoogle(VALID_TOKEN_STRING, 20);
+
+        verifyNoInteractions(userSettingsRepository);
+    }
+
+    private GoogleIdToken.Payload googlePayload() {
+        GoogleIdToken.Payload payload = new GoogleIdToken.Payload();
+        payload.setEmail(EMAIL);
+        payload.setEmailVerified(true);
+        payload.setSubject(GOOGLE_SUB);
+        return payload;
+    }
+
+    @Test
+    void shouldStoreGoogleSubWhenSigningInWithExistingEmail() throws Exception {
+        User existingUser =
+                User.builder()
+                        .id(UUID.randomUUID())
+                        .email(EMAIL)
+                        .role(Role.USER)
+                        .providers(new HashSet<>(Set.of(AuthProvider.LOCAL)))
+                        .enabled(true)
+                        .verified(true)
+                        .build();
+        when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);
+        when(mockedGoogleToken.getPayload()).thenReturn(googlePayload());
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(existingUser));
+        when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
+        when(userRepository.save(any(User.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(tokenRepository.save(any(Token.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        authService.authenticateWithGoogle(VALID_TOKEN_STRING, null);
+
+        assertEquals(GOOGLE_SUB, existingUser.getGoogleSub());
+    }
+
+    @Test
+    void shouldSignInWithLinkedGoogleAccountEvenIfEmailDiffers() throws Exception {
+        User linkedUser =
+                User.builder()
+                        .id(UUID.randomUUID())
+                        .email("signa@example.com")
+                        .role(Role.USER)
+                        .providers(new HashSet<>(Set.of(AuthProvider.LOCAL, AuthProvider.GOOGLE)))
+                        .googleSub(GOOGLE_SUB)
+                        .enabled(true)
+                        .verified(true)
+                        .build();
+        when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);
+        when(mockedGoogleToken.getPayload()).thenReturn(googlePayload());
+        when(userRepository.findByGoogleSub(GOOGLE_SUB)).thenReturn(Optional.of(linkedUser));
+        when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn(ACCESS_TOKEN);
+        when(tokenRepository.save(any(Token.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        AuthResponse response = authService.authenticateWithGoogle(VALID_TOKEN_STRING, null);
+
+        assertEquals(ACCESS_TOKEN, response.accessToken());
+        verify(userRepository, never()).findByEmail(any());
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void shouldRejectGoogleSignInWhenEmailIsNotVerifiedByGoogle() throws Exception {
+        GoogleIdToken.Payload payload = googlePayload();
+        payload.setEmailVerified(false);
+        when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);
+        when(mockedGoogleToken.getPayload()).thenReturn(payload);
+
+        assertThrows(
+                InvalidCredentialsException.class,
+                () -> authService.authenticateWithGoogle(VALID_TOKEN_STRING, null));
+
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void shouldRejectGoogleSignInWhenAccountIsLinkedToAnotherGoogleAccount() throws Exception {
+        User existingUser =
+                User.builder()
+                        .id(UUID.randomUUID())
+                        .email(EMAIL)
+                        .providers(new HashSet<>(Set.of(AuthProvider.GOOGLE)))
+                        .googleSub("another-sub")
+                        .enabled(true)
+                        .verified(true)
+                        .build();
+        when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);
+        when(mockedGoogleToken.getPayload()).thenReturn(googlePayload());
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(existingUser));
+
+        assertThrows(
+                InvalidCredentialsException.class,
+                () -> authService.authenticateWithGoogle(VALID_TOKEN_STRING, null));
+
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void shouldLinkGoogleAccountToAuthenticatedUser() throws Exception {
+        User user =
+                User.builder()
+                        .id(UUID.randomUUID())
+                        .email(EMAIL)
+                        .providers(new HashSet<>(Set.of(AuthProvider.LOCAL)))
+                        .enabled(true)
+                        .build();
+        SecurityContextHolder.getContext()
+                .setAuthentication(
+                        new UsernamePasswordAuthenticationToken(new CustomUserDetails(user), null));
+        when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);
+        when(mockedGoogleToken.getPayload()).thenReturn(googlePayload());
+        when(userRepository.findByGoogleSub(GOOGLE_SUB)).thenReturn(Optional.empty());
+
+        authService.linkGoogleAccount(VALID_TOKEN_STRING);
+
+        assertEquals(GOOGLE_SUB, user.getGoogleSub());
+        assertTrue(user.getProviders().contains(AuthProvider.GOOGLE));
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void shouldNotLinkGoogleAccountAlreadyUsedByAnotherUser() throws Exception {
+        User user =
+                User.builder()
+                        .id(UUID.randomUUID())
+                        .email(EMAIL)
+                        .providers(new HashSet<>(Set.of(AuthProvider.LOCAL)))
+                        .enabled(true)
+                        .build();
+        SecurityContextHolder.getContext()
+                .setAuthentication(
+                        new UsernamePasswordAuthenticationToken(new CustomUserDetails(user), null));
+        when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);
+        when(mockedGoogleToken.getPayload()).thenReturn(googlePayload());
+        when(userRepository.findByGoogleSub(GOOGLE_SUB))
+                .thenReturn(Optional.of(User.builder().id(UUID.randomUUID()).build()));
+
+        assertThrows(
+                ResourceAlreadyInUseException.class,
+                () -> authService.linkGoogleAccount(VALID_TOKEN_STRING));
+
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void shouldNotLinkGoogleWhenUserAlreadyHasOne() throws Exception {
+        User user =
+                User.builder()
+                        .id(UUID.randomUUID())
+                        .email(EMAIL)
+                        .providers(new HashSet<>(Set.of(AuthProvider.LOCAL, AuthProvider.GOOGLE)))
+                        .googleSub("existing-sub")
+                        .enabled(true)
+                        .build();
+        SecurityContextHolder.getContext()
+                .setAuthentication(
+                        new UsernamePasswordAuthenticationToken(new CustomUserDetails(user), null));
+        when(googleIdTokenVerifier.verify(VALID_TOKEN_STRING)).thenReturn(mockedGoogleToken);
+        when(mockedGoogleToken.getPayload()).thenReturn(googlePayload());
+
+        assertThrows(
+                ResourceAlreadyInUseException.class,
+                () -> authService.linkGoogleAccount(VALID_TOKEN_STRING));
+
+        verify(userRepository, never()).save(any(User.class));
     }
 
     @Test
@@ -698,7 +1049,7 @@ class AuthServiceTest {
         InvalidCredentialsException exception =
                 assertThrows(
                         InvalidCredentialsException.class,
-                        () -> authService.authenticateWithGoogle(VALID_TOKEN_STRING));
+                        () -> authService.authenticateWithGoogle(VALID_TOKEN_STRING, null));
 
         assertEquals("Authentication failed", exception.getMessage());
         verifyNoInteractions(userRepository);
@@ -712,7 +1063,7 @@ class AuthServiceTest {
         InvalidCredentialsException exception =
                 assertThrows(
                         InvalidCredentialsException.class,
-                        () -> authService.authenticateWithGoogle(invalidToken));
+                        () -> authService.authenticateWithGoogle(invalidToken, null));
 
         assertTrue(exception.getMessage().contains("Invalid Google token"));
 

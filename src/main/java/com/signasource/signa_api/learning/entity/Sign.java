@@ -11,6 +11,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.Instant;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -36,7 +37,14 @@ public class Sign {
     @Column(nullable = false, length = 20)
     private Handedness handedness;
 
+    /** Object key of the animation in the media bucket (e.g. {@code lsa/hola.glb}), not a URL. */
     @Column private String animationUrl;
+
+    /** Object key of the side-view video, only for signs whose animation is an .mp4. */
+    @Column private String lateralAnimationUrl;
+
+    /** Last upload from the admin panel; used as the media URL cache-buster. */
+    @Column private Instant animationUpdatedAt;
 
     @Column private String youtubeUrl;
 

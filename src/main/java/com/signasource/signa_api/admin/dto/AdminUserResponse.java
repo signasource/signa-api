@@ -19,7 +19,9 @@ public record AdminUserResponse(
         String organizationName,
         String authProvider,
         int currentStreak,
-        LocalDate lastStreakDate) {
+        LocalDate lastStreakDate,
+        LocalDate lastSeenDate,
+        String avatar) {
 
     public static AdminUserResponse from(User user, String organizationName, UserStats stats) {
         String provider =
@@ -27,7 +29,8 @@ public record AdminUserResponse(
                         ? "GOOGLE"
                         : "EMAIL";
         int streak = stats != null ? stats.getCurrentStreak() : 0;
-        LocalDate lastActivity = stats != null ? stats.getLastStreakDate() : null;
+        LocalDate lastStreakDate = stats != null ? stats.getLastStreakDate() : null;
+        LocalDate lastSeenDate = stats != null ? stats.getLastSeenDate() : null;
         return new AdminUserResponse(
                 user.getId(),
                 user.getEmail(),
@@ -40,6 +43,8 @@ public record AdminUserResponse(
                 organizationName,
                 provider,
                 streak,
-                lastActivity);
+                lastStreakDate,
+                lastSeenDate,
+                user.getAvatar());
     }
 }

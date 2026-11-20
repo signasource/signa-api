@@ -5,12 +5,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
-import com.signasource.signa_api.admin.dto.AdminSignReportGroupResponse;
-import com.signasource.signa_api.admin.dto.UpdateSignReportGroupRequest;
+import com.signasource.signa_api.admin.dto.AdminSignReportResponse;
+import com.signasource.signa_api.admin.dto.UpdateSignReportRequest;
 import com.signasource.signa_api.admin.service.AdminService;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.learning.entity.ReportReason;
 import com.signasource.signa_api.learning.entity.ReportStatus;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -27,54 +29,62 @@ class AdminSignReportControllerTest {
     @Mock private AdminService adminService;
     @InjectMocks private AdminSignReportController controller;
 
-    private AdminSignReportGroupResponse makeGroup(UUID signId) {
-        return new AdminSignReportGroupResponse(
-                signId,
+    private AdminSignReportResponse makeReport(UUID id) {
+        return new AdminSignReportResponse(
+                id,
+                UUID.randomUUID(),
                 "hola",
                 "LSA",
                 "ONE_HANDED",
-                2,
+                "user1",
                 ReportReason.OTHER,
+                "no se entiende",
                 ReportStatus.PENDING,
                 null,
-                List.of());
+                null,
+                null,
+                LocalDateTime.now());
     }
 
     @Test
-    void shouldListSignReportGroups() {
-        UUID signId = UUID.randomUUID();
-        when(adminService.getSignReportGroups(null)).thenReturn(List.of(makeGroup(signId)));
+    void shouldListSignReports() {
+        UUID id = UUID.randomUUID();
+        when(adminService.getSignReports(null, null, null, null, null))
+                .thenReturn(List.of(makeReport(id)));
 
-        ResponseEntity<List<AdminSignReportGroupResponse>> resp = controller.list(null);
+        ResponseEntity<List<AdminSignReportResponse>> resp =
+                controller.list(null, null, null, null, null);
 
         assertEquals(HttpStatus.OK, resp.getStatusCode());
         assertEquals(1, resp.getBody().size());
     }
 
     @Test
-    void shouldListSignReportGroupsWithStatusFilter() {
-        when(adminService.getSignReportGroups(ReportStatus.PENDING)).thenReturn(List.of());
+    void shouldListSignReportsWithFilters() {
+        LocalDate from = LocalDate.of(2026, 1, 1);
+        LocalDate to = LocalDate.of(2026, 2, 1);
+        when(adminService.getSignReports(
+                        ReportStatus.PENDING, ReportReason.INCORRECT_SIGN, "hola", from, to))
+                .thenReturn(List.of());
 
-        ResponseEntity<List<AdminSignReportGroupResponse>> resp =
-                controller.list(ReportStatus.PENDING);
+        ResponseEntity<List<AdminSignReportResponse>> resp =
+                controller.list(
+                        ReportStatus.PENDING, ReportReason.INCORRECT_SIGN, "hola", from, to);
 
         assertEquals(HttpStatus.OK, resp.getStatusCode());
     }
 
     @Test
-    void shouldUpdateSignReportGroup() {
-        UUID signId = UUID.randomUUID();
-        UpdateSignReportGroupRequest req =
-                new UpdateSignReportGroupRequest(ReportStatus.RESOLVED, "OK");
+    void shouldUpdateSignReport() {
+        UUID id = UUID.randomUUID();
+        UpdateSignReportRequest req = new UpdateSignReportRequest(ReportStatus.RESOLVED, "OK");
         CustomUserDetails userDetails = org.mockito.Mockito.mock(CustomUserDetails.class);
         when(userDetails.getUser()).thenReturn(null);
-        when(adminService.updateSignReportGroup(eq(signId), any(), any()))
-                .thenReturn(makeGroup(signId));
+        when(adminService.updateSignReport(eq(id), any(), any())).thenReturn(makeReport(id));
 
-        ResponseEntity<AdminSignReportGroupResponse> resp =
-                controller.updateGroup(signId, req, userDetails);
+        ResponseEntity<AdminSignReportResponse> resp = controller.update(id, req, userDetails);
 
         assertEquals(HttpStatus.OK, resp.getStatusCode());
-        assertEquals(signId, resp.getBody().signId());
+        assertEquals(id, resp.getBody().id());
     }
 }

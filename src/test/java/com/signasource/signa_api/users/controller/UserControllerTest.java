@@ -11,10 +11,12 @@ import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.auth.dto.AuthResponse;
 import com.signasource.signa_api.auth.dto.ChangePasswordRequest;
+import com.signasource.signa_api.auth.dto.GoogleAuthRequest;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.service.AuthService;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
 import com.signasource.signa_api.gamification.dto.DailyXpResponse;
+import com.signasource.signa_api.gamification.dto.StreakDayResponse;
 import com.signasource.signa_api.gamification.dto.UserStatsResponse;
 import com.signasource.signa_api.gamification.entity.LivesMode;
 import com.signasource.signa_api.gamification.service.UserStatsService;
@@ -102,7 +104,7 @@ class UserControllerTest {
     @Test
     void shouldChangePassword() {
         ChangePasswordRequest request = new ChangePasswordRequest(CURRENT_PASSWORD, NEW_PASSWORD);
-        AuthResponse expected = new AuthResponse(ACCESS_TOKEN, REFRESH_TOKEN);
+        AuthResponse expected = new AuthResponse(ACCESS_TOKEN, REFRESH_TOKEN, "USER");
         when(authService.changePassword(request)).thenReturn(expected);
 
         ResponseEntity<AuthResponse> response = userController.changePassword(request);
@@ -275,6 +277,17 @@ class UserControllerTest {
         assertEquals(Role.USER, body.role());
         assertEquals(true, body.enabled());
         assertEquals(true, body.verified());
+        assertEquals(user.getProviders(), body.providers());
+    }
+
+    @Test
+    void linkGoogle_returnsNoContent() {
+        GoogleAuthRequest request = new GoogleAuthRequest("google.id.token", null);
+
+        ResponseEntity<Void> response = userController.linkGoogle(request);
+
+        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+        verify(authService).linkGoogleAccount("google.id.token");
     }
 
     @Test
@@ -341,14 +354,20 @@ class UserControllerTest {
                 PublicUserStatsResponse.EMPTY,
                 List.of(),
                 List.of(),
-                List.of());
+                List.of(),
+                null);
     }
 
     @Test
     void searchUsers_ReturnsOkWithResults() {
         UserSearchResultResponse result =
                 new UserSearchResultResponse(
-                        UUID.randomUUID(), "camisosa", "Camila Sosa", RelationStatus.NONE, 3L);
+                        UUID.randomUUID(),
+                        "camisosa",
+                        "Camila Sosa",
+                        RelationStatus.NONE,
+                        3L,
+                        null);
         when(userService.searchUsers(user, "cami", 20)).thenReturn(List.of(result));
 
         ResponseEntity<List<UserSearchResultResponse>> response =
@@ -397,5 +416,77 @@ class UserControllerTest {
         verify(userStatsService).getStats(user);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(expected, response.getBody());
+    }
+
+    @Test
+    void shouldReturnStreakDay() {
+        StreakDayResponse expected = new StreakDayResponse(true, 4, false);
+        when(userStatsService.getStreakDay(user)).thenReturn(expected);
+
+        ResponseEntity<StreakDayResponse> response = userController.getStreakDay(userDetails);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(expected, response.getBody());
+    }
+
+    @Test
+    void shouldMarkStreakDaySeen() {
+        ResponseEntity<Void> response = userController.markStreakDaySeen(userDetails);
+
+        verify(userStatsService).markStreakDaySeen(user);
+        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+    }
+
+    @Test
+    void shouldMarkStreakShieldSeen() {
+        ResponseEntity<Void> response = userController.markStreakShieldSeen(userDetails);
+
+        verify(userStatsService).markStreakShieldSeen(user);
+        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+    }
+
+    @Test
+    void updateAvatar_SavesPhotoAndReturnsProfileWithLink() {
+        String dataUrl = "data:image/jpeg;base64,/9j/4AAQ";
+
+        ResponseEntity<UserProfileResponse> response =
+                userController.updateAvatar(
+                        new com.signasource.signa_api.users.dto.UpdateAvatarRequest(dataUrl),
+                        userDetails);
+
+        verify(userService).setAvatar(user, dataUrl);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+    }
+
+    @Test
+    void removeAvatar_ClearsPhoto() {
+        ResponseEntity<UserProfileResponse> response = userController.removeAvatar(userDetails);
+
+        verify(userService).setAvatar(user, null);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+    }
+
+    @Test
+    void getAvatar_ServesBytesWithCacheHeaders() {
+        byte[] bytes = {1, 2, 3};
+        when(userService.getAvatarImage(USERNAME))
+                .thenReturn(
+                        java.util.Optional.of(
+                                new com.signasource.signa_api.users.service.AvatarImage(
+                                        "image/png", bytes)));
+
+        ResponseEntity<byte[]> response = userController.getAvatar(USERNAME);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals("image/png", response.getHeaders().getContentType().toString());
+        assertNotNull(response.getHeaders().getCacheControl());
+        org.junit.jupiter.api.Assertions.assertArrayEquals(bytes, response.getBody());
+    }
+
+    @Test
+    void getAvatar_NotFoundWhenNoPhoto() {
+        when(userService.getAvatarImage(USERNAME)).thenReturn(java.util.Optional.empty());
+
+        assertEquals(HttpStatus.NOT_FOUND, userController.getAvatar(USERNAME).getStatusCode());
     }
 }

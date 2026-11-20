@@ -1,0 +1,83 @@
+topic:
+  code: unidad-1
+  title: "Unidad 1"
+  subtitle: "Las personas"
+  description: Aprendé a señar los distintos tipos de personas.
+
+lessons:
+  - code: leccion-1
+    name: "Tipos de personas"
+    description: "Aprendé las señas de hombre, mujer, nena, nene y bebé."
+
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: hombre
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: mujer
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: nene
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: nena
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: "bebé"
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: hombre
+          options:
+            - hombre
+            - mujer
+            - nene
+            - nena
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: mujer
+          options:
+            - hombre
+            - mujer
+            - nene
+            - "bebé"
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Cómo llamás a una persona muy pequeña que todavía no camina?"
+          answer: "bebé"
+          options:
+            - nene
+            - nena
+            - "bebé"
+            - mujer
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: nena
+          options:
+            - hombre
+            - mujer
+            - nene
+            - nena
+
+      - type: MATCH
+        xp: 10
+        config:
+          concepts:
+            - hombre
+            - mujer
+            - nene
+            - nena
+            - "bebé"
+

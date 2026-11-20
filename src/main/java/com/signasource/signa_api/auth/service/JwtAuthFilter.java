@@ -1,5 +1,8 @@
 package com.signasource.signa_api.auth.service;
 
+import com.signasource.signa_api.auth.entity.CustomUserDetails;
+import com.signasource.signa_api.exceptions.NotFoundException;
+import com.signasource.signa_api.users.service.UserActivityRecorder;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -8,6 +11,7 @@ import java.io.IOException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -17,6 +21,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class JwtAuthFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final CustomUserDetailsService userDetailsService;
+    private final UserActivityRecorder activityRecorder;
 
     @Override
     protected void doFilterInternal(
@@ -40,9 +45,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 
-            var userDetails = userDetailsService.loadUserByUsername(username);
+            UserDetails userDetails;
+            try {
+                userDetails = userDetailsService.loadUserByUsername(username);
+            } catch (NotFoundException e) {
+                filterChain.doFilter(request, response);
+                return;
+            }
 
-            if (jwtService.isValid(token, userDetails)) {
+            if (userDetails.isEnabled() && jwtService.isValid(token, userDetails)) {
 
                 var authToken =
                         new UsernamePasswordAuthenticationToken(
@@ -51,6 +62,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
                 SecurityContextHolder.getContext().setAuthentication(authToken);
+                if (userDetails instanceof CustomUserDetails custom) {
+                    activityRecorder.touch(custom.getUser());
+                }
             }
         }
 

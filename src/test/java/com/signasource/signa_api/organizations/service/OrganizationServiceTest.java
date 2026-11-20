@@ -15,17 +15,12 @@ import com.signasource.signa_api.gamification.entity.UserStats;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
 import com.signasource.signa_api.learning.dto.CourseSummaryResponse;
 import com.signasource.signa_api.learning.entity.Course;
-import com.signasource.signa_api.learning.entity.CourseVersion;
 import com.signasource.signa_api.learning.entity.SignLanguage;
-import com.signasource.signa_api.learning.entity.VersionStatus;
-import com.signasource.signa_api.learning.repository.CourseRepository;
-import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.organizations.dto.CreateOrganizationRequest;
 import com.signasource.signa_api.organizations.dto.MyOrganizationResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationAdminResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationCourseResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationDetailResponse;
-import com.signasource.signa_api.organizations.dto.OrganizationPricingResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationResponse;
 import com.signasource.signa_api.organizations.dto.RegisterOrganizationRequest;
 import com.signasource.signa_api.organizations.dto.RegisterOrganizationResponse;
@@ -44,7 +39,6 @@ import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.entity.UserSettings;
 import com.signasource.signa_api.users.repository.UserRepository;
 import com.signasource.signa_api.users.repository.UserSettingsRepository;
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -57,7 +51,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class OrganizationServiceTest {
@@ -65,14 +58,11 @@ class OrganizationServiceTest {
     @Mock private OrganizationRepository organizationRepository;
     @Mock private OrganizationCourseRepository organizationCourseRepository;
     @Mock private OrganizationMemberRepository memberRepository;
-    @Mock private CourseRepository courseRepository;
-    @Mock private CourseVersionRepository courseVersionRepository;
     @Mock private UserRepository userRepository;
     @Mock private UserSettingsRepository userSettingsRepository;
     @Mock private UserStatsRepository userStatsRepository;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private OrganizationAccessService accessService;
-    @Mock private OrganizationEnrollmentService enrollmentService;
 
     @InjectMocks private OrganizationService organizationService;
 
@@ -82,7 +72,6 @@ class OrganizationServiceTest {
 
     @BeforeEach
     void setUp() {
-        ReflectionTestUtils.setField(organizationService, "pricePerPerson", new BigDecimal("5000"));
         organization = Organization.builder().id(UUID.randomUUID()).name("Hospital").build();
         course =
                 Course.builder()
@@ -210,93 +199,6 @@ class OrganizationServiceTest {
     }
 
     @Test
-    void shouldContractCourseAndGrantItToActiveMembers() {
-        when(organizationRepository.findById(organization.getId()))
-                .thenReturn(Optional.of(organization));
-        when(courseRepository.findById(course.getId())).thenReturn(Optional.of(course));
-        when(organizationCourseRepository.existsByOrganizationIdAndCourseId(
-                        organization.getId(), course.getId()))
-                .thenReturn(false);
-        when(courseVersionRepository.findByCourseIdAndStatus(
-                        course.getId(), VersionStatus.PUBLISHED))
-                .thenReturn(Optional.of(new CourseVersion()));
-        when(organizationCourseRepository.save(any(OrganizationCourse.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-
-        OrganizationCourseResponse response =
-                organizationService.addCourse(organization.getId(), course.getId());
-
-        assertEquals(course.getId(), response.course().id());
-        verify(enrollmentService).grantCourseToActiveMembers(organization, course);
-    }
-
-    @Test
-    void shouldRejectCourseAlreadyContracted() {
-        when(organizationRepository.findById(organization.getId()))
-                .thenReturn(Optional.of(organization));
-        when(courseRepository.findById(course.getId())).thenReturn(Optional.of(course));
-        when(organizationCourseRepository.existsByOrganizationIdAndCourseId(
-                        organization.getId(), course.getId()))
-                .thenReturn(true);
-
-        assertThrows(
-                ResourceAlreadyInUseException.class,
-                () -> organizationService.addCourse(organization.getId(), course.getId()));
-        verify(organizationCourseRepository, never()).save(any());
-    }
-
-    @Test
-    void shouldRejectCourseWithoutPublishedVersion() {
-        when(organizationRepository.findById(organization.getId()))
-                .thenReturn(Optional.of(organization));
-        when(courseRepository.findById(course.getId())).thenReturn(Optional.of(course));
-        when(courseVersionRepository.findByCourseIdAndStatus(
-                        course.getId(), VersionStatus.PUBLISHED))
-                .thenReturn(Optional.empty());
-
-        assertThrows(
-                NotFoundException.class,
-                () -> organizationService.addCourse(organization.getId(), course.getId()));
-        verify(organizationCourseRepository, never()).save(any());
-    }
-
-    @Test
-    void shouldThrowNotFoundWhenContractingUnknownCourse() {
-        when(organizationRepository.findById(organization.getId()))
-                .thenReturn(Optional.of(organization));
-        when(courseRepository.findById(course.getId())).thenReturn(Optional.empty());
-
-        assertThrows(
-                NotFoundException.class,
-                () -> organizationService.addCourse(organization.getId(), course.getId()));
-    }
-
-    @Test
-    void shouldRemoveContractedCourseAndRevokeMemberAccess() {
-        OrganizationCourse contracted =
-                OrganizationCourse.builder().organization(organization).course(course).build();
-        when(organizationCourseRepository.findByOrganizationIdAndCourseId(
-                        organization.getId(), course.getId()))
-                .thenReturn(Optional.of(contracted));
-
-        organizationService.removeCourse(organization.getId(), course.getId());
-
-        verify(organizationCourseRepository).delete(contracted);
-        verify(enrollmentService).revokeCourseFromMembers(organization.getId(), course.getId());
-    }
-
-    @Test
-    void shouldThrowNotFoundWhenRemovingCourseThatWasNeverContracted() {
-        when(organizationCourseRepository.findByOrganizationIdAndCourseId(any(), any()))
-                .thenReturn(Optional.empty());
-
-        assertThrows(
-                NotFoundException.class,
-                () -> organizationService.removeCourse(organization.getId(), course.getId()));
-        verify(enrollmentService, never()).revokeCourseFromMembers(any(), any());
-    }
-
-    @Test
     void shouldListContractedCoursesAfterCheckingAccess() {
         when(organizationCourseRepository.findByOrganizationIdOrderByContractedAtAsc(
                         organization.getId()))
@@ -388,7 +290,6 @@ class OrganizationServiceTest {
                                 "30-12345678-9",
                                 " Admin@Empresa.com ",
                                 null,
-                                10,
                                 "Admin User",
                                 "password123"));
 
@@ -418,7 +319,6 @@ class OrganizationServiceTest {
                                         "30-123-9",
                                         "admin@empresa.com",
                                         null,
-                                        10,
                                         "Admin User",
                                         "password123")));
         verify(organizationRepository, never()).save(any());
@@ -442,8 +342,7 @@ class OrganizationServiceTest {
     }
 
     @Test
-    void shouldRenameAndResizeOrganization() {
-        organization.setMemberLimit(5);
+    void shouldRenameOrganization() {
         when(organizationRepository.findById(organization.getId()))
                 .thenReturn(Optional.of(organization));
         when(organizationRepository.existsByNameIgnoreCase("Hospital Central")).thenReturn(false);
@@ -454,27 +353,23 @@ class OrganizationServiceTest {
 
         OrganizationDetailResponse detail =
                 organizationService.updateOrganization(
-                        organization.getId(),
-                        new UpdateOrganizationRequest("Hospital Central", 50));
+                        organization.getId(), new UpdateOrganizationRequest("Hospital Central"));
 
         assertEquals("Hospital Central", detail.name());
-        assertEquals(50, detail.memberLimit());
     }
 
     @Test
     void shouldLeaveFieldsUntouchedWhenUpdateIsEmptyOrNameOnlyChangesCase() {
-        organization.setMemberLimit(5);
         when(organizationRepository.findById(organization.getId()))
                 .thenReturn(Optional.of(organization));
         when(organizationRepository.save(organization)).thenReturn(organization);
 
         OrganizationDetailResponse detail =
                 organizationService.updateOrganization(
-                        organization.getId(), new UpdateOrganizationRequest("HOSPITAL", null));
+                        organization.getId(), new UpdateOrganizationRequest("HOSPITAL"));
 
         assertEquals("Hospital", detail.name());
         assertEquals(OrganizationStatus.PENDING, detail.status());
-        assertEquals(5, detail.memberLimit());
         verify(organizationRepository, never()).existsByNameIgnoreCase(any());
     }
 
@@ -488,24 +383,7 @@ class OrganizationServiceTest {
                 ResourceAlreadyInUseException.class,
                 () ->
                         organizationService.updateOrganization(
-                                organization.getId(),
-                                new UpdateOrganizationRequest("Banco", null)));
-        verify(organizationRepository, never()).save(any());
-    }
-
-    @Test
-    void shouldRejectMemberLimitBelowCurrentActiveMembers() {
-        when(organizationRepository.findById(organization.getId()))
-                .thenReturn(Optional.of(organization));
-        when(memberRepository.countByOrganizationIdAndRoleAndStatus(
-                        organization.getId(), MemberRole.MEMBER, MemberStatus.ACTIVE))
-                .thenReturn(10L);
-
-        assertThrows(
-                InvalidInputException.class,
-                () ->
-                        organizationService.updateOrganization(
-                                organization.getId(), new UpdateOrganizationRequest(null, 3)));
+                                organization.getId(), new UpdateOrganizationRequest("Banco")));
         verify(organizationRepository, never()).save(any());
     }
 
@@ -518,7 +396,7 @@ class OrganizationServiceTest {
                 NotFoundException.class,
                 () ->
                         organizationService.updateOrganization(
-                                unknown, new UpdateOrganizationRequest(null, null)));
+                                unknown, new UpdateOrganizationRequest(null)));
     }
 
     @Test
@@ -555,7 +433,6 @@ class OrganizationServiceTest {
                                         "30-12345678-9",
                                         "admin@empresa.com",
                                         null,
-                                        10,
                                         "Admin User",
                                         "password123")));
         verify(organizationRepository, never()).save(any());
@@ -575,7 +452,6 @@ class OrganizationServiceTest {
                                         "30-12345678-9",
                                         "admin@empresa.com",
                                         null,
-                                        10,
                                         "Admin User",
                                         "password123")));
         verify(organizationRepository, never()).save(any());
@@ -596,17 +472,8 @@ class OrganizationServiceTest {
                                         "30-12345678-9",
                                         "admin@empresa.com",
                                         null,
-                                        10,
                                         "Admin User",
                                         "password123")));
         verify(userRepository, never()).save(any());
-    }
-
-    @Test
-    void shouldReturnPricing() {
-        OrganizationPricingResponse pricing = organizationService.getPricing();
-
-        assertNotNull(pricing.pricePerPerson());
-        assertEquals("ARS", pricing.currency());
     }
 }

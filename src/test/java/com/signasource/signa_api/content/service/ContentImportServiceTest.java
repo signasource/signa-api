@@ -38,7 +38,9 @@ class ContentImportServiceTest {
     private LoadedCourse loadedWithCode(String code) {
         CourseYaml yaml =
                 new CourseYaml(
-                        new CourseMetadataDto(code, code, null, false, null), null, List.of());
+                        new CourseMetadataDto(code, code, null, false, null, null, false, null),
+                        null,
+                        List.of());
         return new LoadedCourse("LSA", yaml, List.of());
     }
 
@@ -64,7 +66,9 @@ class ContentImportServiceTest {
                         new ContentImportOutcome("LSA", "course-b", ImportResult.UNCHANGED));
         verify(validator).validate(first);
         verify(validator).validate(second);
-        verify(signCatalogImporter).importSigns(List.of(first, second));
+        // course-b is unchanged: its signs may have been edited from the admin panel since.
+        verify(signCatalogImporter).importSigns(List.of(first));
+        verify(signCatalogImporter).refreshMediaKeys();
     }
 
     @Test
@@ -91,5 +95,6 @@ class ContentImportServiceTest {
         verify(persister, never()).importCourse(first);
         verify(persister, never()).importCourse(second);
         verify(signCatalogImporter, never()).importSigns(anyList());
+        verify(signCatalogImporter, never()).refreshMediaKeys();
     }
 }

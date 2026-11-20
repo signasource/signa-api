@@ -30,4 +30,5 @@ public record MemberProgressResponse(
         int currentStreak,
         long learningMinutes,
         long activeDaysLast30,
-        List<MemberCourseProgressResponse> courses) {}
+        List<MemberCourseProgressResponse> courses,
+        String avatarUrl) {}

@@ -14,7 +14,8 @@ public record FriendResponse(
         LocalDateTime acceptedAt,
         int currentStreak,
         long totalXp,
-        int learnedSignsCount) {
+        int learnedSignsCount,
+        String avatarUrl) {
 
     public static FriendResponse from(Friendship friendship, User currentUser, UserStats stats) {
         var friend =
@@ -29,6 +30,7 @@ public record FriendResponse(
                 friendship.getUpdatedAt(),
                 stats != null ? stats.getCurrentStreak() : 0,
                 stats != null ? stats.getTotalXp() : 0L,
-                stats != null ? stats.getLearnedSignsCount() : 0);
+                stats != null ? stats.getLearnedSignsCount() : 0,
+                AvatarLinks.of(friend));
     }
 }

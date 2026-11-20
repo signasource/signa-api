@@ -12,7 +12,6 @@ public record OrganizationDetailResponse(
         String cuit,
         String contactEmail,
         String contactPhone,
-        Integer memberLimit,
         long activeMembers,
         Instant createdAt) {
     public static OrganizationDetailResponse from(Organization organization, long activeMembers) {
@@ -23,7 +22,6 @@ public record OrganizationDetailResponse(
                 organization.getCuit(),
                 organization.getContactEmail(),
                 organization.getContactPhone(),
-                organization.getMemberLimit(),
                 activeMembers,
                 organization.getCreatedAt());
     }

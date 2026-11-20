@@ -35,17 +35,17 @@ class PerformSignValidatorTest {
     @Test
     void shouldPassForValidBlock() {
         List<ValidationError> errors = new ArrayList<>();
-        validator.validate(block(config("mama", "papa", "hermano")), ctx, errors);
+        validator.validate(block(config("mamá", "papá", "hermano")), ctx, errors);
         assertTrue(errors.isEmpty(), errors.toString());
     }
 
     @Test
     void shouldFailWhenTheModelDoesNotKnowASign() {
         List<ValidationError> errors = new ArrayList<>();
-        validator.validate(block(config("mama", "bicicleta")), ctx, errors);
+        validator.validate(block(config("mamá", "desconocida")), ctx, errors);
         assertEquals(1, errors.size());
         assertTrue(
-                errors.get(0).render().contains("does not know the sign 'bicicleta'"),
+                errors.get(0).render().contains("does not know the sign 'desconocida'"),
                 errors.get(0).render());
     }
 
@@ -59,7 +59,7 @@ class PerformSignValidatorTest {
     @Test
     void shouldAcceptSignsWithSurroundingSpacesAndUppercase() {
         List<ValidationError> errors = new ArrayList<>();
-        validator.validate(block(config("  Mama  ")), ctx, errors);
+        validator.validate(block(config("  Mamá  ")), ctx, errors);
         assertTrue(errors.isEmpty(), errors.toString());
     }
 
@@ -82,7 +82,7 @@ class PerformSignValidatorTest {
 
     @Test
     void shouldFailWhenThresholdIsOutOfRange() {
-        ObjectNode config = config("mama");
+        ObjectNode config = config("mamá");
         config.put("threshold", 1.4);
         List<ValidationError> errors = new ArrayList<>();
         validator.validate(block(config), ctx, errors);

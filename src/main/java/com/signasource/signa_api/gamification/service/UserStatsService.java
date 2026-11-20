@@ -2,6 +2,7 @@ package com.signasource.signa_api.gamification.service;
 
 import com.signasource.signa_api.common.ArgentinaTime;
 import com.signasource.signa_api.gamification.dto.DailyXpResponse;
+import com.signasource.signa_api.gamification.dto.StreakDayResponse;
 import com.signasource.signa_api.gamification.dto.UserStatsResponse;
 import com.signasource.signa_api.gamification.entity.UserDailyXp;
 import com.signasource.signa_api.gamification.entity.UserStats;
@@ -29,19 +30,65 @@ public class UserStatsService {
 
     @Transactional
     public UserStatsResponse getStats(User user) {
+        LocalDate today = ArgentinaTime.today();
         UserStats stats =
                 userStatsRepository
                         .findByUser(user)
                         .orElseGet(
                                 () ->
-                                        userStatsRepository.save(
-                                                UserStats.builder()
-                                                        .user(user)
-                                                        .updatedAt(Instant.now())
-                                                        .build()));
+                                        UserStats.builder()
+                                                .user(user)
+                                                .updatedAt(Instant.now())
+                                                .build());
+        if (!today.equals(stats.getLastSeenDate())) {
+            stats.setLastSeenDate(today);
+            stats.setUpdatedAt(Instant.now());
+            userStatsRepository.save(stats);
+        }
         long ahead =
                 userStatsRepository.countUsersAheadByWeeklyXp(stats.getWeeklyXp(), user.getId());
         return UserStatsResponse.from(stats, (int) ahead + 1);
+    }
+
+    /** Pending streak notifications: today's new streak day and/or a shield used overnight. */
+    @Transactional(readOnly = true)
+    public StreakDayResponse getStreakDay(User user) {
+        LocalDate today = ArgentinaTime.today();
+        return userStatsRepository
+                .findByUser(user)
+                .map(
+                        stats -> {
+                            boolean dayPending = stats.isStreakDayPending(today);
+                            boolean shieldPending = stats.isStreakShieldPending();
+                            int streak =
+                                    (dayPending || shieldPending) ? stats.getCurrentStreak() : 0;
+                            return new StreakDayResponse(dayPending, streak, shieldPending);
+                        })
+                .orElseGet(() -> new StreakDayResponse(false, 0, false));
+    }
+
+    /** Idempotent: marking an already-seen (or non-pending) streak day does nothing. */
+    @Transactional
+    public void markStreakDaySeen(User user) {
+        LocalDate today = ArgentinaTime.today();
+        userStatsRepository
+                .findByUser(user)
+                .filter(stats -> stats.markStreakDaySeen(today))
+                .ifPresent(userStatsRepository::save);
+    }
+
+    /** Idempotent: clears the shield-used notification set by the nightly scheduler. */
+    @Transactional
+    public void markStreakShieldSeen(User user) {
+        userStatsRepository
+                .findByUser(user)
+                .filter(
+                        stats -> {
+                            if (!stats.isStreakShieldPending()) return false;
+                            stats.setStreakShieldPending(false);
+                            return true;
+                        })
+                .ifPresent(userStatsRepository::save);
     }
 
     @Transactional(readOnly = true)

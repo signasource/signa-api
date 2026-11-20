@@ -13,50 +13,80 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: familia
-          word: familia
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - familia
 
       - type: INTRODUCE_SIGN
         config:
-          meaning: mama
-          word: mama
+          meaning: "mamá"
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - "mamá"
 
       - type: INTRODUCE_SIGN
         config:
-          meaning: papa
-          word: papa
+          meaning: "papá"
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - "papá"
 
       - type: INTRODUCE_SIGN
         config:
           meaning: hermano
-          word: hermano
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - hermano
 
       - type: INTRODUCE_SIGN
         config:
           meaning: hijo
-          word: hijo
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - hijo
 
       - type: INTRODUCE_SIGN
         config:
           meaning: abuelo
-          word: abuelo
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - abuelo
 
       - type: SELECT_MEANING
         xp: 5
         config:
-          sign: mama
+          sign: "mamá"
           options:
-            - mama
-            - papa
+            - "mamá"
+            - "papá"
             - hermano
             - familia
 
       - type: SELECT_SIGN
         xp: 5
         config:
-          word: papa
+          word: "papá"
           options:
-            - mama
-            - papa
+            - "mamá"
+            - "papá"
             - abuelo
             - familia
 
@@ -66,7 +96,7 @@ lessons:
           question: "¿Cómo llamás al padre de tu papá?"
           answer: abuelo
           options:
-            - papa
+            - "papá"
             - hermano
             - hijo
             - abuelo
@@ -88,8 +118,8 @@ lessons:
           answer: familia
           options:
             - familia
-            - mama
-            - papa
+            - "mamá"
+            - "papá"
             - hermano
 
       - type: MATCH
@@ -97,27 +127,10 @@ lessons:
         config:
           concepts:
             - familia
-            - mama
-            - papa
+            - "mamá"
+            - "papá"
             - hermano
             - hijo
-
-      - type: VISUAL_RECOGNITION
-        xp: 15
-        config:
-          sign_sequence:
-            - mama
-            - hijo
-            - abuelo
-            - papa
-          options:
-            - familia
-            - mama
-            - papa
-            - hermano
-            - hijo
-            - abuelo
-          keep_order: false
 
   - code: leccion-6
     name: "Relaciones cercanas"
@@ -127,22 +140,42 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: amigo
-          word: amigo
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - amigo
 
       - type: INTRODUCE_SIGN
         config:
           meaning: novio
-          word: novio
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - novio
 
       - type: INTRODUCE_SIGN
         config:
           meaning: esposo
-          word: esposo
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - esposo
 
       - type: INTRODUCE_SIGN
         config:
           meaning: "compañero"
-          word: "compañero"
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - "compañero"
 
       - type: SELECT_MEANING
         xp: 5
@@ -194,113 +227,3 @@ lessons:
             - esposo
             - "compañero"
 
-      - type: VISUAL_RECOGNITION
-        xp: 15
-        config:
-          sign_sequence:
-            - amigo
-            - esposo
-            - novio
-          options:
-            - amigo
-            - novio
-            - esposo
-            - "compañero"
-          keep_order: false
-
-  - code: leccion-7
-    name: "Tipos de personas"
-    description: "Aprendé las señas de hombre, mujer, niño, niña y bebé."
-
-    blocks:
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: hombre
-          word: hombre
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: mujer
-          word: mujer
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: "niño"
-          word: "niño"
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: "niña"
-          word: "niña"
-
-      - type: INTRODUCE_SIGN
-        config:
-          meaning: "bebé"
-          word: "bebé"
-
-      - type: SELECT_MEANING
-        xp: 5
-        config:
-          sign: hombre
-          options:
-            - hombre
-            - mujer
-            - "niño"
-            - "niña"
-
-      - type: SELECT_SIGN
-        xp: 5
-        config:
-          word: mujer
-          options:
-            - hombre
-            - mujer
-            - "niño"
-            - "bebé"
-
-      - type: CONTEXT_RESPONSE
-        xp: 5
-        config:
-          question: "¿Cómo llamás a una persona muy pequeña que todavía no camina?"
-          answer: "bebé"
-          options:
-            - "niño"
-            - "niña"
-            - "bebé"
-            - mujer
-
-      - type: SELECT_MEANING
-        xp: 5
-        config:
-          sign: "niña"
-          options:
-            - hombre
-            - mujer
-            - "niño"
-            - "niña"
-
-      - type: MATCH
-        xp: 10
-        config:
-          concepts:
-            - hombre
-            - mujer
-            - "niño"
-            - "niña"
-            - "bebé"
-
-      - type: VISUAL_RECOGNITION
-        xp: 15
-        config:
-          sign_sequence:
-            - "niña"
-            - "bebé"
-            - hombre
-            - mujer
-          options:
-            - hombre
-            - mujer
-            - "niño"
-            - "niña"
-            - "bebé"
-          keep_order: false

@@ -1,5 +1,6 @@
 package com.signasource.signa_api.auth.service;
 
+import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
@@ -22,12 +23,15 @@ public class JwtService {
     }
 
     public String generateToken(UserDetails user) {
-        return Jwts.builder()
-                .subject(user.getUsername())
-                .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + accessTokenExpiration))
-                .signWith(getSigningKey())
-                .compact();
+        var builder =
+                Jwts.builder()
+                        .subject(user.getUsername())
+                        .issuedAt(new Date())
+                        .expiration(new Date(System.currentTimeMillis() + accessTokenExpiration));
+        if (user instanceof CustomUserDetails cu) {
+            builder.claim("role", cu.getUser().getRole().name());
+        }
+        return builder.signWith(getSigningKey()).compact();
     }
 
     public String extractUsername(String token) {

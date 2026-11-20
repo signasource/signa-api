@@ -26,6 +26,7 @@ import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import com.signasource.signa_api.learning.entity.UserLessonProgress;
 import com.signasource.signa_api.learning.entity.UserTopicProgress;
 import com.signasource.signa_api.learning.entity.VersionStatus;
+import com.signasource.signa_api.learning.event.LessonCompletedEvent;
 import com.signasource.signa_api.learning.event.LifeLostEvent;
 import com.signasource.signa_api.learning.event.SignsLearnedEvent;
 import com.signasource.signa_api.learning.event.XpEarnedEvent;
@@ -177,7 +178,11 @@ public class CourseTrackingService {
 
     @Transactional(readOnly = true)
     public List<CourseProgressResponse> getUserCourseProgress(User user) {
-        List<UserCourseEnrollment> enrollments = activeEnrollments(user);
+        Instant now = Instant.now();
+        List<UserCourseEnrollment> enrollments =
+                enrollmentRepository.findWithCourseByUserId(user.getId()).stream()
+                        .filter(e -> e.getStatus() != EnrollmentStatus.DROPPED)
+                        .toList();
         if (enrollments.isEmpty()) {
             return List.of();
         }
@@ -233,7 +238,9 @@ public class CourseTrackingService {
                             (int) counts[1],
                             percentage(counts[1], counts[0]),
                             (int) signsLearned,
-                            currentTopic));
+                            currentTopic,
+                            enrollment.getAccessExpiresAt(),
+                            !enrollment.grantsAccess(now)));
         }
         return result;
     }
@@ -272,6 +279,11 @@ public class CourseTrackingService {
     @Transactional
     public LessonBlockAttempt recordBlockInteraction(
             User user, UUID lessonBlockId, Boolean isCorrect) {
+        // Serialize concurrent interactions of the same user (double submit, retry): otherwise two
+        // requests both insert the user_lesson_progress / user_topic_progress row and the loser
+        // fails on the (user_id, lesson_id) unique constraint with a 500.
+        userRepository.lockById(user.getId());
+
         LessonBlock block =
                 lessonBlockRepository
                         .findWithCourseVersionById(lessonBlockId)
@@ -322,10 +334,8 @@ public class CourseTrackingService {
         }
 
         if (isNewMilestone) {
-            // Content may leave xpReward empty (e.g. INTRODUCE_SIGN): such a block awards no XP.
-            if (block.getXpReward() != null) {
-                eventPublisher.publishEvent(new XpEarnedEvent(this, user, block.getXpReward()));
-            }
+            // No XP per block: a course lesson pays its whole XP once, on completion (see
+            // checkLessonCompletion). Only Free Practice grants XP per correct block.
             if (!isInfo) {
                 List<String> signs = blockSignExtractor.extract(block);
                 if (!signs.isEmpty()) {
@@ -453,6 +463,10 @@ public class CourseTrackingService {
         progress.setXpEarned(xpEarned);
         lessonProgressRepository.save(progress);
         metricsService.recordLessonCompletion();
+        eventPublisher.publishEvent(new LessonCompletedEvent(this, user));
+        if (xpEarned > 0) {
+            eventPublisher.publishEvent(new XpEarnedEvent(this, user, xpEarned));
+        }
         recordLessonChallenges(user, lesson);
         achievementService.awardReached(
                 user,

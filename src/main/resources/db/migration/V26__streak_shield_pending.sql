@@ -1,0 +1,1 @@
+ALTER TABLE user_stats ADD COLUMN streak_shield_pending BOOLEAN NOT NULL DEFAULT FALSE;

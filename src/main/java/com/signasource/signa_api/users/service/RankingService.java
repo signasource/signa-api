@@ -2,6 +2,7 @@ package com.signasource.signa_api.users.service;
 
 import com.signasource.signa_api.gamification.entity.UserStats;
 import com.signasource.signa_api.gamification.repository.UserStatsRepository;
+import com.signasource.signa_api.users.dto.AvatarLinks;
 import com.signasource.signa_api.users.dto.MyRankingPositionResponse;
 import com.signasource.signa_api.users.dto.RankingEntryResponse;
 import com.signasource.signa_api.users.dto.WeeklyRankingResponse;
@@ -38,7 +39,7 @@ public class RankingService {
     public WeeklyRankingResponse getGlobalRanking(User currentUser) {
         List<UserStats> top =
                 userStatsRepository.findTopByWeeklyXpDesc(PageRequest.of(0, GLOBAL_LIMIT));
-        int total = (int) userStatsRepository.count();
+        int total = (int) userStatsRepository.countUsersWithUserRole();
 
         UserStats myStats = userStatsRepository.findByUser(currentUser).orElse(null);
         int myXp = myStats != null ? myStats.getWeeklyXp() : 0;
@@ -137,7 +138,8 @@ public class RankingService {
                 user.getName(),
                 stats.getWeeklyXp(),
                 stats.getCurrentStreak(),
-                delta);
+                delta,
+                AvatarLinks.of(user));
     }
 
     private Integer computeDelta(UserStats stats, int currentRank) {

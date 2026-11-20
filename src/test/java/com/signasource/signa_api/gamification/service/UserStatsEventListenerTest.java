@@ -2,6 +2,8 @@ package com.signasource.signa_api.gamification.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -395,5 +397,50 @@ class UserStatsEventListenerTest {
 
         verify(challengeService).record(mockUser, ChallengeCriteriaType.EARN_XP, 50);
         verify(challengeService).record(mockUser, ChallengeCriteriaType.STREAK_DAYS, 1);
+    }
+
+    @Test
+    void handleXpEarnedEvent_AdvancesStreak_OnFirstXpOfTheDay() {
+        when(userStatsRepository.findByUserId(userId)).thenReturn(Optional.empty());
+        when(userStatsRepository.save(any(UserStats.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(userDailyXpRepository.findByUserAndXpDate(eq(mockUser), any(LocalDate.class)))
+                .thenReturn(Optional.empty());
+        when(userDailyXpRepository.save(any(UserDailyXp.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        userStatsEventListener.handleXpEarnedEvent(new XpEarnedEvent(this, mockUser, 50));
+
+        ArgumentCaptor<UserStats> captor = ArgumentCaptor.forClass(UserStats.class);
+        verify(userStatsRepository).save(captor.capture());
+        assertEquals(1, captor.getValue().getCurrentStreak());
+        verify(achievementService)
+                .awardReached(eq(mockUser), eq(AchievementCriteriaType.STREAK_DAYS), eq(1L), any());
+        verify(challengeService).record(mockUser, ChallengeCriteriaType.STREAK_DAYS, 1);
+    }
+
+    @Test
+    void handleXpEarnedEvent_DoesNotAdvanceStreak_WhenAlreadyCountedToday() {
+        UserStats stats =
+                UserStats.builder()
+                        .user(mockUser)
+                        .currentStreak(3)
+                        .lastStreakDate(ArgentinaTime.today())
+                        .updatedAt(Instant.now())
+                        .build();
+        when(userStatsRepository.findByUserId(userId)).thenReturn(Optional.of(stats));
+        when(userStatsRepository.save(any(UserStats.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(userDailyXpRepository.findByUserAndXpDate(eq(mockUser), any(LocalDate.class)))
+                .thenReturn(Optional.empty());
+        when(userDailyXpRepository.save(any(UserDailyXp.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        userStatsEventListener.handleXpEarnedEvent(new XpEarnedEvent(this, mockUser, 20));
+
+        verify(achievementService, never())
+                .awardReached(any(), eq(AchievementCriteriaType.STREAK_DAYS), anyLong(), any());
+        verify(challengeService, never())
+                .record(any(), eq(ChallengeCriteriaType.STREAK_DAYS), anyInt());
     }
 }

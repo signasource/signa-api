@@ -1,5 +1,6 @@
 package com.signasource.signa_api.learning.service;
 
+import com.signasource.signa_api.common.MetricsService;
 import com.signasource.signa_api.config.R2Properties;
 import java.time.Duration;
 import lombok.RequiredArgsConstructor;
@@ -16,8 +17,10 @@ public class SignAnimationService {
 
     private final S3Presigner r2Presigner;
     private final R2Properties r2Properties;
+    private final MetricsService metricsService;
 
     public String presignedGetUrl(String objectKey) {
+        long start = System.nanoTime();
         try {
             GetObjectRequest getObjectRequest =
                     GetObjectRequest.builder().bucket(r2Properties.bucket()).key(objectKey).build();
@@ -29,10 +32,17 @@ public class SignAnimationService {
                             .getObjectRequest(getObjectRequest)
                             .build();
 
-            return r2Presigner.presignGetObject(presignRequest).url().toString();
+            String url = r2Presigner.presignGetObject(presignRequest).url().toString();
+            metricsService.recordR2Presign(elapsed(start), true);
+            return url;
         } catch (RuntimeException ex) {
+            metricsService.recordR2Presign(elapsed(start), false);
             log.error("Failed to presign R2 object key '{}'", objectKey, ex);
             throw ex;
         }
+    }
+
+    private static Duration elapsed(long startNanos) {
+        return Duration.ofNanos(System.nanoTime() - startNanos);
     }
 }

@@ -41,6 +41,7 @@ import com.signasource.signa_api.learning.entity.Topic;
 import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import com.signasource.signa_api.learning.entity.UserLessonProgress;
 import com.signasource.signa_api.learning.entity.UserTopicProgress;
+import com.signasource.signa_api.learning.event.LessonCompletedEvent;
 import com.signasource.signa_api.learning.event.LifeLostEvent;
 import com.signasource.signa_api.learning.event.SignsLearnedEvent;
 import com.signasource.signa_api.learning.event.XpEarnedEvent;
@@ -599,7 +600,8 @@ class CourseTrackingServiceTest {
 
         courseTrackingService.recordBlockInteraction(mockUser, blockId, true);
 
-        verify(eventPublisher).publishEvent(any(XpEarnedEvent.class));
+        // Block XP is only paid when the whole lesson completes.
+        verify(eventPublisher, never()).publishEvent(any(XpEarnedEvent.class));
         verify(lessonProgressRepository, never()).save(any());
     }
 
@@ -673,7 +675,8 @@ class CourseTrackingServiceTest {
 
         courseTrackingService.recordBlockInteraction(mockUser, blockId, null);
 
-        verify(eventPublisher, never()).publishEvent(any());
+        verify(eventPublisher, never()).publishEvent(any(XpEarnedEvent.class));
+        verify(eventPublisher).publishEvent(any(LessonCompletedEvent.class));
     }
 
     @Test
@@ -861,7 +864,8 @@ class CourseTrackingServiceTest {
 
         courseTrackingService.recordBlockInteraction(mockUser, exerciseBlockId, true);
 
-        verify(eventPublisher, never()).publishEvent(any(XpEarnedEvent.class));
+        // The lesson completes now, so its XP is paid once, on completion.
+        verify(eventPublisher).publishEvent(any(XpEarnedEvent.class));
         ArgumentCaptor<UserLessonProgress> progressCaptor =
                 ArgumentCaptor.forClass(UserLessonProgress.class);
         verify(lessonProgressRepository).save(progressCaptor.capture());
@@ -1032,6 +1036,45 @@ class CourseTrackingServiceTest {
         assertEquals(0, courseWithoutTopics.completedLessons());
         assertEquals(0, courseWithoutTopics.progressPercentage());
         assertNull(courseWithoutTopics.currentTopic());
+    }
+
+    @Test
+    void getUserCourseProgress_KeepsExpiredCoursesFlaggedAndHidesDroppedOnes() {
+        CourseVersion expiredVersion =
+                CourseVersion.builder()
+                        .id(UUID.randomUUID())
+                        .course(Course.builder().name("LSA Salud").build())
+                        .build();
+        CourseVersion droppedVersion =
+                CourseVersion.builder()
+                        .id(UUID.randomUUID())
+                        .course(Course.builder().name("LSA Educación").build())
+                        .build();
+        Instant expiredAt = Instant.now().minusSeconds(60);
+        when(enrollmentRepository.findWithCourseByUserId(userId))
+                .thenReturn(
+                        List.of(
+                                UserCourseEnrollment.builder()
+                                        .courseVersion(expiredVersion)
+                                        .status(EnrollmentStatus.ENROLLED)
+                                        .accessExpiresAt(expiredAt)
+                                        .build(),
+                                UserCourseEnrollment.builder()
+                                        .courseVersion(droppedVersion)
+                                        .status(EnrollmentStatus.DROPPED)
+                                        .build()));
+        when(lessonProgressRepository.findCompletedLessonCountsByTopic(eq(userId), anyCollection()))
+                .thenReturn(List.of());
+        when(topicRepository.findTopicLessonTotals(anyCollection())).thenReturn(List.of());
+        when(topicProgressRepository.findInProgressTopics(eq(userId), anyCollection()))
+                .thenReturn(List.of());
+
+        List<CourseProgressResponse> result = courseTrackingService.getUserCourseProgress(mockUser);
+
+        assertEquals(1, result.size());
+        assertEquals("LSA Salud", result.get(0).courseName());
+        assertTrue(result.get(0).accessExpired());
+        assertEquals(expiredAt, result.get(0).accessExpiresAt());
     }
 
     @Test
@@ -1290,7 +1333,7 @@ class CourseTrackingServiceTest {
         LessonBlock block =
                 LessonBlock.builder()
                         .id(blockId)
-                        .type(BlockType.VISUAL_RECOGNITION)
+                        .type(BlockType.PERFORM_SIGN)
                         .xpReward(15)
                         .lesson(lesson)
                         .build();

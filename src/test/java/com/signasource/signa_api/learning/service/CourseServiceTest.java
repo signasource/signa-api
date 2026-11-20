@@ -10,13 +10,20 @@ import static org.mockito.Mockito.when;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.learning.dto.CourseDetailResponse;
 import com.signasource.signa_api.learning.dto.CourseSummaryResponse;
+import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.entity.Course;
 import com.signasource.signa_api.learning.entity.CourseVersion;
+import com.signasource.signa_api.learning.entity.EnrollmentStatus;
+import com.signasource.signa_api.learning.entity.Lesson;
+import com.signasource.signa_api.learning.entity.LessonBlock;
 import com.signasource.signa_api.learning.entity.SignLanguage;
 import com.signasource.signa_api.learning.entity.Topic;
+import com.signasource.signa_api.learning.entity.UserCourseEnrollment;
 import com.signasource.signa_api.learning.entity.VersionStatus;
 import com.signasource.signa_api.learning.repository.CourseRepository;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
+import com.signasource.signa_api.learning.repository.UserCourseEnrollmentRepository;
+import com.signasource.signa_api.users.entity.User;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -39,10 +46,16 @@ class CourseServiceTest {
 
     @Mock private CourseVersionRepository courseVersionRepository;
 
+    @Mock private UserCourseEnrollmentRepository enrollmentRepository;
+
+    @Mock private com.signasource.signa_api.learning.util.BlockSignExtractor blockSignExtractor;
+
     @InjectMocks private CourseService courseService;
 
     private UUID signLanguageId;
     private UUID courseId;
+    private UUID userId;
+    private User user;
     private SignLanguage signLanguage;
     private Course course;
     private CourseVersion activeVersion;
@@ -52,6 +65,8 @@ class CourseServiceTest {
     void setUp() {
         signLanguageId = UUID.randomUUID();
         courseId = UUID.randomUUID();
+        userId = UUID.randomUUID();
+        user = User.builder().id(userId).build();
 
         signLanguage =
                 SignLanguage.builder()
@@ -99,9 +114,10 @@ class CourseServiceTest {
 
         when(courseRepository.findBySignLanguageId(eq(signLanguageId), any(Pageable.class)))
                 .thenReturn(coursePage);
+        when(enrollmentRepository.findWithCourseByUserId(userId)).thenReturn(List.of());
 
         Page<CourseSummaryResponse> response =
-                courseService.getCoursesCatalog(signLanguageId, pageable);
+                courseService.getCoursesCatalog(user, signLanguageId, pageable);
 
         assertNotNull(response);
         assertEquals(1, response.getContent().size());
@@ -110,8 +126,30 @@ class CourseServiceTest {
         assertEquals(course.getId(), summary.id());
         assertEquals(course.getName(), summary.name());
         assertEquals(signLanguage.getCode(), summary.signLanguageCode());
+        assertFalse(summary.owned());
 
         verify(courseRepository).findBySignLanguageId(signLanguageId, pageable);
+    }
+
+    @Test
+    void shouldMarkCourseOwnedWhenUserHasAccess() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Course> coursePage = new PageImpl<>(List.of(course));
+        UserCourseEnrollment enrollment =
+                UserCourseEnrollment.builder()
+                        .user(user)
+                        .courseVersion(activeVersion)
+                        .status(EnrollmentStatus.ENROLLED)
+                        .build();
+
+        when(courseRepository.findBySignLanguageId(eq(signLanguageId), any(Pageable.class)))
+                .thenReturn(coursePage);
+        when(enrollmentRepository.findWithCourseByUserId(userId)).thenReturn(List.of(enrollment));
+
+        Page<CourseSummaryResponse> response =
+                courseService.getCoursesCatalog(user, signLanguageId, pageable);
+
+        assertTrue(response.getContent().get(0).owned());
     }
 
     @Test
@@ -119,14 +157,18 @@ class CourseServiceTest {
         activeVersion.setCourse(course);
         activeVersion.setTopics(List.of(topic));
 
+        when(enrollmentRepository.findByUserIdAndCourseVersionCourseId(userId, courseId))
+                .thenReturn(List.of());
         when(courseVersionRepository.findByCourseIdAndStatus(courseId, VersionStatus.PUBLISHED))
                 .thenReturn(Optional.of(activeVersion));
+        when(enrollmentRepository.findWithCourseByUserId(userId)).thenReturn(List.of());
 
-        CourseDetailResponse response = courseService.getCourseDetail(courseId);
+        CourseDetailResponse response = courseService.getCourseDetail(user, courseId);
 
         assertNotNull(response);
         assertEquals(course.getId(), response.id());
         assertEquals("v1.0", response.activeVersion());
+        assertFalse(response.owned());
         assertEquals(1, response.topics().size());
         assertEquals(topic.getTitle(), response.topics().get(0).title());
         assertEquals(topic.getSubtitle(), response.topics().get(0).subtitle());
@@ -137,15 +179,144 @@ class CourseServiceTest {
 
     @Test
     void shouldThrowNotFoundWhenCourseHasNoPublishedVersion() {
+        when(enrollmentRepository.findByUserIdAndCourseVersionCourseId(userId, courseId))
+                .thenReturn(List.of());
         when(courseVersionRepository.findByCourseIdAndStatus(courseId, VersionStatus.PUBLISHED))
                 .thenReturn(Optional.empty());
 
         NotFoundException exception =
                 assertThrows(
-                        NotFoundException.class, () -> courseService.getCourseDetail(courseId));
+                        NotFoundException.class,
+                        () -> courseService.getCourseDetail(user, courseId));
 
         assertTrue(exception.getMessage().contains("Active published version not found"));
         verify(courseVersionRepository).findByCourseIdAndStatus(courseId, VersionStatus.PUBLISHED);
         verifyNoInteractions(courseRepository);
+    }
+
+    @Test
+    void shouldSummarizeCourseContentInDetail() {
+        LessonBlock intro1 =
+                LessonBlock.builder().id(UUID.randomUUID()).type(BlockType.INTRODUCE_SIGN).build();
+        LessonBlock intro2 =
+                LessonBlock.builder().id(UUID.randomUUID()).type(BlockType.INTRODUCE_SIGN).build();
+        LessonBlock quiz = LessonBlock.builder().type(BlockType.SELECT_MEANING).build();
+        LessonBlock camera = LessonBlock.builder().type(BlockType.PERFORM_SIGN).build();
+        Lesson lesson =
+                Lesson.builder()
+                        .name("Personas")
+                        .lessonBlocks(List.of(intro1, intro2, quiz, camera))
+                        .build();
+        topic.setLessons(List.of(lesson));
+        activeVersion.setCourse(course);
+        activeVersion.setTopics(List.of(topic));
+
+        when(enrollmentRepository.findByUserIdAndCourseVersionCourseId(userId, courseId))
+                .thenReturn(List.of());
+        when(courseVersionRepository.findByCourseIdAndStatus(courseId, VersionStatus.PUBLISHED))
+                .thenReturn(Optional.of(activeVersion));
+        when(enrollmentRepository.findWithCourseByUserId(userId)).thenReturn(List.of());
+        when(blockSignExtractor.extract(intro1)).thenReturn(List.of("alumnos"));
+        when(blockSignExtractor.extract(intro2)).thenReturn(List.of("maestro"));
+        when(blockSignExtractor.extract(quiz)).thenReturn(List.of("alumnos"));
+        when(blockSignExtractor.extract(camera)).thenReturn(List.of());
+
+        CourseDetailResponse response = courseService.getCourseDetail(user, courseId);
+
+        assertEquals(1, response.unitCount());
+        assertEquals(1, response.lessonCount());
+        assertEquals(2, response.signCount());
+        assertTrue(response.hasCameraPractice());
+        assertEquals(
+                List.of(BlockType.SELECT_MEANING, BlockType.PERFORM_SIGN),
+                response.exerciseTypes());
+        assertEquals("alumnos", response.sampleSign());
+        assertEquals(
+                List.of("alumnos", "maestro"), response.topics().get(0).lessons().get(0).signs());
+    }
+
+    @Test
+    void shouldReturnEnrolledVersionWhenUserIsInArchivedVersion() {
+        UUID archivedVersionId = UUID.randomUUID();
+        CourseVersion archivedVersion =
+                CourseVersion.builder()
+                        .id(archivedVersionId)
+                        .version("v1.0")
+                        .status(VersionStatus.ARCHIVED)
+                        .course(course)
+                        .topics(List.of(topic))
+                        .build();
+        topic.setCourseVersion(archivedVersion);
+
+        UserCourseEnrollment enrollment =
+                UserCourseEnrollment.builder()
+                        .user(user)
+                        .courseVersion(archivedVersion)
+                        .status(EnrollmentStatus.ENROLLED)
+                        .build();
+
+        when(enrollmentRepository.findByUserIdAndCourseVersionCourseId(userId, courseId))
+                .thenReturn(List.of(enrollment));
+        when(courseVersionRepository.findWithFullTreeById(archivedVersionId))
+                .thenReturn(Optional.of(archivedVersion));
+        when(enrollmentRepository.findWithCourseByUserId(userId)).thenReturn(List.of(enrollment));
+
+        CourseDetailResponse response = courseService.getCourseDetail(user, courseId);
+
+        assertEquals("v1.0", response.activeVersion());
+        assertTrue(response.owned());
+        verify(courseVersionRepository).findWithFullTreeById(archivedVersionId);
+        verify(courseVersionRepository, org.mockito.Mockito.never())
+                .findByCourseIdAndStatus(any(), any());
+    }
+
+    @Test
+    void shouldPreferPublishedVersionWhenUserHasEnrollmentInBoth() {
+        UUID archivedVersionId = UUID.randomUUID();
+        UUID publishedVersionId = UUID.randomUUID();
+
+        CourseVersion archivedVersion =
+                CourseVersion.builder()
+                        .id(archivedVersionId)
+                        .version("v1.0")
+                        .status(VersionStatus.ARCHIVED)
+                        .course(course)
+                        .build();
+        CourseVersion publishedVersion =
+                CourseVersion.builder()
+                        .id(publishedVersionId)
+                        .version("v2.0")
+                        .status(VersionStatus.PUBLISHED)
+                        .course(course)
+                        .topics(List.of(topic))
+                        .build();
+        topic.setCourseVersion(publishedVersion);
+
+        UserCourseEnrollment enrollmentV1 =
+                UserCourseEnrollment.builder()
+                        .user(user)
+                        .courseVersion(archivedVersion)
+                        .status(EnrollmentStatus.ENROLLED)
+                        .build();
+        UserCourseEnrollment enrollmentV2 =
+                UserCourseEnrollment.builder()
+                        .user(user)
+                        .courseVersion(publishedVersion)
+                        .status(EnrollmentStatus.ENROLLED)
+                        .build();
+
+        when(enrollmentRepository.findByUserIdAndCourseVersionCourseId(userId, courseId))
+                .thenReturn(List.of(enrollmentV1, enrollmentV2));
+        when(courseVersionRepository.findWithFullTreeById(publishedVersionId))
+                .thenReturn(Optional.of(publishedVersion));
+        when(enrollmentRepository.findWithCourseByUserId(userId))
+                .thenReturn(List.of(enrollmentV1, enrollmentV2));
+
+        CourseDetailResponse response = courseService.getCourseDetail(user, courseId);
+
+        assertEquals("v2.0", response.activeVersion());
+        verify(courseVersionRepository).findWithFullTreeById(publishedVersionId);
+        verify(courseVersionRepository, org.mockito.Mockito.never())
+                .findWithFullTreeById(archivedVersionId);
     }
 }

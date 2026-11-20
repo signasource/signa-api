@@ -201,34 +201,6 @@ config:
 
 ---
 
-## VISUAL_RECOGNITION
-
-Presenta una secuencia de señas y un conjunto de opciones para que el usuario seleccione cuáles reconoce dentro de la secuencia. Las opciones pueden incluir señas que sí aparecen en la secuencia y otras que no, como distractores.
-
-```yaml
-type: VISUAL_RECOGNITION
-xp: integer
-
-config:
-  signSequence:
-    - string
-
-  options:
-    - string
-
-  keepOrder: boolean
-```
-
-### Configuración
-
-| Campo | Obligatorio | Descripción |
-|--------|-------------|-------------|
-| `signSequence` | Sí | Secuencia de señas que se mostrará al usuario. |
-| `options` | Sí | Lista de señas posibles, incluyendo señas presentes en la secuencia y otras que no lo están. |
-| `keepOrder` | Sí | Indica si las señas seleccionadas deben respetar el orden de la secuencia (`true` o `false`). |
-
----
-
 # Reglas Generales
 
 - Cada archivo representa exactamente un tema.

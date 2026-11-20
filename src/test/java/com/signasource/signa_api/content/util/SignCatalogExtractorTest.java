@@ -14,7 +14,6 @@ import com.signasource.signa_api.content.dto.config.InvisibleSignsConfig;
 import com.signasource.signa_api.content.dto.config.MatchConfig;
 import com.signasource.signa_api.content.dto.config.SelectMeaningConfig;
 import com.signasource.signa_api.content.dto.config.SelectSignConfig;
-import com.signasource.signa_api.content.dto.config.VisualRecognitionConfig;
 import com.signasource.signa_api.content.dto.yaml.LessonBlockDto;
 import com.signasource.signa_api.learning.entity.BlockType;
 import java.util.Arrays;
@@ -39,8 +38,7 @@ class SignCatalogExtractorTest {
 
     @Test
     void shouldExtractMeaningFromIntroduceSign() {
-        LessonBlockDto block =
-                block(BlockType.INTRODUCE_SIGN, new IntroduceSignConfig("hola", "hola"));
+        LessonBlockDto block = block(BlockType.INTRODUCE_SIGN, new IntroduceSignConfig("hola"));
         assertEquals(List.of("hola"), extractor.extract(block));
     }
 
@@ -77,18 +75,6 @@ class SignCatalogExtractorTest {
         LessonBlockDto block =
                 block(BlockType.MATCH, new MatchConfig(List.of("hola", "chau", "gracias")));
         assertEquals(List.of("hola", "chau", "gracias"), extractor.extract(block));
-    }
-
-    @Test
-    void shouldExtractSignSequenceFromVisualRecognition() {
-        LessonBlockDto block =
-                block(
-                        BlockType.VISUAL_RECOGNITION,
-                        new VisualRecognitionConfig(
-                                List.of("hola", "gracias"),
-                                List.of("hola", "chau", "gracias"),
-                                false));
-        assertEquals(List.of("hola", "gracias"), extractor.extract(block));
     }
 
     @Test

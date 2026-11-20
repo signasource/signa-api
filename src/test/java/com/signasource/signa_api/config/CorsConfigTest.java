@@ -43,6 +43,7 @@ class CorsConfigTest {
                 List.of("https://panel.signa.app", "http://localhost:5173"),
                 configuration.getAllowedOrigins());
         assertTrue(configuration.getAllowedMethods().contains("PATCH"));
+        assertTrue(configuration.getAllowedMethods().contains("PUT"));
         assertTrue(configuration.getAllowedHeaders().contains("Authorization"));
         assertFalse(Boolean.TRUE.equals(configuration.getAllowCredentials()));
     }

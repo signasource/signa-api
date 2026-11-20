@@ -1,0 +1,162 @@
+topic:
+  code: unidad-2
+  title: "Unidad 2"
+  subtitle: "Útiles escolares"
+  description: "Aprendé el vocabulario de los útiles para escribir, dibujar y estudiar."
+
+lessons:
+  - code: leccion-1
+    name: "Para escribir y dibujar"
+    description: "Los útiles que usás para escribir, pintar y corregir."
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: "lápiz"
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: "lápices de colores"
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: goma de borrar
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: sacapuntas
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: regla
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: resaltador
+
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: "lápiz"
+          options:
+            - "lápiz"
+            - "lápices de colores"
+            - goma de borrar
+            - regla
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: sacapuntas
+          options:
+            - sacapuntas
+            - goma de borrar
+            - resaltador
+            - regla
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: resaltador
+          options:
+            - resaltador
+            - "lápiz"
+            - regla
+            - sacapuntas
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: "lápices de colores"
+          options:
+            - "lápices de colores"
+            - "lápiz"
+            - goma de borrar
+            - resaltador
+      - type: CONTEXT_RESPONSE
+        xp: 15
+        config:
+          question: "¿Qué usás para borrar lo que escribiste con lápiz?"
+          answer: goma de borrar
+          options:
+            - sacapuntas
+            - goma de borrar
+            - regla
+            - resaltador
+      - type: MATCH
+        xp: 20
+        config:
+          concepts:
+            - "lápiz"
+            - "lápices de colores"
+            - goma de borrar
+            - sacapuntas
+            - regla
+            - resaltador
+
+  - code: leccion-2
+    name: "Cuadernos y lectura"
+    description: "Lo que usás para anotar, leer y guardar tus trabajos."
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: cuaderno
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: carpeta
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: libro
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: papel
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: revista
+
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: cuaderno
+          options:
+            - cuaderno
+            - carpeta
+            - libro
+            - papel
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: libro
+          options:
+            - libro
+            - revista
+            - cuaderno
+            - papel
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: carpeta
+          options:
+            - carpeta
+            - cuaderno
+            - revista
+            - papel
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: revista
+          options:
+            - revista
+            - libro
+            - carpeta
+            - papel
+      - type: CONTEXT_RESPONSE
+        xp: 15
+        config:
+          question: "¿En qué anotás día a día lo que ves en clase?"
+          answer: cuaderno
+          options:
+            - libro
+            - cuaderno
+            - revista
+            - papel
+      - type: MATCH
+        xp: 20
+        config:
+          concepts:
+            - cuaderno
+            - carpeta
+            - libro
+            - papel
+            - revista

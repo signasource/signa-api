@@ -8,12 +8,14 @@ public record FriendRequestResponse(
         UUID requesterId,
         String requesterUsername,
         String requesterName,
-        LocalDateTime requestedAt) {
+        LocalDateTime requestedAt,
+        String requesterAvatarUrl) {
     public static FriendRequestResponse from(Friendship friendship) {
         return new FriendRequestResponse(
                 friendship.getRequester().getId(),
                 friendship.getRequester().getUsername(),
                 friendship.getRequester().getName(),
-                friendship.getCreatedAt());
+                friendship.getCreatedAt(),
+                AvatarLinks.of(friendship.getRequester()));
     }
 }

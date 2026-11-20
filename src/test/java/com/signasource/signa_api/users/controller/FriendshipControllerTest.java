@@ -118,7 +118,8 @@ class FriendshipControllerTest {
                         LocalDateTime.now(),
                         7,
                         1200L,
-                        30);
+                        30,
+                        null);
 
         FriendResponse response2 =
                 new FriendResponse(
@@ -128,7 +129,8 @@ class FriendshipControllerTest {
                         LocalDateTime.now(),
                         0,
                         0L,
-                        0);
+                        0,
+                        null);
 
         when(friendshipService.getFriendsWithStats(currentUser))
                 .thenReturn(List.of(response1, response2));
@@ -212,7 +214,8 @@ class FriendshipControllerTest {
                         "Test",
                         "A test achievement",
                         false,
-                        Instant.now());
+                        Instant.now(),
+                        null);
 
         when(friendEventService.getFriendsEvents(currentUser, 50)).thenReturn(List.of(event1));
 

@@ -40,6 +40,7 @@ course:
   name: Curso Básico
   description: Aprende las bases de la Lengua de Señas Argentina.
   free: true
+  # price: 2900   # sólo en cursos pagos (free: false), en ARS
   cover: "mock-cover"
 
 version:
@@ -58,6 +59,7 @@ topics:
 | `name` | Sí | Nombre que ve el usuario. |
 | `description` | No | Descripción del curso. |
 | `free` | No | `true` (gratis) o `false` (pago). |
+| `price` | No | Precio del pago único en ARS (p. ej. `2900`) para cursos pagos (`free: false`). Se ignora si el curso es gratis. Lo usa la compra individual por Mercado Pago. |
 | `cover` | No | Referencia a la imagen de portada. |
 | `version` | Sí | Número de versión, como texto entre comillas: `"0.1.0"`. |
 | `status` | Sí | `DRAFT`, `PUBLISHED` o `ARCHIVED` (ver abajo). |
@@ -231,30 +233,6 @@ Ejercicio de emparejar conceptos.
 | Campo | Regla |
 |---|---|
 | `concepts` | Obligatorio. Al menos **2** conceptos. |
-
-### `VISUAL_RECOGNITION` — reconocimiento visual
-
-Se muestra una secuencia de señas y el usuario selecciona cuáles reconoce dentro de la secuencia.
-
-```yaml
-- type: VISUAL_RECOGNITION
-  xp: 15
-  config:
-    signSequence:
-      - hola
-      - gracias
-    options:
-      - hola
-      - gracias
-      - por_favor
-    keepOrder: true
-```
-
-| Campo | Regla |
-|---|---|
-| `signSequence` | Obligatorio. Al menos **1** seña. Secuencia que se muestra al usuario. |
-| `options` | Obligatorio. Al menos **1** opción. Puede incluir señas que no están en la secuencia (distractores). |
-| `keepOrder` | Obligatorio. `true` si las señas seleccionadas deben respetar el orden de la secuencia, `false` si no. |
 
 ---
 

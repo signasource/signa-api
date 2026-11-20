@@ -2,21 +2,27 @@ package com.signasource.signa_api.admin.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.admin.dto.AdminOrganizationResponse;
-import com.signasource.signa_api.admin.dto.AdminSignReportGroupResponse;
+import com.signasource.signa_api.admin.dto.AdminSignReportResponse;
 import com.signasource.signa_api.admin.dto.AdminStatsResponse;
 import com.signasource.signa_api.admin.dto.AdminUserResponse;
 import com.signasource.signa_api.admin.dto.AdminWaitlistEntryResponse;
 import com.signasource.signa_api.admin.dto.CreateAdminRequest;
+import com.signasource.signa_api.admin.dto.UpdateAdminRequest;
 import com.signasource.signa_api.admin.dto.UpdateOrganizationStatusRequest;
-import com.signasource.signa_api.admin.dto.UpdateSignReportGroupRequest;
+import com.signasource.signa_api.admin.dto.UpdateSignReportRequest;
 import com.signasource.signa_api.admin.dto.UpdateUserRequest;
+import com.signasource.signa_api.auth.entity.TokenType;
+import com.signasource.signa_api.auth.repository.TokenRepository;
+import com.signasource.signa_api.auth.service.EmailService;
 import com.signasource.signa_api.exceptions.InvalidInputException;
 import com.signasource.signa_api.exceptions.NotFoundException;
 import com.signasource.signa_api.exceptions.ResourceAlreadyInUseException;
@@ -30,23 +36,27 @@ import com.signasource.signa_api.learning.entity.SignReport;
 import com.signasource.signa_api.learning.repository.CourseRepository;
 import com.signasource.signa_api.learning.repository.SignReportRepository;
 import com.signasource.signa_api.learning.repository.SignRepository;
+import com.signasource.signa_api.notification.service.NotificationService;
 import com.signasource.signa_api.organizations.entity.MemberRole;
 import com.signasource.signa_api.organizations.entity.MemberStatus;
 import com.signasource.signa_api.organizations.entity.Organization;
 import com.signasource.signa_api.organizations.entity.OrganizationStatus;
+import com.signasource.signa_api.organizations.repository.CoursePurchaseRepository;
+import com.signasource.signa_api.organizations.repository.InviteCodeRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationCourseRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationMemberRepository;
 import com.signasource.signa_api.organizations.repository.OrganizationRepository;
-import com.signasource.signa_api.organizations.service.OrganizationEnrollmentService;
 import com.signasource.signa_api.users.entity.AuthProvider;
 import com.signasource.signa_api.users.entity.Role;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.entity.UserSettings;
 import com.signasource.signa_api.users.repository.UserRepository;
 import com.signasource.signa_api.users.repository.UserSettingsRepository;
+import com.signasource.signa_api.users.service.UserService;
 import com.signasource.signa_api.waitlist.entity.WaitlistEntry;
 import com.signasource.signa_api.waitlist.repository.WaitlistRepository;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
@@ -62,6 +72,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 @ExtendWith(MockitoExtension.class)
@@ -69,8 +80,6 @@ class AdminServiceTest {
 
     @Mock private OrganizationRepository organizationRepository;
     @Mock private OrganizationMemberRepository memberRepository;
-    @Mock private OrganizationCourseRepository organizationCourseRepository;
-    @Mock private OrganizationEnrollmentService enrollmentService;
     @Mock private SignReportRepository signReportRepository;
     @Mock private UserRepository userRepository;
     @Mock private UserSettingsRepository userSettingsRepository;
@@ -78,7 +87,14 @@ class AdminServiceTest {
     @Mock private CourseRepository courseRepository;
     @Mock private SignRepository signRepository;
     @Mock private UserStatsRepository userStatsRepository;
+    @Mock private TokenRepository tokenRepository;
+    @Mock private UserService userService;
     @Mock private PasswordEncoder passwordEncoder;
+    @Mock private NotificationService notificationService;
+    @Mock private EmailService emailService;
+    @Mock private CoursePurchaseRepository coursePurchaseRepository;
+    @Mock private InviteCodeRepository inviteCodeRepository;
+    @Mock private OrganizationCourseRepository organizationCourseRepository;
 
     @InjectMocks private AdminService adminService;
 
@@ -96,7 +112,6 @@ class AdminServiceTest {
                         .status(OrganizationStatus.PENDING)
                         .cuit("30-12345678-9")
                         .contactEmail("test@test.com")
-                        .memberLimit(50)
                         .createdAt(Instant.now())
                         .build();
 
@@ -165,10 +180,39 @@ class AdminServiceTest {
                 .thenReturn(List.of());
 
         UpdateOrganizationStatusRequest req =
-                new UpdateOrganizationStatusRequest(OrganizationStatus.ACTIVE, List.of());
+                new UpdateOrganizationStatusRequest(OrganizationStatus.ACTIVE);
         adminService.updateOrganizationStatus(orgId, req);
 
         verify(organizationRepository).save(any());
+        verify(emailService).sendOrganizationApprovedEmail("test@test.com", "Test Org");
+    }
+
+    @Test
+    void shouldNotSendApprovalEmailWhenReactivatingSuspendedOrganization() {
+        org = orgWithStatus(OrganizationStatus.SUSPENDED);
+        org.setContactEmail("test@test.com");
+        when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
+        when(organizationRepository.save(any())).thenReturn(org);
+        when(memberRepository.findByOrganizationIdAndRoleAndStatus(any(), any(), any()))
+                .thenReturn(List.of());
+
+        adminService.updateOrganizationStatus(
+                orgId, new UpdateOrganizationStatusRequest(OrganizationStatus.ACTIVE));
+
+        verify(emailService, never()).sendOrganizationApprovedEmail(any(), any());
+    }
+
+    @Test
+    void shouldNotSendApprovalEmailWhenRejectingOrganization() {
+        when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
+        when(organizationRepository.save(any())).thenReturn(org);
+        when(memberRepository.findByOrganizationIdAndRoleAndStatus(any(), any(), any()))
+                .thenReturn(List.of());
+
+        adminService.updateOrganizationStatus(
+                orgId, new UpdateOrganizationStatusRequest(OrganizationStatus.REJECTED));
+
+        verify(emailService, never()).sendOrganizationApprovedEmail(any(), any());
     }
 
     @Test
@@ -179,7 +223,7 @@ class AdminServiceTest {
                 .thenReturn(List.of());
 
         UpdateOrganizationStatusRequest req =
-                new UpdateOrganizationStatusRequest(OrganizationStatus.REJECTED, null);
+                new UpdateOrganizationStatusRequest(OrganizationStatus.REJECTED);
         adminService.updateOrganizationStatus(orgId, req);
 
         verify(organizationRepository).save(any());
@@ -197,7 +241,7 @@ class AdminServiceTest {
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
 
         UpdateOrganizationStatusRequest req =
-                new UpdateOrganizationStatusRequest(OrganizationStatus.ACTIVE, null);
+                new UpdateOrganizationStatusRequest(OrganizationStatus.ACTIVE);
 
         assertThrows(
                 InvalidInputException.class,
@@ -206,14 +250,14 @@ class AdminServiceTest {
 
     @Test
     void shouldCreateAdmin() {
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(userRepository.findFirstByEmailIgnoreCase(anyString())).thenReturn(Optional.empty());
         when(userRepository.existsByUsername(anyString())).thenReturn(false);
         when(passwordEncoder.encode(anyString())).thenReturn("hashed");
         when(userRepository.save(any())).thenReturn(adminUser);
         when(userSettingsRepository.save(any())).thenReturn(UserSettings.builder().build());
 
         CreateAdminRequest req =
-                new CreateAdminRequest("new@signa.com", "Nuevo", "Admin", "password123");
+                new CreateAdminRequest("new@signa.com", "Nuevo", "Admin", "password123", null);
         AdminUserResponse result = adminService.createAdmin(req);
 
         assertNotNull(result);
@@ -222,13 +266,170 @@ class AdminServiceTest {
     }
 
     @Test
-    void shouldThrowWhenCreatingAdminWithExistingEmail() {
-        when(userRepository.existsByEmail("existing@signa.com")).thenReturn(true);
+    void shouldUpdateAdminProfileAndRevokeSessionsOnPasswordChange() {
+        when(userRepository.findById(adminUser.getId())).thenReturn(Optional.of(adminUser));
+        when(userRepository.findFirstByEmailIgnoreCase("nuevo@signa.com"))
+                .thenReturn(Optional.empty());
+        when(passwordEncoder.encode("nuevaClave1")).thenReturn("new-hash");
+        when(memberRepository.findByUserId(any())).thenReturn(Optional.empty());
 
-        CreateAdminRequest req =
-                new CreateAdminRequest("existing@signa.com", "Nombre", "Apellido", "pass");
+        adminService.updateAdmin(
+                adminUser.getId(),
+                new UpdateAdminRequest(
+                        "Ana",
+                        "Perez",
+                        "nuevo@signa.com",
+                        "nuevaClave1",
+                        "data:image/png;base64,AAAA"));
 
-        assertThrows(ResourceAlreadyInUseException.class, () -> adminService.createAdmin(req));
+        assertEquals("Ana", adminUser.getName());
+        assertEquals("Perez", adminUser.getLastName());
+        assertEquals("nuevo@signa.com", adminUser.getEmail());
+        assertEquals("new-hash", adminUser.getPasswordHash());
+        assertEquals("data:image/png;base64,AAAA", adminUser.getAvatar());
+        verify(tokenRepository).deleteByUserAndType(adminUser, TokenType.REFRESH);
+    }
+
+    @Test
+    void shouldLeaveUntouchedWhatTheUpdateOmitsAndRemoveAvatarWithEmptyString() {
+        adminUser.setAvatar("data:image/png;base64,AAAA");
+        when(userRepository.findById(adminUser.getId())).thenReturn(Optional.of(adminUser));
+        when(memberRepository.findByUserId(any())).thenReturn(Optional.empty());
+
+        adminService.updateAdmin(
+                adminUser.getId(), new UpdateAdminRequest(null, null, null, null, ""));
+
+        assertEquals("Admin", adminUser.getName());
+        assertEquals("admin@signa.com", adminUser.getEmail());
+        assertEquals(null, adminUser.getAvatar());
+        verify(passwordEncoder, never()).encode(anyString());
+        verify(tokenRepository, never()).deleteByUserAndType(any(), any());
+    }
+
+    @Test
+    void shouldRejectUpdatingAdminEmailToOneInUse() {
+        User other = User.builder().id(UUID.randomUUID()).email("otro@signa.com").build();
+        when(userRepository.findById(adminUser.getId())).thenReturn(Optional.of(adminUser));
+        when(userRepository.findFirstByEmailIgnoreCase("otro@signa.com"))
+                .thenReturn(Optional.of(other));
+
+        assertThrows(
+                ResourceAlreadyInUseException.class,
+                () ->
+                        adminService.updateAdmin(
+                                adminUser.getId(),
+                                new UpdateAdminRequest(null, null, "otro@signa.com", null, null)));
+        assertEquals("admin@signa.com", adminUser.getEmail());
+    }
+
+    @Test
+    void shouldNotUpdateAsAdminAnAccountThatIsNotOne() {
+        User plain =
+                User.builder().id(UUID.randomUUID()).email("u@signa.com").role(Role.USER).build();
+        when(userRepository.findById(plain.getId())).thenReturn(Optional.of(plain));
+
+        assertThrows(
+                NotFoundException.class,
+                () ->
+                        adminService.updateAdmin(
+                                plain.getId(),
+                                new UpdateAdminRequest("X", null, null, null, null)));
+    }
+
+    @Test
+    void shouldCreateAdminWithItsPhoto() {
+        when(userRepository.findFirstByEmailIgnoreCase(anyString())).thenReturn(Optional.empty());
+        when(userRepository.existsByUsername(anyString())).thenReturn(false);
+        when(passwordEncoder.encode(anyString())).thenReturn("hashed");
+        when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(userSettingsRepository.save(any())).thenReturn(UserSettings.builder().build());
+
+        AdminUserResponse result =
+                adminService.createAdmin(
+                        new CreateAdminRequest(
+                                "foto@signa.com",
+                                "Foto",
+                                "Admin",
+                                "password123",
+                                "data:image/jpeg;base64,AAAA"));
+
+        assertEquals("data:image/jpeg;base64,AAAA", result.avatar());
+    }
+
+    @Test
+    void shouldCreateAdminWithoutPhotoWhenAvatarIsEmpty() {
+        when(userRepository.findFirstByEmailIgnoreCase(anyString())).thenReturn(Optional.empty());
+        when(userRepository.existsByUsername(anyString())).thenReturn(false);
+        when(passwordEncoder.encode(anyString())).thenReturn("hashed");
+        when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(userSettingsRepository.save(any())).thenReturn(UserSettings.builder().build());
+
+        AdminUserResponse result =
+                adminService.createAdmin(
+                        new CreateAdminRequest("sin@signa.com", "Sin", "Foto", "password123", ""));
+
+        assertEquals(null, result.avatar());
+    }
+
+    @Test
+    void shouldPromoteExistingAccountKeepingItsPassword() {
+        User existing =
+                User.builder()
+                        .id(UUID.randomUUID())
+                        .email("existing@signa.com")
+                        .username("existing")
+                        .name("Nombre")
+                        .lastName("Apellido")
+                        .passwordHash("own-hash")
+                        .role(Role.USER)
+                        .enabled(false)
+                        .verified(false)
+                        .providers(new HashSet<>(Set.of(AuthProvider.LOCAL)))
+                        .build();
+        when(userRepository.findFirstByEmailIgnoreCase("existing@signa.com"))
+                .thenReturn(Optional.of(existing));
+        when(userRepository.findById(existing.getId())).thenReturn(Optional.of(existing));
+        when(memberRepository.findByUserId(any())).thenReturn(Optional.empty());
+
+        AdminUserResponse result =
+                adminService.createAdmin(
+                        new CreateAdminRequest(
+                                "existing@signa.com", "Otro", "Dato", "temporal", null));
+
+        assertEquals(Role.ADMIN, result.role());
+        assertEquals("own-hash", existing.getPasswordHash());
+        assertEquals("Nombre", existing.getName());
+        assertEquals(true, existing.isEnabled());
+        assertEquals(true, existing.isVerified());
+        verify(passwordEncoder, never()).encode(anyString());
+        verify(userSettingsRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldGivePasswordToPromotedGoogleOnlyAccount() {
+        User google =
+                User.builder()
+                        .id(UUID.randomUUID())
+                        .email("google@signa.com")
+                        .username("google")
+                        .name("Nombre")
+                        .lastName("Apellido")
+                        .role(Role.USER)
+                        .enabled(true)
+                        .verified(true)
+                        .providers(new HashSet<>(Set.of(AuthProvider.GOOGLE)))
+                        .build();
+        when(userRepository.findFirstByEmailIgnoreCase("google@signa.com"))
+                .thenReturn(Optional.of(google));
+        when(userRepository.findById(google.getId())).thenReturn(Optional.of(google));
+        when(memberRepository.findByUserId(any())).thenReturn(Optional.empty());
+        when(passwordEncoder.encode("temporal")).thenReturn("hashed");
+
+        adminService.createAdmin(
+                new CreateAdminRequest("google@signa.com", "A", "B", "temporal", null));
+
+        assertEquals("hashed", google.getPasswordHash());
+        assertEquals(true, google.getProviders().contains(AuthProvider.LOCAL));
     }
 
     @Test
@@ -269,20 +470,96 @@ class AdminServiceTest {
                 .thenReturn(List.of());
 
         UpdateOrganizationStatusRequest req =
-                new UpdateOrganizationStatusRequest(OrganizationStatus.SUSPENDED, null);
+                new UpdateOrganizationStatusRequest(OrganizationStatus.SUSPENDED, "Pago pendiente");
         adminService.updateOrganizationStatus(orgId, req);
 
         verify(organizationRepository).save(any());
+        assertEquals("Pago pendiente", org.getSuspensionReason());
     }
 
     @Test
-    void shouldGetSignReportGroups() {
+    void shouldRequireReasonToSuspend() {
+        org = orgWithStatus(OrganizationStatus.ACTIVE);
+        when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
+
+        assertThrows(
+                InvalidInputException.class,
+                () ->
+                        adminService.updateOrganizationStatus(
+                                orgId,
+                                new UpdateOrganizationStatusRequest(
+                                        OrganizationStatus.SUSPENDED, "  ")));
+        verify(organizationRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldReactivateSuspendedOrganizationAndClearReason() {
+        org = orgWithStatus(OrganizationStatus.SUSPENDED);
+        org.setSuspensionReason("Pago pendiente");
+        when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
+        when(organizationRepository.save(any())).thenReturn(org);
+        when(memberRepository.findByOrganizationIdAndRoleAndStatus(any(), any(), any()))
+                .thenReturn(List.of());
+
+        adminService.updateOrganizationStatus(
+                orgId, new UpdateOrganizationStatusRequest(OrganizationStatus.ACTIVE));
+
+        assertEquals(OrganizationStatus.ACTIVE, org.getStatus());
+        assertNull(org.getSuspensionReason());
+    }
+
+    @Test
+    void shouldDeleteSuspendedOrganization() {
+        org = orgWithStatus(OrganizationStatus.SUSPENDED);
+        when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
+        when(coursePurchaseRepository.existsByOrganizationId(orgId)).thenReturn(false);
+        when(memberRepository.findByOrganizationIdAndRole(orgId, MemberRole.ADMIN))
+                .thenReturn(List.of());
+
+        adminService.deleteOrganization(orgId);
+
+        verify(memberRepository).deleteByOrganizationId(orgId);
+        verify(inviteCodeRepository).deleteByOrganizationId(orgId);
+        verify(organizationCourseRepository).deleteByOrganizationId(orgId);
+        verify(organizationRepository).delete(org);
+    }
+
+    @Test
+    void shouldNotDeleteActiveOrganization() {
+        org = orgWithStatus(OrganizationStatus.ACTIVE);
+        when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
+
+        assertThrows(InvalidInputException.class, () -> adminService.deleteOrganization(orgId));
+        verify(organizationRepository, never()).delete(any());
+    }
+
+    @Test
+    void shouldNotDeleteOrganizationWithPurchases() {
+        org = orgWithStatus(OrganizationStatus.REJECTED);
+        when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
+        when(coursePurchaseRepository.existsByOrganizationId(orgId)).thenReturn(true);
+
+        assertThrows(
+                ResourceAlreadyInUseException.class, () -> adminService.deleteOrganization(orgId));
+        verify(organizationRepository, never()).delete(any());
+    }
+
+    private Organization orgWithStatus(OrganizationStatus status) {
+        return Organization.builder()
+                .id(orgId)
+                .name("Org")
+                .status(status)
+                .createdAt(Instant.now())
+                .build();
+    }
+
+    private SignReport sampleReport(String meaning, ReportReason reason, ReportStatus status) {
         SignLanguage lang =
                 SignLanguage.builder().id(UUID.randomUUID()).code("LSA").name("LSA").build();
         Sign sign =
                 Sign.builder()
                         .id(UUID.randomUUID())
-                        .meaning("hola")
+                        .meaning(meaning)
                         .handedness(Handedness.ONE_HANDED)
                         .signLanguage(lang)
                         .build();
@@ -291,62 +568,78 @@ class AdminServiceTest {
         report.setId(UUID.randomUUID());
         report.setSign(sign);
         report.setUser(adminUser);
-        report.setStatus(ReportStatus.PENDING);
-        report.setReason(ReportReason.INCORRECT_SIGN);
+        report.setStatus(status);
+        report.setReason(reason);
+        report.setDescription("no se entiende");
         report.setCreatedAt(LocalDateTime.now());
-
-        when(signReportRepository.findByStatusIn(any())).thenReturn(List.of(report));
-
-        List<AdminSignReportGroupResponse> groups = adminService.getSignReportGroups(null);
-
-        assertEquals(1, groups.size());
-        assertEquals("hola", groups.get(0).signMeaning());
-        assertEquals(ReportStatus.PENDING, groups.get(0).status());
+        return report;
     }
 
     @Test
-    void shouldUpdateSignReportGroup() {
-        UUID signId = UUID.randomUUID();
-        SignLanguage lang =
-                SignLanguage.builder().id(UUID.randomUUID()).code("LSA").name("LSA").build();
-        Sign sign =
-                Sign.builder()
-                        .id(signId)
-                        .meaning("gracias")
-                        .handedness(Handedness.ONE_HANDED)
-                        .signLanguage(lang)
-                        .build();
+    void shouldGetSignReports() {
+        SignReport report = sampleReport("hola", ReportReason.INCORRECT_SIGN, ReportStatus.PENDING);
 
-        SignReport report = new SignReport();
-        report.setId(UUID.randomUUID());
-        report.setSign(sign);
-        report.setUser(adminUser);
-        report.setStatus(ReportStatus.PENDING);
-        report.setReason(ReportReason.OTHER);
-        report.setCreatedAt(LocalDateTime.now());
+        when(signReportRepository.findAll(any(Specification.class))).thenReturn(List.of(report));
 
-        when(signReportRepository.findBySignId(signId)).thenReturn(List.of(report));
-        when(signReportRepository.saveAll(any())).thenReturn(List.of(report));
+        List<AdminSignReportResponse> reports =
+                adminService.getSignReports(null, null, null, null, null);
 
-        UpdateSignReportGroupRequest req =
-                new UpdateSignReportGroupRequest(ReportStatus.RESOLVED, "Verified OK");
-        AdminSignReportGroupResponse result =
-                adminService.updateSignReportGroup(signId, req, adminUser);
-
-        assertEquals(signId, result.signId());
-        verify(signReportRepository).saveAll(any());
+        assertEquals(1, reports.size());
+        assertEquals("hola", reports.get(0).signMeaning());
+        assertEquals(ReportStatus.PENDING, reports.get(0).status());
+        assertEquals("no se entiende", reports.get(0).description());
+        assertEquals("admin", reports.get(0).username());
+        assertNull(reports.get(0).resolvedBy());
     }
 
     @Test
-    void shouldThrowNotFoundWhenNoReportsForSign() {
-        when(signReportRepository.findBySignId(any())).thenReturn(List.of());
+    void shouldGetSignReportsWithFilters() {
+        LocalDate from = LocalDate.of(2026, 1, 1);
+        LocalDate to = LocalDate.of(2026, 2, 1);
+        SignReport report = sampleReport("hola", ReportReason.OTHER, ReportStatus.REVIEWED);
+
+        when(signReportRepository.findAll(any(Specification.class))).thenReturn(List.of(report));
+
+        List<AdminSignReportResponse> reports =
+                adminService.getSignReports(
+                        ReportStatus.REVIEWED, ReportReason.OTHER, "  hola  ", from, to);
+
+        assertEquals(1, reports.size());
+        assertEquals("hola", reports.get(0).signMeaning());
+    }
+
+    @Test
+    void shouldUpdateSignReportAndRecordResolver() {
+        UUID reportId = UUID.randomUUID();
+        SignReport report = sampleReport("gracias", ReportReason.OTHER, ReportStatus.PENDING);
+        report.setId(reportId);
+
+        when(signReportRepository.findById(reportId)).thenReturn(Optional.of(report));
+        when(signReportRepository.save(any())).thenReturn(report);
+
+        UpdateSignReportRequest req =
+                new UpdateSignReportRequest(ReportStatus.RESOLVED, "Verified OK");
+        AdminSignReportResponse result = adminService.updateSignReport(reportId, req, adminUser);
+
+        assertEquals(reportId, result.id());
+        assertEquals(ReportStatus.RESOLVED, result.status());
+        assertEquals("Verified OK", result.adminNote());
+        assertEquals("Admin Signa", result.resolvedBy());
+        assertNotNull(result.resolvedAt());
+        verify(signReportRepository).save(any());
+    }
+
+    @Test
+    void shouldThrowNotFoundWhenReportDoesNotExist() {
+        UUID reportId = UUID.randomUUID();
+        when(signReportRepository.findById(reportId)).thenReturn(Optional.empty());
 
         assertThrows(
                 NotFoundException.class,
                 () ->
-                        adminService.updateSignReportGroup(
-                                UUID.randomUUID(),
-                                new UpdateSignReportGroupRequest(ReportStatus.RESOLVED, null),
+                        adminService.updateSignReport(
+                                reportId,
+                                new UpdateSignReportRequest(ReportStatus.RESOLVED, null),
                                 adminUser));
     }
 
@@ -385,10 +678,93 @@ class AdminServiceTest {
         when(memberRepository.findByUserId(any())).thenReturn(Optional.empty());
 
         UpdateUserRequest req = new UpdateUserRequest(Role.ADMIN, true);
-        AdminUserResponse result = adminService.updateUser(adminUser.getId(), req);
+        AdminUserResponse result = adminService.updateUser(adminUser, adminUser.getId(), req);
 
         assertNotNull(result);
         verify(userRepository).save(any());
+    }
+
+    @Test
+    void shouldRevokeSessionsWhenDisablingUser() {
+        User target = otherUser("target@signa.com");
+        when(userRepository.findById(target.getId())).thenReturn(Optional.of(target));
+        when(memberRepository.findByUserId(any())).thenReturn(Optional.empty());
+
+        adminService.updateUser(adminUser, target.getId(), new UpdateUserRequest(null, false));
+
+        assertEquals(false, target.isEnabled());
+        verify(tokenRepository).deleteByUserAndType(target, TokenType.REFRESH);
+    }
+
+    @Test
+    void shouldNotRevokeSessionsWhenEnablingUser() {
+        User target = otherUser("target@signa.com");
+        when(userRepository.findById(target.getId())).thenReturn(Optional.of(target));
+        when(memberRepository.findByUserId(any())).thenReturn(Optional.empty());
+
+        adminService.updateUser(adminUser, target.getId(), new UpdateUserRequest(null, true));
+
+        verify(tokenRepository, never()).deleteByUserAndType(any(), any());
+    }
+
+    @Test
+    void shouldRefuseToDisableOrDemoteYourself() {
+        when(userRepository.findById(adminUser.getId())).thenReturn(Optional.of(adminUser));
+
+        assertThrows(
+                InvalidInputException.class,
+                () ->
+                        adminService.updateUser(
+                                adminUser, adminUser.getId(), new UpdateUserRequest(null, false)));
+        assertThrows(
+                InvalidInputException.class,
+                () ->
+                        adminService.updateUser(
+                                adminUser,
+                                adminUser.getId(),
+                                new UpdateUserRequest(Role.USER, null)));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldDeleteUserWithTheAccountErasure() {
+        User target = otherUser("target@signa.com");
+        when(userRepository.findById(target.getId())).thenReturn(Optional.of(target));
+
+        adminService.deleteUser(adminUser, target.getId());
+
+        verify(userService).deleteAccount(target);
+    }
+
+    @Test
+    void shouldRefuseToDeleteYourself() {
+        assertThrows(
+                InvalidInputException.class,
+                () -> adminService.deleteUser(adminUser, adminUser.getId()));
+        verify(userService, never()).deleteAccount(any());
+    }
+
+    @Test
+    void shouldTreatAnAlreadyDeletedUserAsNotFound() {
+        User deleted = otherUser("deleted_1@signa.invalid");
+        when(userRepository.findById(deleted.getId())).thenReturn(Optional.of(deleted));
+
+        assertThrows(
+                NotFoundException.class, () -> adminService.deleteUser(adminUser, deleted.getId()));
+        verify(userService, never()).deleteAccount(any());
+    }
+
+    private User otherUser(String email) {
+        return User.builder()
+                .id(UUID.randomUUID())
+                .email(email)
+                .username("other")
+                .name("Otra")
+                .lastName("Persona")
+                .role(Role.USER)
+                .enabled(true)
+                .verified(true)
+                .build();
     }
 
     @Test
@@ -414,39 +790,6 @@ class AdminServiceTest {
 
         List<com.signasource.signa_api.admin.dto.AdminCourseResponse> result =
                 adminService.getCourses();
-
-        assertNotNull(result);
-    }
-
-    @Test
-    void shouldGetSigns() {
-        SignLanguage lang =
-                SignLanguage.builder().id(UUID.randomUUID()).code("LSA").name("LSA").build();
-        Sign sign =
-                Sign.builder()
-                        .id(UUID.randomUUID())
-                        .meaning("hola")
-                        .handedness(Handedness.ONE_HANDED)
-                        .signLanguage(lang)
-                        .build();
-
-        when(signRepository.findByMeaningContainingIgnoreCase(anyString(), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(sign)));
-        when(signReportRepository.countBySignIdAndStatusIn(any(), any())).thenReturn(0L);
-
-        Page<com.signasource.signa_api.admin.dto.AdminSignResponse> result =
-                adminService.getSigns("hola", Pageable.unpaged());
-
-        assertEquals(1, result.getTotalElements());
-        assertEquals("hola", result.getContent().get(0).meaning());
-    }
-
-    @Test
-    void shouldGetSignsWithoutQuery() {
-        when(signRepository.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of()));
-
-        Page<com.signasource.signa_api.admin.dto.AdminSignResponse> result =
-                adminService.getSigns(null, Pageable.unpaged());
 
         assertNotNull(result);
     }

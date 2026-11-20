@@ -18,12 +18,15 @@ public record UserInventoryResponse(
         int learnedSignsCount) {
 
     public static UserInventoryResponse from(UserStats stats) {
+        Instant now = Instant.now();
+        boolean limited = stats.getEffectiveLivesMode() == LivesMode.LIMITED;
+        UserStats.LifeState lives = stats.lifeStateAt(now);
         return new UserInventoryResponse(
                 stats.getGems(),
                 stats.getStreakShields(),
                 stats.getEffectiveLivesMode(),
-                stats.getCurrentLives(),
-                stats.getNextLifeAt(),
+                limited ? Integer.valueOf(lives.lives()) : stats.getCurrentLives(),
+                limited ? lives.nextLifeAt() : null,
                 stats.getEffectiveXpMultiplier(),
                 stats.getXpMultiplierExpiresAt(),
                 stats.hasActiveXpMultiplier(),

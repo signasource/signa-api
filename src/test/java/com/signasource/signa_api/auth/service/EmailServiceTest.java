@@ -1,9 +1,13 @@
 package com.signasource.signa_api.auth.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
+import com.signasource.signa_api.common.MetricsService;
 import jakarta.mail.internet.MimeMessage;
+import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,6 +30,8 @@ class EmailServiceTest {
 
     @Mock private MimeMessage mimeMessage;
 
+    @Mock private MetricsService metricsService;
+
     @InjectMocks private EmailService emailService;
 
     @BeforeEach
@@ -33,7 +39,7 @@ class EmailServiceTest {
         ReflectionTestUtils.setField(emailService, "baseUrl", BASE_URL);
         ReflectionTestUtils.setField(emailService, "fromEmail", FROM_EMAIL);
 
-        when(mailSender.createMimeMessage()).thenReturn(mimeMessage);
+        lenient().when(mailSender.createMimeMessage()).thenReturn(mimeMessage);
     }
 
     @Test
@@ -51,6 +57,65 @@ class EmailServiceTest {
     }
 
     @Test
+    void passwordResetHtmlRendersOneCellPerDigitAndInlineImages() {
+        String html =
+                ReflectionTestUtils.invokeMethod(
+                        emailService, "renderCodeTemplate", "email/password-reset.html", "482917");
+
+        assertThat(html).isNotNull();
+        assertThat(html)
+                .contains("Código 4 8 2 9 1 7")
+                .contains("Tu código es 482917")
+                .contains("cid:signa-logo")
+                .contains("cid:lisa")
+                .contains("cid:copy-icon")
+                .contains("href=\"https://example.com/codigo#c=482917\"")
+                .doesNotContain("{{");
+        assertThat(html.split("class=\"sg-digit sg-d", -1)).hasSize(7);
+    }
+
+    @Test
+    void verificationHtmlRendersOneCellPerDigitAndInlineImages() {
+        String html =
+                ReflectionTestUtils.invokeMethod(
+                        emailService, "renderCodeTemplate", "email/verification.html", "482917");
+
+        assertThat(html).isNotNull();
+        assertThat(html)
+                .contains("Código 4 8 2 9 1 7")
+                .contains("Tu código es 482917")
+                .contains("Vence en 24 horas")
+                .contains("cid:signa-logo")
+                .contains("cid:lisa")
+                .contains("cid:copy-icon")
+                .contains("href=\"https://example.com/codigo#c=482917\"")
+                .doesNotContain("{{");
+        assertThat(html.split("class=\"sg-digit sg-d", -1)).hasSize(7);
+    }
+
+    @Test
+    void testSendOrganizationApprovedEmail() {
+        emailService.sendOrganizationApprovedEmail(TO_EMAIL, "Hospital <San Martin>");
+
+        verify(mailSender).send(mimeMessage);
+    }
+
+    @Test
+    void organizationApprovedHtmlEscapesTheNameAndLinksToBuySeats() {
+        String html =
+                ReflectionTestUtils.invokeMethod(
+                        emailService,
+                        "buildOrganizationApprovedHtml",
+                        "Hospital <San Martin>",
+                        "https://panel.example.com/dashboard/purchases/new");
+
+        assertThat(html)
+                .contains("Hospital &lt;San Martin&gt;")
+                .contains("href=\"https://panel.example.com/dashboard/purchases/new\"")
+                .contains("Comprar cupos");
+    }
+
+    @Test
     void testSendOrganizationAdminInviteEmail() {
         emailService.sendOrganizationAdminInviteEmail(
                 TO_EMAIL, "Hospital <San Martin>", "ABCD2345");
@@ -59,9 +124,100 @@ class EmailServiceTest {
     }
 
     @Test
-    void testSendOrganizationInviteEmail() {
-        emailService.sendOrganizationInviteEmail(TO_EMAIL, "Hospital <San Martin>", "ABCD2345");
+    void testSendSeatInvitationEmail() {
+        emailService.sendSeatInvitationEmail(
+                TO_EMAIL, "Hospital <San Martin>", "LSA Salud", "tok", Instant.now(), 30, false);
+        emailService.sendSeatInvitationEmail(
+                TO_EMAIL, "Hospital <San Martin>", "LSA Salud", "tok", Instant.now(), 30, true);
+
+        verify(mailSender, times(2)).send(mimeMessage);
+    }
+
+    @Test
+    void seatInvitationHtmlFillsPlaceholdersEscapesAndUsesInlineImages() {
+        String html =
+                ReflectionTestUtils.invokeMethod(
+                        emailService,
+                        "buildSeatInvitationHtml",
+                        TO_EMAIL,
+                        "Hospital <San Martin>",
+                        "LSA Salud",
+                        "https://panel.example.com/invitacion?token=tok",
+                        "26 de noviembre",
+                        30,
+                        false);
+
+        assertThat(html).isNotNull();
+        assertThat(html)
+                .contains("Hospital &lt;San Martin&gt; te invitó a&nbsp;Signa")
+                .contains("LSA Salud")
+                .contains("30 días desde que aceptes")
+                .contains("Aceptala antes del 26 de noviembre")
+                .contains("href=\"https://panel.example.com/invitacion?token=tok\"")
+                .contains(TO_EMAIL)
+                .contains("cid:signa-logo")
+                .contains("cid:lisa")
+                .doesNotContain("{{");
+    }
+
+    @Test
+    void seatInvitationReminderHtmlChangesHeadline() {
+        String html =
+                ReflectionTestUtils.invokeMethod(
+                        emailService,
+                        "buildSeatInvitationHtml",
+                        TO_EMAIL,
+                        "Hospital",
+                        "LSA Salud",
+                        "https://panel.example.com/invitacion?token=tok",
+                        "26 de noviembre",
+                        30,
+                        true);
+
+        assertThat(html).contains("Tu invitación a Signa vence pronto").doesNotContain("{{");
+    }
+
+    @Test
+    void testSendSeatAccessEndedEmail() {
+        emailService.sendSeatAccessEndedEmail(TO_EMAIL, "Hospital <San Martin>", "LSA Salud", true);
+        emailService.sendSeatAccessEndedEmail(
+                TO_EMAIL, "Hospital <San Martin>", "LSA Salud", false);
+
+        verify(mailSender, times(2)).send(mimeMessage);
+    }
+
+    @Test
+    void testSendPurchaseRefundedEmail() {
+        emailService.sendPurchaseRefundedEmail(
+                TO_EMAIL,
+                "Hospital <San Martin>",
+                "LSA Salud",
+                java.util.UUID.randomUUID(),
+                "$ 243.000",
+                "La anularon desde el panel.",
+                3,
+                2);
 
         verify(mailSender).send(mimeMessage);
+    }
+
+    @Test
+    void testSendOpsAlertEmail() {
+        emailService.sendOpsAlertEmail(
+                TO_EMAIL, "Contracargo: Hospital", java.util.List.of("Compra: <1>", "Pago: 987"));
+
+        verify(mailSender).send(mimeMessage);
+    }
+
+    @Test
+    void recordsFailureMetricWhenSendingFails() {
+        org.mockito.Mockito.doThrow(new org.springframework.mail.MailSendException("down"))
+                .when(mailSender)
+                .send(mimeMessage);
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+                RuntimeException.class, () -> emailService.sendVerificationEmail(TO_EMAIL, TOKEN));
+
+        verify(metricsService).recordEmailFailure();
     }
 }

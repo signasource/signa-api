@@ -39,6 +39,10 @@ class SignServiceTest {
 
     @Mock private SignAnimationService signAnimationService;
 
+    @Mock private SignMediaStorage signMediaStorage;
+
+    @Mock private SignMediaResolver signMediaResolver;
+
     private R2Properties r2Properties;
     private SignService signService;
 
@@ -72,7 +76,12 @@ class SignServiceTest {
         r2Properties = new R2Properties(null, null, null, "signa-animations", 15);
         signService =
                 new SignService(
-                        signRepository, signLanguageRepository, signAnimationService, r2Properties);
+                        signRepository,
+                        signLanguageRepository,
+                        signAnimationService,
+                        r2Properties,
+                        signMediaStorage,
+                        signMediaResolver);
     }
 
     @Test
@@ -230,5 +239,100 @@ class SignServiceTest {
         assertEquals(1, response.size());
         assertEquals("https://r2.example/hola", response.get("Hola"));
         verify(signAnimationService).presignedGetUrl("lsa/hola.glb");
+    }
+
+    @Test
+    void shouldResolveSignMediaCaseInsensitivelyEchoingTheRequestedMeaning() {
+        Sign video =
+                Sign.builder()
+                        .id(UUID.randomUUID())
+                        .meaning("Hola")
+                        .animationUrl("lsa/Hola.mp4")
+                        .animationUpdatedAt(java.time.Instant.ofEpochSecond(7))
+                        .signLanguage(signLanguage)
+                        .build();
+        Sign withoutAnimation =
+                Sign.builder()
+                        .id(UUID.randomUUID())
+                        .meaning("chau")
+                        .signLanguage(signLanguage)
+                        .build();
+        when(signRepository.findByLowerMeaningIn(any()))
+                .thenReturn(List.of(video, withoutAnimation));
+        when(signMediaStorage.publicUrl("lsa/Hola.mp4", java.time.Instant.ofEpochSecond(7)))
+                .thenReturn("https://cdn/lsa/Hola.mp4?v=7");
+
+        List<com.signasource.signa_api.learning.dto.SignMediaResponse> media =
+                signService.getSignMedia(List.of("hola", "chau", "nada", " "));
+
+        assertEquals(1, media.size());
+        assertEquals("hola", media.get(0).meaning());
+        assertEquals("mp4", media.get(0).format());
+        assertEquals("https://cdn/lsa/Hola.mp4?v=7", media.get(0).url());
+        assertNull(media.get(0).lateralUrl());
+    }
+
+    @Test
+    void shouldListSignsWithoutFileAsMissingOnlyWhenAsked() {
+        Sign video =
+                Sign.builder()
+                        .id(UUID.randomUUID())
+                        .meaning("hola")
+                        .animationUrl("lsa/hola.mp4")
+                        .signLanguage(signLanguage)
+                        .build();
+        // No extension: the importer found no file in the bucket.
+        Sign noFile =
+                Sign.builder()
+                        .id(UUID.randomUUID())
+                        .meaning("niño")
+                        .animationUrl("lsa/niño")
+                        .signLanguage(signLanguage)
+                        .build();
+        when(signRepository.findByLowerMeaningIn(any())).thenReturn(List.of(video, noFile));
+        when(signMediaStorage.publicUrl("lsa/hola.mp4", null))
+                .thenReturn("https://cdn/lsa/hola.mp4");
+
+        List<com.signasource.signa_api.learning.dto.SignMediaResponse> legacy =
+                signService.getSignMedia(List.of("hola", "Niño", "nada"));
+        assertEquals(1, legacy.size(), legacy.toString());
+
+        when(signMediaResolver.resolve(any())).thenReturn(java.util.Optional.empty());
+        List<com.signasource.signa_api.learning.dto.SignMediaResponse> all =
+                signService.getSignMedia(List.of("hola", "Niño", "nada"), true);
+        assertEquals(3, all.size());
+        assertEquals("mp4", all.get(0).format());
+        assertEquals(
+                List.of("Niño", "nada"), all.subList(1, 3).stream().map(m -> m.meaning()).toList());
+        assertTrue(all.subList(1, 3).stream().allMatch(m -> m.url() == null && m.format() == null));
+    }
+
+    @Test
+    void shouldFindInTheBucketASignTheCatalogDoesNotKnow() {
+        when(signRepository.findByLowerMeaningIn(any())).thenReturn(List.of());
+        when(signMediaResolver.resolve("niño"))
+                .thenReturn(
+                        java.util.Optional.of(
+                                new SignMediaResolver.Resolved(
+                                        "lsa/nene.mp4", "lsa/nene_lateral.mp4")));
+        when(signMediaResolver.resolve("nada")).thenReturn(java.util.Optional.empty());
+        when(signMediaStorage.publicUrl("lsa/nene.mp4", null))
+                .thenReturn("https://cdn/lsa/nene.mp4");
+        when(signMediaStorage.publicUrl("lsa/nene_lateral.mp4", null))
+                .thenReturn("https://cdn/lsa/nene_lateral.mp4");
+
+        List<com.signasource.signa_api.learning.dto.SignMediaResponse> media =
+                signService.getSignMedia(List.of("niño", "nada"));
+
+        assertEquals(1, media.size());
+        assertEquals("niño", media.get(0).meaning());
+        assertEquals("mp4", media.get(0).format());
+        assertEquals("https://cdn/lsa/nene.mp4", media.get(0).url());
+        assertEquals("https://cdn/lsa/nene_lateral.mp4", media.get(0).lateralUrl());
+    }
+
+    @Test
+    void shouldReturnNoMediaForBlankMeanings() {
+        assertTrue(signService.getSignMedia(List.of(" ")).isEmpty());
     }
 }

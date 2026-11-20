@@ -32,6 +32,7 @@ public class AccountErasureRepository {
         delete("UserStats", "user", user);
 
         delete("UserDailyActivity", "user", user);
+        delete("UserSession", "user", user);
         delete("UserSettings", "user", user);
         delete("NotificationHistory", "user", user);
         delete("OrganizationMember", "user", user);
@@ -44,6 +45,14 @@ public class AccountErasureRepository {
         // Invite codes bind to an email, not a user id, so they only match while it is still real.
         entityManager
                 .createQuery("delete from InviteCode c where lower(c.email) = :email")
+                .setParameter("email", user.getEmail().toLowerCase())
+                .executeUpdate();
+        entityManager
+                .createNativeQuery(
+                        "update purchase_seats set email = concat('erased-', cast(id as varchar(36)), '@invalid'), "
+                                + "invitation_token = null "
+                                + "where user_id = :id or lower(email) = :email")
+                .setParameter("id", user.getId())
                 .setParameter("email", user.getEmail().toLowerCase())
                 .executeUpdate();
         entityManager

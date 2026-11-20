@@ -49,7 +49,6 @@ lessons:
       - type: SPELL_NAME
         xp: 20
         config:
-          max_letters: 10
 
       - type: INVISIBLE_SIGNS
         config:
@@ -90,27 +89,52 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: yo
-          word: yo
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - yo
 
       - type: INTRODUCE_SIGN
         config:
           meaning: vos
-          word: vos
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - vos
 
       - type: INTRODUCE_SIGN
         config:
           meaning: nombre
-          word: nombre
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - nombre
 
       - type: INTRODUCE_SIGN
         config:
           meaning: sordo
-          word: sordo
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - sordo
 
       - type: INTRODUCE_SIGN
         config:
           meaning: oyente
-          word: oyente
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - oyente
 
       - type: SELECT_MEANING
         xp: 5
@@ -171,27 +195,52 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: hola
-          word: hola
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - hola
 
       - type: INTRODUCE_SIGN
         config:
           meaning: chau
-          word: chau
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - chau
 
       - type: INTRODUCE_SIGN
         config:
           meaning: "cómo estás"
-          word: "cómo estás"
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - "cómo estás"
 
       - type: INTRODUCE_SIGN
         config:
           meaning: bien
-          word: bien
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - bien
 
       - type: INTRODUCE_SIGN
         config:
           meaning: mal
-          word: mal
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - mal
 
       - type: SELECT_MEANING
         xp: 5
@@ -243,22 +292,6 @@ lessons:
             - bien
             - mal
 
-      - type: VISUAL_RECOGNITION
-        xp: 15
-        config:
-          sign_sequence:
-            - hola
-            - bien
-            - "cómo estás"
-            - chau
-          options:
-            - hola
-            - chau
-            - "cómo estás"
-            - bien
-            - mal
-          keep_order: false
-
   - code: leccion-4
     name: "Fórmulas de cortesía"
     description: "Aprendé a decir gracias, por favor, perdón y de nada."
@@ -267,22 +300,42 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: gracias
-          word: gracias
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - gracias
 
       - type: INTRODUCE_SIGN
         config:
           meaning: por favor
-          word: por favor
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - por favor
 
       - type: INTRODUCE_SIGN
         config:
           meaning: "perdón"
-          word: "perdón"
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - "perdón"
 
       - type: INTRODUCE_SIGN
         config:
           meaning: de nada
-          word: de nada
+
+      - type: PERFORM_SIGN
+        xp: 15
+        config:
+          signs:
+            - de nada
 
       - type: SELECT_MEANING
         xp: 5

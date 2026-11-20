@@ -1,19 +1,27 @@
 package com.signasource.signa_api.exceptions;
 
+import com.signasource.signa_api.common.MetricsService;
 import jakarta.validation.ConstraintViolationException;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
+@RequiredArgsConstructor
 @Slf4j
 public class GlobalExceptionHandler {
+
+    private final MetricsService metricsService;
+
     @ExceptionHandler(InvalidCredentialsException.class)
     public ResponseEntity<ErrorResponse> handleInvalidCredentials(InvalidCredentialsException ex) {
         return ResponseEntity.status(401).body(ErrorResponse.of(ex.getMessage(), 401));
@@ -43,6 +51,19 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleResourceAlreadyInUse(
             ResourceAlreadyInUseException ex) {
         return ResponseEntity.status(409).body(ErrorResponse.of(ex.getMessage(), 409));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleMaxUploadSize(MaxUploadSizeExceededException ex) {
+        return ResponseEntity.status(413)
+                .body(ErrorResponse.of("The uploaded file is too large", 413));
+    }
+
+    @ExceptionHandler(PaymentProviderException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentProvider(PaymentProviderException ex) {
+        log.error("Payment provider error", ex);
+        metricsService.recordHttpError("PaymentProviderException", 503);
+        return ResponseEntity.status(503).body(ErrorResponse.of(ex.getMessage(), 503));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -95,15 +116,23 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(404).body(ErrorResponse.of("Not found", 404));
     }
 
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMethodNotSupported(
+            HttpRequestMethodNotSupportedException ex) {
+        return ResponseEntity.status(405).body(ErrorResponse.of("Method not allowed", 405));
+    }
+
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ErrorResponse> handleBadCredentials(AuthenticationException ex) {
-        log.error("Authentication error", ex);
+        log.warn("Authentication failed: {}", ex.getMessage());
+        metricsService.recordHttpError("AuthenticationException", 401);
         return ResponseEntity.status(401).body(ErrorResponse.of("Invalid credentials", 401));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleException(Exception ex) {
         log.error("Unexpected error", ex);
+        metricsService.recordHttpError(ex.getClass().getSimpleName(), 500);
         return ResponseEntity.status(500).body(ErrorResponse.of("Internal server error", 500));
     }
 }

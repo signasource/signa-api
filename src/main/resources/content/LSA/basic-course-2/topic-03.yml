@@ -1,0 +1,149 @@
+topic:
+  code: unidad-3
+  title: "Unidad 3"
+  subtitle: "El tiempo"
+  description: Aprendé a señar expresiones temporales y los momentos del día.
+
+lessons:
+  - code: leccion-1
+    name: "Ayer, hoy y mañana"
+    description: "Aprendé las señas de ayer, hoy-ahora, mañana (día siguiente) y todos los días."
+
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: ayer
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: hoy-ahora
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: "mañana (día siguiente)"
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: todos los días
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: ayer
+          options:
+            - ayer
+            - hoy-ahora
+            - "mañana (día siguiente)"
+            - todos los días
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: hoy-ahora
+          options:
+            - ayer
+            - hoy-ahora
+            - "mañana (día siguiente)"
+            - todos los días
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Qué palabra usás para referirte al día que viene?"
+          answer: "mañana (día siguiente)"
+          options:
+            - ayer
+            - hoy-ahora
+            - "mañana (día siguiente)"
+            - todos los días
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: todos los días
+          options:
+            - ayer
+            - hoy-ahora
+            - "mañana (día siguiente)"
+            - todos los días
+
+      - type: MATCH
+        xp: 10
+        config:
+          concepts:
+            - ayer
+            - hoy-ahora
+            - "mañana (día siguiente)"
+            - todos los días
+
+  - code: leccion-2
+    name: "Momentos del día"
+    description: "Aprendé las señas de la mañana, el mediodía, la tarde y la noche."
+
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: "mañana (parte del día)"
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: "mediodía"
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: tarde
+
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: noche
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: "mañana (parte del día)"
+          options:
+            - "mañana (parte del día)"
+            - "mediodía"
+            - tarde
+            - noche
+
+      - type: SELECT_SIGN
+        xp: 5
+        config:
+          word: tarde
+          options:
+            - "mañana (parte del día)"
+            - "mediodía"
+            - tarde
+            - noche
+
+      - type: CONTEXT_RESPONSE
+        xp: 5
+        config:
+          question: "¿Cómo llamás al momento del día cuando el sol está en el punto más alto?"
+          answer: "mediodía"
+          options:
+            - "mañana (parte del día)"
+            - "mediodía"
+            - tarde
+            - noche
+
+      - type: SELECT_MEANING
+        xp: 5
+        config:
+          sign: noche
+          options:
+            - "mañana (parte del día)"
+            - "mediodía"
+            - tarde
+            - noche
+
+      - type: MATCH
+        xp: 10
+        config:
+          concepts:
+            - "mañana (parte del día)"
+            - "mediodía"
+            - tarde
+            - noche
+

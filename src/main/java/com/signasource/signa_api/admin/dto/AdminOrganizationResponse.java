@@ -12,11 +12,11 @@ public record AdminOrganizationResponse(
         String cuit,
         String contactEmail,
         String contactPhone,
-        Integer memberLimit,
         Instant createdAt,
         int activeMembers,
         String adminName,
-        String adminEmail) {
+        String adminEmail,
+        String suspensionReason) {
 
     public static AdminOrganizationResponse from(
             Organization org, int activeMembers, String adminName, String adminEmail) {
@@ -27,10 +27,10 @@ public record AdminOrganizationResponse(
                 org.getCuit(),
                 org.getContactEmail(),
                 org.getContactPhone(),
-                org.getMemberLimit(),
                 org.getCreatedAt(),
                 activeMembers,
                 adminName,
-                adminEmail);
+                adminEmail,
+                org.getSuspensionReason());
     }
 }

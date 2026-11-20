@@ -1,0 +1,227 @@
+topic:
+  code: unidad-4
+  title: "Unidad 4"
+  subtitle: "¿Qué me hacen? Estudios, tratamientos y elementos"
+  description: "Aprendé las señas de los estudios médicos, los tratamientos y los elementos que se usan."
+
+lessons:
+  - code: leccion-1
+    name: "Estudios"
+    description: "Los estudios médicos que te hacen para saber qué tenés."
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: revisar
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: hacer análisis
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: sacar radiografía
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: resonancia
+
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: revisar
+          options:
+            - revisar
+            - hacer análisis
+            - sacar radiografía
+            - resonancia
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: resonancia
+          options:
+            - revisar
+            - hacer análisis
+            - sacar radiografía
+            - resonancia
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: hacer análisis
+          options:
+            - resonancia
+            - hacer análisis
+            - revisar
+            - sacar radiografía
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: sacar radiografía
+          options:
+            - revisar
+            - resonancia
+            - sacar radiografía
+            - hacer análisis
+      - type: CONTEXT_RESPONSE
+        xp: 15
+        config:
+          question: "¿Qué estudio mira los huesos por dentro?"
+          answer: sacar radiografía
+          options:
+            - hacer análisis
+            - revisar
+            - sacar radiografía
+            - resonancia
+      - type: MATCH
+        xp: 20
+        config:
+          concepts:
+            - revisar
+            - hacer análisis
+            - sacar radiografía
+            - resonancia
+
+  - code: leccion-2
+    name: "Tratamiento"
+    description: "Lo que hacés para curarte y mejorar."
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: tratamiento
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: remedio
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: inyección
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: curar
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: mejorar
+
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: remedio
+          options:
+            - remedio
+            - inyección
+            - tratamiento
+            - curar
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: inyección
+          options:
+            - remedio
+            - inyección
+            - mejorar
+            - curar
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: curar
+          options:
+            - mejorar
+            - curar
+            - tratamiento
+            - remedio
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: mejorar
+          options:
+            - tratamiento
+            - curar
+            - mejorar
+            - inyección
+      - type: CONTEXT_RESPONSE
+        xp: 15
+        config:
+          question: "¿Qué tomás cuando el médico te lo indica para curarte?"
+          answer: remedio
+          options:
+            - inyección
+            - remedio
+            - tratamiento
+            - mejorar
+      - type: MATCH
+        xp: 20
+        config:
+          concepts:
+            - tratamiento
+            - remedio
+            - inyección
+            - curar
+            - mejorar
+
+  - code: leccion-3
+    name: "Elementos"
+    description: "Los elementos que se usan en la atención de la salud."
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: termómetro
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: yeso
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: audífono
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: anteojos
+
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: termómetro
+          options:
+            - termómetro
+            - yeso
+            - audífono
+            - anteojos
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: anteojos
+          options:
+            - termómetro
+            - yeso
+            - audífono
+            - anteojos
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: yeso
+          options:
+            - audífono
+            - yeso
+            - anteojos
+            - termómetro
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: audífono
+          options:
+            - anteojos
+            - termómetro
+            - audífono
+            - yeso
+      - type: CONTEXT_RESPONSE
+        xp: 15
+        config:
+          question: "¿Qué usás para medir la fiebre?"
+          answer: termómetro
+          options:
+            - yeso
+            - audífono
+            - termómetro
+            - anteojos
+      - type: MATCH
+        xp: 20
+        config:
+          concepts:
+            - termómetro
+            - yeso
+            - audífono
+            - anteojos
+

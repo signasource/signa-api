@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.signasource.signa_api.common.MetricsService;
 import com.signasource.signa_api.config.R2Properties;
 import java.net.URI;
 import java.time.Duration;
@@ -24,6 +25,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequ
 class SignAnimationServiceTest {
 
     @Mock private S3Presigner r2Presigner;
+    @Mock private MetricsService metricsService;
 
     private R2Properties r2Properties;
     private SignAnimationService signAnimationService;
@@ -37,7 +39,7 @@ class SignAnimationServiceTest {
                         "secret",
                         "signa-animations",
                         15);
-        signAnimationService = new SignAnimationService(r2Presigner, r2Properties);
+        signAnimationService = new SignAnimationService(r2Presigner, r2Properties, metricsService);
     }
 
     @Test
@@ -58,6 +60,9 @@ class SignAnimationServiceTest {
         assertEquals(Duration.ofMinutes(15), request.signatureDuration());
         assertEquals("signa-animations", request.getObjectRequest().bucket());
         assertEquals("lsa/test.glb", request.getObjectRequest().key());
+        verify(metricsService)
+                .recordR2Presign(
+                        any(java.time.Duration.class), org.mockito.ArgumentMatchers.eq(true));
     }
 
     @Test
@@ -67,5 +72,8 @@ class SignAnimationServiceTest {
 
         assertThrows(
                 RuntimeException.class, () -> signAnimationService.presignedGetUrl("lsa/test.glb"));
+        verify(metricsService)
+                .recordR2Presign(
+                        any(java.time.Duration.class), org.mockito.ArgumentMatchers.eq(false));
     }
 }

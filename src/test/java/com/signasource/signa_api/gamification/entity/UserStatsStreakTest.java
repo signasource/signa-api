@@ -93,4 +93,48 @@ class UserStatsStreakTest {
         assertFalse(advanced);
         assertEquals(1, stats.getCurrentStreak());
     }
+
+    @Test
+    void streakDayIsPendingOnlyOnTheDayItWasAdded() {
+        UserStats stats = UserStats.builder().build();
+        assertFalse(stats.isStreakDayPending(DAY));
+
+        stats.registerStreakActivity(DAY);
+
+        assertTrue(stats.isStreakDayPending(DAY));
+        assertFalse(stats.isStreakDayPending(DAY.plusDays(1)));
+    }
+
+    @Test
+    void markingTheStreakDaySeenIsIdempotent() {
+        UserStats stats = UserStats.builder().build();
+        stats.registerStreakActivity(DAY);
+
+        assertTrue(stats.markStreakDaySeen(DAY));
+        assertFalse(stats.markStreakDaySeen(DAY));
+
+        assertFalse(stats.isStreakDayPending(DAY));
+        assertEquals(DAY, stats.getStreakCelebratedDate());
+    }
+
+    @Test
+    void markingSeenWithoutAPendingDayChangesNothing() {
+        UserStats stats = UserStats.builder().build();
+        stats.registerStreakActivity(DAY);
+
+        assertFalse(stats.markStreakDaySeen(DAY.plusDays(1)));
+
+        assertEquals(null, stats.getStreakCelebratedDate());
+    }
+
+    @Test
+    void nextDayIsPendingAgainAfterTheLastOneWasSeen() {
+        UserStats stats = UserStats.builder().build();
+        stats.registerStreakActivity(DAY);
+        stats.markStreakDaySeen(DAY);
+
+        stats.registerStreakActivity(DAY.plusDays(1));
+
+        assertTrue(stats.isStreakDayPending(DAY.plusDays(1)));
+    }
 }

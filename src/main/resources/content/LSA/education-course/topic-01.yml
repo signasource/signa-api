@@ -12,19 +12,15 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: alumnos
-          word: alumnos
       - type: INTRODUCE_SIGN
         config:
           meaning: director
-          word: director
       - type: INTRODUCE_SIGN
         config:
           meaning: maestro
-          word: maestro
       - type: INTRODUCE_SIGN
         config:
           meaning: profesor
-          word: profesor
 
       - type: SELECT_MEANING
         xp: 10
@@ -88,19 +84,18 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: escuela
-          word: escuela
       - type: INTRODUCE_SIGN
         config:
           meaning: aula
-          word: aula
       - type: INTRODUCE_SIGN
         config:
           meaning: clase
-          word: clase
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: esquina
       - type: INTRODUCE_SIGN
         config:
           meaning: silla de ruedas
-          word: silla de ruedas
 
       - type: SELECT_SIGN
         xp: 10
@@ -111,6 +106,15 @@ lessons:
             - escuela
             - clase
             - silla de ruedas
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: esquina
+          options:
+            - esquina
+            - aula
+            - clase
+            - escuela
       - type: SELECT_MEANING
         xp: 10
         config:
@@ -145,6 +149,7 @@ lessons:
             - escuela
             - aula
             - clase
+            - esquina
             - silla de ruedas
 
   - code: leccion-3
@@ -154,31 +159,24 @@ lessons:
       - type: INTRODUCE_SIGN
         config:
           meaning: recreo
-          word: recreo
       - type: INTRODUCE_SIGN
         config:
           meaning: izar la bandera
-          word: izar la bandera
       - type: INTRODUCE_SIGN
         config:
           meaning: formar fila
-          word: formar fila
       - type: INTRODUCE_SIGN
         config:
           meaning: hamaca
-          word: hamaca
       - type: INTRODUCE_SIGN
         config:
-          meaning: tobogan
-          word: tobogan
+          meaning: tobogán
       - type: INTRODUCE_SIGN
         config:
           meaning: pelota
-          word: pelota
       - type: INTRODUCE_SIGN
         config:
           meaning: soga
-          word: soga
 
       - type: SELECT_MEANING
         xp: 10
@@ -196,24 +194,24 @@ lessons:
           options:
             - pelota
             - soga
-            - tobogan
+            - tobogán
             - hamaca
       - type: SELECT_MEANING
         xp: 10
         config:
-          sign: tobogan
+          sign: tobogán
           options:
             - hamaca
             - pelota
             - soga
-            - tobogan
+            - tobogán
       - type: SELECT_SIGN
         xp: 10
         config:
           word: soga
           options:
             - recreo
-            - tobogan
+            - tobogán
             - soga
             - izar la bandera
       - type: MATCH
@@ -224,4 +222,5 @@ lessons:
             - izar la bandera
             - formar fila
             - pelota
-            - tobogan
+            - tobogán
+

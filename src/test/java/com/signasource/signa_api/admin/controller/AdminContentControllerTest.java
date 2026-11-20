@@ -6,7 +6,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.signasource.signa_api.admin.dto.AdminCourseResponse;
-import com.signasource.signa_api.admin.dto.AdminSignResponse;
 import com.signasource.signa_api.admin.dto.AdminWaitlistEntryResponse;
 import com.signasource.signa_api.admin.dto.ContentImportRunResponse;
 import com.signasource.signa_api.admin.service.AdminService;
@@ -41,18 +40,6 @@ class AdminContentControllerTest {
         when(adminService.getCourses()).thenReturn(List.of());
 
         ResponseEntity<List<AdminCourseResponse>> resp = controller.getCourses();
-
-        assertEquals(HttpStatus.OK, resp.getStatusCode());
-    }
-
-    @Test
-    void shouldGetSigns() {
-        AdminSignResponse sign =
-                new AdminSignResponse(UUID.randomUUID(), "hola", "ONE_HANDED", true, 0, 0);
-        when(adminService.getSigns(any(), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(sign)));
-
-        ResponseEntity<?> resp = controller.getSigns(null, Pageable.unpaged());
 
         assertEquals(HttpStatus.OK, resp.getStatusCode());
     }

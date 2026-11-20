@@ -6,6 +6,7 @@ import com.signasource.signa_api.gamification.repository.UserAchievementReposito
 import com.signasource.signa_api.gamification.repository.UserLearnedSignRepository;
 import com.signasource.signa_api.notification.entity.NotificationCode;
 import com.signasource.signa_api.notification.service.NotificationService;
+import com.signasource.signa_api.users.dto.AvatarLinks;
 import com.signasource.signa_api.users.dto.FriendEventResponse;
 import com.signasource.signa_api.users.entity.FriendEventLike;
 import com.signasource.signa_api.users.entity.FriendEventType;
@@ -124,7 +125,8 @@ public class FriendEventService {
                                                 e.subject(),
                                                 e.context(),
                                                 true,
-                                                e.createdAt())
+                                                e.createdAt(),
+                                                e.friendAvatarUrl())
                                         : e)
                 .toList();
     }
@@ -193,7 +195,8 @@ public class FriendEventService {
                                         ua.getAchievement().getTitle(),
                                         ua.getAchievement().getDescription(),
                                         false,
-                                        ua.getEarnedAt()))
+                                        ua.getEarnedAt(),
+                                        AvatarLinks.of(friend)))
                 .toList();
     }
 
@@ -214,7 +217,8 @@ public class FriendEventService {
                                         uls.getSign(),
                                         uls.getCourseVersion().getCourse().getName(),
                                         false,
-                                        uls.getLearnedAt()))
+                                        uls.getLearnedAt(),
+                                        AvatarLinks.of(friend)))
                 .toList();
     }
 }

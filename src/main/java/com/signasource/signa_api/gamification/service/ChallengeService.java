@@ -54,7 +54,7 @@ public class ChallengeService {
 
     /** Exercises driven by the camera; the same set counts in lessons and in free practice. */
     private static final Set<BlockType> CAMERA_BLOCKS =
-            EnumSet.of(BlockType.VISUAL_RECOGNITION, BlockType.PERFORM_SIGN, BlockType.SPELL_NAME);
+            EnumSet.of(BlockType.PERFORM_SIGN, BlockType.SPELL_NAME);
 
     private final ChallengeRepository challengeRepository;
     private final UserChallengeRepository userChallengeRepository;
@@ -159,6 +159,7 @@ public class ChallengeService {
             case GEMS -> stats.setGems(stats.getGems() + quantity);
             case STREAK_SHIELD -> stats.setStreakShields(stats.getStreakShields() + quantity);
             case LIFE -> {
+                stats.regenerateLives(Instant.now());
                 int current =
                         stats.getCurrentLives() == null
                                 ? UserStats.MAX_LIVES
@@ -199,6 +200,19 @@ public class ChallengeService {
                                 ChallengeType.DAILY,
                                 ChallengeType.WEEKLY))) {
             UserChallenge row = existing.get(challenge.getId());
+            if (row != null) {
+                // On Tuesday today-1 == weekStart, so a DAILY row from yesterday can collide with
+                // the weekStart date in the query above. Discard it if the period doesn't match.
+                LocalDate expectedStart =
+                        switch (challenge.getChallengeType()) {
+                            case FIRST_STEPS -> FIRST_STEPS_PERIOD;
+                            case DAILY -> today;
+                            case WEEKLY -> weekStart;
+                        };
+                if (!row.getPeriodStart().equals(expectedStart)) {
+                    row = null;
+                }
+            }
             if (row == null) {
                 if (stats == null) {
                     stats = userStatsRepository.findByUser(user).orElse(null);

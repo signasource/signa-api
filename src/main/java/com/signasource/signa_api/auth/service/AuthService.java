@@ -10,6 +10,7 @@ import com.signasource.signa_api.auth.dto.RefreshTokenRequest;
 import com.signasource.signa_api.auth.dto.RegisterRequest;
 import com.signasource.signa_api.auth.dto.ResendVerificationEmailRequest;
 import com.signasource.signa_api.auth.dto.ResetPasswordRequest;
+import com.signasource.signa_api.auth.dto.VerifyEmailRequest;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.auth.entity.Token;
 import com.signasource.signa_api.auth.entity.TokenType;
@@ -52,8 +53,8 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class AuthService {
 
-    /** Failed attempts after which a password reset code is discarded. */
-    static final int MAX_RESET_CODE_ATTEMPTS = 5;
+    /** Failed attempts after which a password reset or email verification code is discarded. */
+    static final int MAX_CODE_ATTEMPTS = 5;
 
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -102,17 +103,13 @@ public class AuthService {
 
         userRepository.save(user);
 
-        userSettingsRepository.save(UserSettings.builder().user(user).build());
+        userSettingsRepository.save(newSettings(user, request.dailyGoalMinutes()));
         userStatsRepository.save(
                 UserStats.builder().user(user).gems(100).updatedAt(Instant.now()).build());
 
-        Token token =
-                createToken(
-                        user,
-                        TokenType.EMAIL_VERIFICATION,
-                        Duration.ofMillis(emailVerificationTokenExpiration));
-
-        emailService.sendVerificationEmail(user.getEmail(), token.getToken());
+        String verificationCode = newCode();
+        saveVerificationCode(user, passwordEncoder.encode(verificationCode));
+        emailService.sendVerificationEmail(user.getEmail(), verificationCode);
 
         metricsService.recordUserRegistration("local");
         return generateTokens(user);
@@ -135,6 +132,9 @@ public class AuthService {
         Token refreshToken = getToken(request.refreshToken(), TokenType.REFRESH);
         validateExpiration(refreshToken);
         tokenRepository.delete(refreshToken);
+        if (!refreshToken.getUser().isEnabled()) {
+            throw new InvalidTokenException();
+        }
         return generateTokens(refreshToken.getUser());
     }
 
@@ -174,7 +174,7 @@ public class AuthService {
     public void forgotPassword(ForgotPasswordRequest request) {
         // Hash before looking the user up: BCrypt takes ~100 ms, and doing it only for existing
         // accounts would make them answer measurably slower than unknown emails.
-        String code = String.format("%06d", secureRandom.nextInt(1_000_000));
+        String code = newCode();
         String codeHash = passwordEncoder.encode(code);
 
         User user = userRepository.findByEmail(request.email()).orElse(null);
@@ -218,7 +218,7 @@ public class AuthService {
 
         if (!passwordEncoder.matches(request.code(), resetToken.getToken())) {
             resetToken.setAttempts(resetToken.getAttempts() + 1);
-            if (resetToken.getAttempts() >= MAX_RESET_CODE_ATTEMPTS) {
+            if (resetToken.getAttempts() >= MAX_CODE_ATTEMPTS) {
                 tokenRepository.delete(resetToken);
             } else {
                 tokenRepository.save(resetToken);
@@ -238,25 +238,69 @@ public class AuthService {
 
     @Transactional
     public void resendVerificationEmail(ResendVerificationEmailRequest request) {
+        // Hash before looking the user up, as in forgotPassword, so timing does not reveal
+        // whether the email belongs to an account.
+        String code = newCode();
+        String codeHash = passwordEncoder.encode(code);
+
         User user = userRepository.findByEmail(request.email()).orElse(null);
 
-        if (user == null) {
+        if (user == null || user.isVerified()) {
             return;
         }
 
-        if (user.isVerified()) {
-            return;
-        }
+        saveVerificationCode(user, codeHash);
+        emailService.sendVerificationEmail(user.getEmail(), code);
+    }
 
-        tokenRepository.deleteByUserAndType(user, TokenType.EMAIL_VERIFICATION);
-
+    // Not rolling back on a bad code keeps the failed attempt (or the deleted token) persisted.
+    @Transactional(dontRollbackOn = InvalidResetCodeException.class)
+    public void verifyEmailCode(VerifyEmailRequest request) {
+        User user =
+                userRepository
+                        .findByEmail(request.email())
+                        .orElseThrow(InvalidResetCodeException::new);
         Token token =
-                createToken(
-                        user,
-                        TokenType.EMAIL_VERIFICATION,
-                        Duration.ofMillis(emailVerificationTokenExpiration));
+                tokenRepository
+                        .findByUserAndType(user, TokenType.EMAIL_VERIFICATION)
+                        .orElseThrow(InvalidResetCodeException::new);
 
-        emailService.sendVerificationEmail(user.getEmail(), token.getToken());
+        if (token.getExpiryDate().isBefore(Instant.now())) {
+            tokenRepository.delete(token);
+            throw new InvalidResetCodeException();
+        }
+
+        if (!passwordEncoder.matches(request.code(), token.getToken())) {
+            token.setAttempts(token.getAttempts() + 1);
+            if (token.getAttempts() >= MAX_CODE_ATTEMPTS) {
+                tokenRepository.delete(token);
+            } else {
+                tokenRepository.save(token);
+            }
+            throw new InvalidResetCodeException();
+        }
+
+        user.setVerified(true);
+        userRepository.save(user);
+        tokenRepository.delete(token);
+    }
+
+    private String newCode() {
+        return String.format("%06d", secureRandom.nextInt(1_000_000));
+    }
+
+    /** Replaces any pending verification code. Stored hashed for the same reason as reset codes. */
+    private void saveVerificationCode(User user, String codeHash) {
+        tokenRepository.deleteByUserAndType(user, TokenType.EMAIL_VERIFICATION);
+        tokenRepository.save(
+                Token.builder()
+                        .token(codeHash)
+                        .user(user)
+                        .type(TokenType.EMAIL_VERIFICATION)
+                        .expiryDate(
+                                Instant.now()
+                                        .plus(Duration.ofMillis(emailVerificationTokenExpiration)))
+                        .build());
     }
 
     private AuthResponse generateTokens(User user) {
@@ -266,31 +310,57 @@ public class AuthService {
         Token refreshToken =
                 createToken(user, TokenType.REFRESH, Duration.ofMillis(refreshTokenExpiration));
 
-        return new AuthResponse(accessToken, refreshToken.getToken());
+        return new AuthResponse(accessToken, refreshToken.getToken(), user.getRole().name());
+    }
+
+    private static UserSettings newSettings(User user, Integer dailyGoalMinutes) {
+        UserSettings.UserSettingsBuilder builder = UserSettings.builder().user(user);
+        if (dailyGoalMinutes != null) {
+            builder.dailyGoalMinutes(dailyGoalMinutes);
+        }
+        return builder.build();
     }
 
     @Transactional
-    public AuthResponse authenticateWithGoogle(String idTokenString) {
+    public AuthResponse authenticateWithGoogle(String idTokenString, Integer dailyGoalMinutes) {
         try {
-            GoogleIdToken idToken = googleIdTokenVerifier.verify(idTokenString);
+            GoogleIdToken.Payload payload = verifyGoogleToken(idTokenString);
 
-            if (idToken == null) {
-                throw new InvalidCredentialsException("Invalid Google token");
+            // Sin correo verificado por Google no se puede confiar en el para crear ni vincular
+            // cuentas.
+            if (!Boolean.TRUE.equals(payload.getEmailVerified())) {
+                throw new InvalidCredentialsException("Authentication failed");
             }
 
-            GoogleIdToken.Payload payload = idToken.getPayload();
+            String googleSub = payload.getSubject();
             String email = payload.getEmail();
             String name = (String) payload.get("name");
             String familyName = (String) payload.get("family_name");
             String lastName = familyName != null ? familyName : "";
 
-            Optional<User> userOptional = userRepository.findByEmail(email);
+            // Primero por cuenta de Google ya vinculada (puede tener otro correo), despues por
+            // correo.
+            Optional<User> userOptional =
+                    userRepository
+                            .findByGoogleSub(googleSub)
+                            .or(() -> userRepository.findByEmail(email));
             User user;
             boolean isNewUser = userOptional.isEmpty();
 
             if (userOptional.isPresent()) {
                 user = userOptional.get();
+                if (!user.isEnabled()) {
+                    throw new InvalidCredentialsException("Authentication failed");
+                }
                 boolean needsUpdate = false;
+
+                if (user.getGoogleSub() == null) {
+                    user.setGoogleSub(googleSub);
+                    needsUpdate = true;
+                } else if (!user.getGoogleSub().equals(googleSub)) {
+                    // Mismo correo, pero la cuenta ya esta vinculada a otra cuenta de Google.
+                    throw new InvalidCredentialsException("Authentication failed");
+                }
 
                 // Google ya verifico el correo del usuario.
                 if (!user.isVerified()) {
@@ -317,6 +387,7 @@ public class AuthService {
                                 .lastName(lastName)
                                 .username(generatedUsername)
                                 .passwordHash(null)
+                                .googleSub(googleSub)
                                 .role(Role.USER)
                                 .enabled(true)
                                 .verified(true)
@@ -325,7 +396,7 @@ public class AuthService {
 
                 user = userRepository.save(user);
 
-                userSettingsRepository.save(UserSettings.builder().user(user).build());
+                userSettingsRepository.save(newSettings(user, dailyGoalMinutes));
                 userStatsRepository.save(
                         UserStats.builder().user(user).gems(100).updatedAt(Instant.now()).build());
             }
@@ -340,6 +411,47 @@ public class AuthService {
             throw e;
         } catch (Exception e) {
             log.error("Unexpected error during Google authentication", e);
+            throw new InvalidCredentialsException("Authentication failed");
+        }
+    }
+
+    /**
+     * Vincula una cuenta de Google al usuario autenticado. La cuenta de Google puede tener un
+     * correo distinto al de Signa: se identifica por su "sub".
+     */
+    @Transactional
+    public void linkGoogleAccount(String idTokenString) {
+        User user = getAuthenticatedUser();
+        GoogleIdToken.Payload payload = verifyGoogleToken(idTokenString);
+        String googleSub = payload.getSubject();
+
+        if (user.getGoogleSub() != null) {
+            throw new ResourceAlreadyInUseException("Google account already linked");
+        }
+        userRepository
+                .findByGoogleSub(googleSub)
+                .ifPresent(
+                        other -> {
+                            throw new ResourceAlreadyInUseException(
+                                    "Google account already in use");
+                        });
+
+        user.setGoogleSub(googleSub);
+        user.getProviders().add(AuthProvider.GOOGLE);
+        userRepository.save(user);
+    }
+
+    private GoogleIdToken.Payload verifyGoogleToken(String idTokenString) {
+        try {
+            GoogleIdToken idToken = googleIdTokenVerifier.verify(idTokenString);
+            if (idToken == null) {
+                throw new InvalidCredentialsException("Invalid Google token");
+            }
+            return idToken.getPayload();
+        } catch (InvalidCredentialsException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error verifying Google token", e);
             throw new InvalidCredentialsException("Authentication failed");
         }
     }

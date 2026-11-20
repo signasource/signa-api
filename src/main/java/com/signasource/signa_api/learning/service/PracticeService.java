@@ -137,8 +137,14 @@ public class PracticeService {
                 .toList();
     }
 
+    /**
+     * Records a practice attempt and grants XP immediately when the answer is correct and the block
+     * carries an XP reward — unlike lesson exercises, which only pay out on lesson completion.
+     *
+     * @return the nominal XP awarded (0 when wrong or the block has no reward)
+     */
     @Transactional
-    public void recordAttempt(User user, UUID lessonBlockId, boolean isCorrect) {
+    public int recordAttempt(User user, UUID lessonBlockId, boolean isCorrect) {
         LessonBlock block =
                 lessonBlockRepository
                         .findById(lessonBlockId)
@@ -154,6 +160,12 @@ public class PracticeService {
         if (isCorrect && ChallengeService.isCameraBlock(block.getType())) {
             challengeService.record(user, ChallengeCriteriaType.CAMERA_PRACTICES, 1);
         }
+
+        if (isCorrect && block.getXpReward() != null && block.getXpReward() > 0) {
+            eventPublisher.publishEvent(new XpEarnedEvent(this, user, block.getXpReward()));
+            return block.getXpReward();
+        }
+        return 0;
     }
 
     /**

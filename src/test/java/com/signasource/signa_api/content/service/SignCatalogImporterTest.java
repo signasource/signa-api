@@ -24,6 +24,7 @@ import com.signasource.signa_api.learning.entity.Sign;
 import com.signasource.signa_api.learning.entity.SignLanguage;
 import com.signasource.signa_api.learning.repository.SignLanguageRepository;
 import com.signasource.signa_api.learning.repository.SignRepository;
+import com.signasource.signa_api.learning.service.SignMediaStorage;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -44,6 +45,7 @@ class SignCatalogImporterTest {
     @Mock private SignCatalogExtractor extractor;
     @Mock private SignRepository signRepository;
     @Mock private SignLanguageRepository signLanguageRepository;
+    @Mock private SignMediaStorage mediaStorage;
 
     @InjectMocks private SignCatalogImporter importer;
 
@@ -66,7 +68,8 @@ class SignCatalogImporterTest {
                 new TopicYaml(new TopicDto("t1", "Topic", null, null, null), List.of(lesson));
         CourseYaml yaml =
                 new CourseYaml(
-                        new CourseMetadataDto("basic", "Basic", null, false, null),
+                        new CourseMetadataDto(
+                                "basic", "Basic", null, false, null, null, false, null),
                         null,
                         List.of());
         return new LoadedCourse(langCode, yaml, List.of(topic));
@@ -78,6 +81,8 @@ class SignCatalogImporterTest {
         LoadedCourse course = course(LSA, block);
         when(signLanguageRepository.findByCode(LSA)).thenReturn(Optional.of(lsa));
         when(extractor.extract(block)).thenReturn(List.of("hola", "por favor"));
+        when(mediaStorage.exists("lsa/hola.glb")).thenReturn(true);
+        when(mediaStorage.exists("lsa/por favor.glb")).thenReturn(true);
 
         importer.importSigns(List.of(course));
 
@@ -111,6 +116,7 @@ class SignCatalogImporterTest {
         when(extractor.extract(block)).thenReturn(List.of("hola", "chau"));
         when(signRepository.findByMeaningIgnoreCase("hola")).thenReturn(Optional.of(existingHola));
         when(signRepository.findByMeaningIgnoreCase("chau")).thenReturn(Optional.empty());
+        when(mediaStorage.exists("lsa/hola.glb")).thenReturn(true);
 
         importer.importSigns(List.of(course));
 
@@ -134,6 +140,7 @@ class SignCatalogImporterTest {
         when(signLanguageRepository.findByCode(LSA)).thenReturn(Optional.of(lsa));
         when(extractor.extract(block)).thenReturn(List.of("A"));
         when(signRepository.findByMeaningIgnoreCase("A")).thenReturn(Optional.of(existing));
+        when(mediaStorage.exists("lsa/A.glb")).thenReturn(true);
 
         importer.importSigns(List.of(course));
 
@@ -183,5 +190,189 @@ class SignCatalogImporterTest {
                 SignLanguageNotFoundException.class, () -> importer.importSigns(List.of(course)));
 
         verify(signRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void shouldKeepAnAnimationUploadedFromThePanel() {
+        LessonBlockDto block = block(1);
+        LoadedCourse course = course(LSA, block);
+        Sign existing =
+                Sign.builder()
+                        .id(UUID.randomUUID())
+                        .meaning("hola")
+                        .animationUrl("lsa/hola.mp4")
+                        .signLanguage(lsa)
+                        .build();
+        when(signLanguageRepository.findByCode(LSA)).thenReturn(Optional.of(lsa));
+        when(extractor.extract(block)).thenReturn(List.of("hola"));
+        when(signRepository.findByMeaningIgnoreCase("hola")).thenReturn(Optional.of(existing));
+        when(mediaStorage.exists("lsa/hola.glb")).thenReturn(false);
+        when(mediaStorage.exists("lsa/hola.mp4")).thenReturn(true);
+
+        importer.importSigns(List.of(course));
+
+        assertEquals("lsa/hola.mp4", existing.getAnimationUrl());
+        verify(signRepository, org.mockito.Mockito.never()).save(existing);
+    }
+
+    @Test
+    void shouldCreateSignWithMp4KeyWhenGlbMissingAndMp4Exists() {
+        LessonBlockDto block = block(1);
+        LoadedCourse course = course(LSA, block);
+        when(signLanguageRepository.findByCode(LSA)).thenReturn(Optional.of(lsa));
+        when(extractor.extract(block)).thenReturn(List.of("hola"));
+        when(mediaStorage.exists("lsa/hola.glb")).thenReturn(false);
+        when(mediaStorage.exists("lsa/hola.mp4")).thenReturn(true);
+
+        importer.importSigns(List.of(course));
+
+        verify(signRepository).saveAll(signsCaptor.capture());
+        assertEquals("lsa/hola.mp4", signsCaptor.getValue().get(0).getAnimationUrl());
+    }
+
+    @Test
+    void shouldCreateSignWithExtensionlessKeyWhenNoFileExists() {
+        LessonBlockDto block = block(1);
+        LoadedCourse course = course(LSA, block);
+        when(signLanguageRepository.findByCode(LSA)).thenReturn(Optional.of(lsa));
+        when(extractor.extract(block)).thenReturn(List.of("hola"));
+
+        importer.importSigns(List.of(course));
+
+        verify(signRepository).saveAll(signsCaptor.capture());
+        assertEquals("lsa/hola", signsCaptor.getValue().get(0).getAnimationUrl());
+    }
+
+    @Test
+    void shouldFillAMissingAnimationKey() {
+        LessonBlockDto block = block(1);
+        LoadedCourse course = course(LSA, block);
+        Sign existing =
+                Sign.builder().id(UUID.randomUUID()).meaning("hola").signLanguage(lsa).build();
+        when(signLanguageRepository.findByCode(LSA)).thenReturn(Optional.of(lsa));
+        when(extractor.extract(block)).thenReturn(List.of("hola"));
+        when(signRepository.findByMeaningIgnoreCase("hola")).thenReturn(Optional.of(existing));
+        when(mediaStorage.exists("lsa/hola.glb")).thenReturn(true);
+
+        importer.importSigns(List.of(course));
+
+        assertEquals("lsa/hola.glb", existing.getAnimationUrl());
+        verify(signRepository).save(existing);
+    }
+
+    @Test
+    void shouldRefreshMediaKeysOfExistingSignsWithoutReadingContent() {
+        Sign stale =
+                Sign.builder()
+                        .meaning("hola")
+                        .animationUrl("lsa/hola.glb")
+                        .signLanguage(lsa)
+                        .build();
+        Sign video =
+                Sign.builder()
+                        .meaning("chau")
+                        .animationUrl("lsa/chau.glb")
+                        .signLanguage(lsa)
+                        .build();
+        Sign uploaded =
+                Sign.builder()
+                        .meaning("gracias")
+                        .animationUrl("lsa/custom/gracias.mp4")
+                        .signLanguage(lsa)
+                        .build();
+        Sign unchanged =
+                Sign.builder()
+                        .meaning("mamá")
+                        .animationUrl("lsa/mamá.glb")
+                        .signLanguage(lsa)
+                        .build();
+        when(signRepository.findAll()).thenReturn(List.of(stale, video, uploaded, unchanged));
+        when(mediaStorage.exists(org.mockito.ArgumentMatchers.anyString())).thenReturn(false);
+        when(mediaStorage.exists("lsa/chau.mp4")).thenReturn(true);
+        when(mediaStorage.exists("lsa/chau_lateral.mp4")).thenReturn(true);
+        when(mediaStorage.exists("lsa/mamá.glb")).thenReturn(true);
+
+        int changed = importer.refreshMediaKeys();
+
+        assertEquals(2, changed);
+        assertEquals("lsa/hola", stale.getAnimationUrl());
+        assertEquals("lsa/chau.mp4", video.getAnimationUrl());
+        assertEquals("lsa/chau_lateral.mp4", video.getLateralAnimationUrl());
+        assertEquals("lsa/custom/gracias.mp4", uploaded.getAnimationUrl());
+        verify(signRepository).save(stale);
+        verify(signRepository).save(video);
+        verify(signRepository, never()).save(uploaded);
+        verify(signRepository, never()).save(unchanged);
+    }
+
+    @Test
+    void shouldMatchBucketFilesIgnoringCaseAndAccents() {
+        Sign clinic = Sign.builder().meaning("clinica").signLanguage(lsa).build();
+        Sign cafe = Sign.builder().meaning("café").signLanguage(lsa).build();
+        Sign lateralOnly = Sign.builder().meaning("autorizacion").signLanguage(lsa).build();
+        when(signRepository.findAll()).thenReturn(List.of(clinic, cafe, lateralOnly));
+        when(mediaStorage.exists(org.mockito.ArgumentMatchers.anyString())).thenReturn(false);
+        when(mediaStorage.listKeys("lsa/"))
+                .thenReturn(
+                        List.of(
+                                "lsa/Clínica.mp4",
+                                "lsa/Café.glb",
+                                "lsa/Autorización.mp4",
+                                "lsa/Autorización_lateral.mp4",
+                                "lsa/_history/Café-123.glb"));
+
+        int changed = importer.refreshMediaKeys();
+
+        assertEquals(3, changed);
+        assertEquals("lsa/Clínica.mp4", clinic.getAnimationUrl());
+        assertEquals("lsa/Café.glb", cafe.getAnimationUrl());
+        assertEquals("lsa/Autorización.mp4", lateralOnly.getAnimationUrl());
+        assertEquals("lsa/Autorización_lateral.mp4", lateralOnly.getLateralAnimationUrl());
+    }
+
+    @Test
+    void shouldKeepAnAccentedKeyAlreadyResolvedFromTheBucket() {
+        Sign resolved =
+                Sign.builder()
+                        .meaning("clinica")
+                        .animationUrl("lsa/Clínica.mp4")
+                        .signLanguage(lsa)
+                        .build();
+        when(signRepository.findAll()).thenReturn(List.of(resolved));
+        when(mediaStorage.exists(org.mockito.ArgumentMatchers.anyString())).thenReturn(false);
+        when(mediaStorage.listKeys("lsa/")).thenReturn(List.of("lsa/Clínica.mp4"));
+
+        assertEquals(0, importer.refreshMediaKeys());
+        verify(signRepository, never()).save(resolved);
+    }
+
+    @Test
+    void shouldNormalizeNames() {
+        assertEquals("manana", SignCatalogImporter.normalize("Mañana"));
+        assertEquals("de nada", SignCatalogImporter.normalize("  De-Nada "));
+    }
+
+    @Test
+    void shouldResolveSignsWhoseFileIsNamedDifferently() {
+        Sign boy = Sign.builder().meaning("niño").signLanguage(lsa).build();
+        Sign tomorrow = Sign.builder().meaning("mañana").signLanguage(lsa).build();
+        Sign morning = Sign.builder().meaning("la mañana").signLanguage(lsa).build();
+        Sign today = Sign.builder().meaning("hoy").signLanguage(lsa).build();
+        when(signRepository.findAll()).thenReturn(List.of(boy, tomorrow, morning, today));
+        when(mediaStorage.exists(org.mockito.ArgumentMatchers.anyString())).thenReturn(false);
+        when(mediaStorage.listKeys("lsa/"))
+                .thenReturn(
+                        List.of(
+                                "lsa/nene.mp4",
+                                "lsa/mañana (día siguiente).mp4",
+                                "lsa/mañana (parte del día).mp4",
+                                "lsa/hoy-ahora.mp4"));
+
+        assertEquals(4, importer.refreshMediaKeys());
+        assertEquals("lsa/nene.mp4", boy.getAnimationUrl());
+        assertEquals("lsa/mañana (día siguiente).mp4", tomorrow.getAnimationUrl());
+        assertEquals("lsa/mañana (parte del día).mp4", morning.getAnimationUrl());
+        assertEquals("lsa/hoy-ahora.mp4", today.getAnimationUrl());
+        assertEquals(0, importer.refreshMediaKeys());
     }
 }

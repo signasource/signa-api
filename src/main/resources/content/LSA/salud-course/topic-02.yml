@@ -1,0 +1,87 @@
+topic:
+  code: unidad-2
+  title: "Unidad 2"
+  subtitle: "¿A dónde voy? Lugares de atención y trámites"
+  description: "Conocé los lugares donde te atienden y los trámites de la obra social."
+
+lessons:
+  - code: leccion-1
+    name: "Lugares y trámites"
+    description: "Los lugares de atención y los trámites de la obra social."
+    blocks:
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: hospital
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: clínica
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: guardia
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: internación
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: obra social
+      - type: INTRODUCE_SIGN
+        config:
+          meaning: autorización
+
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: hospital
+          options:
+            - hospital
+            - clínica
+            - guardia
+            - internación
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: guardia
+          options:
+            - guardia
+            - internación
+            - hospital
+            - clínica
+      - type: SELECT_MEANING
+        xp: 10
+        config:
+          sign: obra social
+          options:
+            - autorización
+            - obra social
+            - internación
+            - clínica
+      - type: SELECT_SIGN
+        xp: 10
+        config:
+          word: autorización
+          options:
+            - obra social
+            - autorización
+            - hospital
+            - guardia
+      - type: CONTEXT_RESPONSE
+        xp: 15
+        config:
+          question: "¿A dónde vas si tenés una urgencia y necesitás atención inmediata?"
+          answer: guardia
+          options:
+            - obra social
+            - internación
+            - guardia
+            - autorización
+      - type: MATCH
+        xp: 20
+        config:
+          concepts:
+            - hospital
+            - clínica
+            - guardia
+            - internación
+            - obra social
+            - autorización
+

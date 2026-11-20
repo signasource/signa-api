@@ -106,6 +106,7 @@ public class FriendshipService {
         friendshipRepository.save(friendship);
         awardFriendAchievements(requester);
         awardFriendAchievements(addressee);
+        challengeService.record(addressee, ChallengeCriteriaType.FRIEND_REQUESTS_SENT, 1);
         notifyRequestAccepted(requester, addressee);
     }
 

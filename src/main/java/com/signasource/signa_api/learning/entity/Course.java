@@ -11,6 +11,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -45,7 +46,17 @@ public class Course {
     @Column(nullable = false)
     private boolean isFree;
 
+    /** One-time price for individual purchase (Mercado Pago). {@code null} for free courses. */
+    @Column(precision = 12, scale = 2)
+    private BigDecimal price;
+
     @Column private String coverUrl;
+
+    @Column(nullable = false)
+    private boolean hasCameraRecognition;
+
+    @Column(length = 10)
+    private String mediaFormat;
 
     @Column(length = 64)
     private String contentHash;

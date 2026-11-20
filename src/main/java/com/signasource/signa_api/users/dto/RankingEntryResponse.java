@@ -10,4 +10,5 @@ public record RankingEntryResponse(
         int weeklyXp,
         int currentStreak,
         /** Positive = moved up; negative = moved down; null = no previous data. */
-        Integer delta) {}
+        Integer delta,
+        String avatarUrl) {}

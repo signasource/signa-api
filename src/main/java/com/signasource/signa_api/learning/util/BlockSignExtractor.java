@@ -19,8 +19,12 @@ public class BlockSignExtractor {
         return switch (block.getType()) {
             case INFO, INVISIBLE_SIGNS -> List.of();
             default -> {
+                String configStr = block.getConfig();
+                if (configStr == null || configStr.isBlank()) {
+                    yield List.of();
+                }
                 try {
-                    JsonNode config = objectMapper.readTree(block.getConfig());
+                    JsonNode config = objectMapper.readTree(configStr);
                     yield extractFromConfig(block.getType(), config);
                 } catch (JsonProcessingException e) {
                     yield List.of();
@@ -37,7 +41,6 @@ public class BlockSignExtractor {
             case SELECT_SIGN -> singleText(config, "word");
             case CONTEXT_RESPONSE -> singleText(config, "answer");
             case MATCH -> arrayTexts(config, "concepts");
-            case VISUAL_RECOGNITION -> arrayTexts(config, "sign_sequence");
             // Ver SignCatalogExtractor: son etiquetas del modelo, no señas del catálogo.
             case INFO, INVISIBLE_SIGNS, PERFORM_SIGN, SPELL_NAME -> List.of();
         };

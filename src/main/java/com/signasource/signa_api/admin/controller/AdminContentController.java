@@ -1,7 +1,6 @@
 package com.signasource.signa_api.admin.controller;
 
 import com.signasource.signa_api.admin.dto.AdminCourseResponse;
-import com.signasource.signa_api.admin.dto.AdminSignResponse;
 import com.signasource.signa_api.admin.dto.AdminWaitlistEntryResponse;
 import com.signasource.signa_api.admin.dto.ContentImportRunResponse;
 import com.signasource.signa_api.admin.service.AdminService;
@@ -19,7 +18,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -33,13 +31,6 @@ public class AdminContentController {
     @GetMapping("/courses")
     public ResponseEntity<List<AdminCourseResponse>> getCourses() {
         return ResponseEntity.ok(adminService.getCourses());
-    }
-
-    @GetMapping("/signs")
-    public ResponseEntity<Page<AdminSignResponse>> getSigns(
-            @RequestParam(required = false) String query,
-            @PageableDefault(size = 30) Pageable pageable) {
-        return ResponseEntity.ok(adminService.getSigns(query, pageable));
     }
 
     @GetMapping("/waitlist")

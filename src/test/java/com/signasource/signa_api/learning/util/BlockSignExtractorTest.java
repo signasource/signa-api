@@ -58,15 +58,6 @@ class BlockSignExtractorTest {
     }
 
     @Test
-    void shouldExtractSignSequenceFromVisualRecognition() {
-        LessonBlock block =
-                block(
-                        BlockType.VISUAL_RECOGNITION,
-                        "{\"sign_sequence\":[\"a\",\"b\"],\"options\":[\"ab\",\"ba\"],\"keep_order\":true}");
-        assertEquals(List.of("a", "b"), extractor.extract(block));
-    }
-
-    @Test
     void shouldExtractMeaningFromIntroduceSign() {
         LessonBlock block =
                 block(BlockType.INTRODUCE_SIGN, "{\"meaning\":\"hola\",\"word\":\"hola\"}");

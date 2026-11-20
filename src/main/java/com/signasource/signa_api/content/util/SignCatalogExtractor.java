@@ -6,7 +6,6 @@ import com.signasource.signa_api.content.dto.config.InvisibleSignsConfig;
 import com.signasource.signa_api.content.dto.config.MatchConfig;
 import com.signasource.signa_api.content.dto.config.SelectMeaningConfig;
 import com.signasource.signa_api.content.dto.config.SelectSignConfig;
-import com.signasource.signa_api.content.dto.config.VisualRecognitionConfig;
 import com.signasource.signa_api.content.dto.yaml.LessonBlockDto;
 import java.util.List;
 import java.util.Objects;
@@ -41,10 +40,6 @@ public class SignCatalogExtractor {
             case MATCH ->
                     parser.parse(block.config(), MatchConfig.class)
                             .map(config -> many(config.concepts()))
-                            .orElseGet(List::of);
-            case VISUAL_RECOGNITION ->
-                    parser.parse(block.config(), VisualRecognitionConfig.class)
-                            .map(config -> many(config.signSequence()))
                             .orElseGet(List::of);
             // Sus signs son etiquetas del modelo de reconocimiento, no del
             // catálogo: no tienen animación propia ni definen una seña nueva.

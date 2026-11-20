@@ -2,8 +2,13 @@ package com.signasource.signa_api.admin.dto;
 
 import com.signasource.signa_api.organizations.entity.OrganizationStatus;
 import jakarta.validation.constraints.NotNull;
-import java.util.List;
-import java.util.UUID;
+import jakarta.validation.constraints.Size;
 
+/** {@code reason} is required when suspending and ignored otherwise. */
 public record UpdateOrganizationStatusRequest(
-        @NotNull OrganizationStatus status, List<UUID> courseIds) {}
+        @NotNull OrganizationStatus status, @Size(max = 500) String reason) {
+
+    public UpdateOrganizationStatusRequest(OrganizationStatus status) {
+        this(status, null);
+    }
+}

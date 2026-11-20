@@ -9,6 +9,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -18,6 +19,13 @@ public interface OrganizationMemberRepository extends JpaRepository<Organization
 
     @EntityGraph(attributePaths = {"organization"})
     Optional<OrganizationMember> findByUserId(UUID userId);
+
+    @EntityGraph(attributePaths = {"user"})
+    List<OrganizationMember> findByOrganizationIdAndRole(UUID organizationId, MemberRole role);
+
+    @Modifying
+    @Query("delete from OrganizationMember m where m.organization.id = :organizationId")
+    void deleteByOrganizationId(@Param("organizationId") UUID organizationId);
 
     Optional<OrganizationMember> findByOrganizationIdAndUserId(UUID organizationId, UUID userId);
 

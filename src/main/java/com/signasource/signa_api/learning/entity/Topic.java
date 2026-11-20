@@ -55,7 +55,11 @@ public class Topic {
     @JoinColumn(name = "course_version_id", nullable = false)
     private CourseVersion courseVersion;
 
-    @OneToMany(mappedBy = "topic", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(
+            mappedBy = "topic",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true,
+            fetch = FetchType.LAZY)
     @OrderBy("order ASC")
     @Builder.Default
     @ToString.Exclude

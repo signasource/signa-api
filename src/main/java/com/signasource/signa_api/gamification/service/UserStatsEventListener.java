@@ -64,16 +64,17 @@ public class UserStatsEventListener {
         stats.setWeeklyXp(stats.getWeeklyXp() + xpToAdd);
         stats.setUpdatedAt(Instant.now());
 
+        achievementService.awardReached(
+                user, AchievementCriteriaType.TOTAL_XP, stats.getTotalXp(), stats);
+        achievementService.awardReached(
+                user, AchievementCriteriaType.WEEKLY_XP, stats.getWeeklyXp(), stats);
+
         if (stats.registerStreakActivity(ArgentinaTime.today())) {
             achievementService.awardReached(
                     user, AchievementCriteriaType.STREAK_DAYS, stats.getCurrentStreak(), stats);
             challengeService.record(
                     user, ChallengeCriteriaType.STREAK_DAYS, stats.getCurrentStreak());
         }
-        achievementService.awardReached(
-                user, AchievementCriteriaType.TOTAL_XP, stats.getTotalXp(), stats);
-        achievementService.awardReached(
-                user, AchievementCriteriaType.WEEKLY_XP, stats.getWeeklyXp(), stats);
 
         userStatsRepository.save(stats);
         metricsService.recordXpEarned(xpToAdd);

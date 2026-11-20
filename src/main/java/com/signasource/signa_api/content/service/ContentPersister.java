@@ -104,7 +104,10 @@ public class ContentPersister {
         course.setName(incoming.getName());
         course.setDescription(incoming.getDescription());
         course.setFree(incoming.isFree());
+        course.setPrice(incoming.getPrice());
         course.setCoverUrl(incoming.getCoverUrl());
+        course.setHasCameraRecognition(incoming.isHasCameraRecognition());
+        course.setMediaFormat(incoming.getMediaFormat());
         course.setSignLanguage(signLanguage);
         course.setContentHash(contentHash);
 

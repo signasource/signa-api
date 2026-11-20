@@ -13,7 +13,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -39,14 +41,22 @@ public class User {
     @Column(nullable = false, unique = true)
     private String username;
 
-    @Column(nullable = false)
+    /** Null for accounts created with Google (they have no password). */
     private String passwordHash;
+
+    /** Stable Google account id ("sub" claim); null until a Google account is linked. */
+    @Column(name = "google_sub", unique = true)
+    private String googleSub;
 
     @Column(nullable = false)
     private String name;
 
     @Column(nullable = false)
     private String lastName;
+
+    /** Profile photo as a data URL; null when none. */
+    @Column(columnDefinition = "text")
+    private String avatar;
 
     @Enumerated(EnumType.STRING)
     private Role role;
@@ -73,4 +83,15 @@ public class User {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "current_course_id")
     private Course currentCourse;
+
+    /** Account creation instant; drives signup/new-user metrics on the admin dashboard. */
+    @Column(nullable = false, updatable = false)
+    private Instant createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        if (this.createdAt == null) {
+            this.createdAt = Instant.now();
+        }
+    }
 }

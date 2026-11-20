@@ -151,6 +151,7 @@ class UserServiceTest {
                         .role(Role.USER)
                         .enabled(true)
                         .verified(true)
+                        .avatar("data:image/png;base64,iVBORw0KGgo=")
                         .accountVisibility(AccountVisibility.PUBLIC)
                         .build();
 
@@ -165,6 +166,7 @@ class UserServiceTest {
         assertNotEquals("hashed", user.getPasswordHash());
         assertEquals(AccountVisibility.PRIVATE, user.getAccountVisibility());
         assertNull(user.getCurrentCourse());
+        assertNull(user.getAvatar());
         verify(userRepository).save(user);
         verify(tokenRepository).deleteByUser(user);
         verify(deviceTokenRepository).deleteByUser(user);
@@ -289,5 +291,61 @@ class UserServiceTest {
 
         assertTrue(userService.searchUsers(me, "nobody", 20).isEmpty());
         verify(friendshipRepository, never()).findAllByUser(me);
+    }
+
+    private static final String PNG_DATA_URL = "data:image/png;base64,iVBORw0KGgo=";
+
+    @Test
+    void setAvatar_StoresPhotoAndSaves() {
+        userService.setAvatar(user, PNG_DATA_URL);
+
+        assertEquals(PNG_DATA_URL, user.getAvatar());
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void setAvatar_NullClearsPhoto() {
+        user.setAvatar(PNG_DATA_URL);
+
+        userService.setAvatar(user, null);
+
+        assertNull(user.getAvatar());
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void getAvatarImage_DecodesStoredDataUrl() {
+        user.setAvatar(PNG_DATA_URL);
+        when(userRepository.findByUsername(CURRENT_USERNAME))
+                .thenReturn(java.util.Optional.of(user));
+
+        AvatarImage image = userService.getAvatarImage(CURRENT_USERNAME).orElseThrow();
+
+        assertEquals("image/png", image.contentType());
+        assertTrue(image.bytes().length > 0);
+    }
+
+    @Test
+    void getAvatarImage_EmptyWhenUserHasNoPhoto() {
+        when(userRepository.findByUsername(CURRENT_USERNAME))
+                .thenReturn(java.util.Optional.of(user));
+
+        assertTrue(userService.getAvatarImage(CURRENT_USERNAME).isEmpty());
+    }
+
+    @Test
+    void getAvatarImage_EmptyWhenUserUnknown() {
+        when(userRepository.findByUsername("nobody")).thenReturn(java.util.Optional.empty());
+
+        assertTrue(userService.getAvatarImage("nobody").isEmpty());
+    }
+
+    @Test
+    void getAvatarImage_EmptyWhenStoredValueIsCorrupt() {
+        user.setAvatar("data:image/png;base64,@@@not-base64@@@");
+        when(userRepository.findByUsername(CURRENT_USERNAME))
+                .thenReturn(java.util.Optional.of(user));
+
+        assertTrue(userService.getAvatarImage(CURRENT_USERNAME).isEmpty());
     }
 }
