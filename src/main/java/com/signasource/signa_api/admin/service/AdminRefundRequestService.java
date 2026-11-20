@@ -96,7 +96,9 @@ public class AdminRefundRequestService {
         switch (purchaseType) {
             case AdminPurchasesService.TYPE_GEMS -> reverseGems(purchaseId);
             case AdminPurchasesService.TYPE_COURSE -> reverseCourse(purchaseId);
-                // SEATS: automatically reversed when Mercado Pago issues a refund via webhook.
+            default -> {
+                // SEATS: reversed when Mercado Pago issues the refund, via webhook.
+            }
         }
     }
 
