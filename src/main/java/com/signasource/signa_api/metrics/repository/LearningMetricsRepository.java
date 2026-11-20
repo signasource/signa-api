@@ -18,7 +18,10 @@ import org.springframework.data.repository.query.Param;
  */
 public interface LearningMetricsRepository extends Repository<UserCourseEnrollment, UUID> {
 
-    /** Rows of {@code [UUID courseId, String courseName, String courseVersion, EnrollmentStatus status, long count]}. */
+    /**
+     * Rows of {@code [UUID courseId, String courseName, String courseVersion, EnrollmentStatus
+     * status, long count]}.
+     */
     @Query(
             "SELECT e.courseVersion.course.id, e.courseVersion.course.name, e.courseVersion.versionNumber, e.status, COUNT(e) "
                     + "FROM UserCourseEnrollment e WHERE e.startedAt < :until "

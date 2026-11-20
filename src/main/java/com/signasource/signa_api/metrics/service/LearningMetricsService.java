@@ -91,7 +91,8 @@ public class LearningMetricsService {
         List<Object[]> exerciseRows =
                 filtered
                         ? (versionFiltered
-                                ? repository.exerciseStatsByCourse(from, until, courseIds, courseVersions)
+                                ? repository.exerciseStatsByCourse(
+                                        from, until, courseIds, courseVersions)
                                 : repository.exerciseStatsByCourse(from, until, courseIds))
                         : repository.exerciseStats(from, until);
         List<Object[]> previousExerciseRows =
@@ -99,8 +100,10 @@ public class LearningMetricsService {
                         ? null
                         : (filtered
                                 ? (versionFiltered
-                                        ? repository.exerciseStatsByCourse(previousFrom, from, courseIds, courseVersions)
-                                        : repository.exerciseStatsByCourse(previousFrom, from, courseIds))
+                                        ? repository.exerciseStatsByCourse(
+                                                previousFrom, from, courseIds, courseVersions)
+                                        : repository.exerciseStatsByCourse(
+                                                previousFrom, from, courseIds))
                                 : repository.exerciseStats(previousFrom, from));
 
         List<Object[]> pendingReports = repository.pendingReportsBySign();
@@ -113,7 +116,14 @@ public class LearningMetricsService {
                 toDailyCounts(repository.dailyLearnedSigns(from, until)),
                 reports(pendingReports),
                 toCountItems(repository.importsByStatus(from, until)),
-                lessonFlow(from, until, previousFrom, filtered, courseIds, versionFiltered, courseVersions),
+                lessonFlow(
+                        from,
+                        until,
+                        previousFrom,
+                        filtered,
+                        courseIds,
+                        versionFiltered,
+                        courseVersions),
                 exerciseFlow(exerciseRows, previousExerciseRows),
                 onboardingFunnel(until),
                 lessonRanking(until, filtered, courseIds, versionFiltered, courseVersions),
@@ -121,7 +131,14 @@ public class LearningMetricsService {
                 mostRetriedExercises(exerciseRows),
                 dailyAccuracy(from, until, filtered, courseIds, versionFiltered, courseVersions),
                 hardestSigns(exerciseRows),
-                lessonsToReview(from, until, filtered, courseIds, versionFiltered, courseVersions, pendingReports));
+                lessonsToReview(
+                        from,
+                        until,
+                        filtered,
+                        courseIds,
+                        versionFiltered,
+                        courseVersions,
+                        pendingReports));
     }
 
     /**
@@ -157,7 +174,8 @@ public class LearningMetricsService {
         List<Object[]> progressRows =
                 filtered
                         ? (versionFiltered
-                                ? repository.lessonReviewStatsByCourse(until, courseIds, courseVersions)
+                                ? repository.lessonReviewStatsByCourse(
+                                        until, courseIds, courseVersions)
                                 : repository.lessonReviewStatsByCourse(until, courseIds))
                         : repository.lessonReviewStats(until);
         List<Object[]> candidates = new ArrayList<>();
@@ -270,16 +288,32 @@ public class LearningMetricsService {
             Collection<UUID> courseIds,
             boolean versionFiltered,
             Collection<String> courseVersions) {
-        long started = countLessonsStarted(from, until, filtered, courseIds, versionFiltered, courseVersions);
-        long completed = countLessonsCompleted(from, until, filtered, courseIds, versionFiltered, courseVersions);
+        long started =
+                countLessonsStarted(
+                        from, until, filtered, courseIds, versionFiltered, courseVersions);
+        long completed =
+                countLessonsCompleted(
+                        from, until, filtered, courseIds, versionFiltered, courseVersions);
         Long previousStarted =
                 previousFrom == null
                         ? null
-                        : countLessonsStarted(previousFrom, from, filtered, courseIds, versionFiltered, courseVersions);
+                        : countLessonsStarted(
+                                previousFrom,
+                                from,
+                                filtered,
+                                courseIds,
+                                versionFiltered,
+                                courseVersions);
         Long previousCompleted =
                 previousFrom == null
                         ? null
-                        : countLessonsCompleted(previousFrom, from, filtered, courseIds, versionFiltered, courseVersions);
+                        : countLessonsCompleted(
+                                previousFrom,
+                                from,
+                                filtered,
+                                courseIds,
+                                versionFiltered,
+                                courseVersions);
         return new LessonFlow(
                 started,
                 completed,
@@ -297,7 +331,8 @@ public class LearningMetricsService {
             Collection<String> courseVersions) {
         return filtered
                 ? (versionFiltered
-                        ? repository.countLessonsStartedByCourse(from, until, courseIds, courseVersions)
+                        ? repository.countLessonsStartedByCourse(
+                                from, until, courseIds, courseVersions)
                         : repository.countLessonsStartedByCourse(from, until, courseIds))
                 : repository.countLessonsStartedBetween(from, until);
     }
@@ -311,7 +346,8 @@ public class LearningMetricsService {
             Collection<String> courseVersions) {
         return filtered
                 ? (versionFiltered
-                        ? repository.countLessonsCompletedByCourse(from, until, courseIds, courseVersions)
+                        ? repository.countLessonsCompletedByCourse(
+                                from, until, courseIds, courseVersions)
                         : repository.countLessonsCompletedByCourse(from, until, courseIds))
                 : repository.countLessonsCompletedBetween(from, until);
     }
@@ -384,7 +420,8 @@ public class LearningMetricsService {
         List<Object[]> rows =
                 filtered
                         ? (versionFiltered
-                                ? repository.lessonDropoffStatsByCourse(until, courseIds, courseVersions)
+                                ? repository.lessonDropoffStatsByCourse(
+                                        until, courseIds, courseVersions)
                                 : repository.lessonDropoffStatsByCourse(until, courseIds))
                         : repository.lessonDropoffStats(until);
         List<LessonDropoff> ranking = new ArrayList<>();
@@ -519,7 +556,8 @@ public class LearningMetricsService {
         List<Object[]> rows =
                 filtered
                         ? (versionFiltered
-                                ? repository.dailyAccuracyByCourse(from, until, courseIds, courseVersions)
+                                ? repository.dailyAccuracyByCourse(
+                                        from, until, courseIds, courseVersions)
                                 : repository.dailyAccuracyByCourse(from, until, courseIds))
                         : repository.dailyAccuracy(from, until);
         List<DailyAccuracy> series = new ArrayList<>();
@@ -581,7 +619,11 @@ public class LearningMetricsService {
                 filtered
                         ? (versionFiltered
                                 ? repository.lessonAccuracyByCourse(
-                                        from, until, HARDEST_MIN_EVALUATED, courseIds, courseVersions)
+                                        from,
+                                        until,
+                                        HARDEST_MIN_EVALUATED,
+                                        courseIds,
+                                        courseVersions)
                                 : repository.lessonAccuracyByCourse(
                                         from, until, HARDEST_MIN_EVALUATED, courseIds))
                         : repository.lessonAccuracy(from, until, HARDEST_MIN_EVALUATED);
