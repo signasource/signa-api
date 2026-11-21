@@ -3,6 +3,7 @@ package com.signasource.signa_api.organizations.controller;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.organizations.dto.CheckoutResponse;
 import com.signasource.signa_api.organizations.dto.CreatePurchaseRequest;
+import com.signasource.signa_api.organizations.dto.InvitationSummaryResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationInvitationResponse;
 import com.signasource.signa_api.organizations.dto.PaymentSyncResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseCatalogResponse;
@@ -63,6 +64,15 @@ public class OrganizationPurchaseController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(
                 purchaseService.listInvitations(userDetails.getUser(), organizationId, courseId));
+    }
+
+    /** Sent / accepted / still pending invitations of the paid purchases, with the acceptance %. */
+    @GetMapping("/{organizationId}/invitations/summary")
+    public ResponseEntity<InvitationSummaryResponse> summarizeInvitations(
+            @PathVariable UUID organizationId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(
+                purchaseService.summarizeInvitations(userDetails.getUser(), organizationId));
     }
 
     @PostMapping("/{organizationId}/purchases")

@@ -18,8 +18,10 @@ import com.signasource.signa_api.organizations.entity.OrganizationMember;
 import com.signasource.signa_api.organizations.entity.OrganizationStatus;
 import com.signasource.signa_api.organizations.entity.PurchaseSeat;
 import com.signasource.signa_api.organizations.entity.PurchaseStatus;
+import com.signasource.signa_api.organizations.entity.RefundStatus;
 import com.signasource.signa_api.organizations.entity.SeatStatus;
 import com.signasource.signa_api.organizations.repository.OrganizationMemberRepository;
+import com.signasource.signa_api.organizations.repository.PurchaseRefundRepository;
 import com.signasource.signa_api.organizations.repository.PurchaseSeatRepository;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.repository.UserRepository;
@@ -40,6 +42,7 @@ public class SeatInvitationService {
     private static final int TOKEN_BYTES = 32;
 
     private final PurchaseSeatRepository seatRepository;
+    private final PurchaseRefundRepository refundRepository;
     private final OrganizationMemberRepository memberRepository;
     private final UserRepository userRepository;
     private final OrganizationEnrollmentService enrollmentService;
@@ -128,7 +131,9 @@ public class SeatInvitationService {
         if (status == SeatStatus.INVITATION_EXPIRED) {
             throw new InvalidInputException("This invitation expired");
         }
-        if (status != SeatStatus.INVITED || purchase.getStatus() != PurchaseStatus.PAID) {
+        if (status != SeatStatus.INVITED
+                || purchase.getStatus() != PurchaseStatus.PAID
+                || isBeingRefunded(purchase)) {
             throw new InvalidInputException("This invitation is no longer valid");
         }
         if (organization.getStatus() != OrganizationStatus.ACTIVE) {
@@ -171,6 +176,18 @@ public class SeatInvitationService {
             seat.setRevokedAt(now);
             seatRepository.save(seat);
         }
+    }
+
+    /**
+     * A refund that will revoke the purchase is under way (e.g. a withdrawal waiting on Mercado
+     * Pago): accepting now would leave an accepted seat to be refunded.
+     */
+    private boolean isBeingRefunded(CoursePurchase purchase) {
+        return refundRepository.findByPurchaseIdOrderByCreatedAtAsc(purchase.getId()).stream()
+                .anyMatch(
+                        r ->
+                                r.getStatus() == RefundStatus.PENDING
+                                        && r.getReason().revokesPurchase());
     }
 
     private void joinAsMember(User user, Organization organization) {

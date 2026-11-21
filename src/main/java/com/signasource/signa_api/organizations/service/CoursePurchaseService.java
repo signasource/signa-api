@@ -11,6 +11,7 @@ import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.organizations.dto.CatalogCourseResponse;
 import com.signasource.signa_api.organizations.dto.CatalogModuleResponse;
 import com.signasource.signa_api.organizations.dto.CreatePurchaseRequest;
+import com.signasource.signa_api.organizations.dto.InvitationSummaryResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationInvitationResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseCatalogResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseDetailResponse;
@@ -211,6 +212,34 @@ public class CoursePurchaseService {
                                         seat.getPurchase(),
                                         invitationService.toResponse(seat, now)))
                 .toList();
+    }
+
+    /**
+     * How the invitations of the organization's paid purchases went. A refunded purchase is left
+     * out entirely: its invitations were cancelled and its accesses ended. A seat whose email was
+     * changed was sent once to the address that counts now.
+     */
+    @Transactional(readOnly = true)
+    public InvitationSummaryResponse summarizeInvitations(User actor, UUID organizationId) {
+        accessService.requireManage(actor, organizationId);
+        Instant now = Instant.now();
+        long sent = 0;
+        long accepted = 0;
+        long pending = 0;
+        for (PurchaseSeat seat : seatRepository.findByPurchaseOrganizationId(organizationId)) {
+            if (seat.getPurchase().getStatus() != PurchaseStatus.PAID
+                    || seat.getInvitedAt() == null) {
+                continue;
+            }
+            sent++;
+            if (seat.hasAccepted()) {
+                accepted++;
+            } else if (seat.statusAt(now) == SeatStatus.INVITED) {
+                pending++;
+            }
+        }
+        return new InvitationSummaryResponse(
+                sent, accepted, pending, MetricMath.percentage(accepted, sent));
     }
 
     @Transactional(readOnly = true)

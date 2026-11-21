@@ -16,6 +16,7 @@ import com.signasource.signa_api.organizations.entity.PurchaseStatus;
 import com.signasource.signa_api.organizations.entity.RefundReason;
 import com.signasource.signa_api.organizations.entity.SeatStatus;
 import com.signasource.signa_api.organizations.repository.CoursePurchaseRepository;
+import com.signasource.signa_api.organizations.repository.OrganizationCourseRepository;
 import com.signasource.signa_api.organizations.repository.PurchaseSeatRepository;
 import com.signasource.signa_api.organizations.service.PurchaseRevocationService.Revocation;
 import com.signasource.signa_api.users.entity.User;
@@ -36,6 +37,7 @@ class PurchaseRevocationServiceTest {
 
     @Mock private CoursePurchaseRepository purchaseRepository;
     @Mock private PurchaseSeatRepository seatRepository;
+    @Mock private OrganizationCourseRepository organizationCourseRepository;
     @Mock private OrganizationEnrollmentService enrollmentService;
     @Mock private PurchaseNotificationService notifications;
 
@@ -148,5 +150,36 @@ class PurchaseRevocationServiceTest {
         verify(enrollmentService, never()).endCourseAccess(any(), any(), any(), any());
         verify(notifications)
                 .purchaseRevoked(eq(purchase), eq(RefundReason.EXTERNAL_REFUND), any(), any());
+    }
+
+    @Test
+    void shouldDropTheCourseWhenNoPaidPurchaseOfItIsLeft() {
+        when(seatRepository.findForUpdateByPurchaseId(purchase.getId())).thenReturn(List.of());
+        when(purchaseRepository.existsByOrganizationIdAndCourseIdAndStatus(
+                        purchase.getOrganization().getId(),
+                        purchase.getCourse().getId(),
+                        PurchaseStatus.PAID))
+                .thenReturn(false);
+
+        service.revoke(purchase, RefundReason.BUYER_REQUESTED, BigDecimal.TEN, now);
+
+        verify(organizationCourseRepository)
+                .deleteByOrganizationIdAndCourseId(
+                        purchase.getOrganization().getId(), purchase.getCourse().getId());
+    }
+
+    @Test
+    void shouldKeepTheCourseWhileAnotherPaidPurchaseOfItRemains() {
+        when(seatRepository.findForUpdateByPurchaseId(purchase.getId())).thenReturn(List.of());
+        when(purchaseRepository.existsByOrganizationIdAndCourseIdAndStatus(
+                        purchase.getOrganization().getId(),
+                        purchase.getCourse().getId(),
+                        PurchaseStatus.PAID))
+                .thenReturn(true);
+
+        service.revoke(purchase, RefundReason.BUYER_REQUESTED, BigDecimal.TEN, now);
+
+        verify(organizationCourseRepository, never())
+                .deleteByOrganizationIdAndCourseId(any(), any());
     }
 }

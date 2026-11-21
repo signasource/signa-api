@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -55,7 +56,6 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -69,7 +69,7 @@ class OrganizationMetricsServiceTest {
     @Mock private OrganizationAccessService accessService;
     @Mock private OrganizationContentScope contentScope;
 
-    @InjectMocks private OrganizationMetricsService metricsService;
+    private OrganizationMetricsService metricsService;
 
     private static final ZoneId ARGENTINA = ZoneId.of("America/Argentina/Cordoba");
     private static final Instant CREATED_AT =
@@ -86,6 +86,15 @@ class OrganizationMetricsServiceTest {
 
     @BeforeEach
     void setUp() {
+        metricsService =
+                new OrganizationMetricsService(
+                        organizationRepository,
+                        memberRepository,
+                        metricsRepository,
+                        topicRepository,
+                        accessService,
+                        contentScope,
+                        new ScopedActivity(metricsRepository));
         actor = new User();
         actor.setId(UUID.randomUUID());
         organizationId = UUID.randomUUID();
@@ -134,8 +143,10 @@ class OrganizationMetricsServiceTest {
                 .thenReturn(List.of(members));
     }
 
-    private UserAttemptStatsView attemptStats(Instant lastActivity, long evaluated, long correct) {
+    private UserAttemptStatsView attemptStats(
+            User user, Instant lastActivity, long evaluated, long correct) {
         UserAttemptStatsView view = mock(UserAttemptStatsView.class);
+        lenient().when(view.getUserId()).thenReturn(user.getId());
         lenient().when(view.getLastActivityAt()).thenReturn(lastActivity);
         lenient().when(view.getEvaluated()).thenReturn(evaluated);
         lenient().when(view.getCorrect()).thenReturn(correct);
@@ -155,7 +166,13 @@ class OrganizationMetricsServiceTest {
             byId.put(v.getId(), v);
         }
         return new ContentScope(
-                courses, byId, lessonsByVersion, lessonsByTopic, new HashMap<>(), completedLessons);
+                courses,
+                byId,
+                lessonsByVersion,
+                lessonsByTopic,
+                new HashMap<>(),
+                completedLessons,
+                TestAccesses.everyoneTakes(courses.stream().map(c -> c.course().getId()).toList()));
     }
 
     private void complete(UUID userId, long lessons) {
@@ -181,6 +198,7 @@ class OrganizationMetricsServiceTest {
     @Test
     void shouldReturnAnEmptyOverviewWhenTheOrganizationHasNoParticipants() {
         stubParticipants();
+        when(contentScope.resolve(eq(organizationId), isNull(), any(), any())).thenReturn(scope);
 
         OrganizationOverviewResponse result =
                 metricsService.getOverview(actor, organizationId, null, MetricsPeriod.ALL_TIME);
@@ -208,9 +226,9 @@ class OrganizationMetricsServiceTest {
 
         when(contentScope.resolve(eq(organizationId), isNull(), any(), any())).thenReturn(scope);
         UserAttemptStatsView recentStats =
-                attemptStats(Instant.now().minus(1, ChronoUnit.DAYS), 6, 5);
+                attemptStats(ana, Instant.now().minus(1, ChronoUnit.DAYS), 6, 5);
         UserAttemptStatsView staleStats =
-                attemptStats(Instant.now().minus(30, ChronoUnit.DAYS), 4, 3);
+                attemptStats(bruno, Instant.now().minus(30, ChronoUnit.DAYS), 4, 3);
         when(metricsRepository.findAttemptStatsByUser(
                         eq(organizationId), eq(ids), eq(scope.courseIds()), any(), any()))
                 .thenReturn(List.of(recentStats, staleStats));
@@ -292,7 +310,8 @@ class OrganizationMetricsServiceTest {
                         lessonsByVersion,
                         lessonsByTopic,
                         Map.of(ana.getId(), Map.of(course.getId(), version.getId())),
-                        completedLessons);
+                        completedLessons,
+                        TestAccesses.everyoneTakes(List.of(course.getId())));
         when(contentScope.resolve(eq(organizationId), isNull(), any(), any()))
                 .thenReturn(twoVersions);
         AttemptTotalsView none = mock(AttemptTotalsView.class);
@@ -309,39 +328,51 @@ class OrganizationMetricsServiceTest {
     }
 
     @Test
-    void shouldReportZeroProgressWhenNoCourseIsContracted() {
+    void shouldCountNobodyWhenNoCourseIsContracted() {
         stubParticipants(ana);
-        List<UUID> ids = List.of(ana.getId());
-        AttemptTotalsView none = mock(AttemptTotalsView.class);
-        when(none.getEvaluated()).thenReturn(0L);
-        when(none.getCorrect()).thenReturn(0L);
-
         when(contentScope.resolve(eq(organizationId), isNull(), any(), any()))
                 .thenReturn(ContentScope.empty());
+
+        OrganizationOverviewResponse result =
+                metricsService.getOverview(actor, organizationId, null, MetricsPeriod.ALL_TIME);
+
+        assertEquals(0, result.participation().totalParticipants());
+        assertEquals(0, result.progress().averageProgressPercentage());
+        verify(metricsRepository, never())
+                .findAttemptStatsByUser(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldLeaveOutWhoDoesNotTakeTheCourse() {
+        stubParticipants(ana, bruno);
+        ContentScope onlyAna =
+                new ContentScope(
+                        scope.courses(),
+                        scope.versions(),
+                        lessonsByVersion,
+                        lessonsByTopic,
+                        new HashMap<>(),
+                        completedLessons,
+                        TestAccesses.take(List.of(ana.getId()), List.of(course.getId())));
+        when(contentScope.resolve(eq(organizationId), isNull(), any(), any())).thenReturn(onlyAna);
+        complete(ana.getId(), 5);
+        complete(bruno.getId(), 10);
         when(metricsRepository.findAttemptStatsByUser(
-                        eq(organizationId), eq(ids), any(), any(), any()))
+                        eq(organizationId), eq(List.of(ana.getId())), any(), any(), any()))
                 .thenReturn(List.of());
-        when(metricsRepository.findCurrentStreaks(ids)).thenReturn(List.of());
-        when(metricsRepository.findActiveDaysByUser(eq(ids), any(), any())).thenReturn(List.of());
-        when(metricsRepository.findLearningMinutesByUserScopedToOrg(
-                        eq(ids), eq(organizationId), any(), any()))
-                .thenReturn(List.of());
-        when(metricsRepository.findAttemptTotalsByBlockTypes(
-                        eq(organizationId), eq(ids), any(), any(), any(), any()))
+        AttemptTotalsView none = mock(AttemptTotalsView.class);
+        lenient()
+                .when(
+                        metricsRepository.findAttemptTotalsByBlockTypes(
+                                any(), any(), any(), any(), any(), any()))
                 .thenReturn(none);
-        when(metricsRepository.findDailyAttemptStats(
-                        eq(organizationId), eq(ids), any(), any(), any()))
-                .thenReturn(List.of());
 
         OrganizationOverviewResponse result =
                 metricsService.getOverview(actor, organizationId, null, MetricsPeriod.ALL_TIME);
 
         assertEquals(1, result.participation().totalParticipants());
-        assertEquals(0, result.participation().activeParticipants());
-        assertEquals(0, result.progress().averageProgressPercentage());
-        assertEquals(0, result.progress().pendingLessons());
+        assertEquals(50, result.progress().averageProgressPercentage());
         assertEquals(0, result.progress().participantsCompletedAll());
-        assertEquals(0, result.performance().correctPercentage());
     }
 
     @Test
@@ -413,7 +444,8 @@ class OrganizationMetricsServiceTest {
                         lessonsByVersion,
                         lessonsByTopic,
                         Map.of(ana.getId(), Map.of(course.getId(), version.getId())),
-                        completedLessons);
+                        completedLessons,
+                        TestAccesses.everyoneTakes(List.of(course.getId())));
         when(contentScope.resolve(eq(organizationId), isNull(), any(), any()))
                 .thenReturn(twoVersions);
         when(topicRepository.findByCourseVersionIdInOrderByCourseVersionIdAscOrderAsc(
@@ -659,9 +691,10 @@ class OrganizationMetricsServiceTest {
                 joinedLater);
         List<UUID> ids = List.of(ana.getId(), bruno.getId());
         when(contentScope.resolve(eq(organizationId), isNull(), any(), any())).thenReturn(scope);
-        UserAttemptStatsView inPeriod = attemptStats(period.start().plus(2, ChronoUnit.DAYS), 6, 3);
+        UserAttemptStatsView inPeriod =
+                attemptStats(ana, period.start().plus(2, ChronoUnit.DAYS), 6, 3);
         UserAttemptStatsView beforePeriod =
-                attemptStats(period.start().minus(1, ChronoUnit.DAYS), 0, 0);
+                attemptStats(bruno, period.start().minus(1, ChronoUnit.DAYS), 0, 0);
         when(metricsRepository.findAttemptStatsByUser(
                         organizationId, ids, scope.courseIds(), period.start(), period.end()))
                 .thenReturn(List.of(inPeriod, beforePeriod));

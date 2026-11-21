@@ -18,6 +18,13 @@ public interface OrganizationCourseRepository extends JpaRepository<Organization
     @Query("delete from OrganizationCourse c where c.organization.id = :organizationId")
     void deleteByOrganizationId(@Param("organizationId") UUID organizationId);
 
+    @Modifying
+    @Query(
+            "delete from OrganizationCourse c "
+                    + "where c.organization.id = :organizationId and c.course.id = :courseId")
+    void deleteByOrganizationIdAndCourseId(
+            @Param("organizationId") UUID organizationId, @Param("courseId") UUID courseId);
+
     @EntityGraph(attributePaths = {"course", "course.signLanguage"})
     List<OrganizationCourse> findByOrganizationIdOrderByContractedAtAsc(UUID organizationId);
 

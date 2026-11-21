@@ -77,4 +77,13 @@ public interface PurchaseSeatRepository extends JpaRepository<PurchaseSeat, UUID
 
     List<PurchaseSeat> findByUserIdAndPurchaseOrganizationIdAndStatus(
             UUID userId, UUID organizationId, SeatStatus status);
+
+    /** Seats those users accepted in the organization's purchases (any purchase status). */
+    @Query(
+            "SELECT s FROM PurchaseSeat s JOIN FETCH s.purchase p JOIN FETCH p.course "
+                    + "WHERE p.organization.id = :organizationId AND s.user.id IN :userIds "
+                    + "AND s.activatedAt IS NOT NULL")
+    List<PurchaseSeat> findAcceptedByOrganizationIdAndUserIdIn(
+            @Param("organizationId") UUID organizationId,
+            @Param("userIds") Collection<UUID> userIds);
 }

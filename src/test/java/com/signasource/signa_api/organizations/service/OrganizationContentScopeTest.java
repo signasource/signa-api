@@ -32,6 +32,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,7 +52,12 @@ class OrganizationContentScopeTest {
     @Mock private OrganizationMetricsRepository metricsRepository;
     @Mock private TopicRepository topicRepository;
 
+    @Mock private ParticipantAccessResolver accessResolver;
+
     @InjectMocks private OrganizationContentScope contentScope;
+
+    /** Who takes which course; by default everyone takes every course. */
+    private Map<UUID, Map<UUID, CourseAccess>> accesses;
 
     private final UUID organizationId = UUID.randomUUID();
     private Course cafe;
@@ -135,6 +141,14 @@ class OrganizationContentScopeTest {
                 .when(enrollmentRepository.findWithCourseByUserIdInAndCourseIdIn(any(), any()))
                 .thenReturn(enrollments);
         lenient().when(topicRepository.findTopicLessonTotals(any())).thenReturn(lessonTotals);
+        lenient()
+                .when(accessResolver.resolve(eq(organizationId), any(), any()))
+                .thenAnswer(
+                        call ->
+                                accesses != null
+                                        ? accesses
+                                        : TestAccesses.everyoneTakes(
+                                                List.copyOf(call.getArgument(2))));
         lenient()
                 .when(
                         metricsRepository.findCompletedLessonCountsByUserAndVersion(
@@ -309,6 +323,29 @@ class OrganizationContentScopeTest {
         assertEquals(List.of(basics.getId(), cafe.getId()), scope.courseIds());
         assertEquals(10, scope.totalLessons(mateo.getId()));
         assertEquals(3, scope.completedLessons(mateo.getId()));
+    }
+
+    @Test
+    void shouldMeasureEachParticipantOnlyAgainstTheCoursesTheyTake() {
+        Course basics = Course.builder().id(UUID.randomUUID()).name("Básico").build();
+        CourseVersion basicsV1 = version(basics, VersionStatus.PUBLISHED, NOW);
+        published.add(basicsV1);
+        lessonTotals.add(total(basicsV1.getId(), UUID.randomUUID(), 7));
+        contract(basics, cafe);
+        User lucia = user();
+        accesses = TestAccesses.take(List.of(mateo.getId()), List.of(cafe.getId()));
+        done(mateo, v2, 2);
+
+        ContentScope scope = resolve(mateo, lucia);
+
+        assertEquals(List.of(v2), scope.versionsOf(mateo.getId()));
+        assertEquals(3, scope.totalLessons(mateo.getId()));
+        assertTrue(scope.isParticipant(mateo.getId()));
+        assertFalse(scope.isParticipant(lucia.getId()));
+        assertEquals(
+                List.of(mateo.getId()), scope.participants(List.of(mateo.getId(), lucia.getId())));
+        assertEquals(List.of(), scope.participantsOf(basics.getId(), List.of(mateo.getId())));
+        assertEquals(null, scope.versionIn(mateo.getId(), basics.getId()));
     }
 
     @Test

@@ -38,6 +38,10 @@ import org.springframework.stereotype.Component;
  * enrollment in that course, never the sum of several versions and never a version they are not
  * taking. Someone with no enrollment yet is measured against the course's <b>reference version</b>
  * (the published one), so they count as 0 % of the current content.
+ *
+ * <p>Each participant is measured only against the courses they take ({@link
+ * ParticipantAccessResolver}): a course they never had a paid seat of, or whose seat was refunded,
+ * is not theirs, and someone who takes no course in scope is not a participant of it.
  */
 @Component
 @RequiredArgsConstructor
@@ -50,6 +54,7 @@ public class OrganizationContentScope {
     private final UserCourseEnrollmentRepository enrollmentRepository;
     private final OrganizationMetricsRepository metricsRepository;
     private final TopicRepository topicRepository;
+    private final ParticipantAccessResolver accessResolver;
 
     public ContentScope resolve(UUID organizationId, Collection<UUID> userIds, Instant until) {
         return resolve(organizationId, null, userIds, until);
@@ -147,7 +152,8 @@ public class OrganizationContentScope {
                 lessonsByVersion,
                 lessonsByTopic,
                 assignments,
-                completed);
+                completed,
+                accessResolver.resolve(organizationId, userIds, courseIds));
     }
 
     /**
@@ -237,10 +243,50 @@ public class OrganizationContentScope {
             Map<UUID, Long> lessonsByVersion,
             Map<UUID, Long> lessonsByTopic,
             Map<UUID, Map<UUID, UUID>> assignments,
-            Map<UUID, Map<UUID, Long>> completedLessons) {
+            Map<UUID, Map<UUID, Long>> completedLessons,
+            Map<UUID, Map<UUID, CourseAccess>> accesses) {
 
         static ContentScope empty() {
-            return new ContentScope(List.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of());
+            return new ContentScope(
+                    List.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of());
+        }
+
+        /** Whether {@code userId} takes a course in scope. */
+        public boolean isParticipant(UUID userId) {
+            return !accessesOf(userId).isEmpty();
+        }
+
+        /** The given users who take a course in scope, in the same order. */
+        public List<UUID> participants(Collection<UUID> userIds) {
+            return userIds.stream().filter(this::isParticipant).toList();
+        }
+
+        /** The given users who take that course. */
+        public List<UUID> participantsOf(UUID courseId, Collection<UUID> userIds) {
+            return userIds.stream().filter(u -> accessesOf(u).containsKey(courseId)).toList();
+        }
+
+        /** {@code userId}'s access to each course in scope they take. */
+        public Map<UUID, CourseAccess> accessesOf(UUID userId) {
+            return accesses.getOrDefault(userId, Map.of());
+        }
+
+        /** Every version of that course in scope (reference and the ones people take). */
+        public List<UUID> versionIdsOfCourse(UUID courseId) {
+            return orNothing(
+                    versions.values().stream()
+                            .filter(v -> v.getCourse().getId().equals(courseId))
+                            .map(CourseVersion::getId)
+                            .toList());
+        }
+
+        /** The courses {@code userId} takes, as ids; never empty. */
+        public List<UUID> courseIdsOf(UUID userId) {
+            return orNothing(
+                    courses.stream()
+                            .map(c -> c.course().getId())
+                            .filter(accessesOf(userId)::containsKey)
+                            .toList());
         }
 
         public boolean isEmpty() {
@@ -263,16 +309,39 @@ public class OrganizationContentScope {
             return orNothing(List.copyOf(versions.keySet()));
         }
 
-        /** The version {@code userId} is measured against in each course, in contract order. */
+        /**
+         * The version {@code userId} is measured against in each course they take, in contract
+         * order.
+         */
         public List<CourseVersion> versionsOf(UUID userId) {
             Map<UUID, UUID> assigned = assignments.getOrDefault(userId, Map.of());
+            Map<UUID, CourseAccess> taken = accessesOf(userId);
             return courses.stream()
+                    .filter(c -> taken.containsKey(c.course().getId()))
                     .map(
                             c ->
                                     versions.get(
                                             assigned.getOrDefault(
                                                     c.course().getId(), c.reference().getId())))
                     .toList();
+        }
+
+        /**
+         * The version {@code userId} is measured against in one course, or {@code null} when the
+         * course is not in scope or they don't take it.
+         */
+        public CourseVersion versionIn(UUID userId, UUID courseId) {
+            return courses.stream()
+                    .filter(c -> c.course().getId().equals(courseId))
+                    .filter(c -> accessesOf(userId).containsKey(courseId))
+                    .findFirst()
+                    .map(
+                            c ->
+                                    versions.get(
+                                            assignments
+                                                    .getOrDefault(userId, Map.of())
+                                                    .getOrDefault(courseId, c.reference().getId())))
+                    .orElse(null);
         }
 
         /** Like {@link #versionsOf}, as ids; never empty. */

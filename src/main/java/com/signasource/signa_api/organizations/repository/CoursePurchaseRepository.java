@@ -16,6 +16,9 @@ public interface CoursePurchaseRepository extends JpaRepository<CoursePurchase, 
 
     boolean existsByOrganizationId(UUID organizationId);
 
+    boolean existsByOrganizationIdAndCourseIdAndStatus(
+            UUID organizationId, UUID courseId, PurchaseStatus status);
+
     @EntityGraph(attributePaths = {"course"})
     List<CoursePurchase> findByOrganizationIdOrderByCreatedAtDesc(UUID organizationId);
 

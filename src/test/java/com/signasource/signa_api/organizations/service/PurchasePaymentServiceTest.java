@@ -616,6 +616,39 @@ class PurchasePaymentServiceTest {
     }
 
     @Test
+    void shouldRefuseAnAdminRefundOnceAnInviteeAccepted() {
+        paidWithMercadoPago(Instant.now());
+        when(refundRepository.findByPaymentId("987")).thenReturn(Optional.empty());
+        when(seatRepository.findForUpdateByPurchaseId(purchase.getId()))
+                .thenReturn(List.of(acceptedSeat()));
+
+        assertThrows(InvalidInputException.class, () -> service.startAdminRefund(purchase.getId()));
+        verify(refundRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldRefuseAManualRefundOnceAnInviteeAccepted() {
+        purchase.setStatus(PurchaseStatus.PAID);
+        when(purchaseRepository.findForUpdateById(purchase.getId()))
+                .thenReturn(Optional.of(purchase));
+        when(seatRepository.findForUpdateByPurchaseId(purchase.getId()))
+                .thenReturn(List.of(acceptedSeat()));
+
+        assertThrows(InvalidInputException.class, () -> service.reverseManual(purchase.getId()));
+        verify(refundRepository, never()).save(any());
+        verifyNoInteractions(revocationService);
+    }
+
+    private PurchaseSeat acceptedSeat() {
+        return PurchaseSeat.builder()
+                .purchase(purchase)
+                .email("ana@x.com")
+                .status(SeatStatus.ACTIVE)
+                .activatedAt(Instant.now().minus(Duration.ofHours(1)))
+                .build();
+    }
+
+    @Test
     void shouldResumeAPendingAdminRefund() {
         paidWithMercadoPago(Instant.now());
         PurchaseRefund pending =
