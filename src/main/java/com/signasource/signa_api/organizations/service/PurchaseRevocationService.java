@@ -6,11 +6,13 @@ import com.signasource.signa_api.organizations.entity.PurchaseStatus;
 import com.signasource.signa_api.organizations.entity.RefundReason;
 import com.signasource.signa_api.organizations.entity.SeatStatus;
 import com.signasource.signa_api.organizations.repository.CoursePurchaseRepository;
+import com.signasource.signa_api.organizations.repository.OrganizationCourseRepository;
 import com.signasource.signa_api.organizations.repository.PurchaseSeatRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -20,7 +22,9 @@ import org.springframework.transaction.annotation.Transactional;
  * Undoes a paid purchase whose money was given back. Pending invitations are cancelled (their link
  * stops working) and the people who had accepted lose access to the course the way an expired
  * access does: the enrollment ends now and the progress stays readable. Seats already expired or
- * removed are left as they are. The purchase must already be locked by the caller.
+ * removed are left as they are. Once no paid purchase of the course is left, the organization no
+ * longer has it contracted, so it leaves the panel's courses and metrics. The purchase must already
+ * be locked by the caller.
  */
 @Service
 @RequiredArgsConstructor
@@ -28,6 +32,7 @@ public class PurchaseRevocationService {
 
     private final CoursePurchaseRepository purchaseRepository;
     private final PurchaseSeatRepository seatRepository;
+    private final OrganizationCourseRepository organizationCourseRepository;
     private final OrganizationEnrollmentService enrollmentService;
     private final PurchaseNotificationService notifications;
 
@@ -40,6 +45,7 @@ public class PurchaseRevocationService {
         purchase.setStatus(PurchaseStatus.REFUNDED);
         purchase.setRefundedAt(now);
         purchaseRepository.save(purchase);
+        dropCourseWhenNothingPaidIsLeft(purchase);
 
         List<String> cancelled = new ArrayList<>();
         List<String> ended = new ArrayList<>();
@@ -69,5 +75,15 @@ public class PurchaseRevocationService {
         Revocation revocation = new Revocation(List.copyOf(cancelled), List.copyOf(ended));
         notifications.purchaseRevoked(purchase, reason, refunded, revocation);
         return revocation;
+    }
+
+    private void dropCourseWhenNothingPaidIsLeft(CoursePurchase purchase) {
+        UUID organizationId = purchase.getOrganization().getId();
+        UUID courseId = purchase.getCourse().getId();
+        if (!purchaseRepository.existsByOrganizationIdAndCourseIdAndStatus(
+                organizationId, courseId, PurchaseStatus.PAID)) {
+            organizationCourseRepository.deleteByOrganizationIdAndCourseId(
+                    organizationId, courseId);
+        }
     }
 }

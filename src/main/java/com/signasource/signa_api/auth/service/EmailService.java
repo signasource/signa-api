@@ -142,6 +142,24 @@ public class EmailService {
                 buildSeatAccessEndedHtml(organizationName, courseName, hadAccess));
     }
 
+    /** An organization admin's nudge to keep going with the courses still open to the learner. */
+    @Async
+    public void sendParticipantReminderEmail(
+            String to,
+            String name,
+            String organizationName,
+            List<String> courseNames,
+            Instant accessExpiresAt) {
+        sendEmail(
+                to,
+                "Tu capacitación en SIGNA te espera",
+                buildParticipantReminderHtml(
+                        name,
+                        organizationName,
+                        courseNames,
+                        accessExpiresAt == null ? null : DEADLINE_FORMAT.format(accessExpiresAt)));
+    }
+
     @Async
     public void sendPurchaseRefundedEmail(
             String to,
@@ -290,6 +308,35 @@ public class EmailService {
                         body.formatted(
                                 HtmlUtils.htmlEscape(organizationName),
                                 HtmlUtils.htmlEscape(courseName)));
+    }
+
+    private String buildParticipantReminderHtml(
+            String name, String organizationName, List<String> courseNames, String deadline) {
+        String greeting =
+                name == null || name.isBlank()
+                        ? "¡Hola!"
+                        : "¡Hola, " + HtmlUtils.htmlEscape(name) + "!";
+        String courses =
+                String.join(
+                        ", ",
+                        courseNames.stream()
+                                .map(c -> "<b>" + HtmlUtils.htmlEscape(c) + "</b>")
+                                .toList());
+        String expiry =
+                deadline == null
+                        ? ""
+                        : "<p>Tu acceso vence el <b>%s</b>: aprovechalo antes de esa fecha.</p>"
+                                .formatted(HtmlUtils.htmlEscape(deadline));
+        return """
+				<div style="font-family: Arial;">
+				    <h2>%s</h2>
+				    <p>%s te recuerda que tenés pendiente tu capacitación en lengua de señas: %s.</p>
+				    %s
+				    <p>Abrí la app de SIGNA y seguí donde lo dejaste. Con unos minutos por día alcanza.</p>
+				    <p style="color:#666; font-size:12px;">Si tenés dudas, consultá con quien administra SIGNA en tu organización.</p>
+				</div>
+				"""
+                .formatted(greeting, HtmlUtils.htmlEscape(organizationName), courses, expiry);
     }
 
     private String buildPurchaseRefundedHtml(

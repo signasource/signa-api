@@ -68,6 +68,9 @@ public class OrganizationMember {
 
     @Column private Instant removedAt;
 
+    /** Last reminder an admin sent from the panel; manual reminders have a cooldown. */
+    @Column private Instant lastReminderAt;
+
     @PrePersist
     protected void onCreate() {
         this.joinedAt = Instant.now();

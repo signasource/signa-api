@@ -152,12 +152,7 @@ public class PurchasePaymentService {
         if (!now.isBefore(purchase.getRefundableUntil())) {
             throw new InvalidInputException("The withdrawal period for this purchase has ended");
         }
-        // Locking the seats makes a concurrent acceptance wait for this decision (or vice versa).
-        if (seatRepository.findForUpdateByPurchaseId(purchaseId).stream()
-                .anyMatch(PurchaseSeat::hasAccepted)) {
-            throw new InvalidInputException(
-                    "This purchase cannot be refunded: an invitee already accepted their seat");
-        }
+        requireNoAcceptedSeats(purchaseId);
         refundRepository.save(
                 PurchaseRefund.builder()
                         .purchase(purchase)
@@ -175,7 +170,10 @@ public class PurchasePaymentService {
      * Starts an admin-initiated refund of a paid purchase: records a pending refund of its whole
      * Mercado Pago payment so a failed call can be retried. Returns the payment to refund, or null
      * when the purchase was not paid with Mercado Pago (then it can only be reversed manually).
-     * Unlike a withdrawal it ignores the withdrawal period and accepted seats.
+     * Unlike a withdrawal it ignores the withdrawal period, but, like it, it is refused once an
+     * invitee accepted a seat: an accepted seat is never refunded from Signa (only Mercado Pago
+     * refunds and chargebacks, which Signa cannot stop, revoke one). Completing a withdrawal the
+     * organization already started is still allowed.
      */
     @Transactional
     public String startAdminRefund(UUID purchaseId) {
@@ -195,6 +193,7 @@ public class PurchasePaymentService {
         if (purchase.getStatus() != PurchaseStatus.PAID) {
             throw new InvalidInputException("Only a paid purchase can be refunded manually");
         }
+        requireNoAcceptedSeats(purchaseId);
         if (paymentId == null) {
             return null;
         }
@@ -361,6 +360,7 @@ public class PurchasePaymentService {
         if (purchase.getStatus() != PurchaseStatus.PAID) {
             throw new InvalidInputException("Only a paid purchase can be refunded manually");
         }
+        requireNoAcceptedSeats(purchaseId);
         Instant now = Instant.now();
         String syntheticId =
                 "ADMIN-" + UUID.randomUUID().toString().replace("-", "").substring(0, 24);
@@ -421,5 +421,14 @@ public class PurchasePaymentService {
         }
 
         sendPurchaseConfirmedNotification(purchase);
+    }
+
+    /** Locking the seats makes a concurrent acceptance wait for this decision (or vice versa). */
+    private void requireNoAcceptedSeats(UUID purchaseId) {
+        if (seatRepository.findForUpdateByPurchaseId(purchaseId).stream()
+                .anyMatch(PurchaseSeat::hasAccepted)) {
+            throw new InvalidInputException(
+                    "This purchase cannot be refunded: an invitee already accepted their seat");
+        }
     }
 }

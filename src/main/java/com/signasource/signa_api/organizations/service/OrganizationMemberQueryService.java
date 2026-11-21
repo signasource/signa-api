@@ -72,12 +72,15 @@ public class OrganizationMemberQueryService {
     private final OrganizationAccessService accessService;
     private final OrganizationContentScope contentScope;
     private final TopicRepository topicRepository;
+    private final ScopedActivity scopedActivity;
 
     /**
      * Progress and activity are computed before sorting and paging, because both can be sorted and
      * filtered by. An organization is bounded by its member limit, so the whole roster fits.
      *
-     * @param courseId measures progress against that course only; {@code null} for every course
+     * @param courseId measures progress against that course only and lists only who takes it;
+     *     {@code null} for every course. Someone who takes no course in scope (e.g. their only seat
+     *     was refunded) is not listed
      * @param activity keeps only participants in that state; {@code null} keeps everyone
      * @param period progress and state as of its end, activity within it; people who joined after
      *     it ended are left out
@@ -100,7 +103,7 @@ public class OrganizationMemberQueryService {
                 status == null
                         ? List.of(MemberStatus.ACTIVE, MemberStatus.REMOVED)
                         : List.of(status);
-        List<OrganizationMember> members =
+        List<OrganizationMember> found =
                 memberRepository
                         .search(organizationId, MemberRole.MEMBER, statuses, toPattern(query))
                         .stream()
@@ -110,8 +113,10 @@ public class OrganizationMemberQueryService {
                 contentScope.resolve(
                         organizationId,
                         courseId,
-                        members.stream().map(m -> m.getUser().getId()).toList(),
+                        found.stream().map(m -> m.getUser().getId()).toList(),
                         period.end());
+        List<OrganizationMember> members =
+                found.stream().filter(m -> scope.isParticipant(m.getUser().getId())).toList();
 
         List<OrganizationMemberSummaryResponse> rows =
                 summaries(organizationId, members, scope, period).stream()
@@ -141,9 +146,8 @@ public class OrganizationMemberQueryService {
         ContentScope scope = contentScope.resolve(organizationId, userIds, end);
 
         UserAttemptStatsView attempts =
-                metricsRepository
-                        .findAttemptStatsByUser(
-                                organizationId, userIds, scope.courseIds(), period.start(), end)
+                scopedActivity
+                        .statsByUser(organizationId, scope, userIds, period.start(), end)
                         .stream()
                         .findFirst()
                         .orElse(null);
@@ -252,8 +256,8 @@ public class OrganizationMemberQueryService {
         Instant activeSince = period.activeSince();
         Map<UUID, UserAttemptStatsView> attempts =
                 indexBy(
-                        metricsRepository.findAttemptStatsByUser(
-                                organizationId, userIds, scope.courseIds(), period.start(), end),
+                        scopedActivity.statsByUser(
+                                organizationId, scope, userIds, period.start(), end),
                         UserAttemptStatsView::getUserId);
         Map<UUID, CurrentModule> currentModules = currentModules(userIds, scope, end);
 
@@ -300,7 +304,7 @@ public class OrganizationMemberQueryService {
         return comparator.thenComparing(SORTS.get("name"));
     }
 
-    /** One row per contracted course, measured against the version this participant takes. */
+    /** One row per course this participant takes, measured against their version of it. */
     private static List<MemberCourseProgressResponse> courseProgress(
             ContentScope scope, UUID userId) {
         return scope.versionsOf(userId).stream()

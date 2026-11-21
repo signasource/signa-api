@@ -4,10 +4,12 @@ import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.organizations.dto.MemberActivityStatus;
 import com.signasource.signa_api.organizations.dto.MemberProgressResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationMemberSummaryResponse;
+import com.signasource.signa_api.organizations.dto.ParticipantReminderResponse;
 import com.signasource.signa_api.organizations.entity.MemberStatus;
 import com.signasource.signa_api.organizations.service.MetricsPeriod;
 import com.signasource.signa_api.organizations.service.OrganizationMemberQueryService;
 import com.signasource.signa_api.organizations.service.OrganizationMemberService;
+import com.signasource.signa_api.organizations.service.ParticipantReminderService;
 import java.time.LocalDate;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -31,6 +34,7 @@ public class OrganizationMemberController {
 
     private final OrganizationMemberService memberService;
     private final OrganizationMemberQueryService memberQueryService;
+    private final ParticipantReminderService reminderService;
 
     @GetMapping
     public ResponseEntity<Page<OrganizationMemberSummaryResponse>> getMembers(
@@ -78,5 +82,15 @@ public class OrganizationMemberController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         memberService.removeMember(userDetails.getUser(), organizationId, userId);
         return ResponseEntity.noContent().build();
+    }
+
+    /** Emails the participant a nudge to keep going; one per cooldown. */
+    @PostMapping("/{userId}/reminders")
+    public ResponseEntity<ParticipantReminderResponse> remindMember(
+            @PathVariable UUID organizationId,
+            @PathVariable UUID userId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(
+                reminderService.remind(userDetails.getUser(), organizationId, userId));
     }
 }

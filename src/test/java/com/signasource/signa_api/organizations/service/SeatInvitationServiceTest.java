@@ -30,10 +30,14 @@ import com.signasource.signa_api.organizations.entity.MemberStatus;
 import com.signasource.signa_api.organizations.entity.Organization;
 import com.signasource.signa_api.organizations.entity.OrganizationMember;
 import com.signasource.signa_api.organizations.entity.OrganizationStatus;
+import com.signasource.signa_api.organizations.entity.PurchaseRefund;
 import com.signasource.signa_api.organizations.entity.PurchaseSeat;
 import com.signasource.signa_api.organizations.entity.PurchaseStatus;
+import com.signasource.signa_api.organizations.entity.RefundReason;
+import com.signasource.signa_api.organizations.entity.RefundStatus;
 import com.signasource.signa_api.organizations.entity.SeatStatus;
 import com.signasource.signa_api.organizations.repository.OrganizationMemberRepository;
+import com.signasource.signa_api.organizations.repository.PurchaseRefundRepository;
 import com.signasource.signa_api.organizations.repository.PurchaseSeatRepository;
 import com.signasource.signa_api.users.entity.User;
 import com.signasource.signa_api.users.repository.UserRepository;
@@ -54,6 +58,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class SeatInvitationServiceTest {
 
     @Mock private PurchaseSeatRepository seatRepository;
+    @Mock private PurchaseRefundRepository refundRepository;
     @Mock private OrganizationMemberRepository memberRepository;
     @Mock private UserRepository userRepository;
     @Mock private OrganizationEnrollmentService enrollmentService;
@@ -72,6 +77,7 @@ class SeatInvitationServiceTest {
         service =
                 new SeatInvitationService(
                         seatRepository,
+                        refundRepository,
                         memberRepository,
                         userRepository,
                         enrollmentService,
@@ -351,6 +357,22 @@ class SeatInvitationServiceTest {
         when(seatRepository.findForUpdateByInvitationToken("tok")).thenReturn(Optional.of(seat));
 
         assertThrows(InvalidInputException.class, () -> service.accept(user, "tok"));
+    }
+
+    @Test
+    void shouldRejectAcceptingWhileARefundOfThePurchaseIsUnderWay() {
+        when(seatRepository.findForUpdateByInvitationToken("tok")).thenReturn(Optional.of(seat));
+        when(refundRepository.findByPurchaseIdOrderByCreatedAtAsc(purchase.getId()))
+                .thenReturn(
+                        List.of(
+                                PurchaseRefund.builder()
+                                        .reason(RefundReason.BUYER_REQUESTED)
+                                        .status(RefundStatus.PENDING)
+                                        .build()));
+
+        assertThrows(InvalidInputException.class, () -> service.accept(user, "tok"));
+        assertEquals(SeatStatus.INVITED, seat.getStatus());
+        verify(enrollmentService, never()).grantCourse(any(), any(), any(), any());
     }
 
     @Test

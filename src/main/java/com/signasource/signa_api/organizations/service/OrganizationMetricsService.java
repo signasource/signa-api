@@ -68,6 +68,7 @@ public class OrganizationMetricsService {
     private final TopicRepository topicRepository;
     private final OrganizationAccessService accessService;
     private final OrganizationContentScope contentScope;
+    private final ScopedActivity scopedActivity;
 
     @Transactional(readOnly = true)
     public OrganizationOverviewResponse getOverview(
@@ -77,8 +78,9 @@ public class OrganizationMetricsService {
 
         Instant start = period.start();
         Instant end = period.end();
-        List<UUID> userIds = participantIds(organizationId, end);
-        ContentScope scope = contentScope.resolve(organizationId, courseId, userIds, end);
+        List<UUID> members = participantIds(organizationId, end);
+        ContentScope scope = contentScope.resolve(organizationId, courseId, members, end);
+        List<UUID> userIds = scope.participants(members);
         if (userIds.isEmpty()) {
             return new OrganizationOverviewResponse(
                     new Participation(0, 0, 0, 0, period.activeWindowDays(), 0, 0, 0),
@@ -89,8 +91,7 @@ public class OrganizationMetricsService {
         long participants = userIds.size();
 
         List<UserAttemptStatsView> attemptStats =
-                metricsRepository.findAttemptStatsByUser(
-                        organizationId, userIds, scope.courseIds(), start, end);
+                scopedActivity.statsByUser(organizationId, scope, userIds, start, end);
         Instant activeSince = period.activeSince();
         long active =
                 attemptStats.stream()
@@ -140,12 +141,8 @@ public class OrganizationMetricsService {
             pendingLessons += Math.max(0, total - done);
         }
         long completedInPeriod =
-                metricsRepository
-                        .findLessonCompletionsBetween(userIds, scope.versionIds(), start, end)
-                        .size();
-        long modulesCompleted =
-                metricsRepository.countTopicsCompletedBetween(
-                        userIds, scope.versionIds(), start, end);
+                scopedActivity.lessonCompletionsBetween(scope, userIds, start, end).size();
+        long modulesCompleted = scopedActivity.topicsCompletedBetween(scope, userIds, start, end);
         Progress progress =
                 new Progress(
                         (int) Math.round(percentageSum / (double) participants),
@@ -158,13 +155,8 @@ public class OrganizationMetricsService {
                         (int) Math.round(pendingLessons / (double) participants));
 
         AttemptTotalsView recognition =
-                metricsRepository.findAttemptTotalsByBlockTypes(
-                        organizationId,
-                        userIds,
-                        scope.courseIds(),
-                        SIGN_RECOGNITION_TYPES,
-                        start,
-                        end);
+                scopedActivity.totalsByBlockTypes(
+                        organizationId, scope, userIds, SIGN_RECOGNITION_TYPES, start, end);
         boolean hasCameraExercises =
                 !scope.versionIds().isEmpty()
                         && metricsRepository.countCameraExercises(scope.versionIds()) > 0;
@@ -176,10 +168,10 @@ public class OrganizationMetricsService {
                         MetricMath.percentage(recognition.getCorrect(), recognition.getEvaluated()),
                         hasCameraExercises,
                         evolution(
-                                metricsRepository.findDailyAttemptStats(
+                                scopedActivity.dailyStats(
                                         organizationId,
+                                        scope,
                                         userIds,
-                                        scope.courseIds(),
                                         evolutionStart(period),
                                         end),
                                 period));
@@ -203,11 +195,12 @@ public class OrganizationMetricsService {
         requireOrganization(organizationId);
 
         Instant end = period.end();
-        List<UUID> userIds = participantIds(organizationId, end);
-        ContentScope scope = contentScope.resolve(organizationId, courseId, userIds, end);
+        List<UUID> members = participantIds(organizationId, end);
+        ContentScope scope = contentScope.resolve(organizationId, courseId, members, end);
         if (scope.isEmpty()) {
             return List.of();
         }
+        List<UUID> userIds = scope.participants(members);
 
         List<Topic> topics =
                 topicRepository
@@ -263,8 +256,8 @@ public class OrganizationMetricsService {
                 }
             }
             for (TopicAttemptStatsView attempts :
-                    metricsRepository.findAttemptStatsByTopic(
-                            organizationId, userIds, scope.courseIds(), period.start(), end)) {
+                    scopedActivity.statsByTopic(
+                            organizationId, scope, userIds, period.start(), end)) {
                 ModuleRow row = rowOfTopic.get(attempts.getTopicId());
                 if (row != null) {
                     row.evaluated += attempts.getEvaluated();
@@ -273,7 +266,9 @@ public class OrganizationMetricsService {
             }
         }
 
-        return rows.stream().map(row -> row.toResponse(userIds.size())).toList();
+        return rows.stream()
+                .map(row -> row.toResponse(scope.participantsOf(row.courseId, userIds).size()))
+                .toList();
     }
 
     private static boolean isOf(CourseScope course, Course other) {
@@ -338,8 +333,9 @@ public class OrganizationMetricsService {
                         : period.from();
         Instant start = from.atStartOfDay(ArgentinaTime.ZONE).toInstant();
         Instant end = to.plusDays(1).atStartOfDay(ArgentinaTime.ZONE).toInstant();
-        List<UUID> userIds = participantIds(organizationId, end);
-        ContentScope scope = contentScope.resolve(organizationId, courseId, userIds, end);
+        List<UUID> members = participantIds(organizationId, end);
+        ContentScope scope = contentScope.resolve(organizationId, courseId, members, end);
+        List<UUID> userIds = scope.participants(members);
 
         Map<LocalDate, DayTally> days = new TreeMap<>();
         for (LocalDate day = from; !day.isAfter(to); day = day.plusDays(1)) {
@@ -348,8 +344,7 @@ public class OrganizationMetricsService {
         DayTally total = new DayTally();
         if (!userIds.isEmpty()) {
             for (AttemptView attempt :
-                    metricsRepository.findAttemptsBetween(
-                            organizationId, userIds, scope.courseIds(), start, end)) {
+                    scopedActivity.attemptsBetween(organizationId, scope, userIds, start, end)) {
                 DayTally day = days.get(ArgentinaTime.dayOf(attempt.getAttemptedAt()));
                 if (day != null) {
                     day.add(attempt);
@@ -357,8 +352,7 @@ public class OrganizationMetricsService {
                 }
             }
             for (Instant completedAt :
-                    metricsRepository.findLessonCompletionsBetween(
-                            userIds, scope.versionIds(), start, end)) {
+                    scopedActivity.lessonCompletionsBetween(scope, userIds, start, end)) {
                 DayTally day = days.get(ArgentinaTime.dayOf(completedAt));
                 if (day != null) {
                     day.lessons++;
@@ -412,7 +406,10 @@ public class OrganizationMetricsService {
         }
     }
 
-    /** Active participants who had already joined when the period ended. */
+    /**
+     * Active members who had already joined when the period ended; the participants are those of
+     * them who take a course in scope ({@link ContentScope#participants}).
+     */
     private List<UUID> participantIds(UUID organizationId, Instant end) {
         return memberRepository
                 .findByOrganizationIdAndRoleAndStatus(

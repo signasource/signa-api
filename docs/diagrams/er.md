@@ -592,6 +592,7 @@ erDiagram
         enum status "ACTIVE | REMOVED"
         instant joinedAt
         instant removedAt
+        instant lastReminderAt "último recordatorio manual del panel"
     }
     ORGANIZATION_COURSE {
         uuid id PK

@@ -3,8 +3,10 @@ package com.signasource.signa_api.organizations.controller;
 import com.signasource.signa_api.auth.entity.CustomUserDetails;
 import com.signasource.signa_api.organizations.dto.ModuleStatsResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationActivityResponse;
+import com.signasource.signa_api.organizations.dto.OrganizationHomeResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationOverviewResponse;
 import com.signasource.signa_api.organizations.service.MetricsPeriod;
+import com.signasource.signa_api.organizations.service.OrganizationHomeService;
 import com.signasource.signa_api.organizations.service.OrganizationMetricsService;
 import java.time.LocalDate;
 import java.util.List;
@@ -26,6 +28,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrganizationMetricsController {
 
     private final OrganizationMetricsService metricsService;
+    private final OrganizationHomeService homeService;
+
+    /** The panel's home: progress, recent activity and who needs follow-up. No period. */
+    @GetMapping("/home")
+    public ResponseEntity<OrganizationHomeResponse> getHome(
+            @PathVariable UUID organizationId,
+            @RequestParam(required = false) UUID courseId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(
+                homeService.getHome(userDetails.getUser(), organizationId, courseId));
+    }
 
     @GetMapping("/overview")
     public ResponseEntity<OrganizationOverviewResponse> getOverview(

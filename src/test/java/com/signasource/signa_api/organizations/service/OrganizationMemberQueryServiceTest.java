@@ -54,7 +54,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -74,7 +73,7 @@ class OrganizationMemberQueryServiceTest {
     @Mock private OrganizationContentScope contentScope;
     @Mock private TopicRepository topicRepository;
 
-    @InjectMocks private OrganizationMemberQueryService queryService;
+    private OrganizationMemberQueryService queryService;
 
     private final Pageable pageable = PageRequest.of(0, 20);
 
@@ -88,6 +87,17 @@ class OrganizationMemberQueryServiceTest {
 
     @BeforeEach
     void setUp() {
+        queryService =
+                new OrganizationMemberQueryService(
+                        memberRepository,
+                        organizationRepository,
+                        metricsRepository,
+                        userStatsRepository,
+                        userLearnedSignRepository,
+                        accessService,
+                        contentScope,
+                        topicRepository,
+                        new ScopedActivity(metricsRepository));
         actor = new User();
         actor.setId(UUID.randomUUID());
         organizationId = UUID.randomUUID();
@@ -164,7 +174,13 @@ class OrganizationMemberQueryServiceTest {
             byId.put(v.getId(), v);
         }
         return new ContentScope(
-                courses, byId, lessonsByVersion, lessonsByTopic, new HashMap<>(), completedLessons);
+                courses,
+                byId,
+                lessonsByVersion,
+                lessonsByTopic,
+                new HashMap<>(),
+                completedLessons,
+                TestAccesses.everyoneTakes(courses.stream().map(c -> c.course().getId()).toList()));
     }
 
     private void complete(UUID userId, long lessons) {
@@ -465,16 +481,13 @@ class OrganizationMemberQueryServiceTest {
     }
 
     @Test
-    void shouldListMembersWithZeroProgressWhenNoCourseIsContracted() {
+    void shouldListNobodyWhenNoCourseIsContracted() {
         when(organizationRepository.existsById(organizationId)).thenReturn(true);
         when(memberRepository.search(any(), any(), any(), any())).thenReturn(List.of(anaMember));
         when(contentScope.resolve(eq(organizationId), isNull(), any(), any()))
                 .thenReturn(ContentScope.empty());
-        when(metricsRepository.findAttemptStatsByUser(
-                        eq(organizationId), any(), any(), any(), any()))
-                .thenReturn(List.of());
 
-        OrganizationMemberSummaryResponse row =
+        assertTrue(
                 queryService
                         .getMembers(
                                 actor,
@@ -486,12 +499,47 @@ class OrganizationMemberQueryServiceTest {
                                 MetricsPeriod.ALL_TIME,
                                 pageable)
                         .getContent()
-                        .get(0);
+                        .isEmpty());
+    }
 
-        assertEquals(0, row.progressPercentage());
-        assertNull(row.lastActivityAt());
-        assertNull(row.currentModule());
-        assertEquals(MemberActivityStatus.NOT_STARTED, row.activityStatus());
+    @Test
+    void shouldListOnlyWhoTakesTheCourse() {
+        User bruno = user("Bruno", "Diaz");
+        OrganizationMember brunoMember = OrganizationMember.builder().user(bruno).build();
+        brunoMember.setStatus(MemberStatus.ACTIVE);
+        when(organizationRepository.existsById(organizationId)).thenReturn(true);
+        when(memberRepository.search(any(), any(), any(), any()))
+                .thenReturn(List.of(anaMember, brunoMember));
+        ContentScope onlyAna =
+                new ContentScope(
+                        scope.courses(),
+                        scope.versions(),
+                        lessonsByVersion,
+                        lessonsByTopic,
+                        new HashMap<>(),
+                        completedLessons,
+                        TestAccesses.take(List.of(ana.getId()), List.of(course.getId())));
+        when(contentScope.resolve(eq(organizationId), isNull(), any(), any())).thenReturn(onlyAna);
+        lenient()
+                .when(
+                        metricsRepository.findAttemptStatsByUser(
+                                eq(organizationId), eq(List.of(ana.getId())), any(), any(), any()))
+                .thenReturn(List.of());
+
+        List<OrganizationMemberSummaryResponse> rows =
+                queryService
+                        .getMembers(
+                                actor,
+                                organizationId,
+                                null,
+                                MemberStatus.ACTIVE,
+                                null,
+                                null,
+                                MetricsPeriod.ALL_TIME,
+                                pageable)
+                        .getContent();
+
+        assertEquals(List.of(ana.getId()), rows.stream().map(r -> r.userId()).toList());
     }
 
     @Test
@@ -613,7 +661,8 @@ class OrganizationMemberQueryServiceTest {
                         lessonsByVersion,
                         lessonsByTopic,
                         Map.of(ana.getId(), Map.of(course.getId(), version.getId())),
-                        completedLessons);
+                        completedLessons,
+                        TestAccesses.everyoneTakes(List.of(course.getId())));
         when(memberRepository.findByOrganizationIdAndUserId(organizationId, ana.getId()))
                 .thenReturn(Optional.of(anaMember));
         when(contentScope.resolve(eq(organizationId), any(), any())).thenReturn(twoVersions);
@@ -643,9 +692,6 @@ class OrganizationMemberQueryServiceTest {
                 .thenReturn(Optional.of(anaMember));
         when(contentScope.resolve(eq(organizationId), any(), any()))
                 .thenReturn(ContentScope.empty());
-        when(metricsRepository.findAttemptStatsByUser(
-                        eq(organizationId), eq(ids), any(), any(), any()))
-                .thenReturn(List.of());
         when(metricsRepository.findLearningMinutesByUser(eq(ids), any(), any()))
                 .thenReturn(List.of());
         when(metricsRepository.findActiveDaysByUser(eq(ids), any(), any())).thenReturn(List.of());

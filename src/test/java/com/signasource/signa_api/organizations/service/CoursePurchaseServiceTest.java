@@ -22,6 +22,7 @@ import com.signasource.signa_api.learning.repository.CourseRepository;
 import com.signasource.signa_api.learning.repository.CourseVersionRepository;
 import com.signasource.signa_api.organizations.dto.CatalogModuleResponse;
 import com.signasource.signa_api.organizations.dto.CreatePurchaseRequest;
+import com.signasource.signa_api.organizations.dto.InvitationSummaryResponse;
 import com.signasource.signa_api.organizations.dto.OrganizationInvitationResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseCatalogResponse;
 import com.signasource.signa_api.organizations.dto.PurchaseDetailResponse;
@@ -230,6 +231,59 @@ class CoursePurchaseServiceTest {
                 () -> service.listInvitations(actor, organization.getId(), null));
         verify(seatRepository, never())
                 .findByPurchaseOrganizationIdAndPurchaseStatusAndStatus(any(), any(), any());
+    }
+
+    @Test
+    void shouldSummarizeInvitationsOfPaidPurchasesOnly() {
+        Instant now = Instant.now();
+        CoursePurchase paid = purchase(PurchaseStatus.PAID);
+        paid.setInvitationDeadline(now.plusSeconds(3600));
+        CoursePurchase lapsed = purchase(PurchaseStatus.PAID);
+        lapsed.setInvitationDeadline(now.minusSeconds(3600));
+        CoursePurchase refunded = purchase(PurchaseStatus.REFUNDED);
+        CoursePurchase unpaid = purchase(PurchaseStatus.PENDING_PAYMENT);
+
+        PurchaseSeat accepted = invitedSeat(paid, "a@x.com", now.minusSeconds(7200));
+        accepted.setStatus(SeatStatus.ACTIVE);
+        accepted.setActivatedAt(now.minusSeconds(60));
+        PurchaseSeat refundedAccepted = invitedSeat(refunded, "r@x.com", now.minusSeconds(7200));
+        refundedAccepted.setStatus(SeatStatus.REVOKED);
+        refundedAccepted.setActivatedAt(now.minusSeconds(60));
+        PurchaseSeat notInvited =
+                PurchaseSeat.builder()
+                        .purchase(unpaid)
+                        .email("u@x.com")
+                        .status(SeatStatus.PENDING_PAYMENT)
+                        .build();
+        when(seatRepository.findByPurchaseOrganizationId(organization.getId()))
+                .thenReturn(
+                        List.of(
+                                accepted,
+                                invitedSeat(paid, "p@x.com", now.minusSeconds(7200)),
+                                invitedSeat(lapsed, "e@x.com", now.minusSeconds(7200)),
+                                refundedAccepted,
+                                notInvited));
+
+        InvitationSummaryResponse summary =
+                service.summarizeInvitations(actor, organization.getId());
+
+        verify(accessService).requireManage(actor, organization.getId());
+        assertEquals(3, summary.sent());
+        assertEquals(1, summary.accepted());
+        assertEquals(1, summary.pending());
+        assertEquals(33, summary.acceptancePercentage());
+    }
+
+    @Test
+    void shouldReportNoAcceptanceWhenNothingWasSent() {
+        when(seatRepository.findByPurchaseOrganizationId(organization.getId()))
+                .thenReturn(List.of());
+
+        InvitationSummaryResponse summary =
+                service.summarizeInvitations(actor, organization.getId());
+
+        assertEquals(0, summary.sent());
+        assertEquals(0, summary.acceptancePercentage());
     }
 
     @Test
