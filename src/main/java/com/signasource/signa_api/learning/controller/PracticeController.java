@@ -12,6 +12,7 @@ import com.signasource.signa_api.learning.entity.BlockType;
 import com.signasource.signa_api.learning.service.PracticeService;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -43,39 +44,48 @@ public class PracticeController {
     public ResponseEntity<List<LessonBlockResponse>> getExercisesByType(
             @RequestParam BlockType type,
             @RequestParam(defaultValue = "" + DEFAULT_LIMIT) int limit,
+            @RequestParam(required = false) UUID courseId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(
-                practiceService.getExercisesByType(userDetails.getUser(), type, limit));
+                practiceService.getExercisesByType(userDetails.getUser(), type, limit, courseId));
     }
 
     @GetMapping("/signs")
     public ResponseEntity<List<LearnedSignResponse>> getLearnedSigns(
             @RequestParam(defaultValue = "50") int limit,
+            @RequestParam(required = false) UUID courseId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ResponseEntity.ok(practiceService.getLearnedSigns(userDetails.getUser(), limit));
+        return ResponseEntity.ok(
+                practiceService.getLearnedSigns(userDetails.getUser(), limit, courseId));
     }
 
     @GetMapping("/signs/{meaning}/exercises")
     public ResponseEntity<List<LessonBlockResponse>> getExercisesForSign(
             @PathVariable String meaning,
             @RequestParam(defaultValue = "" + DEFAULT_LIMIT) int limit,
+            @RequestParam(required = false) UUID courseId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(
-                practiceService.getExercisesForSign(userDetails.getUser(), meaning, limit));
+                practiceService.getExercisesForSign(
+                        userDetails.getUser(), meaning, limit, courseId));
     }
 
     @GetMapping("/mistakes")
     public ResponseEntity<List<PracticeMistakeResponse>> getMistakes(
             @RequestParam(defaultValue = "" + DEFAULT_MISTAKES_LIMIT) int limit,
+            @RequestParam(required = false) UUID courseId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ResponseEntity.ok(practiceService.getMistakes(userDetails.getUser(), limit));
+        return ResponseEntity.ok(
+                practiceService.getMistakes(userDetails.getUser(), limit, courseId));
     }
 
     @GetMapping("/mistakes/exercises")
     public ResponseEntity<List<LessonBlockResponse>> getMistakeExercises(
             @RequestParam(defaultValue = "" + DEFAULT_LIMIT) int limit,
+            @RequestParam(required = false) UUID courseId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ResponseEntity.ok(practiceService.getMistakeExercises(userDetails.getUser(), limit));
+        return ResponseEntity.ok(
+                practiceService.getMistakeExercises(userDetails.getUser(), limit, courseId));
     }
 
     @PostMapping("/attempts")

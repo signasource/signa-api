@@ -33,6 +33,10 @@ public interface UserLearnedSignRepository extends JpaRepository<UserLearnedSign
 
     List<UserLearnedSign> findByUserOrderByLearnedAtDesc(User user, Pageable pageable);
 
+    /** Practice's "Señas" list narrowed to one course (any of its versions). */
+    List<UserLearnedSign> findByUserIdAndCourseVersionCourseIdOrderByLearnedAtDesc(
+            UUID userId, UUID courseId, Pageable pageable);
+
     /** Follows a sign rename from the admin panel; learned rows store the meaning, not the id. */
     @Modifying
     @Query("UPDATE UserLearnedSign u SET u.sign = :to WHERE lower(u.sign) = lower(:from)")
