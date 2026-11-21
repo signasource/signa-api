@@ -57,7 +57,7 @@ class OrganizationApprovalEmailIntegrationTest {
                                         cuit,
                                         // Registration normalizes the email; the mail goes there.
                                         "  " + contactEmail.toUpperCase() + " ",
-                                        null,
+                                        "+54 11 1234-5678",
                                         "Ana",
                                         "Password1!"))
                         .organizationId();

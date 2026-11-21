@@ -230,7 +230,7 @@ public class OrganizationService {
                         .name(request.orgName())
                         .cuit(cuit)
                         .contactEmail(contactEmail)
-                        .contactPhone(request.contactPhone())
+                        .contactPhone(request.contactPhone().trim())
                         .status(OrganizationStatus.PENDING)
                         .build();
         organizationRepository.save(organization);

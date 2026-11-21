@@ -289,7 +289,7 @@ class OrganizationServiceTest {
                                 "Empresa",
                                 "30-12345678-9",
                                 " Admin@Empresa.com ",
-                                null,
+                                "+54 11 1234-5678",
                                 "Admin User",
                                 "password123"));
 
@@ -318,7 +318,7 @@ class OrganizationServiceTest {
                                         "Empresa",
                                         "30-123-9",
                                         "admin@empresa.com",
-                                        null,
+                                        "+54 11 1234-5678",
                                         "Admin User",
                                         "password123")));
         verify(organizationRepository, never()).save(any());
@@ -432,7 +432,7 @@ class OrganizationServiceTest {
                                         "Empresa",
                                         "30-12345678-9",
                                         "admin@empresa.com",
-                                        null,
+                                        "+54 11 1234-5678",
                                         "Admin User",
                                         "password123")));
         verify(organizationRepository, never()).save(any());
@@ -451,7 +451,7 @@ class OrganizationServiceTest {
                                         "Empresa",
                                         "30-12345678-9",
                                         "admin@empresa.com",
-                                        null,
+                                        "+54 11 1234-5678",
                                         "Admin User",
                                         "password123")));
         verify(organizationRepository, never()).save(any());
@@ -471,7 +471,7 @@ class OrganizationServiceTest {
                                         "Empresa",
                                         "30-12345678-9",
                                         "admin@empresa.com",
-                                        null,
+                                        "+54 11 1234-5678",
                                         "Admin User",
                                         "password123")));
         verify(userRepository, never()).save(any());
