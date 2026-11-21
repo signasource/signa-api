@@ -86,20 +86,25 @@ public class PracticeService {
     private final ChallengeService challengeService;
 
     @Transactional(readOnly = true)
-    public List<LessonBlockResponse> getExercisesByType(User user, BlockType type, int limit) {
+    public List<LessonBlockResponse> getExercisesByType(
+            User user, BlockType type, int limit, UUID courseId) {
         if (NOT_PRACTICABLE.contains(type)) {
             throw new InvalidInputException("Block type is not practicable: " + type);
         }
         List<LessonBlock> blocks =
-                practiceBlocks(user).stream().filter(b -> b.getType() == type).toList();
+                practiceBlocks(user, courseId).stream().filter(b -> b.getType() == type).toList();
         return shuffleAndLimit(blocks, limit).stream().map(LessonBlockResponse::from).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<LearnedSignResponse> getLearnedSigns(User user, int limit) {
+    public List<LearnedSignResponse> getLearnedSigns(User user, int limit, UUID courseId) {
+        PageRequest page = PageRequest.of(0, Math.max(1, Math.min(limit, MAX_SIGNS_LIMIT)));
         List<UserLearnedSign> learned =
-                userLearnedSignRepository.findByUserOrderByLearnedAtDesc(
-                        user, PageRequest.of(0, Math.max(1, Math.min(limit, MAX_SIGNS_LIMIT))));
+                courseId == null
+                        ? userLearnedSignRepository.findByUserOrderByLearnedAtDesc(user, page)
+                        : userLearnedSignRepository
+                                .findByUserIdAndCourseVersionCourseIdOrderByLearnedAtDesc(
+                                        user.getId(), courseId, page);
 
         // A sign learned via more than one course version appears once, keeping the
         // desc-by-date order already returned by the query.
@@ -111,9 +116,10 @@ public class PracticeService {
     }
 
     @Transactional(readOnly = true)
-    public List<LessonBlockResponse> getExercisesForSign(User user, String meaning, int limit) {
+    public List<LessonBlockResponse> getExercisesForSign(
+            User user, String meaning, int limit, UUID courseId) {
         List<LessonBlock> blocks =
-                practiceBlocks(user).stream()
+                practiceBlocks(user, courseId).stream()
                         .filter(b -> !NOT_PRACTICABLE.contains(b.getType()))
                         .filter(
                                 b ->
@@ -124,15 +130,15 @@ public class PracticeService {
     }
 
     @Transactional(readOnly = true)
-    public List<PracticeMistakeResponse> getMistakes(User user, int limit) {
-        return mistakeBlocks(user, limit).stream()
+    public List<PracticeMistakeResponse> getMistakes(User user, int limit, UUID courseId) {
+        return mistakeBlocks(user, limit, courseId).stream()
                 .map(e -> PracticeMistakeResponse.from(e.getKey(), e.getValue().misses()))
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public List<LessonBlockResponse> getMistakeExercises(User user, int limit) {
-        return mistakeBlocks(user, limit).stream()
+    public List<LessonBlockResponse> getMistakeExercises(User user, int limit, UUID courseId) {
+        return mistakeBlocks(user, limit, courseId).stream()
                 .map(e -> LessonBlockResponse.from(e.getKey()))
                 .toList();
     }
@@ -214,12 +220,18 @@ public class PracticeService {
     /**
      * Blocks the user can practice: those of enrolled courses, restricted to lessons they have
      * already started. Practice is a review ("repasá lo que ya aprendiste"), so it must not serve
-     * exercises — or their answers — from lessons the user hasn't reached.
+     * exercises — or their answers — from lessons the user hasn't reached. A non-null {@code
+     * courseId} narrows it to that course's enrollment.
      */
-    private List<LessonBlock> practiceBlocks(User user) {
+    private List<LessonBlock> practiceBlocks(User user, UUID courseId) {
         List<UUID> versionIds =
                 userCourseEnrollmentRepository.findByUserId(user.getId()).stream()
-                        .map(enrollment -> enrollment.getCourseVersion().getId())
+                        .map(enrollment -> enrollment.getCourseVersion())
+                        .filter(
+                                version ->
+                                        courseId == null
+                                                || courseId.equals(version.getCourse().getId()))
+                        .map(version -> version.getId())
                         .toList();
         if (versionIds.isEmpty()) {
             return List.of();
@@ -278,9 +290,11 @@ public class PracticeService {
     /**
      * For each lesson block the user has ever attempted (lesson or practice), keeps it only if the
      * most recent attempt across both sources was wrong — i.e. still an unresolved mistake. Sorted
-     * by that most-recent-attempt timestamp, most recent first, and already limited.
+     * by that most-recent-attempt timestamp, most recent first, and already limited. A non-null
+     * {@code courseId} keeps only the blocks of that course (any of its versions).
      */
-    private List<Map.Entry<LessonBlock, MistakeInfo>> mistakeBlocks(User user, int limit) {
+    private List<Map.Entry<LessonBlock, MistakeInfo>> mistakeBlocks(
+            User user, int limit, UUID courseId) {
         Map<UUID, LessonBlock> blocksById = new LinkedHashMap<>();
         Map<UUID, List<AttemptView>> attemptsByBlockId = new LinkedHashMap<>();
 
@@ -293,6 +307,9 @@ public class PracticeService {
             if (NOT_PRACTICABLE.contains(block.getType())) {
                 continue; // e.g. a skipped camera exercise: can't be replayed in practice.
             }
+            if (!belongsToCourse(block, courseId)) {
+                continue;
+            }
             blocksById.putIfAbsent(block.getId(), block);
             attemptsByBlockId
                     .computeIfAbsent(block.getId(), k -> new ArrayList<>())
@@ -302,7 +319,7 @@ public class PracticeService {
         for (PracticeAttempt attempt :
                 practiceAttemptRepository.findByUserIdOrderByAttemptedAtDesc(user.getId())) {
             LessonBlock block = attempt.getLessonBlock();
-            if (NOT_PRACTICABLE.contains(block.getType())) {
+            if (NOT_PRACTICABLE.contains(block.getType()) || !belongsToCourse(block, courseId)) {
                 continue;
             }
             blocksById.putIfAbsent(block.getId(), block);
@@ -335,6 +352,13 @@ public class PracticeService {
                                 .reversed())
                 .limit(clamp(limit))
                 .toList();
+    }
+
+    /** True when {@code courseId} is null (no filter) or the block is in any version of it. */
+    private static boolean belongsToCourse(LessonBlock block, UUID courseId) {
+        return courseId == null
+                || courseId.equals(
+                        block.getLesson().getTopic().getCourseVersion().getCourse().getId());
     }
 
     private int clamp(int limit) {

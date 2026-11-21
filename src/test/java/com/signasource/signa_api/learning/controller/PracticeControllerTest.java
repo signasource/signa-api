@@ -61,10 +61,11 @@ class PracticeControllerTest {
     void getExercisesByType_ShouldReturn200WithBlocks() {
         List<LessonBlockResponse> blocks =
                 List.of(new LessonBlockResponse(UUID.randomUUID(), "MATCH", 0, "{}", 10));
-        when(practiceService.getExercisesByType(mockUser, BlockType.MATCH, 5)).thenReturn(blocks);
+        when(practiceService.getExercisesByType(mockUser, BlockType.MATCH, 5, null))
+                .thenReturn(blocks);
 
         ResponseEntity<List<LessonBlockResponse>> response =
-                practiceController.getExercisesByType(BlockType.MATCH, 5, mockUserDetails);
+                practiceController.getExercisesByType(BlockType.MATCH, 5, null, mockUserDetails);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertSame(blocks, response.getBody());
@@ -73,10 +74,10 @@ class PracticeControllerTest {
     @Test
     void getLearnedSigns_ShouldReturn200WithSigns() {
         List<LearnedSignResponse> signs = List.of(new LearnedSignResponse("Hola"));
-        when(practiceService.getLearnedSigns(mockUser, 50)).thenReturn(signs);
+        when(practiceService.getLearnedSigns(mockUser, 50, null)).thenReturn(signs);
 
         ResponseEntity<List<LearnedSignResponse>> response =
-                practiceController.getLearnedSigns(50, mockUserDetails);
+                practiceController.getLearnedSigns(50, null, mockUserDetails);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertSame(signs, response.getBody());
@@ -86,10 +87,10 @@ class PracticeControllerTest {
     void getExercisesForSign_ShouldReturn200WithBlocks() {
         List<LessonBlockResponse> blocks =
                 List.of(new LessonBlockResponse(UUID.randomUUID(), "SELECT_SIGN", 0, "{}", 5));
-        when(practiceService.getExercisesForSign(mockUser, "Hola", 10)).thenReturn(blocks);
+        when(practiceService.getExercisesForSign(mockUser, "Hola", 10, null)).thenReturn(blocks);
 
         ResponseEntity<List<LessonBlockResponse>> response =
-                practiceController.getExercisesForSign("Hola", 10, mockUserDetails);
+                practiceController.getExercisesForSign("Hola", 10, null, mockUserDetails);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertSame(blocks, response.getBody());
@@ -99,10 +100,10 @@ class PracticeControllerTest {
     void getMistakes_ShouldReturn200WithMistakes() {
         List<PracticeMistakeResponse> mistakes =
                 List.of(new PracticeMistakeResponse(UUID.randomUUID(), "MATCH", 3));
-        when(practiceService.getMistakes(mockUser, 20)).thenReturn(mistakes);
+        when(practiceService.getMistakes(mockUser, 20, null)).thenReturn(mistakes);
 
         ResponseEntity<List<PracticeMistakeResponse>> response =
-                practiceController.getMistakes(20, mockUserDetails);
+                practiceController.getMistakes(20, null, mockUserDetails);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertSame(mistakes, response.getBody());
@@ -112,10 +113,10 @@ class PracticeControllerTest {
     void getMistakeExercises_ShouldReturn200WithBlocks() {
         List<LessonBlockResponse> blocks =
                 List.of(new LessonBlockResponse(UUID.randomUUID(), "MATCH", 0, "{}", 10));
-        when(practiceService.getMistakeExercises(mockUser, 10)).thenReturn(blocks);
+        when(practiceService.getMistakeExercises(mockUser, 10, null)).thenReturn(blocks);
 
         ResponseEntity<List<LessonBlockResponse>> response =
-                practiceController.getMistakeExercises(10, mockUserDetails);
+                practiceController.getMistakeExercises(10, null, mockUserDetails);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertSame(blocks, response.getBody());
